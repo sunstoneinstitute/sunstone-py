@@ -1,0 +1,109 @@
+inputs:
+  - name: Official UN Member States
+    slug: official-un-member-states
+    location: official_un_member_states_raw.csv
+    source:
+      name: United Nations Member States Authority File
+      location:
+        data: https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
+        metadata: https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
+        about: https://digitallibrary.un.org/record/4082085
+      attributedTo: United Nations Dag Hammarskjöld Library
+      acquiredAt: 2025-10-08
+      acquisitionMethod: manual-download
+      license: CC-BY-NC-3.0-IGO
+    fields:
+      - name: "Member State"
+        type: string
+      - name: "M49 Code"
+        type: string
+      - name: "ISO Code"
+        type: string
+      - name: "Start date"
+        type: date
+      - name: "End date"
+        type: date
+      - name: "Other Names"
+        type: string
+      - name: "Earlier or Later Name"
+        type: string
+      - name: "Earlier (a) or Later (b)"
+        type: string
+      - name: "Geographic Term"
+        type: string
+      - name: "Membership Document Symbol"
+        type: string
+      - name: "Scope Note"
+        type: string
+      - name: "French"
+        type: string
+      - name: "Spanish"
+        type: string
+      - name: "Arabic"
+        type: string
+      - name: "Chinese"
+        type: string
+      - name: "Russian"
+        type: string
+
+  - name: School Count Manual Research Data
+    slug: school-count-manual-research
+    location: amount_school_data.csv
+    source:
+      name: Manual research by Sunstone Institute
+      location:
+        about: https://sunstoneinstitute.ai/projects/school-count
+      attributedTo: Sunstone Institute
+      acquiredAt: 2025-11-10
+      acquisitionMethod: manual-research
+      license: CC-BY-4.0
+    fields:
+      - name: "Country Code"
+        type: string
+      - name: "Amount"
+        type: number
+      - name: "Source"
+        type: string
+      - name: "Data Quality"
+        type: string
+        constraints:
+          enum:
+            - Good
+            - Excel
+            - Re-Check
+            - Okay
+      - name: "Time-frame"
+        type: string
+
+outputs:
+  - name: UN Amount of Schools
+    slug: un-amount-of-schools
+    location: UN_amount_of_schools_20251110_202303.csv
+    publish: true
+    fields:
+      - name: "Country"
+        type: string
+      - name: "Alpha-2 Code"
+        type: string
+      - name: "Alpha-3 Code"
+        type: string
+      - name: "Date of Admission"
+        type: date
+      - name: "Amount"
+        type: number
+      - name: "Source"
+        type: string
+      - name: "Data Quality"
+        type: string
+        constraints:
+          enum:
+            - Good
+            - Excel
+            - Re-Check
+            - Okay
+      - name: "Time-frame"
+        type: string
+      - name: "created_at"
+        type: datetime
+      - name: "version"
+        type: string
