@@ -1,0 +1,31 @@
+[project]
+name = "un-members"
+version = "1.0.0"
+description = "Data processing script for creating a list of current UN member states"
+authors = [
+    { name = "Sunstone Institute", email = "info@sunstone.institute" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0.0",
+    "sunstone-py @ file:///${PROJECT_ROOT}/../../..",
+    "numpy>=1.24.0",
+    "pycountry>=22.3.5",
+    "requests>=2.31.0",
+]
+
+[project.scripts]
+project = "create_un_members_dataset:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["create_un_members_dataset"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.5",
+]

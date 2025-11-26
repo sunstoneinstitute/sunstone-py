@@ -8,7 +8,7 @@ correctly using Sunstone's lineage tracking features.
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 
 class ImportCheckResult:

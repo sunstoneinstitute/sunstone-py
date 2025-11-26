@@ -308,7 +308,7 @@ uv run ruff format src/sunstone
 
 ## About Sunstone Institute
 
-[Sunstone Institute](https://sunstoneinstitute.ai) is a philanthropy-funded organization using data and AI to show the world as it really is, and inspire action everywhere.
+[Sunstone Institute](https://sunstone.institute) is a philanthropy-funded organization using data and AI to show the world as it really is, and inspire action everywhere.
 
 ## License
 
@@ -317,8 +317,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/sunstoneinstitute/sunstone-py/issues)
-- **Email**: stig@sunstone.institute
 
 ---
 
-Made with ❤️ by [Sunstone Institute](https://sunstoneinstitute.ai)
+Made with ❤️ by [Sunstone Institute](https://sunstone.institute)

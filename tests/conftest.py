@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture(scope="session")
 def project_path() -> Path:
     """Path to project for testing."""
-    return Path(__file__).parent / "testdata/TestProject"
+    return Path(__file__).parent / "testdata/UNMembersProject"
 
 
 @pytest.fixture(scope="session")

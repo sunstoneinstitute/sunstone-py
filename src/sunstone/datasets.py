@@ -2,13 +2,17 @@
 Parser and manager for datasets.yaml files.
 """
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+import requests
 import yaml
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import DatasetMetadata, FieldSchema, Source, SourceLocation
+
+logger = logging.getLogger(__name__)
 
 
 class DatasetsManager:
@@ -324,3 +328,55 @@ class DatasetsManager:
         if location_path.is_absolute():
             return location_path
         return (self.project_path / location_path).resolve()
+
+    def fetch_from_url(
+        self, dataset: DatasetMetadata, timeout: int = 30, force: bool = False
+    ) -> Path:
+        """
+        Fetch a dataset from its source URL if available.
+
+        Args:
+            dataset: The dataset metadata containing source URL.
+            timeout: Request timeout in seconds.
+            force: If True, fetch even if local file exists.
+
+        Returns:
+            Path to the local file (newly downloaded or existing).
+
+        Raises:
+            ValueError: If dataset has no source URL.
+            requests.RequestException: If the fetch fails.
+        """
+        if not dataset.source or not dataset.source.location.data:
+            raise ValueError(f"Dataset '{dataset.slug}' has no source URL")
+
+        local_path = self.get_absolute_path(dataset.location)
+
+        # Skip if file exists and not forcing
+        if local_path.exists() and not force:
+            logger.info("Using existing local file: %s", local_path)
+            return local_path
+
+        url = dataset.source.location.data
+        logger.info("Fetching dataset from URL: %s", url)
+
+        try:
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+
+            # Ensure parent directory exists
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Save to local file
+            with open(local_path, "wb") as f:
+                f.write(response.content)
+
+            logger.info("✓ Successfully saved to %s (%d bytes)", local_path, len(response.content))
+            return local_path
+
+        except requests.Timeout:
+            logger.error("Request timed out after %d seconds", timeout)
+            raise
+        except requests.RequestException as e:
+            logger.error("Failed to fetch from URL: %s", e)
+            raise

@@ -14,17 +14,39 @@ The `sunstone-py` package provides:
 ## Package Structure
 
 ```
-src/sunstone/
-├── __init__.py           # Main package exports
-├── pandas.py             # Pandas-like API (import as pd)
-├── dataframe.py          # DataFrame wrapper with lineage tracking
-├── datasets.py           # Dataset management and YAML integration
-├── lineage.py            # Lineage metadata models
-├── validation.py         # Import validation utilities
-└── exceptions.py         # Custom exceptions
-
-templates/
-└── analysis_notebook.ipynb  # Template for new analyses
+.
+├── pyproject.toml
+├── README.md
+├── src
+│   └── sunstone
+│       ├── __init__.py
+│       ├── _release.py
+│       ├── dataframe.py
+│       ├── datasets.py
+│       ├── exceptions.py
+│       ├── lineage.py
+│       ├── pandas.py
+│       ├── py.typed
+│       └── validation.py
+├── templates
+│   ├── analysis_notebook.ipynb
+│   ├── analysis_notebook.py
+│   └── README.md
+└── tests
+    ├── conftest.py
+    ├── test_dataframe.py
+    ├── test_datasets.py
+    ├── test_lineage_persistence.py
+    ├── test_pandas_compatibility.py
+    └── testdata
+        └── UNMembersProject
+            ├── create_un_members_dataset.py
+            ├── datasets.yaml
+            ├── inputs
+            │   └── official_un_member_states_raw.csv
+            ├── outputs
+            ├── pyproject.toml
+            └── uv.lock
 ```
 
 ## Usage for Data Scientists
@@ -65,9 +87,7 @@ result.to_csv(
 
 From a Sunstone project directory:
 ```bash
-# Manually add to pyproject.toml dependencies:
-# "sunstone-py @ file:///${PROJECT_ROOT}/../lib"
-
+uv add sunstone-py
 uv sync
 ```
 
@@ -78,4 +98,23 @@ cd lib
 uv run pytest
 ```
 
+### Releasing
+
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+#### CHANGELOG.md
+
+The CHANGELOG.md format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+#### Make a Release
+
+To make a new release, run `uv run release` from the main branch.
+This will commit a CHANGELOG.md update, add a new version tag, and
+push. The `uv run release` command does a patchlevel upgrade by
+default, to do a minor or major version upgrade, use the
+`--bump` option, for example:
+
+ * `uv run release --bump=patch` - bump patchlevel (v0.8.1 -> v0.8.2)
+ * `uv run release --bump-minor` - bump minor version (v0.8.1 -> v0.9.0)
+ * `uv run release --bump-major` - bump major version (v0.8.1 -> v1.0.0)
 

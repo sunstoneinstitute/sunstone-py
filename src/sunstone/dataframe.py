@@ -8,6 +8,8 @@ from typing import Any, Callable, List, Optional, Union
 
 import pandas as pd
 
+pd.options.mode.copy_on_write = True
+
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import FieldSchema, LineageMetadata
@@ -28,20 +30,23 @@ class DataFrame:
 
     def __init__(
         self,
-        data: Optional[pd.DataFrame] = None,
+        data: Any = None,
         lineage: Optional[LineageMetadata] = None,
         strict: Optional[bool] = None,
         project_path: Optional[Union[str, Path]] = None,
+        **kwargs: Any,
     ):
         """
         Initialize a Sunstone DataFrame.
 
         Args:
-            data: Optional pandas DataFrame to wrap.
+            data: Data to wrap. Can be a pandas DataFrame or any data accepted
+                 by pandas.DataFrame() constructor (dict, list of dicts, etc.).
             lineage: Optional lineage metadata.
             strict: Whether to operate in strict mode. If None, reads from
                    SUNSTONE_DATAFRAME_STRICT environment variable.
             project_path: Path to the project directory. If None, uses current directory.
+            **kwargs: Additional arguments passed to pandas.DataFrame constructor.
 
         Note:
             Strict mode behavior:
@@ -50,7 +55,15 @@ class DataFrame:
             - Default is determined by SUNSTONE_DATAFRAME_STRICT env var
               ("1" or "true" -> strict mode, otherwise relaxed mode)
         """
-        self.data = data if data is not None else pd.DataFrame()
+        # Convert data to pandas DataFrame if it isn't already
+        if data is None:
+            self.data = pd.DataFrame(**kwargs)
+        elif isinstance(data, pd.DataFrame):
+            self.data = data
+        else:
+            # data is some other type (dict, list, etc.) - pass to pandas
+            self.data = pd.DataFrame(data, **kwargs)
+
         self.lineage = lineage if lineage is not None else LineageMetadata()
 
         # Determine strict mode
@@ -73,11 +86,133 @@ class DataFrame:
         return DatasetsManager(self.lineage.project_path)
 
     @classmethod
+    def read_dataset(
+        cls,
+        slug: str,
+        project_path: Optional[Union[str, Path]] = None,
+        strict: Optional[bool] = None,
+        fetch_from_url: bool = True,
+        format: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "DataFrame":
+        """
+        Read a dataset by slug from datasets.yaml with format auto-detection.
+
+        This method looks up a dataset by its slug in datasets.yaml and automatically
+        detects the file format from the file extension unless explicitly specified.
+
+        Supported formats:
+        - CSV (.csv)
+        - JSON (.json)
+        - Excel (.xlsx, .xls)
+        - Parquet (.parquet)
+        - TSV (.tsv, .txt with tab delimiter)
+
+        Args:
+            slug: Dataset slug to look up in datasets.yaml.
+            project_path: Path to project directory containing datasets.yaml.
+            strict: Whether to operate in strict mode.
+            fetch_from_url: If True and dataset has a source URL but no local file,
+                          automatically fetch from URL.
+            format: Optional format override ('csv', 'json', 'excel', 'parquet', 'tsv').
+                   If not provided, format is auto-detected from file extension.
+            **kwargs: Additional arguments passed to the pandas reader function.
+
+        Returns:
+            A new Sunstone DataFrame with lineage metadata.
+
+        Raises:
+            DatasetNotFoundError: If dataset with slug not found in datasets.yaml.
+            FileNotFoundError: If datasets.yaml doesn't exist.
+            ValueError: If format cannot be detected or is unsupported.
+
+        Examples:
+            >>> # Auto-detect format from extension
+            >>> df = DataFrame.read_dataset('official-un-member-states', project_path='/path/to/project')
+            >>>
+            >>> # Explicitly specify format
+            >>> df = DataFrame.read_dataset('my-data', format='json', project_path='/path/to/project')
+        """
+        if project_path is None:
+            project_path = Path.cwd()
+
+        manager = DatasetsManager(project_path)
+
+        # Look up by slug
+        dataset = manager.find_dataset_by_slug(slug)
+        if dataset is None:
+            raise DatasetNotFoundError(
+                f"Dataset with slug '{slug}' not found in datasets.yaml. "
+                f"Check that the dataset is registered."
+            )
+
+        # Get the file path
+        absolute_path = manager.get_absolute_path(dataset.location)
+
+        # If file doesn't exist and we have a source URL, fetch it
+        if not absolute_path.exists() and fetch_from_url:
+            if dataset.source and dataset.source.location.data:
+                absolute_path = manager.fetch_from_url(dataset)
+            else:
+                raise FileNotFoundError(
+                    f"File not found: {absolute_path}\n"
+                    f"Dataset '{dataset.slug}' has no source URL to fetch from."
+                )
+
+        # Determine format
+        if format is None:
+            # Auto-detect from file extension
+            extension = absolute_path.suffix.lower()
+            format_map = {
+                '.csv': 'csv',
+                '.json': 'json',
+                '.xlsx': 'excel',
+                '.xls': 'excel',
+                '.parquet': 'parquet',
+                '.tsv': 'tsv',
+                '.txt': 'tsv',  # Assume tab-delimited for .txt
+            }
+            format = format_map.get(extension)
+            if format is None:
+                raise ValueError(
+                    f"Cannot auto-detect format for file extension '{extension}'. "
+                    f"Supported extensions: {', '.join(format_map.keys())}. "
+                    f"Please specify format explicitly using the 'format' parameter."
+                )
+
+        # Read using appropriate pandas function
+        reader_map = {
+            'csv': pd.read_csv,
+            'json': pd.read_json,
+            'excel': pd.read_excel,
+            'parquet': pd.read_parquet,
+            'tsv': lambda path, **kw: pd.read_csv(path, sep='\t', **kw),
+        }
+
+        reader = reader_map.get(format)
+        if reader is None:
+            raise ValueError(
+                f"Unsupported format '{format}'. "
+                f"Supported formats: {', '.join(reader_map.keys())}"
+            )
+
+        df = reader(absolute_path, **kwargs)
+
+        # Create lineage metadata
+        lineage = LineageMetadata(project_path=str(manager.project_path))
+        lineage.add_source(dataset)
+        lineage.add_operation(f"read_dataset({dataset.slug}, format={format})")
+
+        # Return wrapped DataFrame
+        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+
+    @classmethod
     def read_csv(
         cls,
         filepath_or_buffer: Union[str, Path],
         project_path: Optional[Union[str, Path]] = None,
         strict: Optional[bool] = None,
+        fetch_from_url: bool = True,
         **kwargs: Any,
     ) -> "DataFrame":
         """
@@ -87,9 +222,13 @@ class DataFrame:
         (or in relaxed mode, register it automatically).
 
         Args:
-            filepath_or_buffer: Path to CSV file or URL.
+            filepath_or_buffer: Path to CSV file, URL, or dataset slug.
+                              If it's a slug (e.g., 'official-un-member-states'),
+                              the dataset will be looked up in datasets.yaml.
             project_path: Path to project directory containing datasets.yaml.
             strict: Whether to operate in strict mode.
+            fetch_from_url: If True and dataset has a source URL but no local file,
+                          automatically fetch from URL.
             **kwargs: Additional arguments passed to pandas.read_csv.
 
         Returns:
@@ -98,16 +237,39 @@ class DataFrame:
         Raises:
             DatasetNotFoundError: In strict mode, if dataset not found in datasets.yaml.
             FileNotFoundError: If datasets.yaml doesn't exist.
+
+        Examples:
+            >>> # Load by slug
+            >>> df = DataFrame.read_csv('official-un-member-states', project_path='/path/to/project')
+            >>>
+            >>> # Load by file path
+            >>> df = DataFrame.read_csv('inputs/data.csv', project_path='/path/to/project')
         """
+        location = str(filepath_or_buffer)
+
+        # Determine if this is a slug or a file path
+        # Slugs don't contain path separators and typically use kebab-case
+        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+
+        if is_slug:
+            # Delegate to read_dataset with CSV format
+            return cls.read_dataset(
+                slug=location,
+                project_path=project_path,
+                strict=strict,
+                fetch_from_url=fetch_from_url,
+                format='csv',
+                **kwargs
+            )
+
+        # File path - handle with original logic
         if project_path is None:
             project_path = Path.cwd()
 
         manager = DatasetsManager(project_path)
-        location = str(filepath_or_buffer)
 
-        # Try to find the dataset
+        # Look up by location
         dataset = manager.find_dataset_by_location(location)
-
         if dataset is None:
             if strict or (strict is None and cls._get_default_strict_mode()):
                 raise DatasetNotFoundError(
@@ -115,17 +277,25 @@ class DataFrame:
                     f"In strict mode, all datasets must be registered."
                 )
             else:
-                # Relaxed mode: we could auto-register here, but that's complex
-                # For now, just fail with a helpful message
                 raise DatasetNotFoundError(
                     f"Dataset at '{location}' not found in datasets.yaml. "
                     f"Please add it to datasets.yaml first."
                 )
 
-        # Read the CSV using pandas
-        # Use the actual requested location, not the one from datasets.yaml
-        # (they might differ if files were moved to subdirectories)
+        # Use the requested location
         absolute_path = manager.get_absolute_path(location)
+
+        # If file doesn't exist and we have a source URL, fetch it
+        if not absolute_path.exists() and fetch_from_url:
+            if dataset.source and dataset.source.location.data:
+                absolute_path = manager.fetch_from_url(dataset)
+            else:
+                raise FileNotFoundError(
+                    f"File not found: {absolute_path}\n"
+                    f"Dataset '{dataset.slug}' has no source URL to fetch from."
+                )
+
+        # Read the CSV using pandas
         df = pd.read_csv(absolute_path, **kwargs)
 
         # Create lineage metadata
@@ -388,6 +558,10 @@ class DataFrame:
         Returns:
             The attribute from the underlying DataFrame, wrapped if it's a method or DataFrame.
         """
+        # Special handling for pandas indexers - return as-is
+        if name in ('loc', 'iloc', 'at', 'iat'):
+            return getattr(self.data, name)
+
         attr = getattr(self.data, name)
 
         if callable(attr):
@@ -435,3 +609,11 @@ class DataFrame:
     def __str__(self) -> str:
         """String representation of the DataFrame."""
         return str(self.data)
+
+    def __len__(self) -> int:
+        """Return the number of rows in the DataFrame."""
+        return len(self.data)
+
+    def __iter__(self) -> Any:
+        """Iterate over column names."""
+        return iter(self.data)

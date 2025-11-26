@@ -24,19 +24,117 @@ Example:
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
+import pandas as _pd
+
 from .dataframe import DataFrame
+
+# Re-export commonly used pandas types and functions
+# This allows scripts to use `from sunstone import pandas as pd` and still
+# access standard pandas utilities like pd.Timestamp, pd.NaT, etc.
+#
+# NOTE: DataFrame is our wrapped version from .dataframe
+# For vanilla pandas DataFrame, use _pd.DataFrame directly if needed
+Timestamp = _pd.Timestamp
+NaT = _pd.NaT
+isna = _pd.isna
+isnull = _pd.isnull
+notna = _pd.notna
+notnull = _pd.notnull
+to_datetime = _pd.to_datetime
+to_numeric = _pd.to_numeric
+to_timedelta = _pd.to_timedelta
+Series = _pd.Series  # Re-export pandas Series
 
 __all__ = [
     "read_csv",
+    "read_dataset",
     "merge",
     "concat",
+    # Pandas types and utilities
+    "DataFrame",
+    "Series",
+    "Timestamp",
+    "NaT",
+    "isna",
+    "isnull",
+    "notna",
+    "notnull",
+    "to_datetime",
+    "to_numeric",
+    "to_timedelta",
 ]
+
+
+def read_dataset(
+    slug: str,
+    project_path: Union[str, Path],
+    strict: Optional[bool] = None,
+    fetch_from_url: bool = True,
+    format: Optional[str] = None,
+    **kwargs: Any,
+) -> DataFrame:
+    """
+    Read a dataset by slug from datasets.yaml with automatic format detection.
+
+    This function provides a pandas-like interface while ensuring the dataset
+    is registered in datasets.yaml and lineage is tracked. The file format is
+    automatically detected from the file extension unless explicitly specified.
+
+    Supported formats:
+    - CSV (.csv)
+    - JSON (.json)
+    - Excel (.xlsx, .xls)
+    - Parquet (.parquet)
+    - TSV (.tsv, .txt with tab delimiter)
+
+    Args:
+        slug: Dataset slug to look up in datasets.yaml.
+        project_path: Path to project directory containing datasets.yaml.
+                     Must be provided explicitly (no auto-detection).
+        strict: Whether to operate in strict mode. If None, reads from
+               SUNSTONE_DATAFRAME_STRICT environment variable.
+        fetch_from_url: If True and dataset has a source URL but no local file,
+                      automatically fetch from URL.
+        format: Optional format override ('csv', 'json', 'excel', 'parquet', 'tsv').
+               If not provided, format is auto-detected from file extension.
+        **kwargs: Additional arguments passed to the pandas reader function.
+
+    Returns:
+        A Sunstone DataFrame with lineage metadata.
+
+    Raises:
+        DatasetNotFoundError: If dataset with slug not found in datasets.yaml.
+        FileNotFoundError: If datasets.yaml doesn't exist.
+        ValueError: If format cannot be detected or is unsupported.
+
+    Examples:
+        >>> from sunstone import pandas as pd
+        >>>
+        >>> # Auto-detect format from extension
+        >>> df = pd.read_dataset('official-un-member-states', project_path='/path/to/project')
+        >>>
+        >>> # Explicitly specify format
+        >>> df = pd.read_dataset('my-data', format='json', project_path='/path/to/project')
+        >>>
+        >>> # With additional reader arguments
+        >>> df = pd.read_dataset('data-file', project_path='/path/to/project',
+        ...                      encoding='utf-8', skiprows=1)
+    """
+    return DataFrame.read_dataset(
+        slug=slug,
+        project_path=project_path,
+        strict=strict,
+        fetch_from_url=fetch_from_url,
+        format=format,
+        **kwargs,
+    )
 
 
 def read_csv(
     filepath_or_buffer: Union[str, Path],
     project_path: Union[str, Path],
     strict: Optional[bool] = None,
+    fetch_from_url: bool = True,
     **kwargs: Any,
 ) -> DataFrame:
     """
@@ -46,11 +144,15 @@ def read_csv(
     is registered in datasets.yaml and lineage is tracked.
 
     Args:
-        filepath_or_buffer: Path to CSV file (relative to project) or URL.
+        filepath_or_buffer: Path to CSV file, URL, or dataset slug.
+                          If it's a slug (e.g., 'official-un-member-states'),
+                          the dataset will be looked up in datasets.yaml.
         project_path: Path to project directory containing datasets.yaml.
                      Must be provided explicitly (no auto-detection).
         strict: Whether to operate in strict mode. If None, reads from
                SUNSTONE_DATAFRAME_STRICT environment variable.
+        fetch_from_url: If True and dataset has a source URL but no local file,
+                      automatically fetch from URL.
         **kwargs: Additional arguments passed to pandas.read_csv.
 
     Returns:
@@ -60,9 +162,16 @@ def read_csv(
         DatasetNotFoundError: If dataset not found in datasets.yaml.
         FileNotFoundError: If datasets.yaml doesn't exist.
 
-    Example:
+    Examples:
         >>> from sunstone import pandas as pd
+        >>>
+        >>> # Load by slug (recommended)
+        >>> df = pd.read_csv('official-un-member-states', project_path='/path/to/project')
+        >>>
+        >>> # Load by file path
         >>> df = pd.read_csv('schools.csv', project_path='/path/to/project')
+        >>>
+        >>> # With additional pandas arguments
         >>> df = pd.read_csv('schools.csv', project_path='/path/to/project',
         ...                  encoding='utf-8', skiprows=1)
     """
@@ -70,6 +179,7 @@ def read_csv(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,
         strict=strict,
+        fetch_from_url=fetch_from_url,
         **kwargs,
     )
 

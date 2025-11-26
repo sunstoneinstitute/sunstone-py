@@ -1,7 +1,7 @@
 inputs:
   - name: Official UN Member States
     slug: official-un-member-states
-    location: official_un_member_states_raw.csv
+    location: inputs/official_un_member_states_raw.csv
     source:
       name: United Nations Member States Authority File
       location:
@@ -46,39 +46,10 @@ inputs:
       - name: "Russian"
         type: string
 
-  - name: School Count Manual Research Data
-    slug: school-count-manual-research
-    location: amount_school_data.csv
-    source:
-      name: Manual research by Sunstone Institute
-      location:
-        about: https://sunstoneinstitute.ai/projects/school-count
-      attributedTo: Sunstone Institute
-      acquiredAt: 2025-11-10
-      acquisitionMethod: manual-research
-      license: CC-BY-4.0
-    fields:
-      - name: "Country Code"
-        type: string
-      - name: "Amount"
-        type: number
-      - name: "Source"
-        type: string
-      - name: "Data Quality"
-        type: string
-        constraints:
-          enum:
-            - Good
-            - Excel
-            - Re-Check
-            - Okay
-      - name: "Time-frame"
-        type: string
-
 outputs:
-  - name: UN Amount of Schools
-    slug: un-amount-of-schools
-    location: UN_amount_of_schools_20251110_202303.csv
+  - name: Current UN Member States
+    slug: current-un-member-states
+    location: outputs/current_un_member_states.csv
     publish: true
     fields:
       - name: "Country"
@@ -89,20 +60,6 @@ outputs:
         type: string
       - name: "Date of Admission"
         type: date
-      - name: "Amount"
-        type: number
-      - name: "Source"
-        type: string
-      - name: "Data Quality"
-        type: string
-        constraints:
-          enum:
-            - Good
-            - Excel
-            - Re-Check
-            - Okay
-      - name: "Time-frame"
-        type: string
       - name: "created_at"
         type: datetime
       - name: "version"
