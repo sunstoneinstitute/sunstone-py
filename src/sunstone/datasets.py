@@ -7,7 +7,7 @@ import logging
 import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 import yaml
@@ -390,7 +390,7 @@ class DatasetsManager:
         return (self.project_path / location_path).resolve()
 
     def fetch_from_url(
-        self, dataset: DatasetMetadata, timeout: int = 30, force: bool = False
+        self, dataset: DatasetMetadata, timeout: int = 30, force: bool = False, max_redirects: int = 10
     ) -> Path:
         """
         Fetch a dataset from its source URL if available.
@@ -399,12 +399,13 @@ class DatasetsManager:
             dataset: The dataset metadata containing source URL.
             timeout: Request timeout in seconds.
             force: If True, fetch even if local file exists.
+            max_redirects: Maximum number of redirects to follow (default: 10).
 
         Returns:
             Path to the local file (newly downloaded or existing).
 
         Raises:
-            ValueError: If dataset has no source URL.
+            ValueError: If dataset has no source URL or URL is not allowed.
             requests.RequestException: If the fetch fails.
         """
         if not dataset.source or not dataset.source.location.data:
@@ -429,7 +430,35 @@ class DatasetsManager:
         logger.info("Fetching dataset from URL: %s", url)
 
         try:
-            response = requests.get(url, timeout=timeout)
+            # Disable automatic redirects and handle them manually to prevent SSRF bypass
+            # An attacker could use a public URL that redirects to a private IP
+            current_url = url
+            response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+            redirect_count = 0
+
+            while response.is_redirect and redirect_count < max_redirects:
+                redirect_url = response.headers.get("Location")
+                if not redirect_url:
+                    raise ValueError("Redirect response without Location header")
+
+                # Resolve relative URLs against the current URL
+                redirect_url = urljoin(current_url, redirect_url)
+
+                # Validate the redirect target URL for SSRF protection
+                if not _is_public_url(redirect_url):
+                    raise ValueError(
+                        f"Redirect URL '{redirect_url}' is not allowed. Only HTTP/HTTPS URLs "
+                        "pointing to public internet addresses are permitted."
+                    )
+
+                logger.info("Following redirect to: %s", redirect_url)
+                current_url = redirect_url
+                response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+                redirect_count += 1
+
+            if response.is_redirect:
+                raise ValueError(f"Too many redirects (max: {max_redirects})")
+
             response.raise_for_status()
 
             # Ensure parent directory exists

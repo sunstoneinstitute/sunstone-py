@@ -3,6 +3,7 @@ Tests for Sunstone DatasetsManager functionality.
 """
 
 import socket
+import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -45,12 +46,14 @@ class TestURLSafety:
 
     def test_valid_https_url(self):
         """Test that valid HTTPS URLs to public addresses are allowed."""
-        assert _is_public_url("https://example.com/data.csv") is True
-        assert _is_public_url("https://www.google.com/file.json") is True
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="93.184.216.34"):
+            assert _is_public_url("https://example.com/data.csv") is True
+            assert _is_public_url("https://www.google.com/file.json") is True
 
     def test_valid_http_url(self):
         """Test that valid HTTP URLs to public addresses are allowed."""
-        assert _is_public_url("http://example.com/data.csv") is True
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="93.184.216.34"):
+            assert _is_public_url("http://example.com/data.csv") is True
 
     def test_file_scheme_blocked(self):
         """Test that file:// URLs are blocked."""
@@ -169,3 +172,204 @@ class TestURLSafety:
 
             with pytest.raises(ValueError, match="not allowed"):
                 manager.fetch_from_url(dataset, force=True)
+
+
+class TestRedirectSSRFProtection:
+    """Tests for HTTP redirect SSRF protection."""
+
+    def test_redirect_to_private_ip_blocked(self, project_path: Path):
+        """Test that redirects to private IPs are blocked (SSRF bypass prevention)."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            # Start with a valid public URL
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            # Mock DNS resolution: initial URL resolves to public, redirect to private
+            def dns_side_effect(hostname):
+                if "example.com" in hostname:
+                    return "93.184.216.34"  # Public IP for example.com
+                elif "evil-internal" in hostname:
+                    return "192.168.1.1"  # Private IP
+                raise socket.gaierror("Unknown host")
+
+            # Mock HTTP response with redirect to private IP
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "http://evil-internal.local/metadata"}
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="not allowed"):
+                        manager.fetch_from_url(dataset, force=True)
+
+    def test_redirect_to_localhost_blocked(self, project_path: Path):
+        """Test that redirects to localhost are blocked."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            def dns_side_effect(hostname):
+                if "example.com" in hostname:
+                    return "93.184.216.34"
+                elif hostname == "localhost":
+                    return "127.0.0.1"
+                raise socket.gaierror("Unknown host")
+
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "http://localhost/admin"}
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="not allowed"):
+                        manager.fetch_from_url(dataset, force=True)
+
+    def test_redirect_to_cloud_metadata_blocked(self, project_path: Path):
+        """Test that redirects to cloud metadata endpoints are blocked."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            def dns_side_effect(hostname):
+                if "example.com" in hostname:
+                    return "93.184.216.34"
+                elif hostname == "169.254.169.254":
+                    return "169.254.169.254"
+                raise socket.gaierror("Unknown host")
+
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "http://169.254.169.254/latest/meta-data/"}
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="not allowed"):
+                        manager.fetch_from_url(dataset, force=True)
+
+    def test_redirect_to_public_url_allowed(self, project_path: Path):
+        """Test that redirects to other public URLs are allowed."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/old-path"
+
+            def dns_side_effect(hostname):
+                # Both URLs resolve to public IPs
+                return "93.184.216.34"
+
+            # First call returns redirect, second call returns content
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "https://example.com/new-path"}
+
+            mock_final_response = unittest.mock.Mock()
+            mock_final_response.is_redirect = False
+            mock_final_response.status_code = 200
+            mock_final_response.content = b"test data"
+            mock_final_response.raise_for_status = unittest.mock.Mock()
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", side_effect=[mock_redirect_response, mock_final_response]):
+                    # Should succeed without raising an error
+                    result = manager.fetch_from_url(dataset, force=True)
+                    assert result.exists()
+
+    def test_too_many_redirects_blocked(self, project_path: Path):
+        """Test that too many redirects are blocked."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            def dns_side_effect(hostname):
+                return "93.184.216.34"  # All public IPs
+
+            # Always return redirect
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "https://example.com/redirect-loop"}
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="Too many redirects"):
+                        manager.fetch_from_url(dataset, force=True, max_redirects=5)
+
+    def test_redirect_without_location_header_blocked(self, project_path: Path):
+        """Test that redirects without Location header are blocked."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            def dns_side_effect(hostname):
+                return "93.184.216.34"
+
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {}  # No Location header
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="Location header"):
+                        manager.fetch_from_url(dataset, force=True)
+
+    def test_redirect_to_file_scheme_blocked(self, project_path: Path):
+        """Test that redirects to file:// URLs are blocked."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/data.csv"
+
+            def dns_side_effect(hostname):
+                return "93.184.216.34"
+
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "file:///etc/passwd"}
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
+                    with pytest.raises(ValueError, match="not allowed"):
+                        manager.fetch_from_url(dataset, force=True)
+
+    def test_relative_redirect_url_resolved(self, project_path: Path):
+        """Test that relative redirect URLs are properly resolved."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/old/data.csv"
+
+            def dns_side_effect(hostname):
+                return "93.184.216.34"  # Public IP
+
+            # First call returns redirect with relative URL, second call returns content
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "../new/data.csv"}  # Relative URL
+
+            mock_final_response = unittest.mock.Mock()
+            mock_final_response.is_redirect = False
+            mock_final_response.status_code = 200
+            mock_final_response.content = b"test data"
+            mock_final_response.raise_for_status = unittest.mock.Mock()
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", side_effect=[mock_redirect_response, mock_final_response]) as mock_get:
+                    result = manager.fetch_from_url(dataset, force=True)
+                    assert result.exists()
+                    # Verify the relative URL was resolved to the correct absolute URL
+                    # The second call should be to the resolved URL: https://example.com/new/data.csv
+                    assert mock_get.call_count == 2
+                    second_call_url = mock_get.call_args_list[1][0][0]
+                    assert second_call_url == "https://example.com/new/data.csv"
