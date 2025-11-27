@@ -7,8 +7,8 @@ import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
+import pytest
 import sunstone
 from sunstone.datasets import _is_public_url
 
@@ -119,7 +119,9 @@ class TestURLSafety:
         """Test that IPv6 link-local addresses (fe80::) are blocked."""
         with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1"):
             assert _is_public_url("http://ipv6-link-local.example.com/data") is False
-        with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1234:5678:abcd:ef01"):
+        with patch(
+            "sunstone.datasets.socket.gethostbyname", return_value="fe80::1234:5678:abcd:ef01"
+        ):
             assert _is_public_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
 
     def test_ipv6_unique_local_blocked(self):
@@ -135,7 +137,10 @@ class TestURLSafety:
 
     def test_dns_resolution_failure(self):
         """Test that URLs with unresolvable hostnames are blocked."""
-        with patch("sunstone.datasets.socket.gethostbyname", side_effect=socket.gaierror("DNS lookup failed")):
+        with patch(
+            "sunstone.datasets.socket.gethostbyname",
+            side_effect=socket.gaierror("DNS lookup failed"),
+        ):
             assert _is_public_url("http://nonexistent-domain-xyz123.com/data") is False
 
     def test_url_without_hostname(self):
