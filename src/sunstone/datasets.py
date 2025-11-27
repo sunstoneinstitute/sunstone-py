@@ -2,9 +2,12 @@
 Parser and manager for datasets.yaml files.
 """
 
+import ipaddress
 import logging
+import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import requests
 import yaml
@@ -13,6 +16,63 @@ from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import DatasetMetadata, FieldSchema, Source, SourceLocation
 
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_url(url: str) -> bool:
+    """
+    Validate that a URL is safe to fetch (not targeting internal/private resources).
+
+    This function prevents SSRF attacks by blocking:
+    - Non-HTTP(S) schemes (e.g., file://, ftp://)
+    - Private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    - Localhost and loopback addresses
+    - Link-local addresses (169.254.x.x)
+
+    Args:
+        url: The URL to validate.
+
+    Returns:
+        True if the URL is safe to fetch, False otherwise.
+    """
+    try:
+        parsed = urlparse(url)
+
+        # Only allow HTTP and HTTPS schemes
+        if parsed.scheme not in ("http", "https"):
+            logger.warning("URL scheme '%s' not allowed (only http/https permitted)", parsed.scheme)
+            return False
+
+        # Ensure hostname is present
+        if not parsed.hostname:
+            logger.warning("URL has no hostname")
+            return False
+
+        # Resolve hostname to IP address and check if it's private
+        try:
+            ip = socket.gethostbyname(parsed.hostname)
+            ip_obj = ipaddress.ip_address(ip)
+
+            # Block private, loopback, and link-local addresses
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                logger.warning(
+                    "URL hostname '%s' resolves to restricted IP address: %s",
+                    parsed.hostname,
+                    ip,
+                )
+                return False
+
+        except socket.gaierror:
+            logger.warning("Unable to resolve hostname: %s", parsed.hostname)
+            return False
+        except ValueError:
+            logger.warning("Invalid IP address resolved from hostname: %s", parsed.hostname)
+            return False
+
+        return True
+
+    except Exception as e:
+        logger.warning("Error validating URL '%s': %s", url, e)
+        return False
 
 
 class DatasetsManager:
@@ -358,6 +418,14 @@ class DatasetsManager:
             return local_path
 
         url = dataset.source.location.data
+
+        # Validate URL safety to prevent SSRF attacks
+        if not _is_safe_url(url):
+            raise ValueError(
+                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to "
+                "public internet addresses are permitted."
+            )
+
         logger.info("Fetching dataset from URL: %s", url)
 
         try:
