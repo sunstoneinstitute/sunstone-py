@@ -32,7 +32,7 @@ def _is_public_url(url: str) -> bool:
         url: The URL to validate.
 
     Returns:
-        True if the URL is safe to fetch, False otherwise.
+        True if the URL points to a public resource, False otherwise.
     """
     try:
         parsed = urlparse(url)
