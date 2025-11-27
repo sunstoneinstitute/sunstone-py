@@ -5,6 +5,7 @@ Handles version bumping, CHANGELOG updates, git tagging, and pushing.
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -52,6 +53,68 @@ def check_on_main_branch() -> None:
     if branch != "main":
         print(f"Error: Not on main branch (currently on '{branch}')", file=sys.stderr)
         sys.exit(1)
+
+
+def run_gh(*args: str, capture: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run a gh command and return the result."""
+    result = subprocess.run(
+        ["gh", *args],
+        capture_output=capture,
+        text=True,
+        cwd=get_root_dir(),
+    )
+    return result
+
+
+def check_ci_passed() -> None:
+    """Fail if CI checks have not passed for the current commit."""
+    print("Checking CI status...")
+
+    # Get the status of checks for HEAD
+    result = run_gh("run", "list", "--branch=main", "--limit=1", "--json=status,conclusion,databaseId")
+    if result.returncode != 0:
+        print("Error: Failed to check CI status", file=sys.stderr)
+        print(result.stderr, file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        runs = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print("Error: Failed to parse CI status response", file=sys.stderr)
+        sys.exit(1)
+
+    if not runs:
+        print("Warning: No CI runs found for main branch", file=sys.stderr)
+        return
+
+    run_info = runs[0]
+    status = run_info.get("status")
+    conclusion = run_info.get("conclusion")
+    run_id = run_info.get("databaseId")
+
+    if status == "in_progress" or status == "queued":
+        print(f"CI is still running (status: {status}). Watching for completion...")
+        # Watch the run - this will stream output and wait for completion
+        watch_result = run_gh("run", "watch", str(run_id), capture=False)
+        if watch_result.returncode != 0:
+            print("Error: CI run failed or watch was interrupted", file=sys.stderr)
+            sys.exit(1)
+
+        # Re-check the conclusion after watching
+        result = run_gh("run", "view", str(run_id), "--json=conclusion")
+        if result.returncode != 0:
+            print("Error: Failed to get CI run conclusion", file=sys.stderr)
+            sys.exit(1)
+
+        run_info = json.loads(result.stdout)
+        conclusion = run_info.get("conclusion")
+
+    if conclusion != "success":
+        print(f"Error: CI checks have not passed (conclusion: {conclusion})", file=sys.stderr)
+        print("Fix CI issues before releasing.", file=sys.stderr)
+        sys.exit(1)
+
+    print("CI checks passed.")
 
 
 def check_up_to_date_with_origin() -> None:
@@ -346,7 +409,8 @@ Examples:
     check_git_clean()
     check_on_main_branch()
     check_up_to_date_with_origin()
-    print("Git checks passed.")
+    check_ci_passed()
+    print("All checks passed.")
 
     current_version = get_current_version()
     new_version = bump_version(current_version, bump)

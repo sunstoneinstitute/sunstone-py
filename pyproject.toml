@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
+
 dependencies = [
     "frictionless>=5.18.1",
     "google-auth>=2.43.0",
@@ -30,6 +31,11 @@ dependencies = [
     "pyyaml>=6.0",
     "requests>=2.31.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sunstone-institute/sunstone-py"
+Documentation = "https://sunstone-institute.github.io/sunstone-py/"
+Repository = "https://github.com/sunstone-institute/sunstone-py"
 
 [project.scripts]
 release = "sunstone._release:main"
@@ -63,4 +69,8 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "pandas-stubs>=2.3.2.250926",
     "types-pyyaml>=6.0.12.20250915",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mike>=2.1.0",
 ]

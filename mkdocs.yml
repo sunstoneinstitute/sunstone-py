@@ -1,0 +1,50 @@
+site_name: Sunstone Python Library
+site_description: Python library for managing datasets with lineage tracking
+site_url: https://sunstoneinstitute.github.io/sunstone-py/
+repo_url: https://github.com/sunstoneinstitute/sunstone-py
+repo_name: sunstoneinstitute/sunstone-py
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+extra:
+  version:
+    provider: mike
+    default: latest
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Reference:
+      - Frictionless Data: frictionlessdata.md
+      - Data Package: datapackage.md
+      - Metadata Extensibility: datapackage-extra-metadata.md
