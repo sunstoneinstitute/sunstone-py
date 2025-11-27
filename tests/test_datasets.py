@@ -108,9 +108,7 @@ class TestURLSafety:
         """Test that IPv6 loopback address (::1) is blocked."""
         with patch("sunstone.datasets.socket.gethostbyname", return_value="::1"):
             assert _is_safe_url("http://localhost/api") is False
-        with patch("sunstone.datasets.socket.gethostbyname", return_value="::1"):
             assert _is_safe_url("http://[::1]/api") is False
-        with patch("sunstone.datasets.socket.gethostbyname", return_value="::1"):
             assert _is_safe_url("http://[::1]:8080/data") is False
 
     def test_ipv6_link_local_blocked(self):
