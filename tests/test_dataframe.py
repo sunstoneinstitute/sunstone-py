@@ -1,6 +1,7 @@
 """
 Tests for Sunstone DataFrame functionality.
 """
+
 from pathlib import Path
 
 import pytest
@@ -33,9 +34,7 @@ class TestDataFrameBasics:
             strict=False,
         )
 
-        filtered = df.apply_operation(
-            lambda d: d.head(10), description="Select first 10 rows"
-        )
+        filtered = df.apply_operation(lambda d: d.head(10), description="Select first 10 rows")
 
         assert len(filtered.data) == 10
         assert len(filtered.lineage.operations) > len(df.lineage.operations)
@@ -70,7 +69,7 @@ class TestDataFrameMerge:
         # Filter to create a subset
         return df.apply_operation(
             lambda d: d[d["ISO Code"].notna()].head(50),
-            description="Select first 50 countries with ISO codes"
+            description="Select first 50 countries with ISO codes",
         )
 
     @pytest.fixture
@@ -84,7 +83,7 @@ class TestDataFrameMerge:
         # Select different columns as a second dataset
         return df.apply_operation(
             lambda d: d[["Member State", "ISO Code", "Start date"]].dropna(),
-            description="Select subset of columns"
+            description="Select subset of columns",
         )
 
     def test_merge_dataframes(self, un_members_df1, un_members_df2):
@@ -123,12 +122,10 @@ class TestLineageMetadata:
         )
         # Apply some operations to build lineage
         filtered = un_members.apply_operation(
-            lambda d: d[d["ISO Code"].notna()],
-            description="Filter countries with ISO codes"
+            lambda d: d[d["ISO Code"].notna()], description="Filter countries with ISO codes"
         )
         return filtered.apply_operation(
-            lambda d: d.head(100),
-            description="Select first 100 countries"
+            lambda d: d.head(100), description="Select first 100 countries"
         )
 
     def test_lineage_to_dict(self, processed_df):
@@ -157,9 +154,7 @@ class TestStrictMode:
 
         assert strict_df.strict_mode is True
 
-    def test_strict_mode_prevents_unregistered_write(
-        self, project_path: Path, monkeypatch
-    ):
+    def test_strict_mode_prevents_unregistered_write(self, project_path: Path, monkeypatch):
         """Test that strict mode prevents writing to unregistered locations."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
 
@@ -194,7 +189,7 @@ class TestReadDataset:
         df = sunstone.DataFrame.read_dataset(
             "official-un-member-states",
             project_path=project_path,
-            format='csv',
+            format="csv",
             strict=False,
         )
 

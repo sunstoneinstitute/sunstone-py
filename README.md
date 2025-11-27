@@ -16,29 +16,28 @@ A Python library for managing datasets with lineage tracking in data science pro
 
 ## Installation
 
-### From GitHub (Recommended)
-
 ```bash
-pip install git+https://github.com/sunstoneinstitute/sunstone-py.git
+# Using uv (recommended)
+uv add sunstone-py
+
+# Using pip
+pip install sunstone-py
 ```
 
-Or with a specific version:
-
-```bash
-pip install git+https://github.com/sunstoneinstitute/sunstone-py.git@v0.1.0
-```
-
-### Using uv
-
-```bash
-uv add sunstone-py --git https://github.com/sunstoneinstitute/sunstone-py.git
-```
-
-Or in your `pyproject.toml`:
+To use the latest commit from github:
 
 ```toml
 dependencies = [
     "sunstone-py @ git+https://github.com/sunstoneinstitute/sunstone-py.git",
+]
+```
+
+If you are making changes to sunstone-py checked out at `~/git/sunstone-py` and testing them
+directly from your project:
+
+```toml
+dependencies = [
+    "sunstone-py @ file://${HOME}/git/sunstone-py"
 ]
 ```
 
@@ -48,9 +47,10 @@ dependencies = [
 git clone https://github.com/sunstoneinstitute/sunstone-py.git
 cd sunstone-py
 uv venv
+uv sync
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv sync --extra dev
 ```
+
 
 ## Quick Start
 

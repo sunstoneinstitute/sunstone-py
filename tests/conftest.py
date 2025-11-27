@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures for Sunstone library tests.
 """
+
 from pathlib import Path
 
 import pytest
