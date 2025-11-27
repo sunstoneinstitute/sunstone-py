@@ -6,7 +6,6 @@ import socket
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 import sunstone
 from sunstone.datasets import _is_public_url
