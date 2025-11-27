@@ -8,11 +8,11 @@ from typing import Any, Callable, List, Optional, Union
 
 import pandas as pd
 
-pd.options.mode.copy_on_write = True
-
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import FieldSchema, LineageMetadata
+
+pd.options.mode.copy_on_write = True
 
 
 class DataFrame:
@@ -164,13 +164,13 @@ class DataFrame:
             # Auto-detect from file extension
             extension = absolute_path.suffix.lower()
             format_map = {
-                '.csv': 'csv',
-                '.json': 'json',
-                '.xlsx': 'excel',
-                '.xls': 'excel',
-                '.parquet': 'parquet',
-                '.tsv': 'tsv',
-                '.txt': 'tsv',  # Assume tab-delimited for .txt
+                ".csv": "csv",
+                ".json": "json",
+                ".xlsx": "excel",
+                ".xls": "excel",
+                ".parquet": "parquet",
+                ".tsv": "tsv",
+                ".txt": "tsv",  # Assume tab-delimited for .txt
             }
             format = format_map.get(extension)
             if format is None:
@@ -182,18 +182,17 @@ class DataFrame:
 
         # Read using appropriate pandas function
         reader_map = {
-            'csv': pd.read_csv,
-            'json': pd.read_json,
-            'excel': pd.read_excel,
-            'parquet': pd.read_parquet,
-            'tsv': lambda path, **kw: pd.read_csv(path, sep='\t', **kw),
+            "csv": pd.read_csv,
+            "json": pd.read_json,
+            "excel": pd.read_excel,
+            "parquet": pd.read_parquet,
+            "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
         }
 
         reader = reader_map.get(format)
         if reader is None:
             raise ValueError(
-                f"Unsupported format '{format}'. "
-                f"Supported formats: {', '.join(reader_map.keys())}"
+                f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}"
             )
 
         df = reader(absolute_path, **kwargs)
@@ -258,8 +257,8 @@ class DataFrame:
                 project_path=project_path,
                 strict=strict,
                 fetch_from_url=fetch_from_url,
-                format='csv',
-                **kwargs
+                format="csv",
+                **kwargs,
             )
 
         # File path - handle with original logic
@@ -559,7 +558,7 @@ class DataFrame:
             The attribute from the underlying DataFrame, wrapped if it's a method or DataFrame.
         """
         # Special handling for pandas indexers - return as-is
-        if name in ('loc', 'iloc', 'at', 'iat'):
+        if name in ("loc", "iloc", "at", "iat"):
             return getattr(self.data, name)
 
         attr = getattr(self.data, name)

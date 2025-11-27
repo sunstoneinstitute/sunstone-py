@@ -1,9 +1,9 @@
 """
 Tests for Sunstone DatasetsManager functionality.
 """
+
 from pathlib import Path
 
-import pytest
 
 import sunstone
 
