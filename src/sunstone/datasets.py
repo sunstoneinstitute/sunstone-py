@@ -28,6 +28,15 @@ def _is_safe_url(url: str) -> bool:
     - Localhost and loopback addresses
     - Link-local addresses (169.254.x.x)
 
+    Warning:
+        This validation is subject to a TOCTOU (Time-of-Check to Time-of-Use) race
+        condition. DNS resolution may return different results between the time this
+        function validates the URL and when the actual HTTP request is made. An attacker
+        with control over DNS could potentially exploit this by returning a safe IP
+        during validation, then switching to a private IP during the actual request.
+        For high-security environments, consider additional mitigations such as
+        binding requests to specific resolved IPs or using DNS pinning.
+
     Args:
         url: The URL to validate.
 
