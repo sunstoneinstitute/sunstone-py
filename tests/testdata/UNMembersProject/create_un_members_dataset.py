@@ -16,7 +16,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import numpy as np
 import sunstone.pandas as pd
 import pycountry
 
@@ -78,9 +77,7 @@ def _parse_dates(items: List[str]) -> List[pd.Timestamp]:
     return [pd.to_datetime(x, errors="coerce") for x in items]
 
 
-def _determine_status(
-    start: pd.Timestamp, end: pd.Timestamp, reference: pd.Timestamp
-) -> str:
+def _determine_status(start: pd.Timestamp, end: pd.Timestamp, reference: pd.Timestamp) -> str:
     """Determine membership status for a period."""
     if pd.isna(start):
         if pd.isna(end):
@@ -300,16 +297,17 @@ def create_dataset(
 
         # Use sunstone.pandas to_csv with slug for proper lineage tracking
         current_un_members.to_csv(
-            output_path,
-            slug=OUTPUT_DATASET_SLUG,
-            name='Current UN Member States',
-            index=False
+            output_path, slug=OUTPUT_DATASET_SLUG, name="Current UN Member States", index=False
         )
 
         # Summary
         duration = (datetime.now() - start_time).total_seconds()
-        logger.info("Pipeline completed: %d records written to %s (%.2f seconds)",
-                   len(current_un_members), output_path, duration)
+        logger.info(
+            "Pipeline completed: %d records written to %s (%.2f seconds)",
+            len(current_un_members),
+            output_path,
+            duration,
+        )
 
         return current_un_members
 

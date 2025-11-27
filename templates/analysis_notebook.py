@@ -65,10 +65,7 @@ def _(mo):
 def _(pd, PROJECT_PATH, mo):
     # Read a dataset (must be in datasets.yaml inputs)
     # Update the filename to match your actual input dataset
-    df = pd.read_csv(
-        'input_data.csv',
-        project_path=PROJECT_PATH
-    )
+    df = pd.read_csv("input_data.csv", project_path=PROJECT_PATH)
 
     # Display the data
     mo.ui.table(df.data.head())
