@@ -7,7 +7,7 @@ import logging
 import socket
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import requests
 import yaml
@@ -432,13 +432,17 @@ class DatasetsManager:
         try:
             # Disable automatic redirects and handle them manually to prevent SSRF bypass
             # An attacker could use a public URL that redirects to a private IP
-            response = requests.get(url, timeout=timeout, allow_redirects=False)
+            current_url = url
+            response = requests.get(current_url, timeout=timeout, allow_redirects=False)
             redirect_count = 0
 
             while response.is_redirect and redirect_count < max_redirects:
                 redirect_url = response.headers.get("Location")
                 if not redirect_url:
                     raise ValueError("Redirect response without Location header")
+
+                # Resolve relative URLs against the current URL
+                redirect_url = urljoin(current_url, redirect_url)
 
                 # Validate the redirect target URL for SSRF protection
                 if not _is_public_url(redirect_url):
@@ -448,7 +452,8 @@ class DatasetsManager:
                     )
 
                 logger.info("Following redirect to: %s", redirect_url)
-                response = requests.get(redirect_url, timeout=timeout, allow_redirects=False)
+                current_url = redirect_url
+                response = requests.get(current_url, timeout=timeout, allow_redirects=False)
                 redirect_count += 1
 
             if response.is_redirect:

@@ -336,3 +336,35 @@ class TestRedirectSSRFProtection:
                 with patch("sunstone.datasets.requests.get", return_value=mock_redirect_response):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
+
+    def test_relative_redirect_url_resolved(self, project_path: Path):
+        """Test that relative redirect URLs are properly resolved."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+
+        if dataset and dataset.source:
+            dataset.source.location.data = "https://example.com/old/data.csv"
+
+            def dns_side_effect(hostname):
+                return "93.184.216.34"  # Public IP
+
+            # First call returns redirect with relative URL, second call returns content
+            mock_redirect_response = unittest.mock.Mock()
+            mock_redirect_response.is_redirect = True
+            mock_redirect_response.headers = {"Location": "../new/data.csv"}  # Relative URL
+
+            mock_final_response = unittest.mock.Mock()
+            mock_final_response.is_redirect = False
+            mock_final_response.status_code = 200
+            mock_final_response.content = b"test data"
+            mock_final_response.raise_for_status = unittest.mock.Mock()
+
+            with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
+                with patch("sunstone.datasets.requests.get", side_effect=[mock_redirect_response, mock_final_response]) as mock_get:
+                    result = manager.fetch_from_url(dataset, force=True)
+                    assert result.exists()
+                    # Verify the relative URL was resolved to the correct absolute URL
+                    # The second call should be to the resolved URL: https://example.com/new/data.csv
+                    assert mock_get.call_count == 2
+                    second_call_url = mock_get.call_args_list[1][0][0]
+                    assert second_call_url == "https://example.com/new/data.csv"
