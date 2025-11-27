@@ -100,12 +100,12 @@ class TestURLSafety:
 
     def test_cloud_metadata_endpoint_blocked(self):
         """Test that AWS/GCP cloud metadata endpoints are blocked."""
-        with patch("socket.gethostbyname", return_value="169.254.169.254"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="169.254.169.254"):
             assert _is_safe_url("http://169.254.169.254/latest/meta-data/") is False
 
     def test_dns_resolution_failure(self):
         """Test that URLs with unresolvable hostnames are blocked."""
-        with patch("socket.gethostbyname", side_effect=Exception("DNS lookup failed")):
+        with patch("sunstone.datasets.socket.gethostbyname", side_effect=Exception("DNS lookup failed")):
             assert _is_safe_url("http://nonexistent-domain-xyz123.com/data") is False
 
     def test_url_without_hostname(self):
