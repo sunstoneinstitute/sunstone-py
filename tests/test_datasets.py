@@ -5,6 +5,7 @@ Tests for Sunstone DatasetsManager functionality.
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
 
 import sunstone
 from sunstone.datasets import _is_safe_url
