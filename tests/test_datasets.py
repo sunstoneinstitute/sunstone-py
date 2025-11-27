@@ -61,41 +61,41 @@ class TestURLSafety:
 
     def test_localhost_blocked(self):
         """Test that localhost URLs are blocked."""
-        with patch("socket.gethostbyname", return_value="127.0.0.1"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="127.0.0.1"):
             assert _is_safe_url("http://localhost/api") is False
             assert _is_safe_url("http://localhost:8080/data") is False
 
     def test_loopback_ip_blocked(self):
         """Test that loopback IP addresses are blocked."""
-        with patch("socket.gethostbyname", return_value="127.0.0.1"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="127.0.0.1"):
             assert _is_safe_url("http://127.0.0.1/api") is False
-        with patch("socket.gethostbyname", return_value="127.0.0.2"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="127.0.0.2"):
             assert _is_safe_url("http://127.0.0.2:8080/data") is False
 
     def test_private_ip_10_blocked(self):
         """Test that private IP addresses (10.x.x.x) are blocked."""
-        with patch("socket.gethostbyname", return_value="10.0.0.1"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="10.0.0.1"):
             assert _is_safe_url("http://internal.example.com/api") is False
-        with patch("socket.gethostbyname", return_value="10.255.255.254"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="10.255.255.254"):
             assert _is_safe_url("http://10.255.255.254/data") is False
 
     def test_private_ip_192_168_blocked(self):
         """Test that private IP addresses (192.168.x.x) are blocked."""
-        with patch("socket.gethostbyname", return_value="192.168.1.1"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="192.168.1.1"):
             assert _is_safe_url("http://router.local/config") is False
-        with patch("socket.gethostbyname", return_value="192.168.100.50"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="192.168.100.50"):
             assert _is_safe_url("http://192.168.100.50/api") is False
 
     def test_private_ip_172_16_blocked(self):
         """Test that private IP addresses (172.16-31.x.x) are blocked."""
-        with patch("socket.gethostbyname", return_value="172.16.0.1"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="172.16.0.1"):
             assert _is_safe_url("http://internal-app.local/data") is False
-        with patch("socket.gethostbyname", return_value="172.31.255.255"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="172.31.255.255"):
             assert _is_safe_url("http://172.31.255.255/api") is False
 
     def test_link_local_blocked(self):
         """Test that link-local addresses (169.254.x.x) are blocked."""
-        with patch("socket.gethostbyname", return_value="169.254.169.254"):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="169.254.169.254"):
             assert _is_safe_url("http://169.254.169.254/metadata") is False
 
     def test_cloud_metadata_endpoint_blocked(self):
