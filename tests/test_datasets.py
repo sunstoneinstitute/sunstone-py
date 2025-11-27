@@ -278,9 +278,11 @@ class TestRedirectSSRFProtection:
                     "sunstone.datasets.requests.get",
                     side_effect=[mock_redirect_response, mock_final_response],
                 ):
-                    # Should succeed without raising an error
-                    result = manager.fetch_from_url(dataset, force=True)
-                    assert result.exists()
+                    # Mock file writing to avoid modifying test input files
+                    with patch("builtins.open", unittest.mock.mock_open()):
+                        # Should succeed without raising an error
+                        result = manager.fetch_from_url(dataset, force=True)
+                        assert result is not None
 
     def test_too_many_redirects_blocked(self, project_path: Path):
         """Test that too many redirects are blocked."""
@@ -370,10 +372,12 @@ class TestRedirectSSRFProtection:
                     "sunstone.datasets.requests.get",
                     side_effect=[mock_redirect_response, mock_final_response],
                 ) as mock_get:
-                    result = manager.fetch_from_url(dataset, force=True)
-                    assert result.exists()
-                    # Verify the relative URL was resolved to the correct absolute URL
-                    # The second call should be to the resolved URL: https://example.com/new/data.csv
-                    assert mock_get.call_count == 2
-                    second_call_url = mock_get.call_args_list[1][0][0]
-                    assert second_call_url == "https://example.com/new/data.csv"
+                    # Mock file writing to avoid modifying test input files
+                    with patch("builtins.open", unittest.mock.mock_open()):
+                        result = manager.fetch_from_url(dataset, force=True)
+                        assert result is not None
+                        # Verify the relative URL was resolved to the correct absolute URL
+                        # The second call should be to the resolved URL: https://example.com/new/data.csv
+                        assert mock_get.call_count == 2
+                        second_call_url = mock_get.call_args_list[1][0][0]
+                        assert second_call_url == "https://example.com/new/data.csv"
