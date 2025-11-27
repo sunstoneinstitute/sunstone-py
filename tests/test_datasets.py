@@ -149,6 +149,54 @@ class TestURLSafety:
         ):
             assert _is_public_url("http://nonexistent-domain-xyz123.com/data") is False
 
+    def test_decimal_ip_representation_blocked(self):
+        """Test that decimal IP representations (e.g., 2130706433 = 127.0.0.1) are blocked.
+
+        An attacker might try to bypass SSRF protection using decimal IP notation.
+        socket.getaddrinfo() correctly resolves these to the actual IP address.
+        """
+        # 2130706433 is the decimal representation of 127.0.0.1
+        # getaddrinfo resolves this to the actual IP, which should be blocked
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert _is_public_url("http://2130706433/api") is False
+
+        # 3232235777 is the decimal representation of 192.168.1.1
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
+            assert _is_public_url("http://3232235777/data") is False
+
+        # 2851995649 is the decimal representation of 169.254.169.254 (cloud metadata)
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert _is_public_url("http://2851995649/latest/meta-data/") is False
+
+    def test_hex_ip_representation_blocked(self):
+        """Test that hexadecimal IP representations (e.g., 0x7f000001 = 127.0.0.1) are blocked.
+
+        An attacker might try to bypass SSRF protection using hex IP notation.
+        socket.getaddrinfo() correctly resolves these to the actual IP address.
+        """
+        # 0x7f000001 is the hex representation of 127.0.0.1
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert _is_public_url("http://0x7f000001/api") is False
+
+        # 0xc0a80101 is the hex representation of 192.168.1.1
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
+            assert _is_public_url("http://0xc0a80101/data") is False
+
+        # 0xa9fea9fe is the hex representation of 169.254.169.254
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert _is_public_url("http://0xa9fea9fe/metadata") is False
+
+    def test_mixed_notation_ip_blocked(self):
+        """Test that mixed notation IPs are blocked.
+
+        Some systems accept mixed decimal/hex/octal notation like 127.0.0.1
+        represented as 0x7f.0.0.1 or similar variations.
+        """
+        # Various representations that resolve to loopback
+        with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert _is_public_url("http://0x7f.0.0.1/api") is False
+            assert _is_public_url("http://127.0x0.0.1/data") is False
+
     def test_url_without_hostname(self):
         """Test that URLs without hostnames are blocked."""
         assert _is_public_url("http:///no-host") is False
