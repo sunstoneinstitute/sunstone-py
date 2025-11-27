@@ -181,7 +181,7 @@ class DataFrame:
                 )
 
         # Read using appropriate pandas function
-        reader_map = {
+        reader_map: dict[str, Callable[..., pd.DataFrame]] = {
             "csv": pd.read_csv,
             "json": pd.read_json,
             "excel": pd.read_excel,
