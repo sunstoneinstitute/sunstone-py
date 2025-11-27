@@ -2,6 +2,7 @@
 Tests for Sunstone DatasetsManager functionality.
 """
 
+import socket
 from pathlib import Path
 from unittest.mock import patch
 
@@ -106,7 +107,7 @@ class TestURLSafety:
 
     def test_dns_resolution_failure(self):
         """Test that URLs with unresolvable hostnames are blocked."""
-        with patch("sunstone.datasets.socket.gethostbyname", side_effect=Exception("DNS lookup failed")):
+        with patch("sunstone.datasets.socket.gethostbyname", side_effect=socket.gaierror("DNS lookup failed")):
             assert _is_public_url("http://nonexistent-domain-xyz123.com/data") is False
 
     def test_url_without_hostname(self):
