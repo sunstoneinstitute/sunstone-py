@@ -142,8 +142,7 @@ class DataFrame:
         dataset = manager.find_dataset_by_slug(slug)
         if dataset is None:
             raise DatasetNotFoundError(
-                f"Dataset with slug '{slug}' not found in datasets.yaml. "
-                f"Check that the dataset is registered."
+                f"Dataset with slug '{slug}' not found in datasets.yaml. Check that the dataset is registered."
             )
 
         # Get the file path
@@ -155,8 +154,7 @@ class DataFrame:
                 absolute_path = manager.fetch_from_url(dataset)
             else:
                 raise FileNotFoundError(
-                    f"File not found: {absolute_path}\n"
-                    f"Dataset '{dataset.slug}' has no source URL to fetch from."
+                    f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
         # Determine format
@@ -191,9 +189,7 @@ class DataFrame:
 
         reader = reader_map.get(format)
         if reader is None:
-            raise ValueError(
-                f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}"
-            )
+            raise ValueError(f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}")
 
         df = reader(absolute_path, **kwargs)
 
@@ -277,8 +273,7 @@ class DataFrame:
                 )
             else:
                 raise DatasetNotFoundError(
-                    f"Dataset at '{location}' not found in datasets.yaml. "
-                    f"Please add it to datasets.yaml first."
+                    f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
         # Use the requested location
@@ -290,8 +285,7 @@ class DataFrame:
                 absolute_path = manager.fetch_from_url(dataset)
             else:
                 raise FileNotFoundError(
-                    f"File not found: {absolute_path}\n"
-                    f"Dataset '{dataset.slug}' has no source URL to fetch from."
+                    f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
         # Read the CSV using pandas
@@ -416,8 +410,7 @@ class DataFrame:
         # Combine lineage
         merged_lineage = self.lineage.merge(right.lineage)
         merged_lineage.add_operation(
-            f"merge(left={len(self.lineage.sources)} sources, "
-            f"right={len(right.lineage.sources)} sources)"
+            f"merge(left={len(self.lineage.sources)} sources, right={len(right.lineage.sources)} sources)"
         )
 
         return DataFrame(
@@ -444,8 +437,7 @@ class DataFrame:
         # Combine lineage
         joined_lineage = self.lineage.merge(other.lineage)
         joined_lineage.add_operation(
-            f"join(left={len(self.lineage.sources)} sources, "
-            f"right={len(other.lineage.sources)} sources)"
+            f"join(left={len(self.lineage.sources)} sources, right={len(other.lineage.sources)} sources)"
         )
 
         return DataFrame(
@@ -489,9 +481,7 @@ class DataFrame:
             project_path=self.lineage.project_path,
         )
 
-    def apply_operation(
-        self, operation: Callable[[pd.DataFrame], pd.DataFrame], description: str
-    ) -> "DataFrame":
+    def apply_operation(self, operation: Callable[[pd.DataFrame], pd.DataFrame], description: str) -> "DataFrame":
         """
         Apply a transformation operation to the DataFrame.
 
@@ -600,8 +590,7 @@ class DataFrame:
     def __repr__(self) -> str:
         """String representation of the DataFrame."""
         lineage_info = (
-            f"\n\nLineage: {len(self.lineage.sources)} source(s), "
-            f"{len(self.lineage.operations)} operation(s)"
+            f"\n\nLineage: {len(self.lineage.sources)} source(s), {len(self.lineage.operations)} operation(s)"
         )
         return repr(self.data) + lineage_info
 

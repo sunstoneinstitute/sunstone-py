@@ -162,9 +162,9 @@ def process_un_members(dataset_slug: Optional[str] = None) -> pd.DataFrame:
         .rename(columns={"_start": "first_joined"})
     )
 
-    countries_curated = country_status.merge(
-        first_joined, on=COL_MEMBER_STATE, how="left"
-    ).sort_values(COL_MEMBER_STATE, kind="stable")
+    countries_curated = country_status.merge(first_joined, on=COL_MEMBER_STATE, how="left").sort_values(
+        COL_MEMBER_STATE, kind="stable"
+    )
 
     # Extract current members only
     current_members = (
@@ -230,18 +230,14 @@ def _get_iso_codes(country_name: str) -> Tuple[Optional[str], Optional[str]]:
     return (None, None)
 
 
-def enrich_with_iso_codes(
-    current_members: pd.DataFrame, country_col: str = "Member State"
-) -> pd.DataFrame:
+def enrich_with_iso_codes(current_members: pd.DataFrame, country_col: str = "Member State") -> pd.DataFrame:
     """Add ISO codes to current members."""
     # Prepare for ISO enrichment
     result = current_members.copy()
     result.rename(columns={country_col: "Country"}, inplace=True)
 
     # Add ISO codes
-    result[["Alpha-2 Code", "Alpha-3 Code"]] = result["Country"].apply(
-        lambda x: pd.Series(_get_iso_codes(x))
-    )
+    result[["Alpha-2 Code", "Alpha-3 Code"]] = result["Country"].apply(lambda x: pd.Series(_get_iso_codes(x)))
 
     # Rename admission date
     result.rename(columns={"first_joined": "Date of Admission"}, inplace=True)
@@ -264,9 +260,7 @@ def enrich_with_iso_codes(
     return result
 
 
-def create_dataset(
-    output_filepath: Optional[str] = None, include_timestamp: bool = False
-) -> pd.DataFrame:
+def create_dataset(output_filepath: Optional[str] = None, include_timestamp: bool = False) -> pd.DataFrame:
     """Execute pipeline to create current UN member states dataset."""
     start_time = datetime.now()
 
@@ -296,9 +290,7 @@ def create_dataset(
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Use sunstone.pandas to_csv with slug for proper lineage tracking
-        current_un_members.to_csv(
-            output_path, slug=OUTPUT_DATASET_SLUG, name="Current UN Member States", index=False
-        )
+        current_un_members.to_csv(output_path, slug=OUTPUT_DATASET_SLUG, name="Current UN Member States", index=False)
 
         # Summary
         duration = (datetime.now() - start_time).total_seconds()
