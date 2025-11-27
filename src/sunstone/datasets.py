@@ -18,9 +18,9 @@ from .lineage import DatasetMetadata, FieldSchema, Source, SourceLocation
 logger = logging.getLogger(__name__)
 
 
-def _is_safe_url(url: str) -> bool:
+def _is_public_url(url: str) -> bool:
     """
-    Validate that a URL is safe to fetch (not targeting internal/private resources).
+    Validate that a URL points to a public (non-private) resource.
 
     This function prevents SSRF attacks by blocking:
     - Non-HTTP(S) schemes (e.g., file://, ftp://)
@@ -32,7 +32,7 @@ def _is_safe_url(url: str) -> bool:
         url: The URL to validate.
 
     Returns:
-        True if the URL is safe to fetch, False otherwise.
+        True if the URL points to a public resource, False otherwise.
     """
     try:
         parsed = urlparse(url)
@@ -419,8 +419,8 @@ class DatasetsManager:
 
         url = dataset.source.location.data
 
-        # Validate URL safety to prevent SSRF attacks
-        if not _is_safe_url(url):
+        # Validate URL points to public resource to prevent SSRF attacks
+        if not _is_public_url(url):
             raise ValueError(
                 f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to "
                 "public internet addresses are permitted."
