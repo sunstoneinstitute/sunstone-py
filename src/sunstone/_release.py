@@ -12,9 +12,9 @@ from datetime import date
 from pathlib import Path
 
 
-def get_lib_dir() -> Path:
-    """Get the lib directory (where pyproject.toml lives)."""
-    # Navigate from src/sunstone/_release.py up to lib/
+def get_root_dir() -> Path:
+    """Get the root directory (where pyproject.toml lives)."""
+    # Navigate from src/sunstone/_release.py up to root/
     return Path(__file__).parent.parent.parent
 
 
@@ -24,7 +24,7 @@ def run_git(*args: str, capture: bool = True) -> subprocess.CompletedProcess[str
         ["git", *args],
         capture_output=capture,
         text=True,
-        cwd=get_lib_dir(),
+        cwd=get_root_dir(),
     )
     return result
 
@@ -91,7 +91,7 @@ def check_up_to_date_with_origin() -> None:
 
 def get_current_version() -> str:
     """Get the current version from pyproject.toml."""
-    pyproject_path = get_lib_dir() / "pyproject.toml"
+    pyproject_path = get_root_dir() / "pyproject.toml"
     content = pyproject_path.read_text()
     match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
     if not match:
@@ -119,7 +119,7 @@ def bump_version(version: str, bump: str) -> str:
 
 def update_pyproject_version(new_version: str) -> None:
     """Update the version in pyproject.toml."""
-    pyproject_path = get_lib_dir() / "pyproject.toml"
+    pyproject_path = get_root_dir() / "pyproject.toml"
     content = pyproject_path.read_text()
     new_content = re.sub(
         r'^(version\s*=\s*)"[^"]+"',
@@ -132,7 +132,7 @@ def update_pyproject_version(new_version: str) -> None:
 
 def update_changelog(new_version: str) -> None:
     """Update CHANGELOG.md to move Unreleased to the new version."""
-    changelog_path = get_lib_dir() / "CHANGELOG.md"
+    changelog_path = get_root_dir() / "CHANGELOG.md"
     content = changelog_path.read_text()
 
     today = date.today().isoformat()
@@ -179,10 +179,10 @@ def update_changelog(new_version: str) -> None:
 
 def git_commit_and_tag(new_version: str) -> None:
     """Commit changes and create version tag."""
-    lib_dir = get_lib_dir()
+    root_dir = get_root_dir()
 
     # Stage changed files
-    result = run_git("add", str(lib_dir / "pyproject.toml"), str(lib_dir / "CHANGELOG.md"))
+    result = run_git("add", str(root_dir / "pyproject.toml"), str(root_dir / "CHANGELOG.md"))
     if result.returncode != 0:
         print("Error: Failed to stage files", file=sys.stderr)
         sys.exit(1)

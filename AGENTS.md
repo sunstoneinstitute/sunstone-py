@@ -117,4 +117,3 @@ default, to do a minor or major version upgrade, use the
  * `uv run release --bump=patch` - bump patchlevel (v0.8.1 -> v0.8.2)
  * `uv run release --bump-minor` - bump minor version (v0.8.1 -> v0.9.0)
  * `uv run release --bump-major` - bump major version (v0.8.1 -> v1.0.0)
-
