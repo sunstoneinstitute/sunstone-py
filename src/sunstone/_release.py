@@ -5,6 +5,7 @@ Handles version bumping, CHANGELOG updates, git tagging, and pushing.
 """
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -87,6 +88,83 @@ def check_up_to_date_with_origin() -> None:
         else:
             print("Error: Local main has diverged from origin/main.", file=sys.stderr)
         sys.exit(1)
+
+
+def get_last_tag() -> str | None:
+    """Get the most recent git tag, or None if no tags exist."""
+    result = run_git("describe", "--tags", "--abbrev=0")
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def generate_changelog_from_git() -> str:
+    """Generate changelog entries from git commits since last tag using Claude."""
+    last_tag = get_last_tag()
+    if last_tag:
+        commit_range = f"{last_tag}..HEAD"
+    else:
+        commit_range = "HEAD"
+
+    # Get commits since last tag
+    result = run_git("log", commit_range, "--pretty=format:%s")
+    if result.returncode != 0 or not result.stdout.strip():
+        return ""
+
+    commits = result.stdout.strip()
+
+    prompt = f"""Convert these git commit messages into Keep a Changelog format entries.
+Categorize under: Added, Changed, Fixed, Removed, Security (only include categories that apply).
+Be concise. Skip merge commits, version bump commits, and release commits.
+Output ONLY the markdown entries with ### headers for categories, nothing else.
+
+Commits:
+{commits}"""
+
+    print("Generating changelog entries with Claude...")
+    claude_result = subprocess.run(
+        ["claude", "-p", "--model=haiku", prompt],
+        capture_output=True,
+        text=True,
+        cwd=get_root_dir(),
+    )
+
+    if claude_result.returncode != 0:
+        print("Warning: Claude changelog generation failed", file=sys.stderr)
+        return ""
+
+    return claude_result.stdout.strip()
+
+
+def populate_unreleased(content: str) -> None:
+    """Insert generated changelog content into Unreleased section."""
+    if not content:
+        return
+
+    changelog_path = get_root_dir() / "CHANGELOG.md"
+    existing = changelog_path.read_text()
+
+    new_content = existing.replace(
+        "## [Unreleased]\n",
+        f"## [Unreleased]\n\n{content}\n",
+    )
+    changelog_path.write_text(new_content)
+
+
+def open_in_editor(file_path: Path) -> None:
+    """Open a file in the user's preferred editor."""
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    subprocess.run([editor, str(file_path)], cwd=get_root_dir())
+
+
+def confirm_release(new_version: str) -> bool:
+    """Ask user to confirm the release."""
+    try:
+        response = input(f"\nProceed with release v{new_version}? [y/N] ").strip().lower()
+        return response in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
 
 
 def get_current_version() -> str:
@@ -182,7 +260,12 @@ def git_commit_and_tag(new_version: str) -> None:
     root_dir = get_root_dir()
 
     # Stage changed files
-    result = run_git("add", str(root_dir / "pyproject.toml"), str(root_dir / "CHANGELOG.md"))
+    result = run_git(
+        "add",
+        str(root_dir / "pyproject.toml"),
+        str(root_dir / "CHANGELOG.md"),
+        str(root_dir / "uv.lock"),
+    )
     if result.returncode != 0:
         print("Error: Failed to stage files", file=sys.stderr)
         sys.exit(1)
@@ -274,11 +357,38 @@ Examples:
         print("Dry run - no changes made.")
         return
 
+    # Generate and populate changelog entries
+    changelog_content = generate_changelog_from_git()
+    if changelog_content:
+        populate_unreleased(changelog_content)
+        print("Generated changelog entries from git commits.")
+    else:
+        print("No new commits to generate changelog from.")
+
     print("Updating pyproject.toml...")
     update_pyproject_version(new_version)
 
+    print("Syncing uv.lock...")
+    uv_result = subprocess.run(["uv", "sync"], cwd=get_root_dir(), capture_output=True, text=True)
+    if uv_result.returncode != 0:
+        print("Error: uv sync failed", file=sys.stderr)
+        print(uv_result.stderr, file=sys.stderr)
+        sys.exit(1)
+
     print("Updating CHANGELOG.md...")
     update_changelog(new_version)
+
+    # Open in editor for review
+    changelog_path = get_root_dir() / "CHANGELOG.md"
+    print(f"\nOpening {changelog_path} for review...")
+    open_in_editor(changelog_path)
+
+    # Confirm before proceeding
+    if not confirm_release(new_version):
+        # Revert changes
+        print("Release cancelled. Reverting changes...")
+        run_git("checkout", "pyproject.toml", "CHANGELOG.md", "uv.lock")
+        sys.exit(0)
 
     print("Committing and tagging...")
     git_commit_and_tag(new_version)
