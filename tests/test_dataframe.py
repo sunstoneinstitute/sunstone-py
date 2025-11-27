@@ -88,9 +88,7 @@ class TestDataFrameMerge:
 
     def test_merge_dataframes(self, un_members_df1, un_members_df2):
         """Test merging two DataFrames."""
-        merged = un_members_df1.merge(
-            un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner"
-        )
+        merged = un_members_df1.merge(un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner")
 
         assert merged is not None
         assert len(merged.data) > 0
@@ -100,9 +98,7 @@ class TestDataFrameMerge:
 
     def test_merge_lineage_tracking(self, un_members_df1, un_members_df2):
         """Test that merge properly tracks lineage."""
-        merged = un_members_df1.merge(
-            un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner"
-        )
+        merged = un_members_df1.merge(un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner")
 
         licenses = merged.lineage.get_licenses()
         assert licenses is not None
@@ -124,9 +120,7 @@ class TestLineageMetadata:
         filtered = un_members.apply_operation(
             lambda d: d[d["ISO Code"].notna()], description="Filter countries with ISO codes"
         )
-        return filtered.apply_operation(
-            lambda d: d.head(100), description="Select first 100 countries"
-        )
+        return filtered.apply_operation(lambda d: d.head(100), description="Select first 100 countries")
 
     def test_lineage_to_dict(self, processed_df):
         """Test converting lineage to dictionary."""
@@ -148,9 +142,7 @@ class TestStrictMode:
         """Test loading DataFrame in strict mode."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
 
-        strict_df = sunstone.DataFrame.read_csv(
-            "inputs/official_un_member_states_raw.csv", project_path=project_path
-        )
+        strict_df = sunstone.DataFrame.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_path)
 
         assert strict_df.strict_mode is True
 
@@ -158,9 +150,7 @@ class TestStrictMode:
         """Test that strict mode prevents writing to unregistered locations."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
 
-        strict_df = sunstone.DataFrame.read_csv(
-            "inputs/official_un_member_states_raw.csv", project_path=project_path
-        )
+        strict_df = sunstone.DataFrame.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_path)
 
         with pytest.raises(sunstone.StrictModeError):
             strict_df.to_csv("/tmp/test_output.csv", index=False)

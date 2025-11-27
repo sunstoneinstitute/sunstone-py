@@ -140,9 +140,7 @@ class DatasetsManager:
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
         """Parse field schema data from YAML."""
         return [
-            FieldSchema(
-                name=field["name"], type=field["type"], constraints=field.get("constraints")
-            )
+            FieldSchema(name=field["name"], type=field["type"], constraints=field.get("constraints"))
             for field in fields_data
         ]
 
@@ -171,9 +169,7 @@ class DatasetsManager:
             dataset_type=dataset_type,
         )
 
-    def find_dataset_by_location(
-        self, location: str, dataset_type: Optional[str] = None
-    ) -> Optional[DatasetMetadata]:
+    def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
         """
         Find a dataset by its file location.
 
@@ -250,9 +246,7 @@ class DatasetsManager:
 
         return None
 
-    def find_dataset_by_slug(
-        self, slug: str, dataset_type: Optional[str] = None
-    ) -> Optional[DatasetMetadata]:
+    def find_dataset_by_slug(self, slug: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
         """
         Find a dataset by its slug.
 
@@ -390,7 +384,11 @@ class DatasetsManager:
         return (self.project_path / location_path).resolve()
 
     def fetch_from_url(
-        self, dataset: DatasetMetadata, timeout: int = 30, force: bool = False, max_redirects: int = 10
+        self,
+        dataset: DatasetMetadata,
+        timeout: int = 30,
+        force: bool = False,
+        max_redirects: int = 10,
     ) -> Path:
         """
         Fetch a dataset from its source URL if available.
@@ -423,8 +421,7 @@ class DatasetsManager:
         # Validate URL points to public resource to prevent SSRF attacks
         if not _is_public_url(url):
             raise ValueError(
-                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to "
-                "public internet addresses are permitted."
+                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
             )
 
         logger.info("Fetching dataset from URL: %s", url)

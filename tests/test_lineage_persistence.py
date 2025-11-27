@@ -14,9 +14,7 @@ class TestLineagePersistence:
         result = df.head(5)
 
         # Check type
-        assert isinstance(result, sunstone.DataFrame), (
-            f"Expected sunstone.DataFrame, got {type(result)}"
-        )
+        assert isinstance(result, sunstone.DataFrame), f"Expected sunstone.DataFrame, got {type(result)}"
 
         # Check lineage presence
         assert hasattr(result, "lineage")

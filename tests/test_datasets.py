@@ -119,9 +119,7 @@ class TestURLSafety:
         """Test that IPv6 link-local addresses (fe80::) are blocked."""
         with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1"):
             assert _is_public_url("http://ipv6-link-local.example.com/data") is False
-        with patch(
-            "sunstone.datasets.socket.gethostbyname", return_value="fe80::1234:5678:abcd:ef01"
-        ):
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1234:5678:abcd:ef01"):
             assert _is_public_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
 
     def test_ipv6_unique_local_blocked(self):
@@ -276,7 +274,10 @@ class TestRedirectSSRFProtection:
             mock_final_response.raise_for_status = unittest.mock.Mock()
 
             with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
-                with patch("sunstone.datasets.requests.get", side_effect=[mock_redirect_response, mock_final_response]):
+                with patch(
+                    "sunstone.datasets.requests.get",
+                    side_effect=[mock_redirect_response, mock_final_response],
+                ):
                     # Should succeed without raising an error
                     result = manager.fetch_from_url(dataset, force=True)
                     assert result.exists()
@@ -365,7 +366,10 @@ class TestRedirectSSRFProtection:
             mock_final_response.raise_for_status = unittest.mock.Mock()
 
             with patch("sunstone.datasets.socket.gethostbyname", side_effect=dns_side_effect):
-                with patch("sunstone.datasets.requests.get", side_effect=[mock_redirect_response, mock_final_response]) as mock_get:
+                with patch(
+                    "sunstone.datasets.requests.get",
+                    side_effect=[mock_redirect_response, mock_final_response],
+                ) as mock_get:
                     result = manager.fetch_from_url(dataset, force=True)
                     assert result.exists()
                     # Verify the relative URL was resolved to the correct absolute URL
