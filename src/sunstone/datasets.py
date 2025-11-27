@@ -47,25 +47,33 @@ def _is_public_url(url: str) -> bool:
             logger.warning("URL has no hostname")
             return False
 
-        # Resolve hostname to IP address and check if it's private
+        # Resolve hostname to all IP addresses (IPv4 and IPv6) and check each
         try:
-            ip = socket.gethostbyname(parsed.hostname)
-            ip_obj = ipaddress.ip_address(ip)
+            addrinfos = socket.getaddrinfo(parsed.hostname, None)
+            for addrinfo in addrinfos:
+                sockaddr = addrinfo[4]
+                ip = sockaddr[0]
+                try:
+                    ip_obj = ipaddress.ip_address(ip)
+                except ValueError:
+                    logger.warning(
+                        "Invalid IP address resolved from hostname: %s (%s)",
+                        parsed.hostname,
+                        ip,
+                    )
+                    return False
 
-            # Block private, loopback, and link-local addresses
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
-                logger.warning(
-                    "URL hostname '%s' resolves to restricted IP address: %s",
-                    parsed.hostname,
-                    ip,
-                )
-                return False
+                # Block private, loopback, and link-local addresses
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                    logger.warning(
+                        "URL hostname '%s' resolves to restricted IP address: %s",
+                        parsed.hostname,
+                        ip,
+                    )
+                    return False
 
         except socket.gaierror:
             logger.warning("Unable to resolve hostname: %s", parsed.hostname)
-            return False
-        except ValueError:
-            logger.warning("Invalid IP address resolved from hostname: %s", parsed.hostname)
             return False
 
         return True
