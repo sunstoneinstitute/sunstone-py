@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-27
+
 ### Added
 - Initial public release
 - DataFrame wrapper with automatic lineage tracking
