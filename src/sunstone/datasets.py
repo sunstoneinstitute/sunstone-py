@@ -33,6 +33,9 @@ def _is_public_url(url: str) -> bool:
 
     Returns:
         True if the URL points to a public resource, False otherwise.
+
+    Raises:
+        Exception: Re-raises unexpected exceptions after logging.
     """
     try:
         parsed = urlparse(url)
@@ -48,39 +51,32 @@ def _is_public_url(url: str) -> bool:
             return False
 
         # Resolve hostname to all IP addresses (IPv4 and IPv6) and check each
-        try:
-            addrinfos = socket.getaddrinfo(parsed.hostname, None)
-            for addrinfo in addrinfos:
-                sockaddr = addrinfo[4]
-                ip = sockaddr[0]
-                try:
-                    ip_obj = ipaddress.ip_address(ip)
-                except ValueError:
-                    logger.warning(
-                        "Invalid IP address resolved from hostname: %s (%s)",
-                        parsed.hostname,
-                        ip,
-                    )
-                    return False
+        addrinfos = socket.getaddrinfo(parsed.hostname, None)
+        for addrinfo in addrinfos:
+            sockaddr = addrinfo[4]
+            ip = sockaddr[0]
+            ip_obj = ipaddress.ip_address(ip)
 
-                # Block private, loopback, and link-local addresses
-                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
-                    logger.warning(
-                        "URL hostname '%s' resolves to restricted IP address: %s",
-                        parsed.hostname,
-                        ip,
-                    )
-                    return False
-
-        except socket.gaierror:
-            logger.warning("Unable to resolve hostname: %s", parsed.hostname)
-            return False
+            # Block private, loopback, and link-local addresses
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+                logger.warning(
+                    "URL hostname '%s' resolves to restricted IP address: %s",
+                    parsed.hostname,
+                    ip,
+                )
+                return False
 
         return True
 
-    except Exception as e:
+    except socket.gaierror:
+        logger.warning("Unable to resolve hostname: %s", parsed.hostname)
+        return False
+    except ValueError as e:
         logger.warning("Error validating URL '%s': %s", url, e)
         return False
+    except Exception as e:
+        logger.exception("Unexpected error validating URL '%s': %s", url, e)
+        raise
 
 
 class DatasetsManager:
