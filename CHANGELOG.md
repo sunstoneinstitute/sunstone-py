@@ -4,6 +4,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-27
+
+### Added
+- PyPI release workflow for the project
+
+### Security
+- Harden URL fetching against SSRF attacks
+
 ## [0.3.0] - 2025-11-27
 
 ### Added
