@@ -105,6 +105,31 @@ class TestURLSafety:
         with patch("sunstone.datasets.socket.gethostbyname", return_value="169.254.169.254"):
             assert _is_public_url("http://169.254.169.254/latest/meta-data/") is False
 
+    def test_ipv6_loopback_blocked(self):
+        """Test that IPv6 loopback address (::1) is blocked."""
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="::1"):
+            assert _is_safe_url("http://localhost/api") is False
+            assert _is_safe_url("http://[::1]/api") is False
+            assert _is_safe_url("http://[::1]:8080/data") is False
+
+    def test_ipv6_link_local_blocked(self):
+        """Test that IPv6 link-local addresses (fe80::) are blocked."""
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1"):
+            assert _is_safe_url("http://ipv6-link-local.example.com/data") is False
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fe80::1234:5678:abcd:ef01"):
+            assert _is_safe_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
+
+    def test_ipv6_unique_local_blocked(self):
+        """Test that IPv6 unique local addresses (fc00::/7, including fd00::) are blocked."""
+        # fc00:: prefix (unique local, not yet assigned)
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fc00::1"):
+            assert _is_safe_url("http://internal-ipv6.example.com/data") is False
+        # fd00:: prefix (unique local, commonly used for private networks)
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fd00::1"):
+            assert _is_safe_url("http://private-ipv6.example.com/api") is False
+        with patch("sunstone.datasets.socket.gethostbyname", return_value="fd12:3456:789a::1"):
+            assert _is_safe_url("http://[fd12:3456:789a::1]:8080/data") is False
+
     def test_dns_resolution_failure(self):
         """Test that URLs with unresolvable hostnames are blocked."""
         with patch("sunstone.datasets.socket.gethostbyname", side_effect=socket.gaierror("DNS lookup failed")):
