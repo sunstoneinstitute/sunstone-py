@@ -4,6 +4,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-11-28
+
+### Housekeeping
+- CI tests for Python versions 3.12 through 3.14
+- MkDocs documentation setup with automated documentation publishing on release
+
 ## [0.4.0] - 2025-11-27
 
 ### Added
