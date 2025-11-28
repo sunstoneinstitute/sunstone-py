@@ -33,9 +33,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sunstone-institute/sunstone-py"
-Documentation = "https://sunstone-institute.github.io/sunstone-py/"
-Repository = "https://github.com/sunstone-institute/sunstone-py"
+Homepage = "https://github.com/sunstoneinstitute/sunstone-py"
+Documentation = "https://sunstoneinstitute.github.io/sunstone-py/"
+Repository = "https://github.com/sunstoneinstitute/sunstone-py"
 
 [project.scripts]
 release = "sunstone._release:main"
