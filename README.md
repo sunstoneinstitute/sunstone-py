@@ -296,14 +296,14 @@ uv run pytest
 ### Type Checking
 
 ```bash
-uv run mypy src/sunstone
+uv run mypy
 ```
 
 ### Linting and Formatting
 
 ```bash
-uv run ruff check src/sunstone
-uv run ruff format src/sunstone
+uv run ruff check
+uv run ruff format
 ```
 
 ## About Sunstone Institute

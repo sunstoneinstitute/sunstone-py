@@ -94,7 +94,6 @@ uv sync
 ### Running Tests
 
 ```bash
-cd lib
 uv run pytest
 ```
 
