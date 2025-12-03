@@ -443,6 +443,7 @@ class DatasetsManager:
             if strict:
                 # In strict mode, check if files differ
                 import filecmp
+
                 if not filecmp.cmp(self.datasets_file, temp_path, shallow=False):
                     # Files differ - this is an error in strict mode
                     os.unlink(temp_path)

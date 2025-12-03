@@ -543,23 +543,25 @@ class DataFrame:
 
     # Methods that don't represent meaningful data transformations
     # These return DataFrames but shouldn't be tracked in lineage
-    _NON_TRACKING_METHODS = frozenset({
-        # Copy operations - same data, no transformation
-        "copy",
-        # Index operations - same data, different index
-        "reset_index",
-        "set_index",
-        "reindex",
-        # Type conversions without data change
-        "astype",
-        "infer_objects",
-        # Column/index renaming - same data, different labels
-        "rename",
-        "rename_axis",
-        # Reshaping without data loss
-        "T",
-        "transpose",
-    })
+    _NON_TRACKING_METHODS = frozenset(
+        {
+            # Copy operations - same data, no transformation
+            "copy",
+            # Index operations - same data, different index
+            "reset_index",
+            "set_index",
+            "reindex",
+            # Type conversions without data change
+            "astype",
+            "infer_objects",
+            # Column/index renaming - same data, different labels
+            "rename",
+            "rename_axis",
+            # Reshaping without data loss
+            "T",
+            "transpose",
+        }
+    )
 
     def __getattr__(self, name: str) -> Any:
         """

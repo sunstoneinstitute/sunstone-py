@@ -5,9 +5,9 @@ inputs:
     source:
       name: United Nations Member States Authority File
       location:
-        data: 
+        data:
           https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
-        metadata: 
+        metadata:
           https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
         about: https://digitallibrary.un.org/record/4082085
       attributedTo: "United Nations Dag Hammarskjöld Library"
