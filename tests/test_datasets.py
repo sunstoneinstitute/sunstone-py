@@ -6,6 +6,7 @@ import socket
 import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
+from typing import Any
 
 
 import pytest
@@ -13,7 +14,7 @@ import sunstone
 from sunstone.datasets import _is_public_url
 
 
-def mock_getaddrinfo(ip: str):
+def mock_getaddrinfo(ip: str) -> list[tuple[Any, ...]]:
     """Create a mock getaddrinfo return value for a given IP address."""
     if ":" in ip:  # IPv6
         return [(socket.AF_INET6, socket.SOCK_STREAM, 0, "", (ip, 0, 0, 0))]
@@ -24,12 +25,12 @@ def mock_getaddrinfo(ip: str):
 class TestDatasetsManager:
     """Tests for DatasetsManager class."""
 
-    def test_load_datasets_manager(self, project_path: Path):
+    def test_load_datasets_manager(self, project_path: Path) -> None:
         """Test loading datasets manager from project path."""
         manager = sunstone.DatasetsManager(project_path)
         assert manager is not None
 
-    def test_find_dataset_by_slug(self, project_path: Path):
+    def test_find_dataset_by_slug(self, project_path: Path) -> None:
         """Test finding a dataset by its slug."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -42,7 +43,7 @@ class TestDatasetsManager:
         if dataset.source:
             assert dataset.source.license is not None
 
-    def test_find_nonexistent_dataset(self, project_path: Path):
+    def test_find_nonexistent_dataset(self, project_path: Path) -> None:
         """Test that finding a non-existent dataset returns None."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("does-not-exist")
@@ -52,85 +53,85 @@ class TestDatasetsManager:
 class TestURLSafety:
     """Tests for URL safety validation (SSRF prevention)."""
 
-    def test_valid_https_url(self):
+    def test_valid_https_url(self) -> None:
         """Test that valid HTTPS URLs to public addresses are allowed."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
             assert _is_public_url("https://example.com/data.csv") is True
             assert _is_public_url("https://www.google.com/file.json") is True
 
-    def test_valid_http_url(self):
+    def test_valid_http_url(self) -> None:
         """Test that valid HTTP URLs to public addresses are allowed."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
             assert _is_public_url("http://example.com/data.csv") is True
 
-    def test_file_scheme_blocked(self):
+    def test_file_scheme_blocked(self) -> None:
         """Test that file:// URLs are blocked."""
         assert _is_public_url("file:///etc/passwd") is False
         assert _is_public_url("file:///tmp/data.csv") is False
 
-    def test_ftp_scheme_blocked(self):
+    def test_ftp_scheme_blocked(self) -> None:
         """Test that FTP URLs are blocked."""
         assert _is_public_url("ftp://example.com/data.csv") is False
 
-    def test_localhost_blocked(self):
+    def test_localhost_blocked(self) -> None:
         """Test that localhost URLs are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
             assert _is_public_url("http://localhost/api") is False
             assert _is_public_url("http://localhost:8080/data") is False
 
-    def test_loopback_ip_blocked(self):
+    def test_loopback_ip_blocked(self) -> None:
         """Test that loopback IP addresses are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
             assert _is_public_url("http://127.0.0.1/api") is False
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.2")):
             assert _is_public_url("http://127.0.0.2:8080/data") is False
 
-    def test_private_ip_10_blocked(self):
+    def test_private_ip_10_blocked(self) -> None:
         """Test that private IP addresses (10.x.x.x) are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("10.0.0.1")):
             assert _is_public_url("http://internal.example.com/api") is False
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("10.255.255.254")):
             assert _is_public_url("http://10.255.255.254/data") is False
 
-    def test_private_ip_192_168_blocked(self):
+    def test_private_ip_192_168_blocked(self) -> None:
         """Test that private IP addresses (192.168.x.x) are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
             assert _is_public_url("http://router.local/config") is False
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.100.50")):
             assert _is_public_url("http://192.168.100.50/api") is False
 
-    def test_private_ip_172_16_blocked(self):
+    def test_private_ip_172_16_blocked(self) -> None:
         """Test that private IP addresses (172.16-31.x.x) are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("172.16.0.1")):
             assert _is_public_url("http://internal-app.local/data") is False
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("172.31.255.255")):
             assert _is_public_url("http://172.31.255.255/api") is False
 
-    def test_link_local_blocked(self):
+    def test_link_local_blocked(self) -> None:
         """Test that link-local addresses (169.254.x.x) are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
             assert _is_public_url("http://169.254.169.254/metadata") is False
 
-    def test_cloud_metadata_endpoint_blocked(self):
+    def test_cloud_metadata_endpoint_blocked(self) -> None:
         """Test that AWS/GCP cloud metadata endpoints are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
             assert _is_public_url("http://169.254.169.254/latest/meta-data/") is False
 
-    def test_ipv6_loopback_blocked(self):
+    def test_ipv6_loopback_blocked(self) -> None:
         """Test that IPv6 loopback address (::1) is blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("::1")):
             assert _is_public_url("http://localhost/api") is False
             assert _is_public_url("http://[::1]/api") is False
             assert _is_public_url("http://[::1]:8080/data") is False
 
-    def test_ipv6_link_local_blocked(self):
+    def test_ipv6_link_local_blocked(self) -> None:
         """Test that IPv6 link-local addresses (fe80::) are blocked."""
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1")):
             assert _is_public_url("http://ipv6-link-local.example.com/data") is False
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1234:5678:abcd:ef01")):
             assert _is_public_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
 
-    def test_ipv6_unique_local_blocked(self):
+    def test_ipv6_unique_local_blocked(self) -> None:
         """Test that IPv6 unique local addresses (fc00::/7, including fd00::) are blocked."""
         # fc00:: prefix (unique local, not yet assigned)
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("fc00::1")):
@@ -141,7 +142,7 @@ class TestURLSafety:
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("fd12:3456:789a::1")):
             assert _is_public_url("http://[fd12:3456:789a::1]:8080/data") is False
 
-    def test_dns_resolution_failure(self):
+    def test_dns_resolution_failure(self) -> None:
         """Test that URLs with unresolvable hostnames are blocked."""
         with patch(
             "sunstone.datasets.socket.getaddrinfo",
@@ -149,7 +150,7 @@ class TestURLSafety:
         ):
             assert _is_public_url("http://nonexistent-domain-xyz123.com/data") is False
 
-    def test_decimal_ip_representation_blocked(self):
+    def test_decimal_ip_representation_blocked(self) -> None:
         """Test that decimal IP representations (e.g., 2130706433 = 127.0.0.1) are blocked.
 
         An attacker might try to bypass SSRF protection using decimal IP notation.
@@ -168,7 +169,7 @@ class TestURLSafety:
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
             assert _is_public_url("http://2851995649/latest/meta-data/") is False
 
-    def test_hex_ip_representation_blocked(self):
+    def test_hex_ip_representation_blocked(self) -> None:
         """Test that hexadecimal IP representations (e.g., 0x7f000001 = 127.0.0.1) are blocked.
 
         An attacker might try to bypass SSRF protection using hex IP notation.
@@ -186,7 +187,7 @@ class TestURLSafety:
         with patch("sunstone.datasets.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
             assert _is_public_url("http://0xa9fea9fe/metadata") is False
 
-    def test_mixed_notation_ip_blocked(self):
+    def test_mixed_notation_ip_blocked(self) -> None:
         """Test that mixed notation IPs are blocked.
 
         Some systems accept mixed decimal/hex/octal notation like 127.0.0.1
@@ -197,11 +198,11 @@ class TestURLSafety:
             assert _is_public_url("http://0x7f.0.0.1/api") is False
             assert _is_public_url("http://127.0x0.0.1/data") is False
 
-    def test_url_without_hostname(self):
+    def test_url_without_hostname(self) -> None:
         """Test that URLs without hostnames are blocked."""
         assert _is_public_url("http:///no-host") is False
 
-    def test_fetch_from_url_with_ssrf_attempt(self, project_path: Path):
+    def test_fetch_from_url_with_ssrf_attempt(self, project_path: Path) -> None:
         """Test that fetch_from_url raises ValueError for SSRF attempts."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -215,7 +216,7 @@ class TestURLSafety:
                 with pytest.raises(ValueError, match="not allowed"):
                     manager.fetch_from_url(dataset, force=True)
 
-    def test_fetch_from_url_with_file_scheme(self, project_path: Path):
+    def test_fetch_from_url_with_file_scheme(self, project_path: Path) -> None:
         """Test that fetch_from_url raises ValueError for file:// URLs."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -231,7 +232,7 @@ class TestURLSafety:
 class TestRedirectSSRFProtection:
     """Tests for HTTP redirect SSRF protection."""
 
-    def test_redirect_to_private_ip_blocked(self, project_path: Path):
+    def test_redirect_to_private_ip_blocked(self, project_path: Path) -> None:
         """Test that redirects to private IPs are blocked (SSRF bypass prevention)."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -241,7 +242,7 @@ class TestRedirectSSRFProtection:
             dataset.source.location.data = "https://example.com/data.csv"
 
             # Mock DNS resolution: initial URL resolves to public, redirect to private
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 if "example.com" in hostname:
                     return mock_getaddrinfo("93.184.216.34")  # Public IP for example.com
                 elif "evil-internal" in hostname:
@@ -258,7 +259,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
-    def test_redirect_to_localhost_blocked(self, project_path: Path):
+    def test_redirect_to_localhost_blocked(self, project_path: Path) -> None:
         """Test that redirects to localhost are blocked."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -266,7 +267,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 if "example.com" in hostname:
                     return mock_getaddrinfo("93.184.216.34")
                 elif hostname == "localhost":
@@ -282,7 +283,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
-    def test_redirect_to_cloud_metadata_blocked(self, project_path: Path):
+    def test_redirect_to_cloud_metadata_blocked(self, project_path: Path) -> None:
         """Test that redirects to cloud metadata endpoints are blocked."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -290,7 +291,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 if "example.com" in hostname:
                     return mock_getaddrinfo("93.184.216.34")
                 elif hostname == "169.254.169.254":
@@ -306,7 +307,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
-    def test_redirect_to_public_url_allowed(self, project_path: Path):
+    def test_redirect_to_public_url_allowed(self, project_path: Path) -> None:
         """Test that redirects to other public URLs are allowed."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -314,7 +315,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/old-path"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 # Both URLs resolve to public IPs
                 return mock_getaddrinfo("93.184.216.34")
 
@@ -340,7 +341,7 @@ class TestRedirectSSRFProtection:
                         result = manager.fetch_from_url(dataset, force=True)
                         assert result is not None
 
-    def test_too_many_redirects_blocked(self, project_path: Path):
+    def test_too_many_redirects_blocked(self, project_path: Path) -> None:
         """Test that too many redirects are blocked."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -348,7 +349,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")  # All public IPs
 
             # Always return redirect
@@ -361,7 +362,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="Too many redirects"):
                         manager.fetch_from_url(dataset, force=True, max_redirects=5)
 
-    def test_redirect_without_location_header_blocked(self, project_path: Path):
+    def test_redirect_without_location_header_blocked(self, project_path: Path) -> None:
         """Test that redirects without Location header are blocked."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -369,7 +370,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")
 
             mock_redirect_response = unittest.mock.Mock()
@@ -381,7 +382,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="Location header"):
                         manager.fetch_from_url(dataset, force=True)
 
-    def test_redirect_to_file_scheme_blocked(self, project_path: Path):
+    def test_redirect_to_file_scheme_blocked(self, project_path: Path) -> None:
         """Test that redirects to file:// URLs are blocked."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -389,7 +390,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")
 
             mock_redirect_response = unittest.mock.Mock()
@@ -401,7 +402,7 @@ class TestRedirectSSRFProtection:
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
-    def test_relative_redirect_url_resolved(self, project_path: Path):
+    def test_relative_redirect_url_resolved(self, project_path: Path) -> None:
         """Test that relative redirect URLs are properly resolved."""
         manager = sunstone.DatasetsManager(project_path)
         dataset = manager.find_dataset_by_slug("official-un-member-states")
@@ -409,7 +410,7 @@ class TestRedirectSSRFProtection:
         if dataset and dataset.source:
             dataset.source.location.data = "https://example.com/old/data.csv"
 
-            def dns_side_effect(hostname, port):
+            def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")  # Public IP
 
             # First call returns redirect with relative URL, second call returns content

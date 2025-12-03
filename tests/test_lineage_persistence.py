@@ -1,10 +1,13 @@
+from pathlib import Path
+from typing import Any
+
 import sunstone
 
 
 class TestLineagePersistence:
     """Tests to ensure lineage is preserved through standard pandas operations."""
 
-    def test_head_preserves_lineage(self, project_path):
+    def test_head_preserves_lineage(self, project_path: Path) -> None:
         """Test that head() returns a sunstone DataFrame with lineage."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False
@@ -24,7 +27,7 @@ class TestLineagePersistence:
         # We expect the operation to be recorded, ideally
         assert any("head" in op for op in result.lineage.operations)
 
-    def test_getitem_preserves_lineage(self, project_path):
+    def test_getitem_preserves_lineage(self, project_path: Path) -> None:
         """Test that boolean indexing/getitem returns sunstone DataFrame."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False
@@ -41,7 +44,7 @@ class TestLineagePersistence:
         assert len(result.lineage.sources) == len(df.lineage.sources)
         # Operation tracking for getitem might be tricky to name perfectly, but should exist
 
-    def test_sort_values_preserves_lineage(self, project_path):
+    def test_sort_values_preserves_lineage(self, project_path: Path) -> None:
         """Test that sort_values returns sunstone DataFrame."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False
@@ -53,7 +56,7 @@ class TestLineagePersistence:
         assert len(result.lineage.sources) == len(df.lineage.sources)
         assert any("sort_values" in op for op in result.lineage.operations)
 
-    def test_setitem_preserves_lineage(self, project_path):
+    def test_setitem_preserves_lineage(self, project_path: Path) -> None:
         """Test that in-place modification tracks lineage."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False

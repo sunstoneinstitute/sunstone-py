@@ -3,6 +3,7 @@ Tests for Sunstone DataFrame functionality.
 """
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -12,7 +13,7 @@ import sunstone
 class TestDataFrameBasics:
     """Tests for basic DataFrame operations."""
 
-    def test_read_csv(self, project_path: Path):
+    def test_read_csv(self, project_path: Path) -> None:
         """Test reading a CSV file into a DataFrame."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
@@ -26,7 +27,7 @@ class TestDataFrameBasics:
         assert len(df.lineage.sources) > 0
         assert df.lineage.operations is not None
 
-    def test_apply_operation(self, project_path: Path):
+    def test_apply_operation(self, project_path: Path) -> None:
         """Test applying an operation to a DataFrame."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
@@ -39,7 +40,7 @@ class TestDataFrameBasics:
         assert len(filtered.data) == 10
         assert len(filtered.lineage.operations) > len(df.lineage.operations)
 
-    def test_read_second_dataset(self, project_path: Path):
+    def test_read_second_dataset(self, project_path: Path) -> None:
         """Test reading the same dataset twice creates separate lineage."""
         members1 = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False
@@ -59,7 +60,7 @@ class TestDataFrameMerge:
     """Tests for DataFrame merge operations."""
 
     @pytest.fixture
-    def un_members_df1(self, project_path: Path):
+    def un_members_df1(self, project_path: Path) -> Any:
         """Load UN members DataFrame (first instance)."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
@@ -73,7 +74,7 @@ class TestDataFrameMerge:
         )
 
     @pytest.fixture
-    def un_members_df2(self, project_path: Path):
+    def un_members_df2(self, project_path: Path) -> Any:
         """Load UN members DataFrame (second instance)."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
@@ -86,7 +87,7 @@ class TestDataFrameMerge:
             description="Select subset of columns",
         )
 
-    def test_merge_dataframes(self, un_members_df1, un_members_df2):
+    def test_merge_dataframes(self, un_members_df1: Any, un_members_df2: Any) -> None:
         """Test merging two DataFrames."""
         merged = un_members_df1.merge(un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner")
 
@@ -96,7 +97,7 @@ class TestDataFrameMerge:
         assert len(merged.lineage.sources) >= 1
         assert len(merged.lineage.operations) > 0
 
-    def test_merge_lineage_tracking(self, un_members_df1, un_members_df2):
+    def test_merge_lineage_tracking(self, un_members_df1: Any, un_members_df2: Any) -> None:
         """Test that merge properly tracks lineage."""
         merged = un_members_df1.merge(un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner")
 
@@ -109,7 +110,7 @@ class TestLineageMetadata:
     """Tests for lineage metadata functionality."""
 
     @pytest.fixture
-    def processed_df(self, project_path: Path):
+    def processed_df(self, project_path: Path) -> Any:
         """Create a processed DataFrame for testing."""
         un_members = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
@@ -122,7 +123,7 @@ class TestLineageMetadata:
         )
         return filtered.apply_operation(lambda d: d.head(100), description="Select first 100 countries")
 
-    def test_lineage_to_dict(self, processed_df):
+    def test_lineage_to_dict(self, processed_df: Any) -> None:
         """Test converting lineage to dictionary."""
         lineage_dict = processed_df.lineage.to_dict()
 
@@ -138,7 +139,7 @@ class TestLineageMetadata:
 class TestStrictMode:
     """Tests for strict mode functionality."""
 
-    def test_strict_mode_load(self, project_path: Path, monkeypatch):
+    def test_strict_mode_load(self, project_path: Path, monkeypatch: Any) -> None:
         """Test loading DataFrame in strict mode."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
 
@@ -146,7 +147,7 @@ class TestStrictMode:
 
         assert strict_df.strict_mode is True
 
-    def test_strict_mode_prevents_unregistered_write(self, project_path: Path, monkeypatch):
+    def test_strict_mode_prevents_unregistered_write(self, project_path: Path, monkeypatch: Any) -> None:
         """Test that strict mode prevents writing to unregistered locations."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
 
@@ -159,7 +160,7 @@ class TestStrictMode:
 class TestReadDataset:
     """Tests for read_dataset() functionality with format auto-detection."""
 
-    def test_read_dataset_by_slug(self, project_path: Path):
+    def test_read_dataset_by_slug(self, project_path: Path) -> None:
         """Test reading a dataset by slug with auto-detection."""
         df = sunstone.DataFrame.read_dataset(
             "official-un-member-states",
@@ -174,7 +175,7 @@ class TestReadDataset:
         # Check that the lineage operation mentions the format
         assert any("format=csv" in op for op in df.lineage.operations)
 
-    def test_read_dataset_with_explicit_format(self, project_path: Path):
+    def test_read_dataset_with_explicit_format(self, project_path: Path) -> None:
         """Test reading a dataset with explicit format override."""
         df = sunstone.DataFrame.read_dataset(
             "official-un-member-states",
@@ -187,7 +188,7 @@ class TestReadDataset:
         assert len(df.data) > 0
         assert any("format=csv" in op for op in df.lineage.operations)
 
-    def test_read_dataset_slug_not_found(self, project_path: Path):
+    def test_read_dataset_slug_not_found(self, project_path: Path) -> None:
         """Test that reading non-existent slug raises error."""
         with pytest.raises(sunstone.DatasetNotFoundError) as exc_info:
             sunstone.DataFrame.read_dataset(
@@ -197,7 +198,7 @@ class TestReadDataset:
 
         assert "not found in datasets.yaml" in str(exc_info.value)
 
-    def test_read_dataset_via_pandas_api(self, project_path: Path):
+    def test_read_dataset_via_pandas_api(self, project_path: Path) -> None:
         """Test reading dataset via pandas-like API."""
         from sunstone import pandas as pd
 
@@ -210,7 +211,7 @@ class TestReadDataset:
         assert len(df.data) > 0
         assert isinstance(df, sunstone.DataFrame)
 
-    def test_read_csv_with_slug_delegates_to_read_dataset(self, project_path: Path):
+    def test_read_csv_with_slug_delegates_to_read_dataset(self, project_path: Path) -> None:
         """Test that read_csv with slug delegates to read_dataset."""
         df = sunstone.DataFrame.read_csv(
             "official-un-member-states",

@@ -407,7 +407,7 @@ class DatasetsManager:
             raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
 
         # Build lineage metadata to add
-        lineage_data = {}
+        lineage_data: dict[str, Any] = {}
 
         if lineage.sources:
             lineage_data["sources"] = [
