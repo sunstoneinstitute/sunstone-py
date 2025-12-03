@@ -6,7 +6,7 @@ that Sunstone DataFrames behave like pandas DataFrames for common operations.
 """
 
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 import pytest
 
