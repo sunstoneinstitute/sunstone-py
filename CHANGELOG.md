@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-04
+
+### Fixed
+- Fix DataFrame lineage bugs
+
+### Changed
+- Formatting cleanup
+- README.md and AGENTS.md documentation tweaks
+- Replace symlink with file contents for security-engineer subagent
+
 ## [0.4.2] - 2025-11-28
 
 ### Fixed
