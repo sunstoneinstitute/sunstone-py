@@ -323,7 +323,7 @@ class DataFrame:
             path_or_buf: File path for the output CSV.
             slug: Dataset slug (required in relaxed mode if not registered).
             name: Dataset name (required in relaxed mode if not registered).
-            publish: Whether to publish the dataset.
+            publish: bool = False,
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
@@ -365,6 +365,9 @@ class DataFrame:
 
         # Record the operation
         self.lineage.add_operation(f"to_csv({dataset.slug})")
+
+        # Persist lineage metadata to datasets.yaml
+        manager.update_output_lineage(slug=dataset.slug, lineage=self.lineage, strict=self.strict_mode)
 
     def _infer_field_schema(self) -> List[FieldSchema]:
         """
@@ -510,13 +513,13 @@ class DataFrame:
             project_path=self.lineage.project_path,
         )
 
-    def _wrap_result(self, result: Any, operation: str = "pandas_operation") -> Any:
+    def _wrap_result(self, result: Any, operation: Optional[str] = None) -> Any:
         """
         Wrap a pandas result in a Sunstone DataFrame if applicable.
 
         Args:
             result: The result from a pandas operation.
-            operation: Name of the operation performed.
+            operation: Name of the operation performed. If None, no operation is recorded.
 
         Returns:
             Wrapped DataFrame if result is a DataFrame, otherwise the result.
@@ -527,7 +530,8 @@ class DataFrame:
                 operations=self.lineage.operations.copy(),
                 project_path=self.lineage.project_path,
             )
-            new_lineage.add_operation(operation)
+            if operation is not None:
+                new_lineage.add_operation(operation)
 
             return DataFrame(
                 data=result,
@@ -536,6 +540,26 @@ class DataFrame:
                 project_path=self.lineage.project_path,
             )
         return result
+
+    # Methods that don't represent meaningful data transformations
+    # These return DataFrames but shouldn't be tracked in lineage
+    _NON_TRACKING_METHODS = frozenset({
+        # Copy operations - same data, no transformation
+        "copy",
+        # Index operations - same data, different index
+        "reset_index",
+        "set_index",
+        "reindex",
+        # Type conversions without data change
+        "astype",
+        "infer_objects",
+        # Column/index renaming - same data, different labels
+        "rename",
+        "rename_axis",
+        # Reshaping without data loss
+        "T",
+        "transpose",
+    })
 
     def __getattr__(self, name: str) -> Any:
         """
@@ -557,11 +581,14 @@ class DataFrame:
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 result = attr(*args, **kwargs)
+                # Don't track non-transforming methods
+                if name in DataFrame._NON_TRACKING_METHODS:
+                    return self._wrap_result(result, operation=None)
                 return self._wrap_result(result, operation=f"{name}")
 
             return wrapper
 
-        return self._wrap_result(attr, operation=f"access_attribute_{name}")
+        return self._wrap_result(attr, operation=None)  # Don't track attribute access
 
     def __getitem__(self, key: Any) -> Any:
         """
@@ -574,7 +601,9 @@ class DataFrame:
             The item from the underlying DataFrame, wrapped if it's a DataFrame.
         """
         result = self.data[key]
-        return self._wrap_result(result, operation="__getitem__")
+        # Don't track __getitem__ as an operation - it's just column/row access
+        # not a meaningful transformation
+        return self._wrap_result(result, operation=None)
 
     def __setitem__(self, key: Any, value: Any) -> None:
         """
@@ -585,7 +614,8 @@ class DataFrame:
             value: Value to assign.
         """
         self.data[key] = value
-        self.lineage.add_operation("__setitem__")
+        # Track column assignment in lineage
+        self.lineage.add_operation(f"__setitem__({key!r})")
 
     def __repr__(self) -> str:
         """String representation of the DataFrame."""

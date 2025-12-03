@@ -4,18 +4,26 @@ Parser and manager for datasets.yaml files.
 
 import ipaddress
 import logging
+import os
 import socket
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin, urlparse
 
 import requests
-import yaml
+from ruamel.yaml import YAML
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
-from .lineage import DatasetMetadata, FieldSchema, Source, SourceLocation
+from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Source, SourceLocation
 
 logger = logging.getLogger(__name__)
+
+# Configure ruamel.yaml for round-trip parsing (preserves comments) with proper indentation
+_yaml = YAML()
+_yaml.preserve_quotes = True
+_yaml.default_flow_style = False
+_yaml.indent(mapping=2, sequence=4, offset=2)
 
 
 def _is_public_url(url: str) -> bool:
@@ -109,7 +117,7 @@ class DatasetsManager:
     def _load(self) -> None:
         """Load and parse the datasets.yaml file."""
         with open(self.datasets_file, "r") as f:
-            self._data = yaml.safe_load(f) or {}
+            self._data = _yaml.load(f) or {}
 
         if "inputs" not in self._data:
             self._data["inputs"] = []
@@ -119,7 +127,7 @@ class DatasetsManager:
     def _save(self) -> None:
         """Save the current data back to datasets.yaml."""
         with open(self.datasets_file, "w") as f:
-            yaml.dump(self._data, f, default_flow_style=False, sort_keys=False)
+            _yaml.dump(self._data, f)
 
     def _parse_source_location(self, loc_data: Dict[str, Any]) -> SourceLocation:
         """Parse source location data from YAML."""
@@ -371,6 +379,91 @@ class DatasetsManager:
                 return self._parse_dataset(dataset_data, "output")
 
         raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
+
+    def update_output_lineage(self, slug: str, lineage: LineageMetadata, strict: bool = False) -> None:
+        """
+        Update lineage metadata for an output dataset.
+
+        In strict mode, validates that the lineage matches what would be written
+        without modifying the file. In relaxed mode, updates the file with lineage.
+
+        Args:
+            slug: The slug of the output dataset to update.
+            lineage: The lineage metadata to persist.
+            strict: If True, validate without modifying. If False, update the file.
+
+        Raises:
+            DatasetNotFoundError: If the dataset doesn't exist.
+            DatasetValidationError: In strict mode, if lineage differs from what's in the file.
+        """
+        # Find the output dataset
+        dataset_idx = None
+        for i, dataset_data in enumerate(self._data["outputs"]):
+            if dataset_data["slug"] == slug:
+                dataset_idx = i
+                break
+
+        if dataset_idx is None:
+            raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
+
+        # Build lineage metadata to add
+        lineage_data = {}
+
+        if lineage.sources:
+            lineage_data["sources"] = [
+                {
+                    "slug": src.slug,
+                    "name": src.name,
+                }
+                for src in lineage.sources
+            ]
+
+        if lineage.operations:
+            lineage_data["operations"] = lineage.operations.copy()
+
+        if lineage.created_at:
+            lineage_data["created_at"] = lineage.created_at.isoformat()
+
+        # Create a copy of the data with updated lineage
+        updated_data = self._data.copy()
+        updated_data["outputs"] = [dict(d) for d in self._data["outputs"]]
+        updated_data["outputs"][dataset_idx] = dict(self._data["outputs"][dataset_idx])
+
+        # Add or update lineage in the copy
+        if lineage_data:
+            updated_data["outputs"][dataset_idx]["lineage"] = lineage_data
+
+        # Write to temp file
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".yaml", prefix="datasets_", dir=self.project_path)
+
+        try:
+            with os.fdopen(temp_fd, "w") as f:
+                _yaml.dump(updated_data, f)
+
+            if strict:
+                # In strict mode, check if files differ
+                import filecmp
+                if not filecmp.cmp(self.datasets_file, temp_path, shallow=False):
+                    # Files differ - this is an error in strict mode
+                    os.unlink(temp_path)
+                    raise DatasetValidationError(
+                        f"In strict mode, lineage metadata for '{slug}' would be updated in datasets.yaml. "
+                        f"Expected lineage is already present in the file, but found differences."
+                    )
+                else:
+                    # Files are the same - clean up temp file
+                    os.unlink(temp_path)
+            else:
+                # In relaxed mode, replace the file
+                os.replace(temp_path, self.datasets_file)
+                # Reload the data
+                self._load()
+
+        except Exception:
+            # Clean up temp file on error
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            raise
 
     def get_absolute_path(self, location: str) -> Path:
         """

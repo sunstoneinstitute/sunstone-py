@@ -145,29 +145,39 @@ def process_un_members(dataset_slug: Optional[str] = None) -> pd.DataFrame:
             }
             period_rows.append(period_record)
 
-    un_members_periods = pd.DataFrame(period_rows)
+    # Create DataFrame preserving lineage from source
+    un_members_periods = pd.DataFrame(
+        period_rows,
+        lineage=un_members_raw.lineage,
+        project_path=PROJECT_PATH
+    )
+    un_members_periods.lineage.add_operation("expand_to_periods")
 
-    # Country rollup
-    country_status = (
+    # Country rollup - groupby returns regular pandas, need to wrap back
+    country_status_data = (
         un_members_periods.groupby(COL_MEMBER_STATE, dropna=False)["_period_status"]
         .apply(_rollup_status)
         .reset_index()
         .rename(columns={"_period_status": "country_status"})
     )
 
-    first_joined = (
+    first_joined_data = (
         un_members_periods.groupby(COL_MEMBER_STATE, dropna=False)["_start"]
         .min()
         .reset_index()
         .rename(columns={"_start": "first_joined"})
     )
 
+    # Merge preserving lineage - need to wrap in Sunstone DataFrames
+    country_status = pd.DataFrame(country_status_data, lineage=un_members_periods.lineage, project_path=PROJECT_PATH)
+    first_joined = pd.DataFrame(first_joined_data, lineage=un_members_periods.lineage, project_path=PROJECT_PATH)
+
     countries_curated = country_status.merge(first_joined, on=COL_MEMBER_STATE, how="left").sort_values(
         COL_MEMBER_STATE, kind="stable"
     )
 
-    # Extract current members only
-    current_members = (
+    # Extract current members only - preserve lineage
+    current_members_data = (
         countries_curated.loc[
             countries_curated["country_status"] == STATUS_ACTIVE,
             [COL_MEMBER_STATE, "first_joined", "country_status"],
@@ -175,6 +185,14 @@ def process_un_members(dataset_slug: Optional[str] = None) -> pd.DataFrame:
         .sort_values(COL_MEMBER_STATE, kind="stable")
         .reset_index(drop=True)
     )
+
+    # Wrap in Sunstone DataFrame with lineage
+    current_members = pd.DataFrame(
+        current_members_data,
+        lineage=un_members_periods.lineage,
+        project_path=PROJECT_PATH
+    )
+    current_members.lineage.add_operation("filter_active_members")
 
     logger.info("Identified %d current UN members", len(current_members))
     return current_members
@@ -257,6 +275,9 @@ def enrich_with_iso_codes(current_members: pd.DataFrame, country_col: str = "Mem
     # Reorder columns
     result = result[["Country", "Alpha-2 Code", "Alpha-3 Code", "Date of Admission"]]
 
+    # Track enrichment operation in lineage
+    result.lineage.add_operation("enrich_with_iso_codes")
+
     return result
 
 
@@ -270,15 +291,15 @@ def create_dataset(output_filepath: Optional[str] = None, include_timestamp: boo
         # Process UN members to extract current members
         current_members = process_un_members()
 
-        # Enrich with ISO codes
+        # Enrich with ISO codes (preserves lineage)
         enriched_data = enrich_with_iso_codes(current_members, country_col=COL_MEMBER_STATE)
 
-        # Add metadata
+        # Add metadata columns (modifying in place preserves lineage)
         enriched_data["created_at"] = datetime.now()
         enriched_data["version"] = VERSION
 
-        # Wrap in Sunstone DataFrame for proper lineage tracking
-        current_un_members = pd.DataFrame(enriched_data)
+        # enriched_data is already a Sunstone DataFrame with lineage
+        current_un_members = enriched_data
 
         # Save output
         output_path = Path(OUTPUT_FILE if output_filepath is None else output_filepath)

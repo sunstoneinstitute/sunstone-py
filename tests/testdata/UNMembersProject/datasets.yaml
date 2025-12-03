@@ -5,62 +5,63 @@ inputs:
     source:
       name: United Nations Member States Authority File
       location:
-        data: https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
-        metadata: https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
+        data: 
+          https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
+        metadata: 
+          https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
         about: https://digitallibrary.un.org/record/4082085
-      attributedTo: United Nations Dag Hammarskjöld Library
+      attributedTo: "United Nations Dag Hammarskjöld Library"
       acquiredAt: 2025-10-08
       acquisitionMethod: manual-download
       license: CC-BY-NC-3.0-IGO
     fields:
-      - name: "Member State"
+      - name: Member State
         type: string
-      - name: "M49 Code"
+      - name: M49 Code
         type: string
-      - name: "ISO Code"
+      - name: ISO Code
         type: string
-      - name: "Start date"
+      - name: Start date
         type: date
-      - name: "End date"
+      - name: End date
         type: date
-      - name: "Other Names"
+      - name: Other Names
         type: string
-      - name: "Earlier or Later Name"
+      - name: Earlier or Later Name
         type: string
-      - name: "Earlier (a) or Later (b)"
+      - name: Earlier (a) or Later (b)
         type: string
-      - name: "Geographic Term"
+      - name: Geographic Term
         type: string
-      - name: "Membership Document Symbol"
+      - name: Membership Document Symbol
         type: string
-      - name: "Scope Note"
+      - name: Scope Note
         type: string
-      - name: "French"
+      - name: French
         type: string
-      - name: "Spanish"
+      - name: Spanish
         type: string
-      - name: "Arabic"
+      - name: Arabic
         type: string
-      - name: "Chinese"
+      - name: Chinese
         type: string
-      - name: "Russian"
+      - name: Russian
         type: string
-
 outputs:
   - name: Current UN Member States
     slug: current-un-member-states
     location: outputs/current_un_member_states.csv
     publish: true
     fields:
-      - name: "Country"
+      - name: Country
         type: string
-      - name: "Alpha-2 Code"
+      - name: Alpha-2 Code
         type: string
-      - name: "Alpha-3 Code"
+      - name: Alpha-3 Code
         type: string
-      - name: "Date of Admission"
+      - name: Date of Admission
         type: date
-      - name: "created_at"
+      - name: created_at
         type: datetime
-      - name: "version"
+      - name: version
         type: string
