@@ -10,7 +10,7 @@ import pandas as pd
 
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
-from .lineage import FieldSchema, LineageMetadata
+from .lineage import FieldSchema, LineageMetadata, compute_dataframe_hash
 
 pd.options.mode.copy_on_write = True
 
@@ -361,8 +361,13 @@ class DataFrame:
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
         self.data.to_csv(absolute_path, **kwargs)
 
+        # Compute content hash for change detection
+        content_hash = compute_dataframe_hash(self.data)
+
         # Persist lineage metadata to datasets.yaml
-        manager.update_output_lineage(slug=dataset.slug, lineage=self.lineage, strict=self.strict_mode)
+        manager.update_output_lineage(
+            slug=dataset.slug, lineage=self.lineage, content_hash=content_hash, strict=self.strict_mode
+        )
 
     def _infer_field_schema(self) -> List[FieldSchema]:
         """

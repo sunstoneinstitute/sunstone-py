@@ -282,7 +282,6 @@ def create_dataset(output_filepath: Optional[str] = None, include_timestamp: boo
         enriched_data = enrich_with_iso_codes(current_members, country_col=COL_MEMBER_STATE)
 
         # Add metadata columns (modifying in place preserves lineage)
-        enriched_data["created_at"] = datetime.now()
         enriched_data["version"] = VERSION
 
         # enriched_data is already a Sunstone DataFrame with lineage

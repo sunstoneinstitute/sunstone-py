@@ -119,7 +119,7 @@ class TestLineageMetadata:
 
         assert lineage_dict is not None
         assert "sources" in lineage_dict
-        assert "created_at" in lineage_dict
+        # created_at is only set when writing output (not when reading)
         assert len(lineage_dict["sources"]) > 0
 
 
@@ -210,3 +210,157 @@ class TestReadDataset:
         assert len(df.data) > 0
         # Check that the source is tracked
         assert len(df.lineage.sources) > 0
+
+
+class TestContentHashLineage:
+    """Tests for content-hash based lineage tracking."""
+
+    def test_content_hash_computed_on_save(self, project_path: Path, tmp_path: Path) -> None:
+        """Test that content hash is computed and saved when writing output."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        # Create a copy of the project in tmp_path to avoid modifying original
+        test_project = tmp_path / "test_project"
+        shutil.copytree(project_path, test_project)
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+
+        # Write the output
+        output_path = "outputs/test_output.csv"
+        df.to_csv(output_path, slug="test-output", name="Test Output", index=False)
+
+        # Read the datasets.yaml and check for content_hash
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        # Find the output dataset
+        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-output"), None)
+        assert output is not None
+        assert "lineage" in output
+        assert "content_hash" in output["lineage"]
+        assert "created_at" in output["lineage"]
+        # Hash should be a 64-character hex string (SHA256)
+        assert len(output["lineage"]["content_hash"]) == 64
+
+    def test_timestamp_not_updated_when_content_unchanged(self, project_path: Path, tmp_path: Path) -> None:
+        """Test that timestamp stays the same when saving identical content."""
+        import shutil
+        import time
+
+        from ruamel.yaml import YAML
+
+        # Create a copy of the project in tmp_path
+        test_project = tmp_path / "test_project"
+        shutil.copytree(project_path, test_project)
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+
+        output_path = "outputs/stable_output.csv"
+
+        # First write
+        df.to_csv(output_path, slug="stable-output", name="Stable Output", index=False)
+
+        # Read the first timestamp and hash
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data1 = yaml.load(f)
+
+        output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "stable-output"), None)
+        assert output1 is not None
+        first_timestamp = output1["lineage"]["created_at"]
+        first_hash = output1["lineage"]["content_hash"]
+
+        # Wait a bit to ensure different timestamp would be generated
+        time.sleep(0.1)
+
+        # Reload the manager and write again with the same data
+        df2 = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        df2.to_csv(output_path, slug="stable-output", name="Stable Output", index=False)
+
+        # Read the second timestamp and hash
+        with open(test_project / "datasets.yaml") as f:
+            data2 = yaml.load(f)
+
+        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "stable-output"), None)
+        assert output2 is not None
+        second_timestamp = output2["lineage"]["created_at"]
+        second_hash = output2["lineage"]["content_hash"]
+
+        # Hash should be the same
+        assert first_hash == second_hash
+        # Timestamp should NOT have changed since content is identical
+        assert first_timestamp == second_timestamp
+
+    def test_timestamp_updated_when_content_changes(self, project_path: Path, tmp_path: Path) -> None:
+        """Test that timestamp is updated when content actually changes."""
+        import shutil
+        import time
+
+        from ruamel.yaml import YAML
+
+        # Create a copy of the project in tmp_path
+        test_project = tmp_path / "test_project"
+        shutil.copytree(project_path, test_project)
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+
+        output_path = "outputs/changing_output.csv"
+
+        # First write
+        df.to_csv(output_path, slug="changing-output", name="Changing Output", index=False)
+
+        # Read the first timestamp and hash
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data1 = yaml.load(f)
+
+        output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "changing-output"), None)
+        assert output1 is not None
+        first_timestamp = output1["lineage"]["created_at"]
+        first_hash = output1["lineage"]["content_hash"]
+
+        # Wait a bit to ensure different timestamp
+        time.sleep(0.1)
+
+        # Modify the data and write again
+        df2 = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        # Actually modify the content - take only first 10 rows
+        df2_modified = df2.head(10)
+        df2_modified.to_csv(output_path, slug="changing-output", name="Changing Output", index=False)
+
+        # Read the second timestamp and hash
+        with open(test_project / "datasets.yaml") as f:
+            data2 = yaml.load(f)
+
+        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "changing-output"), None)
+        assert output2 is not None
+        second_timestamp = output2["lineage"]["created_at"]
+        second_hash = output2["lineage"]["content_hash"]
+
+        # Hash should be different since content changed
+        assert first_hash != second_hash
+        # Timestamp SHOULD have changed since content is different
+        assert first_timestamp != second_timestamp

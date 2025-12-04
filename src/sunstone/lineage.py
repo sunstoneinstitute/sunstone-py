@@ -2,9 +2,13 @@
 Lineage metadata structures for tracking data provenance.
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass
@@ -88,6 +92,25 @@ class DatasetMetadata:
     """Type of dataset: 'input' or 'output'."""
 
 
+def compute_dataframe_hash(df: "pd.DataFrame") -> str:
+    """
+    Compute a fast SHA256 hash of a pandas DataFrame's content.
+
+    Uses pickle serialization for a consistent, fast representation of the data.
+
+    Args:
+        df: The pandas DataFrame to hash.
+
+    Returns:
+        A SHA256 hex digest string representing the DataFrame content.
+    """
+    import pickle
+
+    # Use pickle protocol 5 for efficiency; hash the bytes directly
+    data_bytes = pickle.dumps(df, protocol=5)
+    return hashlib.sha256(data_bytes).hexdigest()
+
+
 @dataclass
 class LineageMetadata:
     """
@@ -99,8 +122,11 @@ class LineageMetadata:
     sources: List[DatasetMetadata] = field(default_factory=list)
     """List of source datasets that contributed to this data."""
 
-    created_at: datetime = field(default_factory=datetime.now)
-    """Timestamp when this lineage was created."""
+    created_at: Optional[datetime] = None
+    """Timestamp when this lineage was last updated (content changed)."""
+
+    content_hash: Optional[str] = None
+    """SHA256 hash of the DataFrame content, used to detect changes."""
 
     project_path: Optional[str] = None
     """Path to the project directory containing datasets.yaml."""
@@ -127,7 +153,6 @@ class LineageMetadata:
         """
         merged = LineageMetadata(
             sources=self.sources.copy(),
-            created_at=datetime.now(),
             project_path=self.project_path or other.project_path,
         )
 
@@ -158,7 +183,7 @@ class LineageMetadata:
         Returns:
             Dictionary containing lineage information.
         """
-        return {
+        result: Dict[str, Any] = {
             "sources": [
                 {
                     "slug": src.slug,
@@ -167,5 +192,9 @@ class LineageMetadata:
                 }
                 for src in self.sources
             ],
-            "created_at": self.created_at.isoformat(),
         }
+        if self.created_at is not None:
+            result["created_at"] = self.created_at.isoformat()
+        if self.content_hash is not None:
+            result["content_hash"] = self.content_hash
+        return result

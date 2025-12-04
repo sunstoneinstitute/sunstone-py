@@ -380,9 +380,14 @@ class DatasetsManager:
 
         raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
 
-    def update_output_lineage(self, slug: str, lineage: LineageMetadata, strict: bool = False) -> None:
+    def update_output_lineage(
+        self, slug: str, lineage: LineageMetadata, content_hash: str, strict: bool = False
+    ) -> None:
         """
         Update lineage metadata for an output dataset.
+
+        The timestamp is only updated when the content hash changes, preventing
+        unnecessary updates when the data hasn't changed.
 
         In strict mode, validates that the lineage matches what would be written
         without modifying the file. In relaxed mode, updates the file with lineage.
@@ -390,12 +395,15 @@ class DatasetsManager:
         Args:
             slug: The slug of the output dataset to update.
             lineage: The lineage metadata to persist.
+            content_hash: SHA256 hash of the DataFrame content.
             strict: If True, validate without modifying. If False, update the file.
 
         Raises:
             DatasetNotFoundError: If the dataset doesn't exist.
             DatasetValidationError: In strict mode, if lineage differs from what's in the file.
         """
+        from datetime import datetime
+
         # Find the output dataset
         dataset_idx = None
         for i, dataset_data in enumerate(self._data["outputs"]):
@@ -405,6 +413,21 @@ class DatasetsManager:
 
         if dataset_idx is None:
             raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
+
+        # Get existing lineage data if present
+        existing_lineage = self._data["outputs"][dataset_idx].get("lineage", {})
+        existing_hash = existing_lineage.get("content_hash")
+        existing_timestamp = existing_lineage.get("created_at")
+
+        # Determine if content has changed
+        content_changed = existing_hash != content_hash
+
+        # Only update timestamp if content changed
+        if content_changed:
+            timestamp = datetime.now().isoformat()
+        else:
+            # Preserve existing timestamp
+            timestamp = existing_timestamp
 
         # Build lineage metadata to add
         lineage_data: dict[str, Any] = {}
@@ -419,8 +442,9 @@ class DatasetsManager:
                 for src in lineage.sources
             ]
 
-        if lineage.created_at:
-            lineage_data["created_at"] = lineage.created_at.isoformat()
+        lineage_data["content_hash"] = content_hash
+        if timestamp:
+            lineage_data["created_at"] = timestamp
 
         # Create a copy of the data with updated lineage
         updated_data = self._data.copy()

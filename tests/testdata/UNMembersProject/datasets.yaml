@@ -61,7 +61,13 @@ outputs:
         type: string
       - name: Date of Admission
         type: date
-      - name: created_at
-        type: datetime
       - name: version
         type: string
+    lineage:
+      sources:
+        - slug: official-un-member-states
+          name: Official UN Member States
+          location: inputs/official_un_member_states_raw.csv
+      content_hash:
+        a4fed3f8938014e3365584eb805fd0e3fa27ab535202b80be109538300473334
+      created_at: '2025-12-04T03:04:16.508497'
