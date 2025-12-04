@@ -71,3 +71,29 @@ jobs:
         VERSION="${GITHUB_REF#refs/tags/v}"
         uv run mike deploy --push --update-aliases "$VERSION" latest
         uv run mike set-default --push latest
+
+  notify:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Send Google Chat notification
+      run: |
+        url="${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}"
+        version="${GITHUB_REF#refs/tags/v}"
+        message="New release of sunstone-py available: $version"
+        changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
+        jq --arg message "$message" --arg changelog "$changelog" '{
+          text: $message,
+          cards: [{
+            sections: [{
+              widgets: [{
+                textParagraph: {
+                  text: "<b>Changelog</b><br>\($changelog)"
+                }
+              }]
+            }]
+          }]
+        }' | curl -X POST -H 'Content-Type: application/json' -d @- "$url"
