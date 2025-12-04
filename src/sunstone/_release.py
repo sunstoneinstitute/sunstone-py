@@ -13,6 +13,17 @@ import sys
 from datetime import date
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+
+try:
+    import tomli_w
+except ModuleNotFoundError:
+    print("Error: tomli_w not found. Install with: uv add --dev tomli-w", file=sys.stderr)
+    sys.exit(1)
+
 
 def get_root_dir() -> Path:
     """Get the root directory (where pyproject.toml lives)."""
@@ -216,12 +227,13 @@ def confirm_release(new_version: str) -> bool:
 def get_current_version() -> str:
     """Get the current version from pyproject.toml."""
     pyproject_path = get_root_dir() / "pyproject.toml"
-    content = pyproject_path.read_text()
-    match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-    if not match:
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+    version = data.get("project", {}).get("version")
+    if not version:
         print("Error: Could not find version in pyproject.toml", file=sys.stderr)
         sys.exit(1)
-    return match.group(1)
+    return str(version)
 
 
 def bump_version(version: str, bump: str) -> str:
@@ -244,14 +256,13 @@ def bump_version(version: str, bump: str) -> str:
 def update_pyproject_version(new_version: str) -> None:
     """Update the version in pyproject.toml."""
     pyproject_path = get_root_dir() / "pyproject.toml"
-    content = pyproject_path.read_text()
-    new_content = re.sub(
-        r'^(version\s*=\s*)"[^"]+"',
-        f'\\1"{new_version}"',
-        content,
-        flags=re.MULTILINE,
-    )
-    pyproject_path.write_text(new_content)
+    with open(pyproject_path, "rb") as f:
+        data = tomllib.load(f)
+
+    data["project"]["version"] = new_version
+
+    with open(pyproject_path, "wb") as f:
+        tomli_w.dump(data, f)
 
 
 def update_changelog(new_version: str) -> None:
