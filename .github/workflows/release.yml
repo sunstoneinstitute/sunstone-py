@@ -89,7 +89,7 @@ jobs:
         version="${GITHUB_REF#refs/tags/v}"
         message="New release of sunstone-py available: $version"
         changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
-        jq --arg message "$message" --arg changelog "$changelog" '{
+        jq -n --arg message "$message" --arg changelog "$changelog" '{
           text: $message,
           cards: [{
             sections: [{
