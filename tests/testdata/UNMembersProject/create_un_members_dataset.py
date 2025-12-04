@@ -147,7 +147,6 @@ def process_un_members(dataset_slug: Optional[str] = None) -> pd.DataFrame:
 
     # Create DataFrame preserving lineage from source
     un_members_periods = pd.DataFrame(period_rows, lineage=un_members_raw.lineage, project_path=PROJECT_PATH)
-    un_members_periods.lineage.add_operation("expand_to_periods")
 
     # Country rollup - groupby returns regular pandas, need to wrap back
     country_status_data = (
@@ -184,7 +183,6 @@ def process_un_members(dataset_slug: Optional[str] = None) -> pd.DataFrame:
 
     # Wrap in Sunstone DataFrame with lineage
     current_members = pd.DataFrame(current_members_data, lineage=un_members_periods.lineage, project_path=PROJECT_PATH)
-    current_members.lineage.add_operation("filter_active_members")
 
     logger.info("Identified %d current UN members", len(current_members))
     return current_members
@@ -266,9 +264,6 @@ def enrich_with_iso_codes(current_members: pd.DataFrame, country_col: str = "Mem
 
     # Reorder columns
     result = result[["Country", "Alpha-2 Code", "Alpha-3 Code", "Date of Admission"]]
-
-    # Track enrichment operation in lineage
-    result.lineage.add_operation("enrich_with_iso_codes")
 
     return result
 

@@ -196,7 +196,6 @@ class DataFrame:
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
         lineage.add_source(dataset)
-        lineage.add_operation(f"read_dataset({dataset.slug}, format={format})")
 
         # Return wrapped DataFrame
         return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
@@ -294,7 +293,6 @@ class DataFrame:
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
         lineage.add_source(dataset)
-        lineage.add_operation(f"read_csv({dataset.slug})")
 
         # Return wrapped DataFrame
         return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
@@ -363,9 +361,6 @@ class DataFrame:
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
         self.data.to_csv(absolute_path, **kwargs)
 
-        # Record the operation
-        self.lineage.add_operation(f"to_csv({dataset.slug})")
-
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(slug=dataset.slug, lineage=self.lineage, strict=self.strict_mode)
 
@@ -410,11 +405,8 @@ class DataFrame:
         # Perform the merge
         merged_data = pd.merge(self.data, right.data, **kwargs)
 
-        # Combine lineage
+        # Combine lineage (sources from both DataFrames)
         merged_lineage = self.lineage.merge(right.lineage)
-        merged_lineage.add_operation(
-            f"merge(left={len(self.lineage.sources)} sources, right={len(right.lineage.sources)} sources)"
-        )
 
         return DataFrame(
             data=merged_data,
@@ -437,11 +429,8 @@ class DataFrame:
         # Perform the join
         joined_data = self.data.join(other.data, **kwargs)
 
-        # Combine lineage
+        # Combine lineage (sources from both DataFrames)
         joined_lineage = self.lineage.merge(other.lineage)
-        joined_lineage.add_operation(
-            f"join(left={len(self.lineage.sources)} sources, right={len(other.lineage.sources)} sources)"
-        )
 
         return DataFrame(
             data=joined_data,
@@ -467,15 +456,10 @@ class DataFrame:
         # Concatenate
         concatenated_data = pd.concat(all_dfs, **kwargs)
 
-        # Combine lineage from all DataFrames
+        # Combine lineage (sources from all DataFrames)
         combined_lineage = self.lineage
         for other in others:
             combined_lineage = combined_lineage.merge(other.lineage)
-
-        combined_lineage.add_operation(
-            f"concat({len(others) + 1} dataframes, "
-            f"{sum(len(df.lineage.sources) for df in [self] + others)} total sources)"
-        )
 
         return DataFrame(
             data=concatenated_data,
@@ -484,42 +468,12 @@ class DataFrame:
             project_path=self.lineage.project_path,
         )
 
-    def apply_operation(self, operation: Callable[[pd.DataFrame], pd.DataFrame], description: str) -> "DataFrame":
-        """
-        Apply a transformation operation to the DataFrame.
-
-        Args:
-            operation: Function that takes a pandas DataFrame and returns a DataFrame.
-            description: Human-readable description of the operation.
-
-        Returns:
-            A new DataFrame with the operation applied and recorded in lineage.
-        """
-        # Apply the operation
-        new_data = operation(self.data)
-
-        # Copy lineage and add operation
-        new_lineage = LineageMetadata(
-            sources=self.lineage.sources.copy(),
-            operations=self.lineage.operations.copy(),
-            project_path=self.lineage.project_path,
-        )
-        new_lineage.add_operation(description)
-
-        return DataFrame(
-            data=new_data,
-            lineage=new_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
-        )
-
-    def _wrap_result(self, result: Any, operation: Optional[str] = None) -> Any:
+    def _wrap_result(self, result: Any) -> Any:
         """
         Wrap a pandas result in a Sunstone DataFrame if applicable.
 
         Args:
             result: The result from a pandas operation.
-            operation: Name of the operation performed. If None, no operation is recorded.
 
         Returns:
             Wrapped DataFrame if result is a DataFrame, otherwise the result.
@@ -527,11 +481,8 @@ class DataFrame:
         if isinstance(result, pd.DataFrame):
             new_lineage = LineageMetadata(
                 sources=self.lineage.sources.copy(),
-                operations=self.lineage.operations.copy(),
                 project_path=self.lineage.project_path,
             )
-            if operation is not None:
-                new_lineage.add_operation(operation)
 
             return DataFrame(
                 data=result,
@@ -540,28 +491,6 @@ class DataFrame:
                 project_path=self.lineage.project_path,
             )
         return result
-
-    # Methods that don't represent meaningful data transformations
-    # These return DataFrames but shouldn't be tracked in lineage
-    _NON_TRACKING_METHODS = frozenset(
-        {
-            # Copy operations - same data, no transformation
-            "copy",
-            # Index operations - same data, different index
-            "reset_index",
-            "set_index",
-            "reindex",
-            # Type conversions without data change
-            "astype",
-            "infer_objects",
-            # Column/index renaming - same data, different labels
-            "rename",
-            "rename_axis",
-            # Reshaping without data loss
-            "T",
-            "transpose",
-        }
-    )
 
     def __getattr__(self, name: str) -> Any:
         """
@@ -583,14 +512,11 @@ class DataFrame:
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 result = attr(*args, **kwargs)
-                # Don't track non-transforming methods
-                if name in DataFrame._NON_TRACKING_METHODS:
-                    return self._wrap_result(result, operation=None)
-                return self._wrap_result(result, operation=f"{name}")
+                return self._wrap_result(result)
 
             return wrapper
 
-        return self._wrap_result(attr, operation=None)  # Don't track attribute access
+        return self._wrap_result(attr)
 
     def __getitem__(self, key: Any) -> Any:
         """
@@ -603,9 +529,7 @@ class DataFrame:
             The item from the underlying DataFrame, wrapped if it's a DataFrame.
         """
         result = self.data[key]
-        # Don't track __getitem__ as an operation - it's just column/row access
-        # not a meaningful transformation
-        return self._wrap_result(result, operation=None)
+        return self._wrap_result(result)
 
     def __setitem__(self, key: Any, value: Any) -> None:
         """
@@ -616,14 +540,12 @@ class DataFrame:
             value: Value to assign.
         """
         self.data[key] = value
-        # Track column assignment in lineage
-        self.lineage.add_operation(f"__setitem__({key!r})")
+        # Don't track column assignments automatically
+        # Users should use add_operation() for meaningful transformations
 
     def __repr__(self) -> str:
         """String representation of the DataFrame."""
-        lineage_info = (
-            f"\n\nLineage: {len(self.lineage.sources)} source(s), {len(self.lineage.operations)} operation(s)"
-        )
+        lineage_info = f"\n\nLineage: {len(self.lineage.sources)} source(s)"
         return repr(self.data) + lineage_info
 
     def __str__(self) -> str:

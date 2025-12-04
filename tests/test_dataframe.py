@@ -25,20 +25,19 @@ class TestDataFrameBasics:
         assert len(df.data) > 0
         assert len(df.data.columns) > 0
         assert len(df.lineage.sources) > 0
-        assert df.lineage.operations is not None
 
-    def test_apply_operation(self, project_path: Path) -> None:
-        """Test applying an operation to a DataFrame."""
+    def test_head_preserves_lineage(self, project_path: Path) -> None:
+        """Test that head() preserves lineage."""
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
             project_path=project_path,
             strict=False,
         )
 
-        filtered = df.apply_operation(lambda d: d.head(10), description="Select first 10 rows")
+        filtered = df.head(10)
 
         assert len(filtered.data) == 10
-        assert len(filtered.lineage.operations) > len(df.lineage.operations)
+        assert len(filtered.lineage.sources) == len(df.lineage.sources)
 
     def test_read_second_dataset(self, project_path: Path) -> None:
         """Test reading the same dataset twice creates separate lineage."""
@@ -68,10 +67,7 @@ class TestDataFrameMerge:
             strict=False,
         )
         # Filter to create a subset
-        return df.apply_operation(
-            lambda d: d[d["ISO Code"].notna()].head(50),
-            description="Select first 50 countries with ISO codes",
-        )
+        return df[df.data["ISO Code"].notna()].head(50)
 
     @pytest.fixture
     def un_members_df2(self, project_path: Path) -> Any:
@@ -82,10 +78,7 @@ class TestDataFrameMerge:
             strict=False,
         )
         # Select different columns as a second dataset
-        return df.apply_operation(
-            lambda d: d[["Member State", "ISO Code", "Start date"]].dropna(),
-            description="Select subset of columns",
-        )
+        return df[["Member State", "ISO Code", "Start date"]].dropna()
 
     def test_merge_dataframes(self, un_members_df1: Any, un_members_df2: Any) -> None:
         """Test merging two DataFrames."""
@@ -95,7 +88,6 @@ class TestDataFrameMerge:
         assert len(merged.data) > 0
         # Both sources come from the same file, but lineage should track them separately
         assert len(merged.lineage.sources) >= 1
-        assert len(merged.lineage.operations) > 0
 
     def test_merge_lineage_tracking(self, un_members_df1: Any, un_members_df2: Any) -> None:
         """Test that merge properly tracks lineage."""
@@ -117,11 +109,9 @@ class TestLineageMetadata:
             project_path=project_path,
             strict=False,
         )
-        # Apply some operations to build lineage
-        filtered = un_members.apply_operation(
-            lambda d: d[d["ISO Code"].notna()], description="Filter countries with ISO codes"
-        )
-        return filtered.apply_operation(lambda d: d.head(100), description="Select first 100 countries")
+        # Apply some operations
+        filtered = un_members[un_members.data["ISO Code"].notna()]
+        return filtered.head(100)
 
     def test_lineage_to_dict(self, processed_df: Any) -> None:
         """Test converting lineage to dictionary."""
@@ -129,11 +119,8 @@ class TestLineageMetadata:
 
         assert lineage_dict is not None
         assert "sources" in lineage_dict
-        assert "operations" in lineage_dict
         assert "created_at" in lineage_dict
-        assert "licenses" in lineage_dict
         assert len(lineage_dict["sources"]) > 0
-        assert len(lineage_dict["operations"]) > 0
 
 
 class TestStrictMode:
@@ -172,8 +159,8 @@ class TestReadDataset:
         assert len(df.data) > 0
         assert len(df.data.columns) > 0
         assert len(df.lineage.sources) > 0
-        # Check that the lineage operation mentions the format
-        assert any("format=csv" in op for op in df.lineage.operations)
+        # Check that the source is tracked
+        assert df.lineage.sources[0].slug == "official-un-member-states"
 
     def test_read_dataset_with_explicit_format(self, project_path: Path) -> None:
         """Test reading a dataset with explicit format override."""
@@ -186,7 +173,7 @@ class TestReadDataset:
 
         assert df is not None
         assert len(df.data) > 0
-        assert any("format=csv" in op for op in df.lineage.operations)
+        assert len(df.lineage.sources) > 0
 
     def test_read_dataset_slug_not_found(self, project_path: Path) -> None:
         """Test that reading non-existent slug raises error."""
@@ -221,5 +208,5 @@ class TestReadDataset:
 
         assert df is not None
         assert len(df.data) > 0
-        # Should have the read_dataset operation in lineage
-        assert any("read_dataset" in op for op in df.lineage.operations)
+        # Check that the source is tracked
+        assert len(df.lineage.sources) > 0

@@ -93,15 +93,11 @@ class LineageMetadata:
     """
     Lineage metadata tracking the provenance of data in a DataFrame.
 
-    This tracks all source datasets that contributed to the current DataFrame,
-    including information about transformations and operations performed.
+    This tracks all source datasets that contributed to the current DataFrame.
     """
 
     sources: List[DatasetMetadata] = field(default_factory=list)
     """List of source datasets that contributed to this data."""
-
-    operations: List[str] = field(default_factory=list)
-    """List of operations performed on the data."""
 
     created_at: datetime = field(default_factory=datetime.now)
     """Timestamp when this lineage was created."""
@@ -119,15 +115,6 @@ class LineageMetadata:
         if dataset not in self.sources:
             self.sources.append(dataset)
 
-    def add_operation(self, operation: str) -> None:
-        """
-        Record an operation performed on the data.
-
-        Args:
-            operation: Description of the operation.
-        """
-        self.operations.append(operation)
-
     def merge(self, other: "LineageMetadata") -> "LineageMetadata":
         """
         Merge lineage from another DataFrame.
@@ -136,11 +123,10 @@ class LineageMetadata:
             other: The other lineage metadata to merge.
 
         Returns:
-            A new LineageMetadata with combined sources and operations.
+            A new LineageMetadata with combined sources.
         """
         merged = LineageMetadata(
             sources=self.sources.copy(),
-            operations=self.operations.copy(),
             created_at=datetime.now(),
             project_path=self.project_path or other.project_path,
         )
@@ -149,9 +135,6 @@ class LineageMetadata:
         for source in other.sources:
             if source not in merged.sources:
                 merged.sources.append(source)
-
-        # Combine operations
-        merged.operations.extend(other.operations)
 
         return merged
 
@@ -178,13 +161,11 @@ class LineageMetadata:
         return {
             "sources": [
                 {
-                    "name": src.name,
                     "slug": src.slug,
+                    "name": src.name,
                     "location": src.location,
                 }
                 for src in self.sources
             ],
-            "operations": self.operations,
             "created_at": self.created_at.isoformat(),
-            "licenses": self.get_licenses(),
         }

@@ -131,10 +131,11 @@ class TestSelectionAndIndexing:
         """Test setting column values like pandas."""
         # Create a copy to avoid modifying fixture
         df = sample_df.head()
+        initial_sources = len(df.lineage.sources)
         df["test_column"] = "test_value"
         assert "test_column" in df.columns
-        # Lineage should track this operation
-        assert any("setitem" in op.lower() for op in df.lineage.operations)
+        # Lineage sources should be preserved
+        assert len(df.lineage.sources) == initial_sources
 
 
 class TestDataManipulation:

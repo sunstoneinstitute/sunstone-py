@@ -414,12 +414,10 @@ class DatasetsManager:
                 {
                     "slug": src.slug,
                     "name": src.name,
+                    "location": src.location,
                 }
                 for src in lineage.sources
             ]
-
-        if lineage.operations:
-            lineage_data["operations"] = lineage.operations.copy()
 
         if lineage.created_at:
             lineage_data["created_at"] = lineage.created_at.isoformat()
