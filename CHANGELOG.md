@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.3] - 2025-12-04
+
+### Added
+- Output dataset timestamps now update only if content hash changes
+
 ## [0.5.2] - 2025-12-04
 
 ### Housekeeping
