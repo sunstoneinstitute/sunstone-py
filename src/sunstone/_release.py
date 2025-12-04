@@ -164,29 +164,12 @@ def get_last_tag() -> str | None:
 def generate_changelog_from_git() -> str:
     """Generate changelog entries from git commits since last tag using Claude."""
     last_tag = get_last_tag()
-    if last_tag:
-        commit_range = f"{last_tag}..HEAD"
-    else:
-        commit_range = "HEAD"
-
-    # Get commits since last tag
-    result = run_git("log", commit_range, "--pretty=format:%s")
-    if result.returncode != 0 or not result.stdout.strip():
-        return ""
-
-    commits = result.stdout.strip()
-
-    prompt = f"""Convert these git commit messages into Keep a Changelog format entries.
-Categorize under: Added, Changed, Fixed, Removed, Security (only include categories that apply).
-Be concise. Skip merge commits, version bump commits, and release commits.
-Output ONLY the markdown entries with ### headers for categories, nothing else.
-
-Commits:
-{commits}"""
+    if last_tag is None:
+        last_tag = "HEAD~1"
 
     print("Generating changelog entries with Claude...")
     claude_result = subprocess.run(
-        ["claude", "-p", "--model=haiku", prompt],
+        ["claude", "-p", f"/generate-changelog {last_tag}"],
         capture_output=True,
         text=True,
         cwd=get_root_dir(),
