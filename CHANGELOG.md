@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-12-04
+
+### Housekeeping
+- Drop support for Python 3.11
+
 ## [0.5.1] - 2025-12-04
 
 ### Added

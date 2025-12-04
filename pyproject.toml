@@ -1,16 +1,18 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sunstone-py"
-version = "0.5.1"
+version = "0.5.2"
 description = "Python library for managing datasets with lineage tracking in Sunstone projects"
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
 authors = [
-    {name = "Sunstone Institute", email = "stig@sunstone.institute"}
+    { name = "Sunstone Institute", email = "stig@sunstone.institute" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -21,7 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-
 dependencies = [
     "frictionless>=5.18.1",
     "google-auth>=2.43.0",
@@ -30,6 +31,9 @@ dependencies = [
     "requests>=2.31.0",
     "ruamel-yaml>=0.18",
 ]
+
+[project.license]
+text = "MIT"
 
 [project.urls]
 Homepage = "https://github.com/sunstoneinstitute/sunstone-py"
@@ -40,10 +44,14 @@ Repository = "https://github.com/sunstoneinstitute/sunstone-py"
 release = "sunstone._release:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = [
+    "src",
+]
 
 [tool.setuptools.package-data]
-sunstone = ["py.typed"]
+sunstone = [
+    "py.typed",
+]
 
 [tool.ruff]
 line-length = 120
