@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-12-04
+
+### Added
+- Post notifications to Google Chat when a new release is published
+
 ## [0.5.0] - 2025-12-04
 
 ### Fixed
