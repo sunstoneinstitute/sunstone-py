@@ -101,3 +101,48 @@ jobs:
             }]
           }]
         }' | curl -X POST -H 'Content-Type: application/json' -d @- "$url"
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Extract version from tag
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"
+
+    - name: Extract release notes from CHANGELOG.md
+      run: |
+        {
+          echo "CHANGELOG<<__EOF__"
+          sed -ne "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '1d;$d'
+          echo "__EOF__"
+        } >> "$GITHUB_ENV"
+
+    - name: Extract installation section from README.md
+      run: |
+        {
+          echo "INSTALLATION<<__EOF__"
+          sed -ne "/## Installation/,/## /p" README.md | sed '$d'
+          echo "__EOF__"
+        } >> "$GITHUB_ENV"
+
+    - name: Create GitHub Release
+      run: |
+        gh release create "v$VERSION" \
+          --title "v$VERSION" \
+          --notes "<details>
+        <summary>Changelog for v$VERSION</summary>
+
+        $CHANGELOG
+
+        </details>
+
+        See the <a href='https://sunstone-data.github.io/sunstone-py/$VERSION/'>documentation</a> for detailed docs.
+
+        $INSTALLATION"
+      env:
+        GH_TOKEN: ${{ github.token }}
+      continue-on-error: true
