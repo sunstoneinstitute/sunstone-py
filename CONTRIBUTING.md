@@ -6,7 +6,7 @@ Thank you for your interest in contributing to sunstone-py! This document provid
 
 ### Prerequisites
 
-- Python 3.10 or newer
+- Python 3.12 or newer
 - [uv](https://github.com/astral-sh/uv) package manager
 
 ### Installation
