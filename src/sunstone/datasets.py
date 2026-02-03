@@ -15,7 +15,7 @@ import requests
 from ruamel.yaml import YAML
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
-from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Source, SourceLocation
+from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, PublishConfig, Source, SourceLocation
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +156,26 @@ class DatasetsManager:
             for field in fields_data
         ]
 
+    def _parse_publish(self, publish_data: Any) -> Optional[PublishConfig]:
+        """
+        Parse publish configuration from YAML.
+
+        Supports both legacy boolean format and new object format:
+        - publish: true -> PublishConfig(enabled=True)
+        - publish: false -> None
+        - publish: { enabled: true, to: "..." } -> PublishConfig(enabled=True, to="...")
+        """
+        if publish_data is None:
+            return None
+        if isinstance(publish_data, bool):
+            return PublishConfig(enabled=publish_data) if publish_data else None
+        if isinstance(publish_data, dict):
+            enabled = publish_data.get("enabled", False)
+            if not enabled:
+                return None
+            return PublishConfig(enabled=True, to=publish_data.get("to"))
+        return None
+
     def _parse_dataset(self, dataset_data: Dict[str, Any], dataset_type: str) -> DatasetMetadata:
         """
         Parse dataset metadata from YAML data.
@@ -177,7 +197,8 @@ class DatasetsManager:
             location=dataset_data["location"],
             fields=self._parse_fields(dataset_data["fields"]),
             source=source,
-            publish=dataset_data.get("publish", False),
+            publish=self._parse_publish(dataset_data.get("publish")),
+            strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,
         )
 
@@ -379,6 +400,33 @@ class DatasetsManager:
                 return self._parse_dataset(dataset_data, "output")
 
         raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
+
+    def set_dataset_strict(self, slug: str, strict: bool, dataset_type: Optional[str] = None) -> None:
+        """
+        Set or remove strict mode for a dataset.
+
+        Args:
+            slug: The slug of the dataset to update.
+            strict: If True, enable strict mode. If False, disable it.
+            dataset_type: Optional filter by 'input' or 'output'. If None, searches both.
+
+        Raises:
+            DatasetNotFoundError: If the dataset doesn't exist.
+        """
+        search_types = ["input", "output"] if dataset_type is None else [dataset_type]
+
+        for dtype in search_types:
+            key = "inputs" if dtype == "input" else "outputs"
+            for dataset_data in self._data.get(key, []):
+                if dataset_data["slug"] == slug:
+                    if strict:
+                        dataset_data["strict"] = True
+                    elif "strict" in dataset_data:
+                        del dataset_data["strict"]
+                    self._save()
+                    return
+
+        raise DatasetNotFoundError(f"Dataset with slug '{slug}' not found")
 
     def update_output_lineage(
         self, slug: str, lineage: LineageMetadata, content_hash: str, strict: bool = False
