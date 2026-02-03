@@ -364,3 +364,91 @@ class TestContentHashLineage:
         assert first_hash != second_hash
         # Timestamp SHOULD have changed since content is different
         assert first_timestamp != second_timestamp
+
+    def test_sources_written_to_datasets_yaml(self, project_path: Path, tmp_path: Path) -> None:
+        """Test that lineage sources are written to datasets.yaml on save."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        # Create a copy of the project in tmp_path
+        test_project = tmp_path / "test_project"
+        shutil.copytree(project_path, test_project)
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+
+        # Verify lineage has sources before save
+        assert len(df.lineage.sources) > 0
+        source_slug = df.lineage.sources[0].slug
+
+        # Write the output
+        output_path = "outputs/source_tracking_output.csv"
+        df.to_csv(output_path, slug="source-tracking-output", name="Source Tracking Output", index=False)
+
+        # Read the datasets.yaml
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        # Find the output dataset
+        output = next((d for d in data.get("outputs", []) if d["slug"] == "source-tracking-output"), None)
+        assert output is not None
+        assert "lineage" in output
+        assert "sources" in output["lineage"]
+
+        # Sources should be a list of dicts with just slug
+        sources = output["lineage"]["sources"]
+        assert len(sources) > 0
+        assert sources[0] == {"slug": source_slug}
+
+    def test_sources_updated_on_existing_output(self, project_path: Path, tmp_path: Path) -> None:
+        """Test that sources are updated when writing to an existing output."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        # Create a copy of the project in tmp_path
+        test_project = tmp_path / "test_project"
+        shutil.copytree(project_path, test_project)
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+
+        output_path = "outputs/update_sources_output.csv"
+
+        # First write
+        df.to_csv(output_path, slug="update-sources-output", name="Update Sources Output", index=False)
+
+        # Read dataset.yaml and verify sources
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next((d for d in data.get("outputs", []) if d["slug"] == "update-sources-output"), None)
+        assert output is not None
+        assert "sources" in output["lineage"]
+        assert len(output["lineage"]["sources"]) == 1
+
+        # Write again - sources should still be present
+        df2 = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        df2.to_csv(output_path, slug="update-sources-output", name="Update Sources Output", index=False)
+
+        # Verify sources are still there
+        with open(test_project / "datasets.yaml") as f:
+            data2 = yaml.load(f)
+
+        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "update-sources-output"), None)
+        assert output2 is not None
+        assert "sources" in output2["lineage"]
+        assert len(output2["lineage"]["sources"]) == 1

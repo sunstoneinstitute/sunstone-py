@@ -429,22 +429,13 @@ class DatasetsManager:
             # Preserve existing timestamp
             timestamp = existing_timestamp
 
-        # Build lineage metadata to add
+        # Build lineage metadata to add (order: content_hash, created_at, sources)
         lineage_data: dict[str, Any] = {}
-
-        if lineage.sources:
-            lineage_data["sources"] = [
-                {
-                    "slug": src.slug,
-                    "name": src.name,
-                    "location": src.location,
-                }
-                for src in lineage.sources
-            ]
-
         lineage_data["content_hash"] = content_hash
         if timestamp:
             lineage_data["created_at"] = timestamp
+        if lineage.sources:
+            lineage_data["sources"] = [{"slug": src.slug} for src in lineage.sources]
 
         # Create a copy of the data with updated lineage
         updated_data = self._data.copy()
