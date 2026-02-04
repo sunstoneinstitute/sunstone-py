@@ -12,6 +12,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import click
+from click.shell_completion import CompletionItem
 from ruamel.yaml import YAML
 
 from .datasets import DatasetsManager
@@ -85,9 +86,7 @@ def get_manager(datasets_file: str) -> tuple[DatasetsManager, Path]:
     return manager, project_path
 
 
-def complete_dataset_slugs(
-    ctx: click.Context, param: click.Parameter, incomplete: str
-) -> list[click.shell_completion.CompletionItem]:
+def complete_dataset_slugs(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:
     """Shell completion for dataset slugs."""
     # Get the datasets file from context or use default
     datasets_file = ctx.params.get("datasets_file", "datasets.yaml")
@@ -97,7 +96,7 @@ def complete_dataset_slugs(
         all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
         slugs = [ds.slug for ds in all_datasets]
 
-        return [click.shell_completion.CompletionItem(slug) for slug in slugs if slug.startswith(incomplete)]
+        return [CompletionItem(slug) for slug in slugs if slug.startswith(incomplete)]
     except Exception:
         return []
 
@@ -512,7 +511,7 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
 
     # Upload to GCS
     try:
-        from google.cloud import storage
+        from google.cloud import storage  # type: ignore[import-untyped]
 
         client = storage.Client()
         bucket = client.bucket(bucket_name)
