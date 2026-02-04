@@ -9,7 +9,32 @@ on:
     branches: [ main ]
 
 jobs:
+  check-skip:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.check.outputs.should_skip }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if release commit with only CHANGELOG.md
+        id: check
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          if [[ "$COMMIT_MSG" =~ ^Release\ v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            if [[ "$CHANGED_FILES" == "CHANGELOG.md" ]]; then
+              echo "should_skip=true" >> "$GITHUB_OUTPUT"
+              echo "Skipping tests: release commit with only CHANGELOG.md changes"
+              exit 0
+            fi
+          fi
+          echo "should_skip=false" >> "$GITHUB_OUTPUT"
+
   lint:
+    needs: check-skip
+    if: needs.check-skip.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -35,6 +60,8 @@ jobs:
       run: uv run mypy src/sunstone
 
   test:
+    needs: check-skip
+    if: needs.check-skip.outputs.should_skip != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
