@@ -68,13 +68,16 @@ class FieldSchema:
 
 @dataclass
 class PublishConfig:
-    """Configuration for publishing a dataset."""
+    """Configuration for publishing datasets."""
 
     enabled: bool = False
     """Whether publishing is enabled."""
 
     to: Optional[str] = None
-    """Optional destination URL (supports ${VAR:-default} substitution)."""
+    """Destination URL or path. If not ending in .json, /datapackage.json is appended."""
+
+    flatten: bool = False
+    """If true, ignore directory structure and put all files in the same directory as datapackage.json."""
 
 
 @dataclass
@@ -96,19 +99,11 @@ class DatasetMetadata:
     source: Optional[Source] = None
     """Source attribution (for input datasets)."""
 
-    publish: Optional[PublishConfig] = None
-    """Publishing configuration (for output datasets)."""
-
     strict: bool = False
     """Whether strict mode is enabled (lineage cannot be modified)."""
 
     dataset_type: str = "input"
     """Type of dataset: 'input' or 'output'."""
-
-    @property
-    def is_publishable(self) -> bool:
-        """Check if this dataset is configured for publishing."""
-        return self.publish is not None and self.publish.enabled
 
 
 def compute_dataframe_hash(df: "pd.DataFrame") -> str:

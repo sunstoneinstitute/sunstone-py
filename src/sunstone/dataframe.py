@@ -308,7 +308,6 @@ class DataFrame:
         path_or_buf: Union[str, Path],
         slug: Optional[str] = None,
         name: Optional[str] = None,
-        publish: bool = False,
         **kwargs: Any,
     ) -> None:
         """
@@ -321,7 +320,6 @@ class DataFrame:
             path_or_buf: File path for the output CSV.
             slug: Dataset slug (required in relaxed mode if not registered).
             name: Dataset name (required in relaxed mode if not registered).
-            publish: bool = False,
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
@@ -352,9 +350,7 @@ class DataFrame:
                 fields = self._infer_field_schema()
 
                 # Register the new output
-                dataset = manager.add_output_dataset(
-                    name=name, slug=slug, location=location, fields=fields, publish=publish
-                )
+                dataset = manager.add_output_dataset(name=name, slug=slug, location=location, fields=fields)
 
         # Write the CSV
         absolute_path = manager.get_absolute_path(dataset.location)

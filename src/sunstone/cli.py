@@ -138,6 +138,16 @@ def dataset_list(datasets_file: str) -> None:
 
     inputs = manager.get_all_inputs()
     outputs = manager.get_all_outputs()
+    publish_config = manager.get_publish_config()
+
+    # Show publish configuration if present
+    if publish_config and publish_config.enabled:
+        click.echo("Publishing:")
+        if publish_config.to:
+            click.echo(f"  to: {publish_config.to}")
+        if publish_config.flatten:
+            click.echo("  flatten: true")
+        click.echo()
 
     if inputs:
         click.echo("Inputs:")
@@ -154,8 +164,6 @@ def dataset_list(datasets_file: str) -> None:
         click.echo("Outputs:")
         for ds in outputs:
             flags = []
-            if ds.is_publishable:
-                flags.append("publish")
             if ds.strict:
                 flags.append("strict")
             flag_str = f" [{', '.join(flags)}]" if flags else ""
@@ -438,7 +446,7 @@ def package_build(datasets_file: str, output_file: str) -> None:
 def package_push(env: str, datasets_file: str, destination: Optional[str]) -> None:
     """Push the data package to Google Cloud Storage.
 
-    Uploads datapackage.json and all publishable output datasets.
+    Uploads datapackage.json and all output datasets.
     """
     try:
         manager, project_path = get_manager(datasets_file)
@@ -446,11 +454,15 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    outputs = manager.get_all_outputs()
-    publishable = [ds for ds in outputs if ds.is_publishable]
+    # Get publish config
+    publish_config = manager.get_publish_config()
+    if not publish_config or not publish_config.enabled:
+        click.echo("Error: Publishing not enabled (need publish.enabled: true at top level)", err=True)
+        sys.exit(1)
 
-    if not publishable:
-        click.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
+    outputs = manager.get_all_outputs()
+    if not outputs:
+        click.echo("Error: No output datasets found", err=True)
         sys.exit(1)
 
     project_slug = get_project_slug(project_path)
@@ -458,9 +470,8 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
     # Determine destination
     if destination:
         dest_url = expand_env_vars(destination)
-    elif publishable[0].publish and publishable[0].publish.to:
-        # Use first dataset's publish.to as package destination
-        dest_url = expand_env_vars(publishable[0].publish.to)
+    elif publish_config.to:
+        dest_url = expand_env_vars(publish_config.to)
     else:
         dest_url = f"gs://payloadcms-{env}/datasets/projects/{project_slug}/"
 
@@ -469,10 +480,26 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         click.echo(f"Error: Destination must be a gs:// URL, got: {dest_url}", err=True)
         sys.exit(1)
 
+    # Resolve datapackage.json path and base directory
+    # If dest_url doesn't end with .json, treat it as a directory and append /datapackage.json
+    if not dest_url.endswith(".json"):
+        if not dest_url.endswith("/"):
+            dest_url += "/"
+        datapackage_url = dest_url + "datapackage.json"
+    else:
+        datapackage_url = dest_url
+
+    # Parse the final datapackage URL to get bucket and paths
+    parsed = urlparse(datapackage_url)
     bucket_name = parsed.netloc
-    gcs_prefix = parsed.path.lstrip("/")
-    if gcs_prefix and not gcs_prefix.endswith("/"):
-        gcs_prefix += "/"
+    datapackage_path = parsed.path.lstrip("/")
+
+    # Base directory is the directory containing datapackage.json
+    base_dir = str(Path(datapackage_path).parent)
+    if base_dir and base_dir != ".":
+        base_dir = base_dir + "/"
+    else:
+        base_dir = ""
 
     # Build the datapackage
     try:
@@ -482,21 +509,32 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         sys.exit(1)
 
     resources = []
-    data_files: list[tuple[Path, str]] = []  # (local_path, remote_name)
+    data_files: list[tuple[Path, str, str]] = []  # (local_path, remote_path, resource_path)
 
-    for ds in publishable:
+    for ds in outputs:
         data_path = manager.get_absolute_path(ds.location)
         if not data_path.exists():
             click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
             continue
 
         try:
+            # Determine paths based on flatten setting
+            if publish_config.flatten:
+                # Flatten: just use the filename
+                resource_path = data_path.name
+                remote_path = base_dir + data_path.name
+            else:
+                # Preserve directory structure from location
+                # location is relative to project, e.g., "outputs/data/file.csv"
+                resource_path = ds.location
+                remote_path = base_dir + ds.location
+
             resource = describe(str(data_path))
             resource.name = ds.slug
             resource.title = ds.name
-            resource.path = data_path.name  # Just the filename in the package
+            resource.path = resource_path  # Path as it appears in datapackage.json
             resources.append(resource.to_dict())
-            data_files.append((data_path, data_path.name))
+            data_files.append((data_path, remote_path, resource_path))
         except Exception as e:
             click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
 
@@ -517,17 +555,17 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         bucket = client.bucket(bucket_name)
 
         # Upload datapackage.json
-        datapackage_blob = bucket.blob(f"{gcs_prefix}datapackage.json")
+        datapackage_blob = bucket.blob(datapackage_path)
         datapackage_blob.upload_from_string(json.dumps(datapackage, indent=2), content_type="application/json")
-        click.echo("✓ Uploaded datapackage.json")
+        click.echo(f"✓ Uploaded {datapackage_path}")
 
         # Upload data files
-        for local_path, remote_name in data_files:
-            data_blob = bucket.blob(f"{gcs_prefix}{remote_name}")
+        for local_path, remote_path, resource_path in data_files:
+            data_blob = bucket.blob(remote_path)
             data_blob.upload_from_filename(str(local_path))
-            click.echo(f"✓ Uploaded {remote_name}")
+            click.echo(f"✓ Uploaded {resource_path}")
 
-        click.echo(f"\nPackage pushed to: gs://{bucket_name}/{gcs_prefix}")
+        click.echo(f"\n✓ Package pushed to: gs://{bucket_name}/{base_dir}")
 
     except ImportError:
         click.echo("Error: google-cloud-storage is required for push", err=True)

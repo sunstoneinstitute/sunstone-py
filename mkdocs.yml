@@ -44,7 +44,13 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Reference:
+  - Getting Started:
+      - Quick Start: quickstart.md
+      - CLI Guide: cli.md
+      - Core Concepts: concepts.md
+  - API Reference: api.md
+  - Examples: examples.md
+  - Data Package Standard:
       - Frictionless Data: frictionlessdata.md
-      - Data Package: datapackage.md
+      - Data Package Spec: datapackage.md
       - Metadata Extensibility: datapackage-extra-metadata.md

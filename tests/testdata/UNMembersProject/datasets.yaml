@@ -1,3 +1,7 @@
+publish:
+  enabled: true
+  to: gs://example-bucket/datasets/un-members/
+
 inputs:
   - name: Official UN Member States
     slug: official-un-member-states
@@ -51,7 +55,6 @@ outputs:
   - name: Current UN Member States
     slug: current-un-member-states
     location: outputs/current_un_member_states.csv
-    publish: true
     fields:
       - name: Country
         type: string

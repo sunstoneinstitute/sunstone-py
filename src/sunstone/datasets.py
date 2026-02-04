@@ -163,7 +163,7 @@ class DatasetsManager:
         Supports both legacy boolean format and new object format:
         - publish: true -> PublishConfig(enabled=True)
         - publish: false -> None
-        - publish: { enabled: true, to: "..." } -> PublishConfig(enabled=True, to="...")
+        - publish: { enabled: true, to: "...", flatten: false } -> PublishConfig(...)
         """
         if publish_data is None:
             return None
@@ -173,7 +173,7 @@ class DatasetsManager:
             enabled = publish_data.get("enabled", False)
             if not enabled:
                 return None
-            return PublishConfig(enabled=True, to=publish_data.get("to"))
+            return PublishConfig(enabled=True, to=publish_data.get("to"), flatten=publish_data.get("flatten", False))
         return None
 
     def _parse_dataset(self, dataset_data: Dict[str, Any], dataset_type: str) -> DatasetMetadata:
@@ -197,7 +197,6 @@ class DatasetsManager:
             location=dataset_data["location"],
             fields=self._parse_fields(dataset_data["fields"]),
             source=source,
-            publish=self._parse_publish(dataset_data.get("publish")),
             strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,
         )
@@ -318,9 +317,16 @@ class DatasetsManager:
         """
         return [self._parse_dataset(data, "output") for data in self._data.get("outputs", [])]
 
-    def add_output_dataset(
-        self, name: str, slug: str, location: str, fields: List[FieldSchema], publish: bool = False
-    ) -> DatasetMetadata:
+    def get_publish_config(self) -> Optional[PublishConfig]:
+        """
+        Get the top-level publish configuration.
+
+        Returns:
+            Publish configuration if present, None otherwise.
+        """
+        return self._parse_publish(self._data.get("publish"))
+
+    def add_output_dataset(self, name: str, slug: str, location: str, fields: List[FieldSchema]) -> DatasetMetadata:
         """
         Add a new output dataset to datasets.yaml.
 
@@ -329,7 +335,6 @@ class DatasetsManager:
             slug: Kebab-case identifier.
             location: File path for the output.
             fields: List of field schemas.
-            publish: Whether to publish this dataset.
 
         Returns:
             The newly created DatasetMetadata.
@@ -346,7 +351,6 @@ class DatasetsManager:
             "name": name,
             "slug": slug,
             "location": location,
-            "publish": publish,
             "fields": [
                 {
                     "name": field.name,

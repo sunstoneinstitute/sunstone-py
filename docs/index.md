@@ -2,17 +2,32 @@
 
 A Python library for managing datasets with lineage tracking in data science projects.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+## Overview
 
-- **Automatic Lineage Tracking**: Track data provenance through all operations automatically
-- **Dataset Management**: Integration with `datasets.yaml` for organized dataset registration
-- **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd`
-- **Strict/Relaxed Modes**: Control whether operations can modify `datasets.yaml`
-- **Validation Tools**: Check notebooks and scripts for correct import usage
-- **Full Type Hints**: Complete type hint support for better IDE integration
+sunstone-py helps data scientists and researchers build reproducible data pipelines with automatic lineage tracking. It provides a pandas-compatible API that tracks where your data comes from, what operations you perform, and maintains a complete audit trail—all with minimal changes to your existing code.
+
+## Key Features
+
+- **Automatic Lineage Tracking**: Every transformation is recorded—know exactly where your data came from and what happened to it
+- **Dataset Management**: Centralized `datasets.yaml` configuration for all data inputs and outputs
+- **Command-Line Tools**: Validate, lock, and publish datasets with the `sunstone` CLI
+- **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—use it like regular pandas
+- **Strict/Relaxed Modes**: Choose between automatic registration (exploratory) or enforced pre-registration (production)
+- **Data Package Publishing**: Build standards-compliant data packages and push to cloud storage
+- **Full Type Hints**: Complete type annotation support for better IDE integration and type safety
+
+## Why sunstone-py?
+
+**Problem:** In data science projects, it's hard to track:
+- Where did this dataset come from?
+- What transformations were applied?
+- Which outputs are derived from which inputs?
+- Is this analysis reproducible?
+
+**Solution:** sunstone-py automatically tracks all of this as you work, storing metadata in a human-readable `datasets.yaml` file and maintaining lineage through your pandas operations.
 
 ## Installation
 
@@ -24,24 +39,9 @@ uv add sunstone-py
 pip install sunstone-py
 ```
 
-To use the latest commit from github:
+### Development Installation
 
-```toml
-dependencies = [
-    "sunstone-py @ git+https://github.com/sunstoneinstitute/sunstone-py.git",
-]
-```
-
-If you are making changes to sunstone-py checked out at `~/git/sunstone-py` and testing them
-directly from your project:
-
-```toml
-dependencies = [
-    "sunstone-py @ file://${HOME}/git/sunstone-py"
-]
-```
-
-### For Development
+For local development or contributing:
 
 ```bash
 git clone https://github.com/sunstoneinstitute/sunstone-py.git
@@ -51,233 +51,169 @@ uv sync
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
+### Installing from Git
 
-## Quick Start
+To use the latest development version:
 
-### 1. Set Up Your Project with datasets.yaml
-
-Create a `datasets.yaml` file in your project directory:
-
-```yaml
-inputs:
-  - name: School Data
-    slug: school-data
-    location: data/schools.csv
-    source:
-      name: Ministry of Education
-      location:
-        data: https://example.com/schools.csv
-      attributedTo: Ministry of Education
-      acquiredAt: 2025-01-15
-      acquisitionMethod: manual-download
-      license: CC-BY-4.0
-    fields:
-      - name: school_id
-        type: string
-      - name: enrollment
-        type: integer
-
-outputs: []
+```toml
+# pyproject.toml
+dependencies = [
+    "sunstone-py @ git+https://github.com/sunstoneinstitute/sunstone-py.git",
+]
 ```
 
-### 2. Use Pandas-Like API with Lineage Tracking
+Or for local development with live changes:
+
+```toml
+dependencies = [
+    "sunstone-py @ file://${HOME}/git/sunstone-py"
+]
+```
+
+## Quick Example
 
 ```python
 from sunstone import pandas as pd
 from pathlib import Path
 
-# Set project path (where datasets.yaml lives)
 PROJECT_PATH = Path.cwd()
 
 # Read data - lineage automatically tracked
-df = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
+schools = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
 
 # Transform using familiar pandas operations
-result = df[df['enrollment'] > 100].groupby('district').sum()
+summary = schools[schools['enrollment'] > 100].groupby('district').sum()
 
-# Save with automatic lineage tracking and dataset registration
-result.to_csv(
+# Save with automatic lineage tracking
+summary.to_csv(
     'outputs/summary.csv',
     slug='school-summary',
     name='School Enrollment Summary',
     index=False
 )
+
+# Check what went into this dataset
+print(summary.lineage.sources)      # Source datasets
+print(summary.lineage.operations)   # Operations performed
+print(summary.lineage.get_licenses())  # Source licenses
 ```
 
-### 3. Check Lineage Metadata
+That's it! The lineage is automatically tracked and saved to `datasets.yaml`.
 
-```python
-# View lineage information
-print(result.lineage.sources)      # Source datasets
-print(result.lineage.operations)   # Operations performed
-print(result.lineage.get_licenses())  # All source licenses
+## What Gets Tracked?
+
+### For Every Dataset
+
+- **Metadata**: Name, description, location, schema
+- **Source Attribution**: Where the data came from, when acquired, license
+- **Lineage**: Which datasets were used to create this one
+- **Operations**: What transformations were applied
+- **Versioning**: Content hash and timestamps (only updates when data changes)
+
+### Automatically Generated
+
+When you save a DataFrame, sunstone-py:
+
+1. Registers the dataset in `datasets.yaml` (in relaxed mode)
+2. Infers the schema from your data
+3. Records all source datasets in the lineage
+4. Calculates a content hash (for change detection)
+5. Saves operation descriptions
+
+## Getting Started
+
+Ready to dive in? Here's your learning path:
+
+1. **[Quick Start](quickstart.md)** - Get up and running in 5 minutes
+2. **[Core Concepts](concepts.md)** - Understand lineage tracking and strict/relaxed modes
+3. **[CLI Guide](cli.md)** - Learn the command-line tools for dataset management
+4. **[API Reference](api.md)** - Complete API documentation
+5. **[Examples](examples.md)** - Real-world usage patterns and workflows
+
+## Common Use Cases
+
+### Research & Academia
+
+- Track data provenance for reproducible research
+- Document data sources and transformations for publications
+- Share datasets with complete lineage metadata
+- Validate analyses before publication
+
+### Production Pipelines
+
+- Enforce dataset registration with strict mode
+- Build and publish data packages to cloud storage
+- Validate datasets in CI/CD pipelines
+- Maintain audit trails for compliance
+
+### Data Science Teams
+
+- Centralized dataset catalog in `datasets.yaml`
+- Automatic schema inference and validation
+- Track which analyses depend on which datasets
+- Share work with complete documentation
+
+## Command-Line Tools
+
+The `sunstone` CLI provides tools for dataset management:
+
+```bash
+# List all datasets
+sunstone dataset list
+
+# Validate datasets.yaml structure
+sunstone dataset validate
+
+# Lock datasets for production (enable strict mode)
+sunstone dataset lock
+
+# Build a Data Package
+sunstone package build
+
+# Push to Google Cloud Storage
+sunstone package push --env prod
 ```
 
-## Core Concepts
+See the [CLI Guide](cli.md) for complete documentation.
 
-### Pandas-Like API
+## Key Concepts
 
-sunstone-py provides a drop-in replacement for pandas that adds lineage tracking:
+### Lineage Tracking
 
-```python
-from sunstone import pandas as pd
+Every DataFrame automatically tracks:
+- **Sources**: Which datasets were read
+- **Operations**: What transformations were applied
+- **Attribution**: Licenses and source information
 
-# Works like pandas, but tracks lineage
-df = pd.read_csv('input.csv', project_path='/path/to/project')
-df2 = pd.read_csv('input2.csv', project_path='/path/to/project')
-
-# All pandas operations work
-filtered = df[df['value'] > 100]
-grouped = df.groupby('category').sum()
-
-# Merge/join operations combine lineage from both sources
-merged = pd.merge(df, df2, on='key')
-concatenated = pd.concat([df, df2])
-```
+Lineage propagates through operations like merge, join, concat, and custom transformations.
 
 ### Strict vs Relaxed Mode
 
-**Relaxed Mode** (default):
+- **Relaxed Mode** (default): Auto-registers new datasets, perfect for exploration
+- **Strict Mode**: Requires pre-registration, enforces documentation for production
 
-- Writing to new outputs auto-registers them in `datasets.yaml`
-- More flexible for exploratory work
+Switch between modes per-operation, globally, or via CLI.
 
-**Strict Mode**:
+### Dataset Management
 
-- All reads and writes must be pre-registered in `datasets.yaml`
-- Ensures complete documentation of data operations
-- Enable via `strict=True` parameter or `SUNSTONE_DATAFRAME_STRICT=1` environment variable
+All datasets live in `datasets.yaml`:
+- **Inputs**: External data sources with attribution
+- **Outputs**: Generated datasets with lineage
+- **Schemas**: Field names and types
+- **Metadata**: Publishing config, strict mode flags
 
-```python
-# Enable strict mode
-df = pd.read_csv('data.csv', project_path=PROJECT_PATH, strict=True)
+Learn more in [Core Concepts](concepts.md).
 
-# Or globally
-import os
-os.environ['SUNSTONE_DATAFRAME_STRICT'] = '1'
-```
+## Integration with Data Package Standard
 
-### Validation Tools
+sunstone-py builds on the [Data Package v2](https://datapackage.org/) standard, an open specification for data distribution. You can:
 
-Check notebooks for correct import usage:
+- Build standards-compliant `datapackage.json` files
+- Publish to cloud storage (GCS, S3, etc.)
+- Integrate with tools that consume Data Packages
+- Share data with complete metadata
 
-```python
-import sunstone
-
-# Check a single notebook
-result = sunstone.check_notebook_imports('analysis.ipynb')
-print(result.summary())
-
-# Check all notebooks in project
-results = sunstone.validate_project_notebooks('/path/to/project')
-for path, result in results.items():
-    if not result.is_valid:
-        print(f"\n{path}:")
-        print(result.summary())
-```
-
-## Advanced Usage
-
-### Direct DataFrame API
-
-For more control, use the DataFrame class directly:
-
-```python
-from sunstone import DataFrame
-
-# Read with explicit parameters
-df = DataFrame.read_csv(
-    'data.csv',
-    project_path='/path/to/project',
-    strict=True
-)
-
-# Apply custom operations with lineage tracking
-result = df.apply_operation(
-    lambda d: d[d['value'] > 100],
-    description="Filter high-value rows"
-)
-
-# Access underlying pandas DataFrame
-pandas_df = result.data
-```
-
-### Managing datasets.yaml Programmatically
-
-```python
-from sunstone import DatasetsManager, FieldSchema
-
-manager = DatasetsManager('/path/to/project')
-
-# Find datasets
-dataset = manager.find_dataset_by_slug('school-data')
-dataset = manager.find_dataset_by_location('data/schools.csv')
-
-# Add new output dataset
-manager.add_output_dataset(
-    name='Analysis Results',
-    slug='analysis-results',
-    location='outputs/results.csv',
-    fields=[
-        FieldSchema(name='category', type='string'),
-        FieldSchema(name='count', type='integer'),
-        FieldSchema(name='avg_value', type='number')
-    ],
-    publish=True
-)
-```
-
-## API Reference
-
-### pandas Module
-
-Drop-in replacement for pandas with lineage tracking:
-
-- `read_csv(filepath, project_path, strict=False, **kwargs)`: Read CSV with lineage
-- `read_json(filepath, project_path, strict=False, **kwargs)`: Read JSON with lineage
-- `merge(left, right, **kwargs)`: Merge DataFrames with combined lineage
-- `concat(dfs, **kwargs)`: Concatenate DataFrames with combined lineage
-
-### DataFrame Class
-
-Main class for working with data:
-
-- `read_csv(filepath, project_path, strict=False, **kwargs)`: Read CSV with lineage tracking
-- `to_csv(path, slug, name, publish=False, **kwargs)`: Write CSV and register
-- `merge(right, **kwargs)`: Merge with another DataFrame
-- `join(other, **kwargs)`: Join with another DataFrame
-- `concat(others, **kwargs)`: Concatenate DataFrames
-- `apply_operation(operation, description)`: Apply transformation with lineage
-- `.data`: Access underlying pandas DataFrame
-- `.lineage`: Access lineage metadata
-
-### DatasetsManager Class
-
-Manage `datasets.yaml` files:
-
-- `find_dataset_by_location(location, dataset_type='input')`: Find by file path
-- `find_dataset_by_slug(slug, dataset_type='input')`: Find by slug
-- `get_all_inputs()`: Get all input datasets
-- `get_all_outputs()`: Get all output datasets
-- `add_output_dataset(...)`: Register new output
-- `update_output_dataset(...)`: Update existing output
-
-### Validation Functions
-
-- `check_notebook_imports(notebook_path)`: Validate a single notebook
-- `validate_project_notebooks(project_path)`: Validate all notebooks in project
-
-### Exceptions
-
-- `SunstoneError`: Base exception
-- `DatasetNotFoundError`: Dataset not found in datasets.yaml
-- `StrictModeError`: Operation blocked in strict mode
-- `DatasetValidationError`: Validation failed
-- `LineageError`: Lineage tracking error
-
-## Environment Variables
-
-- `SUNSTONE_DATAFRAME_STRICT`: Set to `"1"` or `"true"` to enable strict mode globally
+See [Data Package Standard](datapackage.md) for the full specification.
 
 ## Development
 
@@ -290,15 +226,33 @@ uv run pytest
 ### Type Checking
 
 ```bash
-uv run mypy src/sunstone
+uv run mypy
 ```
 
 ### Linting and Formatting
 
 ```bash
-uv run ruff check src/sunstone
-uv run ruff format src/sunstone
+uv run ruff check
+uv run ruff format
 ```
+
+### Documentation
+
+This documentation is built with [MkDocs](https://www.mkdocs.org/) and the [Material theme](https://squidfunk.github.io/mkdocs-material/):
+
+```bash
+uv run mkdocs serve  # Preview locally
+uv run mkdocs build  # Build static site
+```
+
+## Support & Contributing
+
+- **Documentation**: [https://sunstoneinstitute.github.io/sunstone-py/](https://sunstoneinstitute.github.io/sunstone-py/)
+- **Issues**: [GitHub Issues](https://github.com/sunstoneinstitute/sunstone-py/issues)
+- **Source Code**: [GitHub Repository](https://github.com/sunstoneinstitute/sunstone-py)
+- **PyPI**: [sunstone-py](https://pypi.org/project/sunstone-py/)
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## About Sunstone Institute
 
@@ -307,7 +261,3 @@ uv run ruff format src/sunstone
 ## License
 
 MIT License - see [LICENSE](https://github.com/sunstoneinstitute/sunstone-py/blob/main/LICENSE) file for details.
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/sunstoneinstitute/sunstone-py/issues)

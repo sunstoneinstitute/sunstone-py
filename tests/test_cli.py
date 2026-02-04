@@ -169,11 +169,12 @@ class TestDatasetListCommand:
         """Test listing datasets."""
         result = runner.invoke(main, ["dataset", "list", "-f", str(project_path / "datasets.yaml")])
         assert result.exit_code == 0
+        assert "Publishing:" in result.output
+        assert "to: gs://example-bucket/datasets/un-members/" in result.output
         assert "Inputs:" in result.output
         assert "official-un-member-states" in result.output
         assert "Outputs:" in result.output
         assert "current-un-member-states" in result.output
-        assert "[publish]" in result.output
 
     def test_list_empty_file(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test listing empty datasets.yaml."""
@@ -261,16 +262,16 @@ class TestPackagePushCommand:
     """Tests for the package push command."""
 
     def test_push_non_publishable(self, runner: CliRunner, temp_project: Path) -> None:
-        """Test pushing without publishable datasets."""
-        # Modify datasets.yaml to remove publish flag
+        """Test pushing without publishing enabled."""
+        # Modify datasets.yaml to disable publishing at top level
         yaml_path = temp_project / "datasets.yaml"
         content = yaml_path.read_text()
-        content = content.replace("publish: true", "publish: false")
+        content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
 
         result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
         assert result.exit_code != 0
-        assert "No publishable datasets found" in result.output
+        assert "Publishing not enabled" in result.output
 
     def test_push_success(self, runner: CliRunner, temp_project: Path) -> None:
         """Test successful push."""
@@ -289,7 +290,8 @@ class TestPackagePushCommand:
         with patch("google.cloud.storage.Client", return_value=mock_client):
             result = runner.invoke(main, ["package", "push", "-f", str(temp_project / "datasets.yaml")])
             assert result.exit_code == 0
-            assert "Uploaded datapackage.json" in result.output
+            assert "datapackage.json" in result.output
+            assert "Package pushed to" in result.output
 
     def test_push_with_custom_destination(self, runner: CliRunner, temp_project: Path) -> None:
         """Test push with custom destination."""
@@ -327,41 +329,50 @@ class TestPackagePushCommand:
 
 
 class TestPublishConfigParsing:
-    """Tests for publish config parsing (boolean vs object format)."""
+    """Tests for top-level publish config parsing."""
 
-    def test_publish_boolean_true(self, runner: CliRunner, temp_project: Path) -> None:
-        """Test that publish: true is parsed correctly."""
+    def test_publish_enabled(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that top-level publish config is displayed."""
         result = runner.invoke(main, ["dataset", "list", "-f", str(temp_project / "datasets.yaml")])
         assert result.exit_code == 0
-        assert "[publish]" in result.output
+        assert "Publishing:" in result.output
+        assert "to: gs://example-bucket/datasets/un-members/" in result.output
 
-    def test_publish_boolean_false(self, runner: CliRunner, temp_project: Path) -> None:
-        """Test that publish: false is parsed correctly."""
+    def test_publish_disabled(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that disabled publishing is not displayed."""
         yaml_path = temp_project / "datasets.yaml"
         content = yaml_path.read_text()
-        content = content.replace("publish: true", "publish: false")
+        content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
 
         result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
-        assert "[publish]" not in result.output
+        assert "Publishing:" not in result.output
 
-    def test_publish_object_enabled(self, runner: CliRunner, temp_project: Path) -> None:
-        """Test that publish: {enabled: true} is parsed correctly."""
+    def test_publish_with_flatten(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that flatten option is displayed."""
         yaml_path = temp_project / "datasets.yaml"
         content = yaml_path.read_text()
-        content = content.replace("publish: true", "publish:\n      enabled: true")
+        # Add flatten: true to publish config
+        content = content.replace(
+            "to: gs://example-bucket/datasets/un-members/",
+            "to: gs://example-bucket/datasets/un-members/\n  flatten: true",
+        )
         yaml_path.write_text(content)
 
         result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
-        assert "[publish]" in result.output
+        assert "Publishing:" in result.output
+        assert "flatten: true" in result.output
 
-    def test_publish_object_disabled(self, runner: CliRunner, temp_project: Path) -> None:
-        """Test that publish: {enabled: false} is parsed correctly."""
+    def test_publish_boolean_legacy(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that legacy boolean format still works."""
         yaml_path = temp_project / "datasets.yaml"
         content = yaml_path.read_text()
-        content = content.replace("publish: true", "publish:\n      enabled: false")
+        # Replace object format with boolean
+        content = content.replace(
+            "publish:\n  enabled: true\n  to: gs://example-bucket/datasets/un-members/", "publish: true"
+        )
         yaml_path.write_text(content)
 
         result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
