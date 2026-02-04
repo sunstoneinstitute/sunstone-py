@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-04
+
+### Added
+- Add sunstone CLI for dataset and package management
+- Fix Python version references (3.10 → 3.12)
+- Create GitHub releases on tag push
+
+### Fixed
+- Update datasets.yaml when writing datasets
+
 ## [0.5.3] - 2025-12-04
 
 ### Added
