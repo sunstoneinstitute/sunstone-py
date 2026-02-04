@@ -271,7 +271,8 @@ The top-level `publish` section controls how data packages are published:
 ```yaml
 publish:
   enabled: true                              # Required: enable publishing
-  to: gs://bucket/datasets/project-name/     # Destination URL
+  to: gs://bucket/datasets/project-name/     # GCS upload destination
+  as: https://data.example.com/project-name/ # Optional: public URL base for datapackage.json
   flatten: false                             # Optional: flatten directory structure
 ```
 
@@ -285,6 +286,21 @@ publish:
   - `gs://bucket/datasets/project/` → datapackage at `gs://bucket/datasets/project/datapackage.json`
   - Data files in `gs://bucket/datasets/project/`
 
+**Public URL Option (`as`):**
+
+When your GCS bucket is served via a CDN or custom domain, use `as` to set the public-facing URLs in `datapackage.json`:
+
+```yaml
+publish:
+  to: gs://my-bucket/datasets/project/      # Files uploaded here
+  as: https://data.example.com/project/     # URLs in datapackage.json use this base
+```
+
+- Files are uploaded to `gs://my-bucket/datasets/project/outputs/data.csv`
+- But `datapackage.json` contains: `"path": "https://data.example.com/project/outputs/data.csv"`
+
+This allows data consumers to fetch files directly from your public URL.
+
 **Flatten Option:**
 
 - `flatten: false` (default): Preserves directory structure from `location` field
@@ -292,7 +308,6 @@ publish:
 
 - `flatten: true`: Puts all files in same directory as datapackage.json
   - `location: outputs/data/file.csv` → `gs://bucket/project/file.csv`
-```
 
 ## Validation Tools
 

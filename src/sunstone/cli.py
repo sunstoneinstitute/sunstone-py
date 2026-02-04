@@ -516,6 +516,7 @@ def package_build(datasets_file: str, output_file: str) -> None:
         sys.exit(1)
 
     project_slug = get_project_slug(project_path)
+    publish_config = manager.get_publish_config()
 
     try:
         from frictionless import describe
@@ -531,11 +532,22 @@ def package_build(datasets_file: str, output_file: str) -> None:
             continue
 
         try:
+            # Determine resource path based on flatten and as_url settings
+            if publish_config and publish_config.flatten:
+                resource_path = data_path.name
+            else:
+                resource_path = ds.location
+
             resource = describe(str(data_path))
             resource.name = ds.slug
             resource.title = ds.name
-            # Use relative path in the package
-            resource.path = ds.location
+
+            # If as_url is configured, use full public URLs in datapackage.json
+            if publish_config and publish_config.as_url:
+                public_base = publish_config.as_url.rstrip("/") + "/"
+                resource.path = public_base + resource_path
+            else:
+                resource.path = resource_path
 
             # Convert to dict and add custom RDF properties
             resource_dict = resource.to_dict()
@@ -544,8 +556,12 @@ def package_build(datasets_file: str, output_file: str) -> None:
             resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
 
             # Add expanded RDF properties if present
+            flatten = publish_config.flatten if publish_config else False
+            as_url = publish_config.as_url if publish_config else None
             if ds.custom_properties and ds.rdf_prefixes:
-                expanded_props = expand_custom_properties(ds.custom_properties, ds.rdf_prefixes, ds.location)
+                expanded_props = expand_custom_properties(
+                    ds.custom_properties, ds.rdf_prefixes, ds.location, flatten, as_url
+                )
                 resource_dict.update(expanded_props)
             elif ds.custom_properties:
                 # No prefixes, just add custom properties as-is
@@ -669,7 +685,13 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
             resource = describe(str(data_path))
             resource.name = ds.slug
             resource.title = ds.name
-            resource.path = resource_path  # Path as it appears in datapackage.json
+
+            # If as_url is configured, use full public URLs in datapackage.json
+            if publish_config.as_url:
+                public_base = publish_config.as_url.rstrip("/") + "/"
+                resource.path = public_base + resource_path
+            else:
+                resource.path = resource_path
 
             # Convert to dict and add custom RDF properties
             resource_dict = resource.to_dict()

@@ -80,7 +80,7 @@ class PublishConfig:
     """If true, ignore directory structure and put all files in the same directory as datapackage.json."""
 
     as_url: Optional[str] = None
-    """Public base URL for references in datapackage.json (e.g., methodology links)."""
+    """Public base URL for resource paths in datapackage.json. When set, resource paths become full URLs (e.g., https://foo.com/data/bar/file.csv)."""
 
 
 @dataclass

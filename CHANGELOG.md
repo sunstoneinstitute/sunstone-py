@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Package level: `dcat:Dataset`
   - Resource level: `dcat:Distribution`
 - `publish.as` configuration option for specifying public URL prefix used in datapackage.json
+- Resource paths in datapackage.json become full public URLs when `publish.as` is configured
 - Special handling for `si:methodology` property:
   - File paths become full URLs when `publish.as` is configured (during `package push`)
   - Paths stay relative in local builds (during `package build`)

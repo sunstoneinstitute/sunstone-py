@@ -257,6 +257,42 @@ class TestPackageBuildCommand:
         assert result.exit_code != 0
         assert "No output datasets found" in result.output
 
+    def test_build_with_as_url(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that as_url produces full public URLs in resource paths."""
+        # Create the output file
+        output_dir = temp_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+        # Add as: to publish config
+        yaml_path = temp_project / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "to: gs://example-bucket/datasets/un-members/",
+            "to: gs://example-bucket/datasets/un-members/\n  as: https://data.example.com/un-members/",
+        )
+        yaml_path.write_text(content)
+
+        result = runner.invoke(
+            main,
+            [
+                "package",
+                "build",
+                "-f",
+                str(yaml_path),
+                "-o",
+                str(temp_project / "datapackage.json"),
+            ],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((temp_project / "datapackage.json").read_text())
+        assert len(datapackage["resources"]) == 1
+        resource_path = datapackage["resources"][0]["path"]
+        assert resource_path == "https://data.example.com/un-members/outputs/current_un_member_states.csv"
+
 
 class TestPackagePushCommand:
     """Tests for the package push command."""
@@ -326,6 +362,49 @@ class TestPackagePushCommand:
         )
         assert result.exit_code != 0
         assert "gs://" in result.output
+
+    def test_push_with_as_url(self, runner: CliRunner, temp_project: Path) -> None:
+        """Test that as_url produces public URLs in datapackage.json while uploads go to GCS."""
+        import json
+
+        # Create the output file
+        output_dir = temp_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+        # Add as: to publish config
+        yaml_path = temp_project / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "to: gs://example-bucket/datasets/un-members/",
+            "to: gs://example-bucket/datasets/un-members/\n  as: https://data.example.com/un-members/",
+        )
+        yaml_path.write_text(content)
+
+        # Mock GCS client and capture uploaded datapackage content
+        uploaded_content = {}
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        def capture_upload(content: str, content_type: str | None = None) -> None:
+            uploaded_content["datapackage"] = content
+
+        mock_blob.upload_from_string.side_effect = capture_upload
+
+        with patch("google.cloud.storage.Client", return_value=mock_client):
+            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            assert result.exit_code == 0
+
+            # Verify datapackage.json has public URLs
+            datapackage = json.loads(uploaded_content["datapackage"])
+            resource_path = datapackage["resources"][0]["path"]
+            assert resource_path == "https://data.example.com/un-members/outputs/current_un_member_states.csv"
+
+            # Verify uploads went to GCS
+            mock_client.bucket.assert_called_with("example-bucket")
 
 
 class TestPublishConfigParsing:

@@ -150,6 +150,7 @@ Publishing requires a top-level `publish` configuration in `datasets.yaml`:
 publish:
   enabled: true
   to: gs://my-bucket/datasets/project-name/
+  as: https://data.example.com/project-name/  # optional: public URL base
   flatten: false  # optional, default: false
 ```
 
@@ -200,6 +201,27 @@ The `publish.to` field determines where files are uploaded:
    Uploads to:
    - `gs://bucket/datasets/countries/datapackage.json`
    - `gs://bucket/datasets/countries/data.csv` (no `outputs/` prefix)
+
+4. **Public URL mapping** (different URLs in datapackage.json vs upload destination):
+   ```yaml
+   publish:
+     to: gs://bucket/datasets/countries/
+     as: https://data.example.com/countries/
+   ```
+   Uploads to GCS:
+   - `gs://bucket/datasets/countries/datapackage.json`
+   - `gs://bucket/datasets/countries/outputs/data.csv`
+
+   But `datapackage.json` contains public URLs:
+   ```json
+   {
+     "resources": [{
+       "path": "https://data.example.com/countries/outputs/data.csv"
+     }]
+   }
+   ```
+
+   This is useful when your GCS bucket is served via a CDN or custom domain.
 
 **Environment variable expansion:**
 
