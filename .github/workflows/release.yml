@@ -89,13 +89,20 @@ jobs:
         version="${GITHUB_REF#refs/tags/v}"
         message="New release of sunstone-py available: $version"
         changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
-        jq -n --arg message "$message" --arg changelog "$changelog" '{
+        pypi_url="https://pypi.org/project/sunstone-py/${version}/"
+        docs_url="https://sunstone-data.github.io/sunstone-py/${version}/"
+        jq -n --arg message "$message" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
           text: $message,
           cards: [{
             sections: [{
               widgets: [{
                 textParagraph: {
                   text: "<b>Changelog</b><br>\($changelog)"
+                }
+              },
+              {
+                textParagraph: {
+                  text: "<b>Links</b><br><a href=\"\($pypi_url)\">PyPI</a> · <a href=\"\($docs_url)\">Documentation</a>"
                 }
               }]
             }]
