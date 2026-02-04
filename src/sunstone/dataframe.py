@@ -303,11 +303,15 @@ class DataFrame:
         env_strict = os.environ.get("SUNSTONE_DATAFRAME_STRICT", "").lower()
         return env_strict in ("1", "true")
 
+    # Sunstone-specific kwargs that should not be passed to pandas
+    _SUNSTONE_KWARGS = {"publish"}
+
     def to_csv(
         self,
         path_or_buf: Union[str, Path],
         slug: Optional[str] = None,
         name: Optional[str] = None,
+        publish: bool = False,
         **kwargs: Any,
     ) -> None:
         """
@@ -320,12 +324,16 @@ class DataFrame:
             path_or_buf: File path for the output CSV.
             slug: Dataset slug (required in relaxed mode if not registered).
             name: Dataset name (required in relaxed mode if not registered).
+            publish: Reserved for future use (publishing to data catalog).
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
             StrictModeError: In strict mode, if dataset not registered.
             ValueError: In relaxed mode, if slug/name not provided for new dataset.
         """
+        # Filter out any Sunstone-specific kwargs that might have slipped through
+        pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
+
         manager = self._get_datasets_manager()
         location = str(path_or_buf)
 
@@ -355,7 +363,7 @@ class DataFrame:
         # Write the CSV
         absolute_path = manager.get_absolute_path(dataset.location)
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
-        self.data.to_csv(absolute_path, **kwargs)
+        self.data.to_csv(absolute_path, **pandas_kwargs)
 
         # Compute content hash for change detection
         content_hash = compute_dataframe_hash(self.data)
