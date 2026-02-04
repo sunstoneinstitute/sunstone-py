@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-02-04
+
+### Fixed]
+- Fix to\_csv passing Sunstone-specific kwargs to pandas
+
 ## [1.0.0] - 2026-02-04
 
 ### Added
