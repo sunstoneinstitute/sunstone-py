@@ -38,9 +38,11 @@ from .exceptions import (
     SunstoneError,
 )
 from .lineage import (
+    Contributor,
     DatasetMetadata,
     FieldSchema,
     LineageMetadata,
+    PackageMetadata,
     Source,
     SourceLocation,
 )
@@ -70,9 +72,11 @@ __all__ = [
     "check_script_imports",
     "validate_project_notebooks",
     # Lineage classes
+    "Contributor",
     "LineageMetadata",
     "DatasetMetadata",
     "FieldSchema",
+    "PackageMetadata",
     "Source",
     "SourceLocation",
     # Exceptions

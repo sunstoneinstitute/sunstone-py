@@ -1,3 +1,20 @@
+package:
+  title: UN Member States Dataset
+  description: |
+    Processed data from the official UN Member States Authority File,
+    providing clean, standardized information about current UN members.
+  version: "1.0.0"
+  keywords:
+    - united-nations
+    - member-states
+    - international-organizations
+  license: CC-BY-4.0
+  contributors:
+    - title: Sunstone Institute
+      roles:
+        - creator
+        - publisher
+
 publish:
   enabled: true
   to: gs://example-bucket/datasets/un-members/

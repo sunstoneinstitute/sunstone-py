@@ -15,7 +15,16 @@ import requests
 from ruamel.yaml import YAML
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
-from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, PublishConfig, Source, SourceLocation
+from .lineage import (
+    Contributor,
+    DatasetMetadata,
+    FieldSchema,
+    LineageMetadata,
+    PackageMetadata,
+    PublishConfig,
+    Source,
+    SourceLocation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +193,44 @@ class DatasetsManager:
                 as_url=publish_data.get("as"),
             )
         return None
+
+    def _parse_contributor(self, contrib_data: Dict[str, Any]) -> Contributor:
+        """Parse contributor data from YAML."""
+        return Contributor(
+            title=contrib_data["title"],
+            roles=contrib_data.get("roles"),
+            path=contrib_data.get("path"),
+            email=contrib_data.get("email"),
+        )
+
+    def _parse_package(self, package_data: Optional[Dict[str, Any]]) -> Optional[PackageMetadata]:
+        """
+        Parse package metadata from YAML.
+
+        Args:
+            package_data: Raw package data from YAML, or None.
+
+        Returns:
+            PackageMetadata if data is present, None otherwise.
+        """
+        if package_data is None:
+            return None
+
+        contributors = None
+        if "contributors" in package_data:
+            contributors = [self._parse_contributor(c) for c in package_data["contributors"]]
+
+        return PackageMetadata(
+            title=package_data.get("title"),
+            description=package_data.get("description"),
+            version=package_data.get("version"),
+            keywords=package_data.get("keywords"),
+            license=package_data.get("license"),
+            contributors=contributors,
+            homepage=package_data.get("homepage"),
+            id=package_data.get("id"),
+            image=package_data.get("image"),
+        )
 
     def _is_rdf_property_key(self, key: str) -> bool:
         """Check if a key is an RDF property (contains : or is a URI)."""
@@ -372,6 +419,15 @@ class DatasetsManager:
             Publish configuration if present, None otherwise.
         """
         return self._parse_publish(self._data.get("publish"))
+
+    def get_package_metadata(self) -> Optional[PackageMetadata]:
+        """
+        Get the top-level package metadata.
+
+        Returns:
+            PackageMetadata if present, None otherwise.
+        """
+        return self._parse_package(self._data.get("package"))
 
     def add_output_dataset(self, name: str, slug: str, location: str, fields: List[FieldSchema]) -> DatasetMetadata:
         """

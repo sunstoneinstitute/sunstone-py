@@ -67,6 +67,58 @@ class FieldSchema:
 
 
 @dataclass
+class Contributor:
+    """Contributor information for a datapackage."""
+
+    title: str
+    """Name or title of the contributor."""
+
+    roles: Optional[List[str]] = None
+    """Roles of the contributor (e.g., 'creator', 'publisher', 'maintainer')."""
+
+    path: Optional[str] = None
+    """URL to contributor's website or profile."""
+
+    email: Optional[str] = None
+    """Email address of the contributor."""
+
+
+@dataclass
+class PackageMetadata:
+    """Top-level package metadata for datapackage v2 compatibility.
+
+    See https://datapackage.org/profiles/2.0/datapackage.json for the full spec.
+    """
+
+    title: Optional[str] = None
+    """Human-readable title of the package."""
+
+    description: Optional[str] = None
+    """Description of the package (Markdown supported)."""
+
+    version: Optional[str] = None
+    """Package version number (semver recommended)."""
+
+    keywords: Optional[List[str]] = None
+    """Keywords/tags for discoverability."""
+
+    license: Optional[str] = None
+    """SPDX license identifier for output datasets."""
+
+    contributors: Optional[List[Contributor]] = None
+    """List of contributors to the package."""
+
+    homepage: Optional[str] = None
+    """URL to the project homepage."""
+
+    id: Optional[str] = None
+    """Globally unique identifier (UUID or DOI)."""
+
+    image: Optional[str] = None
+    """URL to a representative image."""
+
+
+@dataclass
 class PublishConfig:
     """Configuration for publishing datasets."""
 

@@ -50,6 +50,67 @@ class TestDatasetsManager:
         assert dataset is None
 
 
+class TestPackageMetadata:
+    """Tests for package metadata parsing."""
+
+    def test_get_package_metadata(self, project_path: Path) -> None:
+        """Test getting package metadata from datasets.yaml."""
+        manager = sunstone.DatasetsManager(project_path)
+        package = manager.get_package_metadata()
+
+        assert package is not None
+        assert package.title == "UN Member States Dataset"
+        assert package.version == "1.0.0"
+        assert package.license == "CC-BY-4.0"
+
+    def test_package_description(self, project_path: Path) -> None:
+        """Test that package description is parsed correctly."""
+        manager = sunstone.DatasetsManager(project_path)
+        package = manager.get_package_metadata()
+
+        assert package is not None
+        assert package.description is not None
+        assert "UN Member States" in package.description
+
+    def test_package_keywords(self, project_path: Path) -> None:
+        """Test that package keywords are parsed correctly."""
+        manager = sunstone.DatasetsManager(project_path)
+        package = manager.get_package_metadata()
+
+        assert package is not None
+        assert package.keywords is not None
+        assert "united-nations" in package.keywords
+        assert "member-states" in package.keywords
+
+    def test_package_contributors(self, project_path: Path) -> None:
+        """Test that package contributors are parsed correctly."""
+        manager = sunstone.DatasetsManager(project_path)
+        package = manager.get_package_metadata()
+
+        assert package is not None
+        assert package.contributors is not None
+        assert len(package.contributors) == 1
+
+        contributor = package.contributors[0]
+        assert contributor.title == "Sunstone Institute"
+        assert contributor.roles is not None
+        assert "creator" in contributor.roles
+        assert "publisher" in contributor.roles
+
+    def test_package_metadata_none_when_missing(self, tmp_path: Path) -> None:
+        """Test that get_package_metadata returns None when no package section exists."""
+        # Create a minimal datasets.yaml without package section
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text("""
+inputs: []
+outputs: []
+""")
+        manager = sunstone.DatasetsManager(tmp_path)
+        package = manager.get_package_metadata()
+
+        assert package is None
+
+
 class TestURLSafety:
     """Tests for URL safety validation (SSRF prevention)."""
 
