@@ -4,6 +4,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-02-04
+
+### Added
+- Comprehensive documentation including API reference (`docs/api.md`), CLI guide (`docs/cli.md`), concepts overview (`docs/concepts.md`), examples (`docs/examples.md`), and quickstart guide (`docs/quickstart.md`)
+- New dataset operations to the sunstone CLI
+- PyPI and documentation links in release notifications
+
+### Changed
+- Restructured documentation index with clearer navigation
+- Enhanced lineage tracking functionality
+- Improved DataFrame operations
+
+### Fixed
+- Improved CLI error handling and validation
+
 ## [0.6.0] - 2026-02-04
 
 ### Added
