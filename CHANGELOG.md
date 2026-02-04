@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: package metadata support to datasets.yaml schema
 
 ## [1.0.1] - 2026-02-04
 - Fixed: to_csv passing Sunstone-specific kwargs to pandas
