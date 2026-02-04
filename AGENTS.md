@@ -104,6 +104,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 #### CHANGELOG.md
 
 The CHANGELOG.md format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+but formatted like this:
+
+```
+## [M.N.P] - YYYY-MM-DD
+- <category>: <one-liner>
+- <category>: <one-liner>
+...
+```
+
+`<category>` is one of Added, Changed, Deprecated, Removed, Fixed, Security
+`<one-liner>` is a single sentence (preferrably) describing something that's changelog-worthy
+
+**IMPORTANT**: every time you make a commit, consider whether the change is changelog-worthy, and
+if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
 
 #### Make a Release
 
