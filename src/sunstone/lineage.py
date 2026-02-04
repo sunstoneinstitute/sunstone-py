@@ -79,6 +79,9 @@ class PublishConfig:
     flatten: bool = False
     """If true, ignore directory structure and put all files in the same directory as datapackage.json."""
 
+    as_url: Optional[str] = None
+    """Public base URL for references in datapackage.json (e.g., methodology links)."""
+
 
 @dataclass
 class DatasetMetadata:
@@ -104,6 +107,12 @@ class DatasetMetadata:
 
     dataset_type: str = "input"
     """Type of dataset: 'input' or 'output'."""
+
+    rdf_prefixes: Optional[Dict[str, str]] = None
+    """RDF namespace prefixes for custom properties."""
+
+    custom_properties: Optional[Dict[str, Any]] = None
+    """Custom properties including RDF triples."""
 
 
 def compute_dataframe_hash(df: "pd.DataFrame") -> str:

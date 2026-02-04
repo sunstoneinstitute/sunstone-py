@@ -13,6 +13,7 @@ sunstone-py helps data scientists and researchers build reproducible data pipeli
 
 - **Automatic Lineage Tracking**: Every transformation is recorded—know exactly where your data came from and what happened to it
 - **Dataset Management**: Centralized `datasets.yaml` configuration for all data inputs and outputs
+- **Semantic Metadata**: RDF triple support with automatic prefix expansion for rich dataset descriptions
 - **Command-Line Tools**: Validate, lock, and publish datasets with the `sunstone` CLI
 - **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—use it like regular pandas
 - **Strict/Relaxed Modes**: Choose between automatic registration (exploratory) or enforced pre-registration (production)
@@ -209,6 +210,7 @@ Learn more in [Core Concepts](concepts.md).
 sunstone-py builds on the [Data Package v2](https://datapackage.org/) standard, an open specification for data distribution. You can:
 
 - Build standards-compliant `datapackage.json` files
+- Add RDF triples with automatic prefix expansion (DCAT, Dublin Core, schema.org, custom vocabularies)
 - Publish to cloud storage (GCS, S3, etc.)
 - Integrate with tools that consume Data Packages
 - Share data with complete metadata

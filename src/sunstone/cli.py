@@ -8,7 +8,7 @@ import re
 import sys
 import tomllib
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import click
@@ -29,6 +29,12 @@ VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime
 
 # Pattern for ${VAR} or ${VAR:-default} substitution
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
+
+# Standard RDF and DCAT prefixes for automatic type properties
+STANDARD_RDF_PREFIXES = {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "dcat": "http://www.w3.org/ns/dcat#",
+}
 
 
 def get_project_slug(project_path: Path) -> str:
@@ -76,6 +82,120 @@ def expand_env_vars(text: str) -> str:
         return match.group(0)  # Return original if no value and no default
 
     return ENV_VAR_PATTERN.sub(replace_var, text)
+
+
+def expand_rdf_prefixes(value: str, prefixes: dict[str, str]) -> str:
+    """
+    Expand RDF prefix in a value.
+
+    Args:
+        value: The value that may contain a prefixed name (e.g., "si:monitorsThreat" or "si30:27")
+        prefixes: Dictionary of prefix -> namespace URI mappings
+
+    Returns:
+        The expanded URI or the original value if no prefix found
+    """
+    if ":" not in value:
+        return value
+
+    # Check if it's already a full URI
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+
+    # Try to expand prefix
+    parts = value.split(":", 1)
+    if len(parts) == 2:
+        prefix, local_part = parts
+        if prefix in prefixes:
+            return prefixes[prefix] + local_part
+
+    return value
+
+
+def is_uri(value: str) -> bool:
+    """
+    Check if a value is a URI.
+
+    Args:
+        value: The value to check
+
+    Returns:
+        True if the value is a URI (starts with http:// or https://)
+    """
+    return value.startswith("http://") or value.startswith("https://")
+
+
+def transform_methodology_path(methodology_path: str, flatten: bool = False, base_url: str | None = None) -> str:
+    """
+    Transform a methodology path based on publish settings.
+
+    Args:
+        methodology_path: The methodology file path
+        flatten: If True, use only the filename (no directory structure)
+        base_url: If provided, construct a full URL using this base
+
+    Returns:
+        Transformed path or URL
+    """
+    if flatten:
+        # Just use the filename
+        path = Path(methodology_path).name
+    else:
+        # Keep the path as-is (relative to datapackage location)
+        path = methodology_path
+
+    if base_url:
+        # Construct full URL
+        if not base_url.endswith("/"):
+            base_url += "/"
+        return base_url + path
+
+    return path
+
+
+def expand_custom_properties(
+    custom_props: dict[str, Any],
+    prefixes: dict[str, str],
+    resource_path: Optional[str] = None,
+    flatten: bool = False,
+    base_url: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Expand all RDF prefixes in custom properties (both keys and values).
+
+    Special handling for si:methodology: if the value is not a URI, it's treated
+    as a file path that gets transformed based on publish settings.
+
+    Args:
+        custom_props: Dictionary of custom properties
+        prefixes: Dictionary of prefix -> namespace URI mappings
+        resource_path: Optional path to the resource (for relative path resolution)
+        flatten: If True, flatten directory structure for file paths
+        base_url: If provided, construct full URLs for methodology paths
+
+    Returns:
+        Dictionary with expanded property names and values
+    """
+    methodology_uri = "https://sunstone.institute/rdf/vocab#methodology"
+
+    expanded = {}
+    for key, value in custom_props.items():
+        # Expand the key if it's a prefixed name
+        expanded_key = expand_rdf_prefixes(key, prefixes)
+
+        # Expand the value if it's a string that might contain a prefix
+        if isinstance(value, str):
+            # Special case for methodology: if not a URI, transform as path
+            if expanded_key == methodology_uri and not is_uri(value):
+                expanded_value = transform_methodology_path(value, flatten, base_url)
+            else:
+                expanded_value = expand_rdf_prefixes(value, prefixes)
+        else:
+            expanded_value = value
+
+        expanded[expanded_key] = expanded_value
+
+    return expanded
 
 
 def get_manager(datasets_file: str) -> tuple[DatasetsManager, Path]:
@@ -416,7 +536,22 @@ def package_build(datasets_file: str, output_file: str) -> None:
             resource.title = ds.name
             # Use relative path in the package
             resource.path = ds.location
-            resources.append(resource.to_dict())
+
+            # Convert to dict and add custom RDF properties
+            resource_dict = resource.to_dict()
+
+            # Add automatic RDF type for resource
+            resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
+
+            # Add expanded RDF properties if present
+            if ds.custom_properties and ds.rdf_prefixes:
+                expanded_props = expand_custom_properties(ds.custom_properties, ds.rdf_prefixes, ds.location)
+                resource_dict.update(expanded_props)
+            elif ds.custom_properties:
+                # No prefixes, just add custom properties as-is
+                resource_dict.update(ds.custom_properties)
+
+            resources.append(resource_dict)
             click.echo(f"  + {ds.slug}")
         except Exception as e:
             click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
@@ -425,8 +560,10 @@ def package_build(datasets_file: str, output_file: str) -> None:
         click.echo("Error: No resources could be added to the package", err=True)
         sys.exit(1)
 
+    # Create datapackage with automatic RDF type
     datapackage = {
         "name": project_slug,
+        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
 
@@ -533,7 +670,24 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
             resource.name = ds.slug
             resource.title = ds.name
             resource.path = resource_path  # Path as it appears in datapackage.json
-            resources.append(resource.to_dict())
+
+            # Convert to dict and add custom RDF properties
+            resource_dict = resource.to_dict()
+
+            # Add automatic RDF type for resource
+            resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
+
+            # Add expanded RDF properties if present
+            if ds.custom_properties and ds.rdf_prefixes:
+                expanded_props = expand_custom_properties(
+                    ds.custom_properties, ds.rdf_prefixes, ds.location, publish_config.flatten, publish_config.as_url
+                )
+                resource_dict.update(expanded_props)
+            elif ds.custom_properties:
+                # No prefixes, just add custom properties as-is
+                resource_dict.update(ds.custom_properties)
+
+            resources.append(resource_dict)
             data_files.append((data_path, remote_path, resource_path))
         except Exception as e:
             click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
@@ -542,8 +696,10 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         click.echo("Error: No resources could be added to the package", err=True)
         sys.exit(1)
 
+    # Create datapackage with automatic RDF type
     datapackage = {
         "name": project_slug,
+        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
 

@@ -4,6 +4,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- RDF triple support in datasets.yaml with automatic prefix expansion in datapackage.json
+- Support for rdfPrefixes at dataset level and in defaults section
+- Automatic expansion of prefixed property names and values to full URIs
+- Automatic addition of `rdf:type` properties to all generated datapackages:
+  - Package level: `dcat:Dataset`
+  - Resource level: `dcat:Distribution`
+- `publish.as` configuration option for specifying public URL prefix used in datapackage.json
+- Special handling for `si:methodology` property:
+  - File paths become full URLs when `publish.as` is configured (during `package push`)
+  - Paths stay relative in local builds (during `package build`)
+  - Existing URIs are always preserved as-is
+- Comprehensive test suite for RDF functionality (18 tests)
+- Enhanced documentation for RDF and semantic metadata integration
+
 ## [0.7.0] - 2026-02-04
 
 ### Added

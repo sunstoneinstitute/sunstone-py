@@ -112,6 +112,7 @@ class DatasetsManager:
             raise FileNotFoundError(f"datasets.yaml not found in {self.project_path}")
 
         self._data: Dict[str, Any] = {}
+        self._defaults: Dict[str, Any] = {}
         self._load()
 
     def _load(self) -> None:
@@ -123,6 +124,9 @@ class DatasetsManager:
             self._data["inputs"] = []
         if "outputs" not in self._data:
             self._data["outputs"] = []
+
+        # Load defaults if present
+        self._defaults = self._data.get("defaults", {})
 
     def _save(self) -> None:
         """Save the current data back to datasets.yaml."""
@@ -173,8 +177,47 @@ class DatasetsManager:
             enabled = publish_data.get("enabled", False)
             if not enabled:
                 return None
-            return PublishConfig(enabled=True, to=publish_data.get("to"), flatten=publish_data.get("flatten", False))
+            return PublishConfig(
+                enabled=True,
+                to=publish_data.get("to"),
+                flatten=publish_data.get("flatten", False),
+                as_url=publish_data.get("as"),
+            )
         return None
+
+    def _is_rdf_property_key(self, key: str) -> bool:
+        """Check if a key is an RDF property (contains : or is a URI)."""
+        return ":" in key or key.startswith("http://") or key.startswith("https://")
+
+    def _extract_rdf_properties(
+        self, dataset_data: Dict[str, Any]
+    ) -> tuple[Optional[Dict[str, str]], Optional[Dict[str, Any]]]:
+        """
+        Extract RDF prefixes and custom properties from dataset data.
+
+        Returns:
+            Tuple of (rdf_prefixes, custom_properties)
+        """
+        # Standard dataset fields to exclude from custom properties
+        standard_fields = {"name", "slug", "location", "fields", "source", "strict", "lineage", "rdfPrefixes"}
+
+        # Get RDF prefixes from dataset or defaults
+        rdf_prefixes = dataset_data.get("rdfPrefixes")
+        if rdf_prefixes is None and "rdfPrefixes" in self._defaults:
+            rdf_prefixes = self._defaults["rdfPrefixes"]
+
+        # Extract custom properties (including RDF triples)
+        custom_properties = {}
+        for key, value in dataset_data.items():
+            if key not in standard_fields:
+                custom_properties[key] = value
+
+        # Also merge in defaults if they're RDF properties
+        for key, value in self._defaults.items():
+            if key not in ["rdfPrefixes"] and self._is_rdf_property_key(key) and key not in custom_properties:
+                custom_properties[key] = value
+
+        return (rdf_prefixes if rdf_prefixes else None, custom_properties if custom_properties else None)
 
     def _parse_dataset(self, dataset_data: Dict[str, Any], dataset_type: str) -> DatasetMetadata:
         """
@@ -191,6 +234,8 @@ class DatasetsManager:
         if "source" in dataset_data:
             source = self._parse_source(dataset_data["source"])
 
+        rdf_prefixes, custom_properties = self._extract_rdf_properties(dataset_data)
+
         return DatasetMetadata(
             name=dataset_data["name"],
             slug=dataset_data["slug"],
@@ -199,6 +244,8 @@ class DatasetsManager:
             source=source,
             strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,
+            rdf_prefixes=rdf_prefixes,
+            custom_properties=custom_properties,
         )
 
     def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:

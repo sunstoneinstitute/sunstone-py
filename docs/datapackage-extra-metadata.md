@@ -4,6 +4,240 @@
 
 The Data Package standard provides excellent extensibility for augmenting descriptors with custom metadata, including semantic annotations from knowledge graphs, domain-specific properties, and organizational metadata.
 
+## RDF Triple Support in datasets.yaml
+
+Sunstone supports RDF (Resource Description Framework) triples in `datasets.yaml` with automatic prefix expansion when generating `datapackage.json`. This makes it easy to add semantic metadata using familiar prefixed names that get expanded to full URIs in the final package.
+
+### Defining RDF Prefixes
+
+Define RDF namespace prefixes at the dataset level or in a `defaults:` section:
+
+```yaml
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+    si30: "https://sunstone.institute/rdf/threat/"
+    dcat: "http://www.w3.org/ns/dcat#"
+    prov: "http://www.w3.org/ns/prov#"
+
+outputs:
+  - name: Climate Dataset
+    slug: climate-dataset
+    location: outputs/climate.csv
+    # RDF properties using prefixes
+    si:monitorsThreat: si30:27
+    si:category: environmental
+    dcat:theme: climate
+    fields:
+      - name: year
+        type: integer
+```
+
+### Prefix Expansion
+
+When you build a datapackage, prefixes in both **property names** and **values** are automatically expanded to full URIs:
+
+```yaml
+# In datasets.yaml
+si:monitorsThreat: si30:27
+```
+
+Becomes:
+
+```json
+// In datapackage.json
+"https://sunstone.institute/rdf/vocab#monitorsThreat": "https://sunstone.institute/rdf/threat/27"
+```
+
+### Using Full URIs Directly
+
+You can also use full URIs directly without prefixes:
+
+```yaml
+outputs:
+  - name: My Dataset
+    slug: my-dataset
+    location: outputs/data.csv
+    https://sunstone.institute/rdf/vocab#datasetType: observational
+    fields: [...]
+```
+
+### Default Properties
+
+Use the `defaults:` section to apply RDF properties to all datasets:
+
+```yaml
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+  si:organization: "Sunstone Institute"
+  si:license: "CC-BY-4.0"
+
+outputs:
+  - name: Dataset 1
+    slug: dataset-1
+    location: outputs/data1.csv
+    si:theme: climate  # Inherits prefixes from defaults
+    fields: [...]
+
+  - name: Dataset 2
+    slug: dataset-2
+    location: outputs/data2.csv
+    si:theme: biodiversity  # Also inherits prefixes
+    fields: [...]
+```
+
+Both datasets will include the default `si:organization` and `si:license` properties with expanded URIs in the generated datapackage.
+
+### Overriding Default Prefixes
+
+Dataset-level prefix definitions override defaults:
+
+```yaml
+defaults:
+  rdfPrefixes:
+    si: "https://old.example.com/vocab#"
+
+outputs:
+  - name: My Dataset
+    slug: my-dataset
+    location: outputs/data.csv
+    rdfPrefixes:
+      si: "https://sunstone.institute/rdf/vocab#"  # Overrides default
+    si:property: value
+    fields: [...]
+```
+
+### Automatic RDF Type Properties
+
+Every generated `datapackage.json` automatically includes RDF type properties for DCAT (Data Catalog Vocabulary) compatibility:
+
+- **Package level**: `"rdf:type": "dcat:Dataset"` (automatically expanded to full URIs)
+- **Resource level**: `"rdf:type": "dcat:Distribution"` (automatically expanded to full URIs)
+
+Example generated datapackage:
+
+```json
+{
+  "name": "my-project",
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Dataset",
+  "resources": [
+    {
+      "name": "my-resource",
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Distribution",
+      "path": "data.csv",
+      ...
+    }
+  ]
+}
+```
+
+This makes all generated datapackages compatible with DCAT-based data catalogs and semantic web tools without any additional configuration.
+
+### Methodology URLs
+
+The `si:methodology` property receives special handling. When the value is a file path (not already a URI), it can be automatically converted to a full URL during publishing:
+
+- **Local build** (`sunstone package build`): Methodology paths are kept as relative paths since there's no publish destination
+- **Publishing** (`sunstone package push`): Methodology paths become full URLs when `publish.as` is configured
+
+Configure the public URL prefix with `publish.as`:
+
+```yaml
+publish:
+  enabled: true
+  to: gs://my-bucket/datasets/project/    # GCS destination for upload
+  as: https://cdn.example.com/datasets/project/  # Public URL prefix for references
+
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+
+outputs:
+  - name: Climate Dataset
+    slug: climate-dataset
+    location: outputs/climate.csv
+    si:methodology: docs/methodology.md  # Will become full URL when published
+    fields:
+      - name: year
+        type: integer
+```
+
+When published, the datapackage.json will contain:
+
+```json
+{
+  "https://sunstone.institute/rdf/vocab#methodology": "https://cdn.example.com/datasets/project/docs/methodology.md"
+}
+```
+
+If `publish.flatten: true` is also set, only the filename is used:
+
+```json
+{
+  "https://sunstone.institute/rdf/vocab#methodology": "https://cdn.example.com/datasets/project/methodology.md"
+}
+```
+
+If `si:methodology` already contains a full URI, it's preserved as-is regardless of publish settings.
+
+### Complete Example
+
+Here's a complete example showing RDF properties in datasets.yaml and the resulting datapackage.json:
+
+**datasets.yaml:**
+```yaml
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+    si30: "https://sunstone.institute/rdf/threat/"
+    dcat: "http://www.w3.org/ns/dcat#"
+  si:publisher: "Sunstone Institute"
+
+outputs:
+  - name: Climate Impact Dataset
+    slug: climate-impact
+    location: outputs/climate.csv
+    si:monitorsThreat: si30:27
+    si:category: environmental
+    dcat:theme: http://eurovoc.europa.eu/2107
+    fields:
+      - name: year
+        type: integer
+      - name: temperature
+        type: number
+```
+
+**Generated datapackage.json:**
+```json
+{
+  "name": "my-project",
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Dataset",
+  "resources": [
+    {
+      "name": "climate-impact",
+      "title": "Climate Impact Dataset",
+      "path": "outputs/climate.csv",
+      "type": "table",
+      "format": "csv",
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Distribution",
+      "https://sunstone.institute/rdf/vocab#monitorsThreat": "https://sunstone.institute/rdf/threat/27",
+      "https://sunstone.institute/rdf/vocab#category": "environmental",
+      "http://www.w3.org/ns/dcat#theme": "http://eurovoc.europa.eu/2107",
+      "https://sunstone.institute/rdf/vocab#publisher": "Sunstone Institute",
+      "schema": {
+        "fields": [
+          {"name": "year", "type": "integer"},
+          {"name": "temperature", "type": "number"}
+        ]
+      }
+    }
+  ]
+}
+```
+
+All prefixes are automatically expanded to full URIs, and the DCAT type properties are added automatically.
+
 ## Custom Properties with Namespaces
 
 The Data Package specification supports custom properties using the `namespace:propertyName` convention. This allows you to add any metadata without conflicting with standard properties.
