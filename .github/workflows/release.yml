@@ -90,7 +90,7 @@ jobs:
         message="New release of sunstone-py available: $version"
         changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
         pypi_url="https://pypi.org/project/sunstone-py/${version}/"
-        docs_url="https://sunstone-data.github.io/sunstone-py/${version}/"
+        docs_url="https://sunstoneinstitute.github.io/sunstone-py/${version}/"
         jq -n --arg message "$message" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
           text: $message,
           cards: [{
