@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 - Added: package metadata support to datasets.yaml schema
+- Added: `sunstone.errors` module re-exporting all of `pandas.errors`
 
 ## [1.0.1] - 2026-02-04
 - Fixed: to_csv passing Sunstone-specific kwargs to pandas

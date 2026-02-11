@@ -50,6 +50,9 @@ from .lineage import (
 # Import pandas module for pd-like interface
 from . import pandas
 
+# Import errors module (re-exports pandas.errors)
+from . import errors
+
 # Import validation utilities
 from .validation import (
     ImportCheckResult,
@@ -66,6 +69,8 @@ __all__ = [
     "DatasetsManager",
     # Pandas-like interface
     "pandas",
+    # Errors (re-exported from pandas.errors)
+    "errors",
     # Validation utilities
     "ImportCheckResult",
     "check_notebook_imports",
