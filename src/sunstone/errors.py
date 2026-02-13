@@ -9,6 +9,7 @@ All public names from ``pandas.errors`` are re-exported here.
 """
 
 from pandas.errors import *  # noqa: F401,F403
-from pandas.errors import __all__ as _pd_errors_all
 
-__all__ = list(_pd_errors_all)
+# Build __all__ from the names the star import actually brought in,
+# rather than relying on pandas.errors.__all__ (which doesn't exist).
+__all__ = [name for name in dir() if not name.startswith("_")]
