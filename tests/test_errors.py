@@ -1,30 +1,47 @@
 """Tests for the sunstone.errors module."""
 
+import subprocess
+import sys
+
 import pandas.errors as pd_errors
 
 import sunstone.errors as ss_errors
 
 
+def _star_import_names(module_name: str) -> set[str]:
+    """Get the names that 'from <module> import *' would produce."""
+    ns: dict = {}
+    exec(f"from {module_name} import *", ns)  # noqa: S102
+    return {n for n in ns if not n.startswith("_")}
+
+
 class TestErrorsReExport:
     """Verify sunstone.errors re-exports everything from pandas.errors."""
 
-    def test_all_pandas_errors_names_available(self):
-        """Every name in pandas.errors.__all__ should be in sunstone.errors."""
-        for name in pd_errors.__all__:
-            assert hasattr(ss_errors, name), (
-                f"sunstone.errors is missing pandas.errors.{name}"
-            )
+    def test_has_dunder_all(self):
+        """sunstone.errors must define __all__ (this catches the original bug)."""
+        assert hasattr(ss_errors, "__all__")
+        assert isinstance(ss_errors.__all__, list)
+        assert len(ss_errors.__all__) > 0
+
+    def test_all_entries_are_accessible(self):
+        """Every name in __all__ must be importable from the module."""
+        for name in ss_errors.__all__:
+            assert hasattr(ss_errors, name), f"sunstone.errors.__all__ lists '{name}' but it's not accessible"
+
+    def test_star_import_matches_pandas(self):
+        """Star-importing sunstone.errors should give the same names as pandas.errors."""
+        pd_names = _star_import_names("pandas.errors")
+        ss_names = _star_import_names("sunstone.errors")
+        assert pd_names == ss_names
 
     def test_objects_are_identical(self):
         """Re-exported objects should be the exact same objects, not copies."""
-        for name in pd_errors.__all__:
-            assert getattr(ss_errors, name) is getattr(pd_errors, name), (
-                f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
-            )
-
-    def test_dunder_all_matches_pandas(self):
-        """sunstone.errors.__all__ should contain all pandas.errors.__all__ entries."""
-        assert set(pd_errors.__all__) == set(ss_errors.__all__)
+        ss_names = _star_import_names("sunstone.errors")
+        for name in ss_names:
+            assert getattr(ss_errors, name) is getattr(
+                pd_errors, name
+            ), f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
 
     def test_import_specific_error(self):
         """Commonly used errors should be directly importable."""
@@ -40,3 +57,12 @@ class TestErrorsReExport:
 
         assert hasattr(sunstone, "errors")
         assert sunstone.errors.ParserError is pd_errors.ParserError
+
+    def test_mypy_clean(self):
+        """sunstone.errors must pass mypy without errors."""
+        result = subprocess.run(
+            [sys.executable, "-m", "mypy", "src/sunstone/errors.py"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"mypy failed:\n{result.stdout}{result.stderr}"

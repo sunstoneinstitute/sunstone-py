@@ -74,6 +74,10 @@ exclude = [
     "^tests/testdata/",
 ]
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",
