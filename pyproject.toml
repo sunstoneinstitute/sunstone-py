@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sunstone-py"
-version = "1.0.1"
+version = "1.1.0"
 description = "Python library for managing datasets with lineage tracking in Sunstone projects"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -73,10 +73,9 @@ check_untyped_defs = false
 exclude = [
     "^tests/testdata/",
 ]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_untyped_defs = false
+overrides = [
+    { module = "tests.*", disallow_untyped_defs = false },
+]
 
 [dependency-groups]
 dev = [

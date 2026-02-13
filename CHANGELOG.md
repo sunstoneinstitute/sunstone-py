@@ -3,11 +3,13 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-02-13
 - Added: package metadata support to datasets.yaml schema
 - Added: `sunstone.errors` module re-exporting all of `pandas.errors`
 
 ## [1.0.1] - 2026-02-04
-- Fixed: to_csv passing Sunstone-specific kwargs to pandas
+- Fixed: `to_csv` passing Sunstone-specific kwargs to pandas
 
 ## [1.0.0] - 2026-02-04
 - Added: RDF triple support in datasets.yaml with automatic prefix expansion in datapackage.json
