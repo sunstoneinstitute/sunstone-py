@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: Support optional fields for non-table dataset resources
 
 ## [1.1.0] - 2026-02-13
 - Added: package metadata support to datasets.yaml schema
