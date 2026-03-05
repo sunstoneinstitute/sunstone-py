@@ -148,8 +148,11 @@ class DatasetMetadata:
     location: str
     """File path or URL for the dataset."""
 
-    fields: List[FieldSchema]
-    """Schema definitions for dataset fields."""
+    resource_type: Optional[str] = None
+    """Resource type (e.g., 'table'). Optional."""
+
+    fields: Optional[List[FieldSchema]] = None
+    """Schema definitions for dataset fields. Required for table resources."""
 
     source: Optional[Source] = None
     """Source attribution (for input datasets)."""

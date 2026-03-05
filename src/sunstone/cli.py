@@ -338,7 +338,7 @@ def dataset_validate(datasets_file: str, datasets: tuple[str, ...]) -> None:
             return
 
         # Required fields
-        for field in ["name", "slug", "location", "fields"]:
+        for field in ["name", "slug", "location"]:
             if field not in ds:
                 errors.append(f"{prefix}: missing required field '{field}'")
 
@@ -349,24 +349,30 @@ def dataset_validate(datasets_file: str, datasets: tuple[str, ...]) -> None:
             else:
                 all_slugs[slug] = ds_type
 
+        # Check type
+        resource_type = ds.get("type")
+
         # Check fields
-        fields = ds.get("fields", [])
-        if not isinstance(fields, list):
-            errors.append(f"{prefix}: 'fields' must be a list")
-        else:
-            for i, field in enumerate(fields):
-                if not isinstance(field, dict):
-                    errors.append(f"{prefix}.fields[{i}]: must be an object")
-                    continue
-                if "name" not in field:
-                    errors.append(f"{prefix}.fields[{i}]: missing 'name'")
-                if "type" not in field:
-                    errors.append(f"{prefix}.fields[{i}]: missing 'type'")
-                elif field["type"] not in VALID_FIELD_TYPES:
-                    errors.append(
-                        f"{prefix}.fields[{i}]: invalid type '{field['type']}' "
-                        f"(must be one of: {', '.join(sorted(VALID_FIELD_TYPES))})"
-                    )
+        fields = ds.get("fields")
+        if resource_type == "table" and fields is None:
+            errors.append(f"{prefix}: 'fields' is required for table resources")
+        elif fields is not None:
+            if not isinstance(fields, list):
+                errors.append(f"{prefix}: 'fields' must be a list")
+            else:
+                for i, field in enumerate(fields):
+                    if not isinstance(field, dict):
+                        errors.append(f"{prefix}.fields[{i}]: must be an object")
+                        continue
+                    if "name" not in field:
+                        errors.append(f"{prefix}.fields[{i}]: missing 'name'")
+                    if "type" not in field:
+                        errors.append(f"{prefix}.fields[{i}]: missing 'type'")
+                    elif field["type"] not in VALID_FIELD_TYPES:
+                        errors.append(
+                            f"{prefix}.fields[{i}]: invalid type '{field['type']}' "
+                            f"(must be one of: {', '.join(sorted(VALID_FIELD_TYPES))})"
+                        )
 
     # Validate inputs
     inputs = data.get("inputs", [])

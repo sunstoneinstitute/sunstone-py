@@ -283,11 +283,15 @@ class DatasetsManager:
 
         rdf_prefixes, custom_properties = self._extract_rdf_properties(dataset_data)
 
+        fields_data = dataset_data.get("fields")
+        fields = self._parse_fields(fields_data) if fields_data is not None else None
+
         return DatasetMetadata(
             name=dataset_data["name"],
             slug=dataset_data["slug"],
             location=dataset_data["location"],
-            fields=self._parse_fields(dataset_data["fields"]),
+            resource_type=dataset_data.get("type"),
+            fields=fields,
             source=source,
             strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,

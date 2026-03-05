@@ -39,7 +39,7 @@ class TestDatasetsManager:
         assert dataset.name == "Official UN Member States"
         assert dataset.slug == "official-un-member-states"
         assert dataset.location is not None
-        assert len(dataset.fields) > 0
+        assert dataset.fields is not None and len(dataset.fields) > 0
         if dataset.source:
             assert dataset.source.license is not None
 

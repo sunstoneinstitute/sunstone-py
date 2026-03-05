@@ -111,11 +111,111 @@ class TestDatasetValidateCommand:
         yaml_file.write_text("""
 inputs:
   - name: Test Dataset
-    # missing slug, location, fields
+    # missing slug, location
 """)
         result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "missing required field" in result.output
+
+    def test_validate_table_without_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation requires fields when type is explicitly 'table'."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    type: table
+    location: data.csv
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code != 0
+        assert "required for table resources" in result.output
+
+    def test_validate_no_type_without_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation passes when type is not set and fields are omitted."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: data.csv
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
+    def test_validate_non_table_without_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation allows non-table resources without fields."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Image
+    slug: test-image
+    type: file
+    location: image.png
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
+    def test_validate_table_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation passes for table resources with fields."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    type: table
+    location: data.csv
+    fields:
+      - name: col1
+        type: string
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
+    def test_validate_no_type_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation passes when type is not set but fields are present."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: data.csv
+    fields:
+      - name: col1
+        type: string
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
+    def test_validate_non_table_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation passes for non-table resources with fields."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Geojson
+    slug: test-geojson
+    type: geojson
+    location: data.geojson
+    fields:
+      - name: geometry
+        type: string
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
+    def test_validate_table_with_empty_fields(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation passes for table resources with empty fields list."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    type: table
+    location: data.csv
+    fields: []
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
 
     def test_validate_invalid_field_type(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test validation catches invalid field types."""
