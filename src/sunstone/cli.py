@@ -760,5 +760,72 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         sys.exit(1)
 
 
+# =============================================================================
+# Lineage commands
+# =============================================================================
+
+
+@main.group()
+def lineage() -> None:
+    """Query dataset lineage."""
+    pass
+
+
+@lineage.command("upstream")
+@click.option(
+    "-f",
+    "--file",
+    "datasets_file",
+    type=click.Path(exists=True),
+    default="datasets.yaml",
+    help="Path to datasets.yaml",
+)
+@click.option("--depth", default=10, type=int, help="Maximum traversal depth")
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@click.argument("slug")
+def lineage_upstream(datasets_file: str, depth: int, json_output: bool, slug: str) -> None:
+    """Show upstream dependencies for a dataset."""
+    import json as json_mod
+
+    from .queries import display_lineage, get_upstream, lineage_to_dict
+
+    project_path = Path(datasets_file).resolve().parent
+    try:
+        node = get_upstream(slug, project_path=project_path, max_depth=depth)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if json_output:
+        click.echo(json_mod.dumps(lineage_to_dict(node), indent=2))
+    else:
+        click.echo(display_lineage(node))
+
+
+@lineage.command("tree")
+@click.option(
+    "-f",
+    "--file",
+    "datasets_file",
+    type=click.Path(exists=True),
+    default="datasets.yaml",
+    help="Path to datasets.yaml",
+)
+@click.option("--depth", default=3, type=int, help="Maximum tree depth")
+@click.argument("slug")
+def lineage_tree(datasets_file: str, depth: int, slug: str) -> None:
+    """Show lineage tree for a dataset (alias for upstream with depth=3)."""
+    from .queries import display_lineage, get_upstream
+
+    project_path = Path(datasets_file).resolve().parent
+    try:
+        node = get_upstream(slug, project_path=project_path, max_depth=depth)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    click.echo(display_lineage(node))
+
+
 if __name__ == "__main__":
     main()

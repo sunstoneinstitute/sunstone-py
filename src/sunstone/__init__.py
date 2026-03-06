@@ -61,6 +61,11 @@ from .validation import (
     validate_project_notebooks,
 )
 
+# Lineage tracking modules
+from .context import ExecutionContext, detect_execution_context
+from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
+from .session import DatasetRead, LineageSession, close_session, get_session
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -90,4 +95,16 @@ __all__ = [
     "DatasetValidationError",
     "StrictModeError",
     "LineageError",
+    # Context and session
+    "ExecutionContext",
+    "detect_execution_context",
+    "get_session",
+    "close_session",
+    "LineageSession",
+    "DatasetRead",
+    # Lineage queries
+    "LineageNode",
+    "get_upstream",
+    "display_lineage",
+    "lineage_to_dict",
 ]

@@ -584,3 +584,74 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "build" in result.output
         assert "push" in result.output
+
+    def test_lineage_help(self, runner: CliRunner) -> None:
+        """Test lineage subcommand help."""
+        result = runner.invoke(main, ["lineage", "--help"])
+        assert result.exit_code == 0
+        assert "upstream" in result.output
+        assert "tree" in result.output
+
+
+class TestLineageCLI:
+    """Tests for lineage CLI commands."""
+
+    @pytest.fixture
+    def lineage_project(self, tmp_path: Path) -> Path:
+        """Create a temporary project with lineage data in datasets.yaml."""
+        datasets_yaml = tmp_path / "datasets.yaml"
+        datasets_yaml.write_text(
+            "inputs:\n"
+            "  - slug: source-data\n"
+            "    name: Source Data\n"
+            "    location: inputs/source.csv\n"
+            "outputs:\n"
+            "  - slug: derived-data\n"
+            "    name: Derived Data\n"
+            "    location: outputs/derived.csv\n"
+            "    lineage:\n"
+            "      content_hash: abc123\n"
+            '      created_at: "2026-03-06T12:00:00"\n'
+            "      sources:\n"
+            "        - slug: source-data\n"
+        )
+        return tmp_path
+
+    def test_lineage_upstream_ascii(self, runner: CliRunner, lineage_project: Path) -> None:
+        """Test upstream command shows ASCII tree."""
+        datasets_file = str(lineage_project / "datasets.yaml")
+        result = runner.invoke(main, ["lineage", "upstream", "-f", datasets_file, "derived-data"])
+        assert result.exit_code == 0
+        assert "derived-data" in result.output
+        assert "source-data" in result.output
+
+    def test_lineage_upstream_json(self, runner: CliRunner, lineage_project: Path) -> None:
+        """Test upstream command with --json flag outputs valid JSON."""
+        import json as json_mod
+
+        datasets_file = str(lineage_project / "datasets.yaml")
+        result = runner.invoke(
+            main,
+            ["lineage", "upstream", "-f", datasets_file, "--json", "derived-data"],
+        )
+        assert result.exit_code == 0
+        data = json_mod.loads(result.output)
+        assert data["slug"] == "derived-data"
+        assert len(data["sources"]) == 1
+        assert data["sources"][0]["slug"] == "source-data"
+
+    def test_lineage_upstream_not_found(self, runner: CliRunner, lineage_project: Path) -> None:
+        """Test upstream command with nonexistent slug returns graceful output."""
+        datasets_file = str(lineage_project / "datasets.yaml")
+        result = runner.invoke(main, ["lineage", "upstream", "-f", datasets_file, "nonexistent"])
+        # get_upstream returns a leaf node for unknown slugs (graceful)
+        assert result.exit_code == 0
+        assert "nonexistent" in result.output
+
+    def test_lineage_tree(self, runner: CliRunner, lineage_project: Path) -> None:
+        """Test tree command works as alias with depth=3 default."""
+        datasets_file = str(lineage_project / "datasets.yaml")
+        result = runner.invoke(main, ["lineage", "tree", "-f", datasets_file, "derived-data"])
+        assert result.exit_code == 0
+        assert "derived-data" in result.output
+        assert "source-data" in result.output
