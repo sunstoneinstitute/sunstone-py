@@ -540,7 +540,13 @@ class DatasetsManager:
         raise DatasetNotFoundError(f"Dataset with slug '{slug}' not found")
 
     def update_output_lineage(
-        self, slug: str, lineage: LineageMetadata, content_hash: str, strict: bool = False
+        self,
+        slug: str,
+        lineage: LineageMetadata,
+        content_hash: str,
+        strict: bool = False,
+        context: Optional[dict] = None,
+        transformation_params: Optional[dict] = None,
     ) -> None:
         """
         Update lineage metadata for an output dataset.
@@ -595,6 +601,10 @@ class DatasetsManager:
             lineage_data["created_at"] = timestamp
         if lineage.sources:
             lineage_data["sources"] = [{"slug": src.slug} for src in lineage.sources]
+        if context:
+            lineage_data["context"] = context
+        if transformation_params:
+            lineage_data["transformation_params"] = transformation_params
 
         # Create a copy of the data with updated lineage
         updated_data = self._data.copy()

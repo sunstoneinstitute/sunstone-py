@@ -197,6 +197,11 @@ class DataFrame:
         lineage = LineageMetadata(project_path=str(manager.project_path))
         lineage.add_source(dataset)
 
+        # Record read in lineage session
+        from .session import DatasetRead, get_session
+
+        get_session().record_read(DatasetRead(slug=slug))
+
         # Return wrapped DataFrame
         return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
 
@@ -294,6 +299,11 @@ class DataFrame:
         lineage = LineageMetadata(project_path=str(manager.project_path))
         lineage.add_source(dataset)
 
+        # Record read in lineage session
+        from .session import DatasetRead, get_session
+
+        get_session().record_read(DatasetRead(slug=dataset.slug))
+
         # Return wrapped DataFrame
         return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
 
@@ -304,7 +314,7 @@ class DataFrame:
         return env_strict in ("1", "true")
 
     # Sunstone-specific kwargs that should not be passed to pandas
-    _SUNSTONE_KWARGS = {"publish"}
+    _SUNSTONE_KWARGS = {"publish", "transformation_params"}
 
     def to_csv(
         self,
@@ -312,6 +322,7 @@ class DataFrame:
         slug: Optional[str] = None,
         name: Optional[str] = None,
         publish: bool = False,
+        transformation_params: Optional[dict] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -368,9 +379,20 @@ class DataFrame:
         # Compute content hash for change detection
         content_hash = compute_dataframe_hash(self.data)
 
+        # Flush session lineage with execution context
+        from .session import get_session
+
+        session = get_session()
+        lineage_data = session.flush_to_output(transformation_params=transformation_params)
+
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
-            slug=dataset.slug, lineage=self.lineage, content_hash=content_hash, strict=self.strict_mode
+            slug=dataset.slug,
+            lineage=self.lineage,
+            content_hash=content_hash,
+            strict=self.strict_mode,
+            context=lineage_data.get("context"),
+            transformation_params=lineage_data.get("transformation_params"),
         )
 
     def _infer_field_schema(self) -> List[FieldSchema]:
