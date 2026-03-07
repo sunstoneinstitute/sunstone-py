@@ -433,6 +433,16 @@ class DatasetsManager:
         """
         return self._parse_package(self._data.get("package"))
 
+    def get_top_level_custom_properties(self) -> Dict[str, Any]:
+        """
+        Get top-level custom properties from datasets.yaml.
+
+        Returns all top-level fields whose key contains a ':' character
+        (i.e., RDF/namespaced properties), filtering out standard fields
+        like package, publish, inputs, outputs, and defaults.
+        """
+        return {key: value for key, value in self._data.items() if ":" in key}
+
     def add_output_dataset(self, name: str, slug: str, location: str, fields: List[FieldSchema]) -> DatasetMetadata:
         """
         Add a new output dataset to datasets.yaml.

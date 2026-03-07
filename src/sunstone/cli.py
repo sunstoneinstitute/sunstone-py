@@ -583,11 +583,14 @@ def package_build(datasets_file: str, output_file: str) -> None:
         sys.exit(1)
 
     # Create datapackage with automatic RDF type
-    datapackage = {
+    datapackage: dict[str, Any] = {
         "name": project_slug,
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
+
+    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
+    datapackage.update(manager.get_top_level_custom_properties())
 
     output_path = Path(output_file)
     with open(output_path, "w") as f:
@@ -725,11 +728,14 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         sys.exit(1)
 
     # Create datapackage with automatic RDF type
-    datapackage = {
+    datapackage: dict[str, Any] = {
         "name": project_slug,
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
+
+    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
+    datapackage.update(manager.get_top_level_custom_properties())
 
     # Upload to GCS
     try:
