@@ -20,12 +20,11 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def temp_project(tmp_path: Path) -> Path:
+def test_project(tmp_path: Path) -> Path:
     """Create a temporary project with datasets.yaml."""
-    # Copy the test project
     src = Path(__file__).parent / "testdata" / "UNMembersProject"
     dst = tmp_path / "project"
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".venv", "__pycache__", "*.pyc"))
     return dst
 
 
@@ -305,49 +304,49 @@ class TestDatasetListCommand:
 class TestDatasetLockUnlockCommands:
     """Tests for dataset lock and unlock commands."""
 
-    def test_lock_single_dataset(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_lock_single_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking a single dataset."""
         result = runner.invoke(
-            main, ["dataset", "lock", "-f", str(temp_project / "datasets.yaml"), "current-un-member-states"]
+            main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
         assert "Locked 1 dataset(s)" in result.output
 
         # Verify the file was updated
-        content = (temp_project / "datasets.yaml").read_text()
+        content = (test_project / "datasets.yaml").read_text()
         assert "strict: true" in content
 
-    def test_lock_all_datasets(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_lock_all_datasets(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking all datasets."""
-        result = runner.invoke(main, ["dataset", "lock", "-f", str(temp_project / "datasets.yaml")])
+        result = runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
         assert "Locked 2 dataset(s)" in result.output
 
-    def test_unlock_dataset(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_unlock_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test unlocking a dataset."""
         # First lock it
-        runner.invoke(main, ["dataset", "lock", "-f", str(temp_project / "datasets.yaml"), "current-un-member-states"])
+        runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"])
 
         # Then unlock
         result = runner.invoke(
-            main, ["dataset", "unlock", "-f", str(temp_project / "datasets.yaml"), "current-un-member-states"]
+            main, ["dataset", "unlock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
         assert "Unlocked 1 dataset(s)" in result.output
 
-    def test_lock_nonexistent_dataset(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_lock_nonexistent_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking a non-existent dataset."""
-        result = runner.invoke(main, ["dataset", "lock", "-f", str(temp_project / "datasets.yaml"), "nonexistent"])
+        result = runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "nonexistent"])
         assert "not found" in result.output
 
 
 class TestPackageBuildCommand:
     """Tests for the package build command."""
 
-    def test_build_package(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_build_package(self, runner: CliRunner, test_project: Path) -> None:
         """Test building a datapackage.json."""
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
@@ -357,14 +356,14 @@ class TestPackageBuildCommand:
                 "package",
                 "build",
                 "-f",
-                str(temp_project / "datasets.yaml"),
+                str(test_project / "datasets.yaml"),
                 "-o",
-                str(temp_project / "datapackage.json"),
+                str(test_project / "datapackage.json"),
             ],
         )
         assert result.exit_code == 0
         assert "Created" in result.output
-        assert (temp_project / "datapackage.json").exists()
+        assert (test_project / "datapackage.json").exists()
 
     def test_build_no_outputs(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test building with no output datasets."""
@@ -374,15 +373,15 @@ class TestPackageBuildCommand:
         assert result.exit_code != 0
         assert "No publishable datasets found" in result.output
 
-    def test_build_with_as_url(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_build_with_as_url(self, runner: CliRunner, test_project: Path) -> None:
         """Test that as_url produces full public URLs in resource paths."""
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         # Add as: to publish config
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         content = content.replace(
             "to: gs://example-bucket/datasets/un-members/",
@@ -398,14 +397,14 @@ class TestPackageBuildCommand:
                 "-f",
                 str(yaml_path),
                 "-o",
-                str(temp_project / "datapackage.json"),
+                str(test_project / "datapackage.json"),
             ],
         )
         assert result.exit_code == 0
 
         import json
 
-        datapackage = json.loads((temp_project / "datapackage.json").read_text())
+        datapackage = json.loads((test_project / "datapackage.json").read_text())
         assert len(datapackage["resources"]) == 1
         resource_path = datapackage["resources"][0]["path"]
         assert resource_path == "https://data.example.com/un-members/outputs/current_un_member_states.csv"
@@ -414,10 +413,10 @@ class TestPackageBuildCommand:
 class TestPackagePushCommand:
     """Tests for the package push command."""
 
-    def test_push_non_publishable(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_push_non_publishable(self, runner: CliRunner, test_project: Path) -> None:
         """Test pushing without publishing enabled."""
         # Modify datasets.yaml to disable publishing at top level
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
@@ -426,10 +425,10 @@ class TestPackagePushCommand:
         assert result.exit_code != 0
         assert "No publishable datasets found" in result.output
 
-    def test_push_success(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_push_success(self, runner: CliRunner, test_project: Path) -> None:
         """Test successful push."""
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
@@ -441,15 +440,15 @@ class TestPackagePushCommand:
         mock_bucket.blob.return_value = mock_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(temp_project / "datasets.yaml")])
+            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
             assert "datapackage.json" in result.output
             assert "Package pushed to" in result.output
 
-    def test_push_with_custom_destination(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_push_with_custom_destination(self, runner: CliRunner, test_project: Path) -> None:
         """Test push with custom destination."""
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
@@ -462,35 +461,35 @@ class TestPackagePushCommand:
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
             result = runner.invoke(
-                main, ["package", "push", "-f", str(temp_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
+                main, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
             )
             assert result.exit_code == 0
             mock_client.bucket.assert_called_with("my-bucket")
 
-    def test_push_invalid_destination_scheme(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_push_invalid_destination_scheme(self, runner: CliRunner, test_project: Path) -> None:
         """Test push with non-gs:// destination fails."""
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         result = runner.invoke(
-            main, ["package", "push", "-f", str(temp_project / "datasets.yaml"), "-d", "https://example.com/"]
+            main, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "https://example.com/"]
         )
         assert result.exit_code != 0
         assert "gs://" in result.output
 
-    def test_push_with_as_url(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_push_with_as_url(self, runner: CliRunner, test_project: Path) -> None:
         """Test that as_url produces public URLs in datapackage.json while uploads go to GCS."""
         import json
 
         # Create the output file
-        output_dir = temp_project / "outputs"
+        output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         # Add as: to publish config
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         content = content.replace(
             "to: gs://example-bucket/datasets/un-members/",
@@ -527,16 +526,16 @@ class TestPackagePushCommand:
 class TestPublishConfigParsing:
     """Tests for top-level publish config parsing."""
 
-    def test_publish_enabled(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_publish_enabled(self, runner: CliRunner, test_project: Path) -> None:
         """Test that top-level publish config is displayed."""
-        result = runner.invoke(main, ["dataset", "list", "-f", str(temp_project / "datasets.yaml")])
+        result = runner.invoke(main, ["dataset", "list", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
         assert "Publishing:" in result.output
         assert "to: gs://example-bucket/datasets/un-members/" in result.output
 
-    def test_publish_disabled(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_publish_disabled(self, runner: CliRunner, test_project: Path) -> None:
         """Test that disabled publishing is not displayed."""
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
@@ -545,9 +544,9 @@ class TestPublishConfigParsing:
         assert result.exit_code == 0
         assert "Publishing:" not in result.output
 
-    def test_publish_with_flatten(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_publish_with_flatten(self, runner: CliRunner, test_project: Path) -> None:
         """Test that flatten option is displayed."""
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         # Add flatten: true to publish config
         content = content.replace(
@@ -561,9 +560,9 @@ class TestPublishConfigParsing:
         assert "Publishing:" in result.output
         assert "flatten: true" in result.output
 
-    def test_publish_boolean_legacy(self, runner: CliRunner, temp_project: Path) -> None:
+    def test_publish_boolean_legacy(self, runner: CliRunner, test_project: Path) -> None:
         """Test that legacy boolean format still works."""
-        yaml_path = temp_project / "datasets.yaml"
+        yaml_path = test_project / "datasets.yaml"
         content = yaml_path.read_text()
         # Replace object format with boolean
         content = content.replace(

@@ -215,19 +215,13 @@ class TestReadDataset:
 class TestContentHashLineage:
     """Tests for content-hash based lineage tracking."""
 
-    def test_content_hash_computed_on_save(self, project_path: Path, tmp_path: Path) -> None:
+    def test_content_hash_computed_on_save(self, project_copy: Path) -> None:
         """Test that content hash is computed and saved when writing output."""
-        import shutil
-
         from ruamel.yaml import YAML
-
-        # Create a copy of the project in tmp_path to avoid modifying original
-        test_project = tmp_path / "test_project"
-        shutil.copytree(project_path, test_project)
 
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
 
@@ -237,7 +231,7 @@ class TestContentHashLineage:
 
         # Read the datasets.yaml and check for content_hash
         yaml = YAML()
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data = yaml.load(f)
 
         # Find the output dataset
@@ -249,20 +243,15 @@ class TestContentHashLineage:
         # Hash should be a 64-character hex string (SHA256)
         assert len(output["lineage"]["content_hash"]) == 64
 
-    def test_timestamp_not_updated_when_content_unchanged(self, project_path: Path, tmp_path: Path) -> None:
+    def test_timestamp_not_updated_when_content_unchanged(self, project_copy: Path) -> None:
         """Test that timestamp stays the same when saving identical content."""
-        import shutil
         import time
 
         from ruamel.yaml import YAML
 
-        # Create a copy of the project in tmp_path
-        test_project = tmp_path / "test_project"
-        shutil.copytree(project_path, test_project)
-
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
 
@@ -273,7 +262,7 @@ class TestContentHashLineage:
 
         # Read the first timestamp and hash
         yaml = YAML()
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data1 = yaml.load(f)
 
         output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "stable-output"), None)
@@ -287,13 +276,13 @@ class TestContentHashLineage:
         # Reload the manager and write again with the same data
         df2 = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
         df2.to_csv(output_path, slug="stable-output", name="Stable Output", index=False)
 
         # Read the second timestamp and hash
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data2 = yaml.load(f)
 
         output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "stable-output"), None)
@@ -306,20 +295,15 @@ class TestContentHashLineage:
         # Timestamp should NOT have changed since content is identical
         assert first_timestamp == second_timestamp
 
-    def test_timestamp_updated_when_content_changes(self, project_path: Path, tmp_path: Path) -> None:
+    def test_timestamp_updated_when_content_changes(self, project_copy: Path) -> None:
         """Test that timestamp is updated when content actually changes."""
-        import shutil
         import time
 
         from ruamel.yaml import YAML
 
-        # Create a copy of the project in tmp_path
-        test_project = tmp_path / "test_project"
-        shutil.copytree(project_path, test_project)
-
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
 
@@ -330,7 +314,7 @@ class TestContentHashLineage:
 
         # Read the first timestamp and hash
         yaml = YAML()
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data1 = yaml.load(f)
 
         output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "changing-output"), None)
@@ -344,7 +328,7 @@ class TestContentHashLineage:
         # Modify the data and write again
         df2 = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
         # Actually modify the content - take only first 10 rows
@@ -352,7 +336,7 @@ class TestContentHashLineage:
         df2_modified.to_csv(output_path, slug="changing-output", name="Changing Output", index=False)
 
         # Read the second timestamp and hash
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data2 = yaml.load(f)
 
         output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "changing-output"), None)
@@ -365,19 +349,13 @@ class TestContentHashLineage:
         # Timestamp SHOULD have changed since content is different
         assert first_timestamp != second_timestamp
 
-    def test_sources_written_to_datasets_yaml(self, project_path: Path, tmp_path: Path) -> None:
+    def test_sources_written_to_datasets_yaml(self, project_copy: Path) -> None:
         """Test that lineage sources are written to datasets.yaml on save."""
-        import shutil
-
         from ruamel.yaml import YAML
-
-        # Create a copy of the project in tmp_path
-        test_project = tmp_path / "test_project"
-        shutil.copytree(project_path, test_project)
 
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
 
@@ -391,7 +369,7 @@ class TestContentHashLineage:
 
         # Read the datasets.yaml
         yaml = YAML()
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data = yaml.load(f)
 
         # Find the output dataset
@@ -405,19 +383,13 @@ class TestContentHashLineage:
         assert len(sources) > 0
         assert sources[0] == {"slug": source_slug}
 
-    def test_sources_updated_on_existing_output(self, project_path: Path, tmp_path: Path) -> None:
+    def test_sources_updated_on_existing_output(self, project_copy: Path) -> None:
         """Test that sources are updated when writing to an existing output."""
-        import shutil
-
         from ruamel.yaml import YAML
-
-        # Create a copy of the project in tmp_path
-        test_project = tmp_path / "test_project"
-        shutil.copytree(project_path, test_project)
 
         df = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
 
@@ -428,7 +400,7 @@ class TestContentHashLineage:
 
         # Read dataset.yaml and verify sources
         yaml = YAML()
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data = yaml.load(f)
 
         output = next((d for d in data.get("outputs", []) if d["slug"] == "update-sources-output"), None)
@@ -439,13 +411,13 @@ class TestContentHashLineage:
         # Write again - sources should still be present
         df2 = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
-            project_path=test_project,
+            project_path=project_copy,
             strict=False,
         )
         df2.to_csv(output_path, slug="update-sources-output", name="Update Sources Output", index=False)
 
         # Verify sources are still there
-        with open(test_project / "datasets.yaml") as f:
+        with open(project_copy / "datasets.yaml") as f:
             data2 = yaml.load(f)
 
         output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "update-sources-output"), None)
