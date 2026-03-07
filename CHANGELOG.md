@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.2.0] - 2026-03-07
 - Added: Per-dataset publish configuration with top-level defaults and per-dataset overrides
 - Added: Input datasets can opt in to publishing with explicit publish config
 - Added: Multiple publish destinations generate separate datapackage.json files
