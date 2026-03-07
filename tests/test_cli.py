@@ -217,6 +217,23 @@ inputs:
         result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
+    def test_validate_array_and_object_field_types(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test validation accepts array and object field types."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text("""
+inputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: data.json
+    fields:
+      - name: items
+        type: array
+      - name: metadata
+        type: object
+""")
+        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0
+
     def test_validate_invalid_field_type(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test validation catches invalid field types."""
         yaml_file = tmp_path / "datasets.yaml"

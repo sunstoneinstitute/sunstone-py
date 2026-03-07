@@ -25,7 +25,7 @@ _yaml.default_flow_style = False
 _yaml.indent(mapping=2, sequence=4, offset=2)
 
 # Valid field types
-VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime"}
+VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime", "array", "object"}
 
 # Pattern for ${VAR} or ${VAR:-default} substitution
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")

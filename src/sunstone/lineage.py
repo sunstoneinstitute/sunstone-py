@@ -60,7 +60,7 @@ class FieldSchema:
     """Name of the field/column."""
 
     type: str
-    """Data type (string, number, integer, boolean, date, datetime)."""
+    """Data type (string, number, integer, boolean, date, datetime, array, object)."""
 
     constraints: Optional[Dict[str, Any]] = None
     """Optional constraints (e.g., enum values)."""
