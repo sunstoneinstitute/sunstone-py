@@ -59,7 +59,7 @@ def _detect_notebook_path() -> Optional[str]:
     or if the package is not installed.
     """
     try:
-        import ipynb_path  # type: ignore[import-untyped]
+        import ipynb_path  # type: ignore[import-not-found]
 
         path = ipynb_path.get()
         return str(path) if path else None
