@@ -3,6 +3,10 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: Per-dataset publish configuration with top-level defaults and per-dataset overrides
+- Added: Input datasets can opt in to publishing with explicit publish config
+- Added: Multiple publish destinations generate separate datapackage.json files
+- Changed: `package build` and `package push` group datasets by publish destination
 
 ## [1.1.1] - 2026-03-05
 - Changed: Support optional fields for non-table dataset resources

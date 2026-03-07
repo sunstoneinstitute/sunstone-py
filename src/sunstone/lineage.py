@@ -169,6 +169,9 @@ class DatasetMetadata:
     custom_properties: Optional[Dict[str, Any]] = None
     """Custom properties including RDF triples."""
 
+    publish: Optional[PublishConfig] = None
+    """Per-dataset publish configuration (overrides top-level)."""
+
 
 def compute_dataframe_hash(df: "pd.DataFrame") -> str:
     """

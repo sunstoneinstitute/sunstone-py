@@ -17,6 +17,7 @@ from ruamel.yaml import YAML
 
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError
+from .lineage import DatasetMetadata, PublishConfig
 
 # Configure ruamel.yaml for round-trip parsing
 _yaml = YAML()
@@ -196,6 +197,56 @@ def expand_custom_properties(
         expanded[expanded_key] = expanded_value
 
     return expanded
+
+
+def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig]) -> Optional[PublishConfig]:
+    """
+    Get the effective publish config for a dataset.
+
+    Per-dataset publish overrides top-level entirely (including enabled=false to
+    opt out). For inputs, only included if they have an explicit per-dataset
+    publish config. For outputs, the top-level config is the default.
+
+    Returns None if the dataset should not be published.
+    """
+    if ds.publish is not None:
+        # Per-dataset config takes precedence. Merge with top-level for
+        # missing fields (to, flatten, as_url) when the dataset doesn't
+        # specify them.
+        if not ds.publish.enabled:
+            return ds.publish  # Explicitly disabled
+        if top_level and top_level.enabled:
+            return PublishConfig(
+                enabled=True,
+                to=ds.publish.to or top_level.to,
+                flatten=ds.publish.flatten if ds.publish.flatten else top_level.flatten,
+                as_url=ds.publish.as_url or top_level.as_url,
+            )
+        return ds.publish
+    if ds.dataset_type == "input":
+        # Inputs must explicitly opt in
+        return None
+    return top_level
+
+
+def group_datasets_by_destination(
+    datasets: list[DatasetMetadata], top_level: Optional[PublishConfig]
+) -> dict[str, tuple[PublishConfig, list[DatasetMetadata]]]:
+    """
+    Group publishable datasets by their effective destination.
+
+    Returns a dict mapping expanded destination URL to (publish_config, datasets).
+    """
+    groups: dict[str, tuple[PublishConfig, list[DatasetMetadata]]] = {}
+    for ds in datasets:
+        effective = get_effective_publish(ds, top_level)
+        if effective is None or not effective.enabled:
+            continue
+        dest = expand_env_vars(effective.to or "")
+        if dest not in groups:
+            groups[dest] = (effective, [])
+        groups[dest][1].append(ds)
+    return groups
 
 
 def get_manager(datasets_file: str) -> tuple[DatasetsManager, Path]:
@@ -500,6 +551,98 @@ def package() -> None:
     pass
 
 
+def build_resource_dict(
+    ds: DatasetMetadata,
+    manager: DatasetsManager,
+    publish_config: Optional[PublishConfig],
+) -> Optional[dict[str, Any]]:
+    """
+    Build a Frictionless resource dict for a dataset.
+
+    Returns None if the data file doesn't exist or description fails.
+    """
+    from frictionless import describe
+
+    data_path = manager.get_absolute_path(ds.location)
+    if not data_path.exists():
+        click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
+        return None
+
+    try:
+        # Determine resource path based on flatten and as_url settings
+        if publish_config and publish_config.flatten:
+            resource_path = data_path.name
+        else:
+            resource_path = ds.location
+
+        resource = describe(str(data_path))
+        resource.name = ds.slug
+        resource.title = ds.name
+
+        # If as_url is configured, use full public URLs in datapackage.json
+        if publish_config and publish_config.as_url:
+            public_base = publish_config.as_url.rstrip("/") + "/"
+            resource.path = public_base + resource_path
+        else:
+            resource.path = resource_path
+
+        # Convert to dict and add custom RDF properties
+        resource_dict: dict[str, Any] = resource.to_dict()
+
+        # Add automatic RDF type for resource
+        resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
+
+        # Add expanded RDF properties if present
+        flatten = publish_config.flatten if publish_config else False
+        as_url = publish_config.as_url if publish_config else None
+        if ds.custom_properties and ds.rdf_prefixes:
+            expanded_props = expand_custom_properties(
+                ds.custom_properties, ds.rdf_prefixes, ds.location, flatten, as_url
+            )
+            resource_dict.update(expanded_props)
+        elif ds.custom_properties:
+            # No prefixes, just add custom properties as-is
+            resource_dict.update(ds.custom_properties)
+
+        return resource_dict
+    except Exception as e:
+        click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
+        return None
+
+
+def build_datapackage(
+    project_slug: str,
+    datasets: list[DatasetMetadata],
+    manager: DatasetsManager,
+    publish_config: Optional[PublishConfig],
+) -> Optional[dict[str, Any]]:
+    """
+    Build a datapackage dict for a group of datasets.
+
+    Returns None if no resources could be built.
+    """
+    resources = []
+    for ds in datasets:
+        resource_dict = build_resource_dict(ds, manager, publish_config)
+        if resource_dict:
+            resources.append(resource_dict)
+            click.echo(f"  + {ds.slug}")
+
+    if not resources:
+        return None
+
+    datapackage: dict[str, Any] = {
+        "name": project_slug,
+        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
+        "resources": resources,
+    }
+
+    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
+    datapackage.update(manager.get_top_level_custom_properties())
+
+    return datapackage
+
+
 @package.command("build")
 @click.option(
     "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
@@ -508,7 +651,9 @@ def package() -> None:
 def package_build(datasets_file: str, output_file: str) -> None:
     """Build a datapackage.json from datasets.yaml.
 
-    Creates a Data Package (https://datapackage.org/) with all output datasets as resources.
+    Creates a Data Package (https://datapackage.org/) with publishable datasets as resources.
+    Datasets are grouped by their publish destination. If there are multiple destinations,
+    separate datapackage.json files are created for each.
     """
     try:
         manager, project_path = get_manager(datasets_file)
@@ -516,126 +661,80 @@ def package_build(datasets_file: str, output_file: str) -> None:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    outputs = manager.get_all_outputs()
-    if not outputs:
-        click.echo("No output datasets found.", err=True)
-        sys.exit(1)
-
-    project_slug = get_project_slug(project_path)
-    publish_config = manager.get_publish_config()
-
     try:
-        from frictionless import describe
+        from frictionless import describe  # noqa: F401
     except ImportError:
         click.echo("Error: frictionless is required for package build", err=True)
         sys.exit(1)
 
-    resources = []
-    for ds in outputs:
-        data_path = manager.get_absolute_path(ds.location)
-        if not data_path.exists():
-            click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
-            continue
-
-        try:
-            # Determine resource path based on flatten and as_url settings
-            if publish_config and publish_config.flatten:
-                resource_path = data_path.name
-            else:
-                resource_path = ds.location
-
-            resource = describe(str(data_path))
-            resource.name = ds.slug
-            resource.title = ds.name
-
-            # If as_url is configured, use full public URLs in datapackage.json
-            if publish_config and publish_config.as_url:
-                public_base = publish_config.as_url.rstrip("/") + "/"
-                resource.path = public_base + resource_path
-            else:
-                resource.path = resource_path
-
-            # Convert to dict and add custom RDF properties
-            resource_dict = resource.to_dict()
-
-            # Add automatic RDF type for resource
-            resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
-
-            # Add expanded RDF properties if present
-            flatten = publish_config.flatten if publish_config else False
-            as_url = publish_config.as_url if publish_config else None
-            if ds.custom_properties and ds.rdf_prefixes:
-                expanded_props = expand_custom_properties(
-                    ds.custom_properties, ds.rdf_prefixes, ds.location, flatten, as_url
-                )
-                resource_dict.update(expanded_props)
-            elif ds.custom_properties:
-                # No prefixes, just add custom properties as-is
-                resource_dict.update(ds.custom_properties)
-
-            resources.append(resource_dict)
-            click.echo(f"  + {ds.slug}")
-        except Exception as e:
-            click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
-
-    if not resources:
-        click.echo("Error: No resources could be added to the package", err=True)
-        sys.exit(1)
-
-    # Create datapackage with automatic RDF type
-    datapackage: dict[str, Any] = {
-        "name": project_slug,
-        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
-        "resources": resources,
-    }
-
-    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
-    datapackage.update(manager.get_top_level_custom_properties())
-
-    output_path = Path(output_file)
-    with open(output_path, "w") as f:
-        json.dump(datapackage, f, indent=2)
-
-    click.echo(f"\n✓ Created {output_file} with {len(resources)} resource(s)")
-
-
-@package.command("push")
-@click.option("--env", type=click.Choice(["dev", "prod"]), default="dev", help="Target environment")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.option("--destination", "-d", "destination", type=str, default=None, help="Override destination gs:// URL")
-def package_push(env: str, datasets_file: str, destination: Optional[str]) -> None:
-    """Push the data package to Google Cloud Storage.
-
-    Uploads datapackage.json and all output datasets.
-    """
-    try:
-        manager, project_path = get_manager(datasets_file)
-    except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-    # Get publish config
-    publish_config = manager.get_publish_config()
-    if not publish_config or not publish_config.enabled:
-        click.echo("Error: Publishing not enabled (need publish.enabled: true at top level)", err=True)
-        sys.exit(1)
-
-    outputs = manager.get_all_outputs()
-    if not outputs:
-        click.echo("Error: No output datasets found", err=True)
-        sys.exit(1)
-
     project_slug = get_project_slug(project_path)
+    top_level_publish = manager.get_publish_config()
+    all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
 
-    # Determine destination
-    if destination:
-        dest_url = expand_env_vars(destination)
-    elif publish_config.to:
-        dest_url = expand_env_vars(publish_config.to)
+    groups = group_datasets_by_destination(all_datasets, top_level_publish)
+
+    if not groups:
+        click.echo("No publishable datasets found.", err=True)
+        sys.exit(1)
+
+    if len(groups) == 1:
+        # Single destination: write to the specified output file
+        dest, (pub_config, datasets) = next(iter(groups.items()))
+        datapackage = build_datapackage(project_slug, datasets, manager, pub_config)
+        if not datapackage:
+            click.echo("Error: No resources could be added to the package", err=True)
+            sys.exit(1)
+
+        output_path = Path(output_file)
+        with open(output_path, "w") as f:
+            json.dump(datapackage, f, indent=2)
+
+        click.echo(f"\n✓ Created {output_file} with {len(datapackage['resources'])} resource(s)")
     else:
-        dest_url = f"gs://payloadcms-{env}/datasets/projects/{project_slug}/"
+        # Multiple destinations: write separate files
+        output_base = Path(output_file)
+        total_resources = 0
+        files_created = 0
+        for i, (dest, (pub_config, datasets)) in enumerate(groups.items()):
+            datapackage = build_datapackage(project_slug, datasets, manager, pub_config)
+            if not datapackage:
+                click.echo(f"Warning: No resources for destination: {dest}", err=True)
+                continue
+
+            if i == 0:
+                out_path = output_base
+            else:
+                out_path = output_base.parent / f"{output_base.stem}.{i}{output_base.suffix}"
+
+            with open(out_path, "w") as f:
+                json.dump(datapackage, f, indent=2)
+
+            n = len(datapackage["resources"])
+            total_resources += n
+            files_created += 1
+            click.echo(f"\n✓ Created {out_path} with {n} resource(s) -> {dest}")
+
+        click.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
+
+
+def push_group_to_gcs(
+    dest_url: str,
+    datasets: list[DatasetMetadata],
+    manager: DatasetsManager,
+    project_slug: str,
+    publish_config: PublishConfig,
+) -> None:
+    """
+    Push a group of datasets to a single GCS destination.
+
+    Args:
+        dest_url: The GCS destination URL (gs://...).
+        datasets: The datasets to include in this datapackage.
+        manager: The DatasetsManager instance.
+        project_slug: The project slug for the datapackage name.
+        publish_config: The effective publish config for this group.
+    """
+    from google.cloud import storage  # type: ignore[import-untyped]
 
     parsed = urlparse(dest_url)
     if parsed.scheme != "gs":
@@ -643,7 +742,6 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         sys.exit(1)
 
     # Resolve datapackage.json path and base directory
-    # If dest_url doesn't end with .json, treat it as a directory and append /datapackage.json
     if not dest_url.endswith(".json"):
         if not dest_url.endswith("/"):
             dest_url += "/"
@@ -651,119 +749,139 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
     else:
         datapackage_url = dest_url
 
-    # Parse the final datapackage URL to get bucket and paths
     parsed = urlparse(datapackage_url)
     bucket_name = parsed.netloc
     datapackage_path = parsed.path.lstrip("/")
 
-    # Base directory is the directory containing datapackage.json
     base_dir = str(Path(datapackage_path).parent)
     if base_dir and base_dir != ".":
         base_dir = base_dir + "/"
     else:
         base_dir = ""
 
-    # Build the datapackage
-    try:
-        from frictionless import describe
-    except ImportError:
-        click.echo("Error: frictionless is required for package push", err=True)
-        sys.exit(1)
-
     resources = []
-    data_files: list[tuple[Path, str, str]] = []  # (local_path, remote_path, resource_path)
+    data_files: list[tuple[Path, str, str]] = []
 
-    for ds in outputs:
-        data_path = manager.get_absolute_path(ds.location)
-        if not data_path.exists():
-            click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
+    for ds in datasets:
+        resource_dict = build_resource_dict(ds, manager, publish_config)
+        if not resource_dict:
             continue
 
-        try:
-            # Determine paths based on flatten setting
-            if publish_config.flatten:
-                # Flatten: just use the filename
-                resource_path = data_path.name
-                remote_path = base_dir + data_path.name
-            else:
-                # Preserve directory structure from location
-                # location is relative to project, e.g., "outputs/data/file.csv"
-                resource_path = ds.location
-                remote_path = base_dir + ds.location
+        data_path = manager.get_absolute_path(ds.location)
+        if publish_config.flatten:
+            remote_path = base_dir + data_path.name
+            resource_path = data_path.name
+        else:
+            remote_path = base_dir + ds.location
+            resource_path = ds.location
 
-            resource = describe(str(data_path))
-            resource.name = ds.slug
-            resource.title = ds.name
-
-            # If as_url is configured, use full public URLs in datapackage.json
-            if publish_config.as_url:
-                public_base = publish_config.as_url.rstrip("/") + "/"
-                resource.path = public_base + resource_path
-            else:
-                resource.path = resource_path
-
-            # Convert to dict and add custom RDF properties
-            resource_dict = resource.to_dict()
-
-            # Add automatic RDF type for resource
-            resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
-
-            # Add expanded RDF properties if present
-            if ds.custom_properties and ds.rdf_prefixes:
-                expanded_props = expand_custom_properties(
-                    ds.custom_properties, ds.rdf_prefixes, ds.location, publish_config.flatten, publish_config.as_url
-                )
-                resource_dict.update(expanded_props)
-            elif ds.custom_properties:
-                # No prefixes, just add custom properties as-is
-                resource_dict.update(ds.custom_properties)
-
-            resources.append(resource_dict)
-            data_files.append((data_path, remote_path, resource_path))
-        except Exception as e:
-            click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
+        resources.append(resource_dict)
+        data_files.append((data_path, remote_path, resource_path))
 
     if not resources:
-        click.echo("Error: No resources could be added to the package", err=True)
-        sys.exit(1)
+        click.echo(f"Warning: No resources for destination: {dest_url}", err=True)
+        return
 
-    # Create datapackage with automatic RDF type
     datapackage: dict[str, Any] = {
         "name": project_slug,
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
-
-    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
     datapackage.update(manager.get_top_level_custom_properties())
 
-    # Upload to GCS
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+
+    datapackage_blob = bucket.blob(datapackage_path)
+    datapackage_blob.upload_from_string(json.dumps(datapackage, indent=2), content_type="application/json")
+    click.echo(f"✓ Uploaded {datapackage_path}")
+
+    for local_path, remote_path, resource_path in data_files:
+        data_blob = bucket.blob(remote_path)
+        data_blob.upload_from_filename(str(local_path))
+        click.echo(f"✓ Uploaded {resource_path}")
+
+    click.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")
+
+
+@package.command("push")
+@click.option("--env", type=click.Choice(["dev", "prod"]), default="dev", help="Target environment")
+@click.option(
+    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
+)
+@click.option(
+    "--destination", "-d", "destination", type=str, default=None, help="Override destination gs:// URL for all datasets"
+)
+def package_push(env: str, datasets_file: str, destination: Optional[str]) -> None:
+    """Push data packages to Google Cloud Storage.
+
+    Uploads datapackage.json and data files, grouped by publish destination.
+    Each unique destination gets its own datapackage.json with the relevant resources.
+    """
     try:
-        from google.cloud import storage  # type: ignore[import-untyped]
+        manager, project_path = get_manager(datasets_file)
+    except FileNotFoundError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-
-        # Upload datapackage.json
-        datapackage_blob = bucket.blob(datapackage_path)
-        datapackage_blob.upload_from_string(json.dumps(datapackage, indent=2), content_type="application/json")
-        click.echo(f"✓ Uploaded {datapackage_path}")
-
-        # Upload data files
-        for local_path, remote_path, resource_path in data_files:
-            data_blob = bucket.blob(remote_path)
-            data_blob.upload_from_filename(str(local_path))
-            click.echo(f"✓ Uploaded {resource_path}")
-
-        click.echo(f"\n✓ Package pushed to: gs://{bucket_name}/{base_dir}")
-
+    try:
+        from frictionless import describe  # noqa: F401
     except ImportError:
-        click.echo("Error: google-cloud-storage is required for push", err=True)
-        click.echo("Install with: pip install google-cloud-storage", err=True)
+        click.echo("Error: frictionless is required for package push", err=True)
         sys.exit(1)
-    except Exception as e:
-        click.echo(f"Error uploading to GCS: {e}", err=True)
-        sys.exit(1)
+
+    project_slug = get_project_slug(project_path)
+    top_level_publish = manager.get_publish_config()
+    all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
+
+    if destination:
+        # Override: push all publishable datasets to a single destination
+        override_config = PublishConfig(
+            enabled=True,
+            to=destination,
+            flatten=top_level_publish.flatten if top_level_publish else False,
+            as_url=top_level_publish.as_url if top_level_publish else None,
+        )
+        publishable = [
+            ds
+            for ds in all_datasets
+            if get_effective_publish(ds, top_level_publish) is not None
+            and get_effective_publish(ds, top_level_publish).enabled  # type: ignore[union-attr]
+        ]
+        if not publishable:
+            click.echo("Error: No publishable datasets found", err=True)
+            sys.exit(1)
+
+        dest_url = expand_env_vars(destination)
+        try:
+            push_group_to_gcs(dest_url, publishable, manager, project_slug, override_config)
+        except ImportError:
+            click.echo("Error: google-cloud-storage is required for push", err=True)
+            click.echo("Install with: pip install google-cloud-storage", err=True)
+            sys.exit(1)
+        except Exception as e:
+            click.echo(f"Error uploading to GCS: {e}", err=True)
+            sys.exit(1)
+    else:
+        groups = group_datasets_by_destination(all_datasets, top_level_publish)
+
+        if not groups:
+            click.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
+            sys.exit(1)
+
+        try:
+            for dest_url, (pub_config, datasets) in groups.items():
+                push_group_to_gcs(dest_url, datasets, manager, project_slug, pub_config)
+                click.echo()
+
+            click.echo(f"✓ Pushed to {len(groups)} destination(s)")
+        except ImportError:
+            click.echo("Error: google-cloud-storage is required for push", err=True)
+            click.echo("Install with: pip install google-cloud-storage", err=True)
+            sys.exit(1)
+        except Exception as e:
+            click.echo(f"Error uploading to GCS: {e}", err=True)
+            sys.exit(1)
 
 
 # =============================================================================

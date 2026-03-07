@@ -181,13 +181,11 @@ class DatasetsManager:
         if publish_data is None:
             return None
         if isinstance(publish_data, bool):
-            return PublishConfig(enabled=publish_data) if publish_data else None
+            return PublishConfig(enabled=publish_data)
         if isinstance(publish_data, dict):
             enabled = publish_data.get("enabled", False)
-            if not enabled:
-                return None
             return PublishConfig(
-                enabled=True,
+                enabled=enabled,
                 to=publish_data.get("to"),
                 flatten=publish_data.get("flatten", False),
                 as_url=publish_data.get("as"),
@@ -246,7 +244,17 @@ class DatasetsManager:
             Tuple of (rdf_prefixes, custom_properties)
         """
         # Standard dataset fields to exclude from custom properties
-        standard_fields = {"name", "slug", "location", "fields", "source", "strict", "lineage", "rdfPrefixes"}
+        standard_fields = {
+            "name",
+            "slug",
+            "location",
+            "fields",
+            "source",
+            "strict",
+            "lineage",
+            "rdfPrefixes",
+            "publish",
+        }
 
         # Get RDF prefixes from dataset or defaults
         rdf_prefixes = dataset_data.get("rdfPrefixes")
@@ -286,6 +294,8 @@ class DatasetsManager:
         fields_data = dataset_data.get("fields")
         fields = self._parse_fields(fields_data) if fields_data is not None else None
 
+        publish = self._parse_publish(dataset_data.get("publish"))
+
         return DatasetMetadata(
             name=dataset_data["name"],
             slug=dataset_data["slug"],
@@ -297,6 +307,7 @@ class DatasetsManager:
             dataset_type=dataset_type,
             rdf_prefixes=rdf_prefixes,
             custom_properties=custom_properties,
+            publish=publish,
         )
 
     def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:

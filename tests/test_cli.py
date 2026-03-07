@@ -372,7 +372,7 @@ class TestPackageBuildCommand:
         yaml_file.write_text("inputs: []\noutputs: []")
         result = runner.invoke(main, ["package", "build", "-f", str(yaml_file)])
         assert result.exit_code != 0
-        assert "No output datasets found" in result.output
+        assert "No publishable datasets found" in result.output
 
     def test_build_with_as_url(self, runner: CliRunner, temp_project: Path) -> None:
         """Test that as_url produces full public URLs in resource paths."""
@@ -424,7 +424,7 @@ class TestPackagePushCommand:
 
         result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
         assert result.exit_code != 0
-        assert "Publishing not enabled" in result.output
+        assert "No publishable datasets found" in result.output
 
     def test_push_success(self, runner: CliRunner, temp_project: Path) -> None:
         """Test successful push."""
@@ -574,6 +574,284 @@ class TestPublishConfigParsing:
         result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
         assert "[publish]" not in result.output
+
+
+class TestPerDatasetPublish:
+    """Tests for per-dataset publish configuration."""
+
+    def test_per_dataset_publish_excludes_disabled(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that publish.enabled: false excludes a dataset from the package."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/default/\n"
+            "outputs:\n"
+            "  - name: Included\n"
+            "    slug: included\n"
+            "    location: included.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Excluded\n"
+            "    slug: excluded\n"
+            "    location: excluded.csv\n"
+            "    publish:\n"
+            "      enabled: false\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "included.csv").write_text("col\nval")
+        (tmp_path / "excluded.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        dp = json.loads((tmp_path / "datapackage.json").read_text())
+        slugs = [r["name"] for r in dp["resources"]]
+        assert "included" in slugs
+        assert "excluded" not in slugs
+
+    def test_per_dataset_publish_override_destination(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that per-dataset publish.to overrides the top-level destination."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/default/\n"
+            "outputs:\n"
+            "  - name: Default Dest\n"
+            "    slug: default-dest\n"
+            "    location: default.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Custom Dest\n"
+            "    slug: custom-dest\n"
+            "    location: custom.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/custom/\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "default.csv").write_text("col\nval")
+        (tmp_path / "custom.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+        # Two destinations means two files
+        assert (tmp_path / "datapackage.json").exists()
+        assert (tmp_path / "datapackage.1.json").exists()
+
+        import json
+
+        dp0 = json.loads((tmp_path / "datapackage.json").read_text())
+        dp1 = json.loads((tmp_path / "datapackage.1.json").read_text())
+
+        slugs0 = [r["name"] for r in dp0["resources"]]
+        slugs1 = [r["name"] for r in dp1["resources"]]
+        assert "default-dest" in slugs0
+        assert "custom-dest" in slugs1
+
+    def test_input_with_publish_included(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that input datasets with publish config are included in the package."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/default/\n"
+            "inputs:\n"
+            "  - name: Published Input\n"
+            "    slug: published-input\n"
+            "    location: input.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/default/\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Unpublished Input\n"
+            "    slug: unpublished-input\n"
+            "    location: unpublished.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "outputs:\n"
+            "  - name: Output\n"
+            "    slug: output\n"
+            "    location: output.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "input.csv").write_text("col\nval")
+        (tmp_path / "unpublished.csv").write_text("col\nval")
+        (tmp_path / "output.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        dp = json.loads((tmp_path / "datapackage.json").read_text())
+        slugs = [r["name"] for r in dp["resources"]]
+        assert "published-input" in slugs
+        assert "output" in slugs
+        assert "unpublished-input" not in slugs
+
+    def test_input_without_publish_excluded(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that input datasets without publish config are excluded even with top-level publish."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/default/\n"
+            "inputs:\n"
+            "  - name: Plain Input\n"
+            "    slug: plain-input\n"
+            "    location: input.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "outputs: []\n"
+        )
+        (tmp_path / "input.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
+        )
+        # No publishable datasets (input has no publish, no outputs)
+        assert result.exit_code != 0
+        assert "No publishable datasets found" in result.output
+
+    def test_no_top_level_publish_with_per_dataset(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that per-dataset publish works without top-level publish config."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Dataset A\n"
+            "    slug: dataset-a\n"
+            "    location: a.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/a/\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Dataset B\n"
+            "    slug: dataset-b\n"
+            "    location: b.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/b/\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "a.csv").write_text("col\nval")
+        (tmp_path / "b.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        dp0 = json.loads((tmp_path / "datapackage.json").read_text())
+        dp1 = json.loads((tmp_path / "datapackage.1.json").read_text())
+
+        slugs0 = [r["name"] for r in dp0["resources"]]
+        slugs1 = [r["name"] for r in dp1["resources"]]
+        # One dataset per file
+        assert len(slugs0) == 1
+        assert len(slugs1) == 1
+        assert set(slugs0 + slugs1) == {"dataset-a", "dataset-b"}
+
+    def test_push_per_dataset_destinations(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that push sends to multiple destinations."""
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Dataset A\n"
+            "    slug: dataset-a\n"
+            "    location: a.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/a/datapackage.json\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Dataset B\n"
+            "    slug: dataset-b\n"
+            "    location: b.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/b/datapackage.json\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "a.csv").write_text("col\nval")
+        (tmp_path / "b.csv").write_text("col\nval")
+
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        with patch("google.cloud.storage.Client", return_value=mock_client):
+            result = runner.invoke(main, ["package", "push", "-f", str(yaml_file)])
+            assert result.exit_code == 0
+            assert "Pushed to 2 destination(s)" in result.output
+
+            # Verify both datapackage.json paths were uploaded
+            blob_calls = [call[0][0] for call in mock_bucket.blob.call_args_list]
+            assert "a/datapackage.json" in blob_calls
+            assert "b/datapackage.json" in blob_calls
+
+    def test_publish_not_in_custom_properties(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that per-dataset publish config doesn't leak into custom_properties."""
+        from sunstone.datasets import DatasetsManager
+
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/test/\n"
+        )
+
+        manager = DatasetsManager(tmp_path)
+        outputs = manager.get_all_outputs()
+        assert len(outputs) == 1
+        ds = outputs[0]
+        assert ds.publish is not None
+        assert ds.publish.enabled is True
+        assert ds.custom_properties is None or "publish" not in ds.custom_properties
 
 
 class TestCLIHelp:
