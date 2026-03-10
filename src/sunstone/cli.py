@@ -17,7 +17,7 @@ from ruamel.yaml import YAML
 
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError
-from .lineage import DatasetMetadata, PublishConfig
+from .lineage import Contributor, DatasetMetadata, PackageMetadata, PublishConfig
 
 # Configure ruamel.yaml for round-trip parsing
 _yaml = YAML()
@@ -610,6 +610,30 @@ def build_resource_dict(
         return None
 
 
+def _contributor_to_dict(contributor: Contributor) -> dict[str, Any]:
+    """Convert a Contributor dataclass to a dict, omitting None values."""
+    d: dict[str, Any] = {"title": contributor.title}
+    if contributor.roles is not None:
+        d["roles"] = contributor.roles
+    if contributor.path is not None:
+        d["path"] = contributor.path
+    if contributor.email is not None:
+        d["email"] = contributor.email
+    return d
+
+
+def _package_metadata_to_dict(metadata: PackageMetadata) -> dict[str, Any]:
+    """Convert PackageMetadata to a dict for inclusion in datapackage.json, omitting None values."""
+    d: dict[str, Any] = {}
+    for field in ("title", "description", "version", "keywords", "license", "homepage", "id", "image"):
+        value = getattr(metadata, field)
+        if value is not None:
+            d[field] = value
+    if metadata.contributors is not None:
+        d["contributors"] = [_contributor_to_dict(c) for c in metadata.contributors]
+    return d
+
+
 def build_datapackage(
     project_slug: str,
     datasets: list[DatasetMetadata],
@@ -636,6 +660,11 @@ def build_datapackage(
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
+
+    # Add standard package metadata (title, description, etc.)
+    pkg_meta = manager.get_package_metadata()
+    if pkg_meta:
+        datapackage.update(_package_metadata_to_dict(pkg_meta))
 
     # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
     datapackage.update(manager.get_top_level_custom_properties())
@@ -787,6 +816,12 @@ def push_group_to_gcs(
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
+
+    # Add standard package metadata (title, description, etc.)
+    pkg_meta = manager.get_package_metadata()
+    if pkg_meta:
+        datapackage.update(_package_metadata_to_dict(pkg_meta))
+
     datapackage.update(manager.get_top_level_custom_properties())
 
     client = storage.Client()
