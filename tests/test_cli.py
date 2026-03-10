@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from sunstone.cli import expand_env_vars, main
+from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, expand_env_vars, main
+from sunstone.lineage import Contributor, PackageMetadata
 
 
 @pytest.fixture
@@ -851,6 +852,174 @@ class TestPerDatasetPublish:
         assert ds.publish is not None
         assert ds.publish.enabled is True
         assert ds.custom_properties is None or "publish" not in ds.custom_properties
+
+
+class TestContributorToDict:
+    """Tests for _contributor_to_dict helper."""
+
+    def test_title_only(self) -> None:
+        """Test contributor with only title set."""
+        c = Contributor(title="Alice")
+        assert _contributor_to_dict(c) == {"title": "Alice"}
+
+    def test_all_fields(self) -> None:
+        """Test contributor with all fields set."""
+        c = Contributor(title="Alice", roles=["creator"], path="https://example.com", email="alice@example.com")
+        result = _contributor_to_dict(c)
+        assert result == {
+            "title": "Alice",
+            "roles": ["creator"],
+            "path": "https://example.com",
+            "email": "alice@example.com",
+        }
+
+    def test_omits_none_fields(self) -> None:
+        """Test that None fields are omitted from the dict."""
+        c = Contributor(title="Bob", roles=["publisher"])
+        result = _contributor_to_dict(c)
+        assert "path" not in result
+        assert "email" not in result
+        assert result == {"title": "Bob", "roles": ["publisher"]}
+
+
+class TestPackageMetadataToDict:
+    """Tests for _package_metadata_to_dict helper."""
+
+    def test_empty_metadata(self) -> None:
+        """Test that all-None metadata produces empty dict."""
+        m = PackageMetadata()
+        assert _package_metadata_to_dict(m) == {}
+
+    def test_all_scalar_fields(self) -> None:
+        """Test metadata with all scalar fields set."""
+        m = PackageMetadata(
+            title="My Package",
+            description="A description",
+            version="1.0.0",
+            keywords=["data", "test"],
+            license="CC-BY-4.0",
+            homepage="https://example.com",
+            id="12345",
+            image="https://example.com/img.png",
+        )
+        result = _package_metadata_to_dict(m)
+        assert result["title"] == "My Package"
+        assert result["description"] == "A description"
+        assert result["version"] == "1.0.0"
+        assert result["keywords"] == ["data", "test"]
+        assert result["license"] == "CC-BY-4.0"
+        assert result["homepage"] == "https://example.com"
+        assert result["id"] == "12345"
+        assert result["image"] == "https://example.com/img.png"
+
+    def test_omits_none_fields(self) -> None:
+        """Test that only set fields appear in output."""
+        m = PackageMetadata(title="Title Only")
+        result = _package_metadata_to_dict(m)
+        assert result == {"title": "Title Only"}
+        assert "description" not in result
+        assert "contributors" not in result
+
+    def test_with_contributors(self) -> None:
+        """Test metadata with contributors list."""
+        m = PackageMetadata(
+            title="Pkg",
+            contributors=[
+                Contributor(title="Alice", roles=["creator"]),
+                Contributor(title="Bob"),
+            ],
+        )
+        result = _package_metadata_to_dict(m)
+        assert result["contributors"] == [
+            {"title": "Alice", "roles": ["creator"]},
+            {"title": "Bob"},
+        ]
+
+
+class TestBuildDatapackageWithPackageMetadata:
+    """Tests that build_datapackage includes package metadata from datasets.yaml."""
+
+    def test_build_includes_package_metadata(self, runner: CliRunner, test_project: Path) -> None:
+        """Test that package build includes title, description, version etc from package section."""
+        import json
+
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(test_project / "datasets.yaml"), "-o", str(test_project / "dp.json")],
+        )
+        assert result.exit_code == 0
+
+        dp = json.loads((test_project / "dp.json").read_text())
+        assert dp["title"] == "UN Member States Dataset"
+        assert "Processed data" in dp["description"]
+        assert dp["version"] == "1.0.0"
+        assert dp["keywords"] == ["united-nations", "member-states", "international-organizations"]
+        assert dp["license"] == "CC-BY-4.0"
+        assert dp["contributors"] == [{"title": "Sunstone Institute", "roles": ["creator", "publisher"]}]
+
+    def test_build_without_package_metadata(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that build works fine when no package section is present."""
+        import json
+
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "test.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "dp.json")],
+        )
+        assert result.exit_code == 0
+
+        dp = json.loads((tmp_path / "dp.json").read_text())
+        assert "title" not in dp
+        assert "description" not in dp
+        assert "contributors" not in dp
+
+    def test_push_includes_package_metadata(self, runner: CliRunner, test_project: Path) -> None:
+        """Test that package push includes package metadata in the uploaded datapackage.json."""
+        import json
+
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+        uploaded_content: dict[str, str] = {}
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        def capture_upload(content: str, content_type: str | None = None) -> None:
+            uploaded_content["datapackage"] = content
+
+        mock_blob.upload_from_string.side_effect = capture_upload
+
+        with patch("google.cloud.storage.Client", return_value=mock_client):
+            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            assert result.exit_code == 0
+
+            dp = json.loads(uploaded_content["datapackage"])
+            assert dp["title"] == "UN Member States Dataset"
+            assert dp["version"] == "1.0.0"
+            assert dp["license"] == "CC-BY-4.0"
+            assert len(dp["contributors"]) == 1
 
 
 class TestCLIHelp:
