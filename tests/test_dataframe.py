@@ -55,6 +55,70 @@ class TestDataFrameBasics:
         assert len(members2.lineage.sources) > 0
 
 
+class TestReadExcel:
+    """Tests for reading Excel files."""
+
+    def test_read_excel_by_path(self, project_path: Path) -> None:
+        """Test reading an Excel file by path."""
+        df = sunstone.DataFrame.read_excel(
+            "inputs/un_member_states_sample.xlsx",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 10
+        assert len(df.data.columns) > 0
+        assert len(df.lineage.sources) > 0
+        assert "Member State" in df.data.columns
+
+    def test_read_excel_by_slug(self, project_path: Path) -> None:
+        """Test reading an Excel file by slug."""
+        df = sunstone.DataFrame.read_excel(
+            "un-member-states-sample-excel",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 10
+        assert len(df.lineage.sources) > 0
+
+    def test_read_excel_preserves_lineage(self, project_path: Path) -> None:
+        """Test that read_excel tracks lineage correctly."""
+        df = sunstone.DataFrame.read_excel(
+            "inputs/un_member_states_sample.xlsx",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df.lineage.sources[0].slug == "un-member-states-sample-excel"
+
+    def test_read_excel_not_found(self, project_path: Path) -> None:
+        """Test that read_excel raises error for unregistered file."""
+        from sunstone.exceptions import DatasetNotFoundError
+
+        with pytest.raises(DatasetNotFoundError):
+            sunstone.DataFrame.read_excel(
+                "inputs/nonexistent.xlsx",
+                project_path=project_path,
+                strict=True,
+            )
+
+    def test_read_excel_via_pandas_module(self, project_path: Path) -> None:
+        """Test read_excel via sunstone.pandas module."""
+        from sunstone import pandas as spd
+
+        df = spd.read_excel(
+            "un-member-states-sample-excel",
+            project_path=project_path,
+        )
+
+        assert df is not None
+        assert len(df.data) == 10
+        assert isinstance(df, sunstone.DataFrame)
+
+
 class TestDataFrameMerge:
     """Tests for DataFrame merge operations."""
 

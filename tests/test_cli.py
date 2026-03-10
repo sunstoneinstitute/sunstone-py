@@ -321,7 +321,7 @@ class TestDatasetLockUnlockCommands:
         """Test locking all datasets."""
         result = runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
-        assert "Locked 2 dataset(s)" in result.output
+        assert "Locked 3 dataset(s)" in result.output
 
     def test_unlock_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test unlocking a dataset."""

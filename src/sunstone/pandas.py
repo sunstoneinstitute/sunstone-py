@@ -47,6 +47,7 @@ Series = _pd.Series  # Re-export pandas Series
 
 __all__ = [
     "read_csv",
+    "read_excel",
     "read_dataset",
     "merge",
     "concat",
@@ -176,6 +177,56 @@ def read_csv(
         ...                  encoding='utf-8', skiprows=1)
     """
     return DataFrame.read_csv(
+        filepath_or_buffer=filepath_or_buffer,
+        project_path=project_path,
+        strict=strict,
+        fetch_from_url=fetch_from_url,
+        **kwargs,
+    )
+
+
+def read_excel(
+    filepath_or_buffer: Union[str, Path],
+    project_path: Union[str, Path],
+    strict: Optional[bool] = None,
+    fetch_from_url: bool = True,
+    **kwargs: Any,
+) -> DataFrame:
+    """
+    Read an Excel file into a Sunstone DataFrame with lineage tracking.
+
+    This function provides a pandas-like interface while ensuring the dataset
+    is registered in datasets.yaml and lineage is tracked.
+
+    Args:
+        filepath_or_buffer: Path to Excel file or dataset slug.
+                          If it's a slug (e.g., 'my-excel-data'),
+                          the dataset will be looked up in datasets.yaml.
+        project_path: Path to project directory containing datasets.yaml.
+                     Must be provided explicitly (no auto-detection).
+        strict: Whether to operate in strict mode. If None, reads from
+               SUNSTONE_DATAFRAME_STRICT environment variable.
+        fetch_from_url: If True and dataset has a source URL but no local file,
+                      automatically fetch from URL.
+        **kwargs: Additional arguments passed to pandas.read_excel.
+
+    Returns:
+        A Sunstone DataFrame with lineage metadata.
+
+    Raises:
+        DatasetNotFoundError: If dataset not found in datasets.yaml.
+        FileNotFoundError: If datasets.yaml doesn't exist.
+
+    Examples:
+        >>> from sunstone import pandas as pd
+        >>>
+        >>> # Load by slug (recommended)
+        >>> df = pd.read_excel('my-excel-data', project_path='/path/to/project')
+        >>>
+        >>> # Load by file path
+        >>> df = pd.read_excel('data.xlsx', project_path='/path/to/project')
+    """
+    return DataFrame.read_excel(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,
         strict=strict,
