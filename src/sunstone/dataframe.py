@@ -307,6 +307,106 @@ class DataFrame:
         # Return wrapped DataFrame
         return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
 
+    @classmethod
+    def read_excel(
+        cls,
+        filepath_or_buffer: Union[str, Path],
+        project_path: Optional[Union[str, Path]] = None,
+        strict: Optional[bool] = None,
+        fetch_from_url: bool = True,
+        **kwargs: Any,
+    ) -> "DataFrame":
+        """
+        Read an Excel file into a Sunstone DataFrame.
+
+        The file must be registered in datasets.yaml, otherwise this will fail
+        (or in relaxed mode, register it automatically).
+
+        Args:
+            filepath_or_buffer: Path to Excel file or dataset slug.
+                              If it's a slug (e.g., 'my-excel-data'),
+                              the dataset will be looked up in datasets.yaml.
+            project_path: Path to project directory containing datasets.yaml.
+            strict: Whether to operate in strict mode.
+            fetch_from_url: If True and dataset has a source URL but no local file,
+                          automatically fetch from URL.
+            **kwargs: Additional arguments passed to pandas.read_excel.
+
+        Returns:
+            A new Sunstone DataFrame with lineage metadata.
+
+        Raises:
+            DatasetNotFoundError: In strict mode, if dataset not found in datasets.yaml.
+            FileNotFoundError: If datasets.yaml doesn't exist.
+
+        Examples:
+            >>> # Load by slug
+            >>> df = DataFrame.read_excel('my-excel-data', project_path='/path/to/project')
+            >>>
+            >>> # Load by file path
+            >>> df = DataFrame.read_excel('inputs/data.xlsx', project_path='/path/to/project')
+        """
+        location = str(filepath_or_buffer)
+
+        # Determine if this is a slug or a file path
+        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+
+        if is_slug:
+            return cls.read_dataset(
+                slug=location,
+                project_path=project_path,
+                strict=strict,
+                fetch_from_url=fetch_from_url,
+                format="excel",
+                **kwargs,
+            )
+
+        # File path - handle with original logic
+        if project_path is None:
+            project_path = Path.cwd()
+
+        manager = DatasetsManager(project_path)
+
+        # Look up by location
+        dataset = manager.find_dataset_by_location(location)
+        if dataset is None:
+            if strict or (strict is None and cls._get_default_strict_mode()):
+                raise DatasetNotFoundError(
+                    f"Dataset at '{location}' not found in datasets.yaml. "
+                    f"In strict mode, all datasets must be registered."
+                )
+            else:
+                raise DatasetNotFoundError(
+                    f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
+                )
+
+        # Use the requested location
+        absolute_path = manager.get_absolute_path(location)
+
+        # If file doesn't exist and we have a source URL, fetch it
+        if not absolute_path.exists() and fetch_from_url:
+            if dataset.source and dataset.source.location.data:
+                absolute_path = manager.fetch_from_url(dataset)
+            else:
+                raise FileNotFoundError(
+                    f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
+                )
+
+        # Read the Excel file using pandas
+        df = pd.read_excel(absolute_path, **kwargs)
+
+        # Create lineage metadata
+        lineage = LineageMetadata(project_path=str(manager.project_path))
+        lineage.add_source(dataset)
+
+        # Record read in lineage session
+        from .session import DatasetRead, get_session
+
+        get_session().record_read(DatasetRead(slug=dataset.slug))
+
+        # Return wrapped DataFrame
+        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+
     @staticmethod
     def _get_default_strict_mode() -> bool:
         """Get the default strict mode from environment variable."""

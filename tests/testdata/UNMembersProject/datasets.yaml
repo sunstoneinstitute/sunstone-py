@@ -68,6 +68,42 @@ inputs:
         type: string
       - name: Russian
         type: string
+  - name: UN Member States Sample (Excel)
+    slug: un-member-states-sample-excel
+    location: inputs/un_member_states_sample.xlsx
+    fields:
+      - name: Member State
+        type: string
+      - name: M49 Code
+        type: string
+      - name: ISO Code
+        type: string
+      - name: Start date
+        type: date
+      - name: End date
+        type: date
+      - name: Other Names
+        type: string
+      - name: Earlier or Later Name
+        type: string
+      - name: Earlier (a) or Later (b)
+        type: string
+      - name: Geographic Term
+        type: string
+      - name: Membership Document Symbol
+        type: string
+      - name: Scope Note
+        type: string
+      - name: French
+        type: string
+      - name: Spanish
+        type: string
+      - name: Arabic
+        type: string
+      - name: Chinese
+        type: string
+      - name: Russian
+        type: string
 outputs:
   - name: Current UN Member States
     slug: current-un-member-states
