@@ -44,3 +44,6 @@ htmlcov/
 dist/
 build/
 /site
+
+
+.DS_Store 
