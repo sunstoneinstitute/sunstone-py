@@ -9,7 +9,7 @@ A Python library for managing datasets with lineage tracking in data science pro
 
 - **Automatic Lineage Tracking**: Track data provenance through all operations automatically
 - **Dataset Management**: Integration with `datasets.yaml` for organized dataset registration
-- **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd`
+- **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd` (CSV, Excel, JSON)
 - **Strict/Relaxed Modes**: Control whether operations can modify `datasets.yaml`
 - **Validation Tools**: Check notebooks and scripts for correct import usage
 - **Full Type Hints**: Complete type hint support for better IDE integration
@@ -238,6 +238,7 @@ manager.add_output_dataset(
 Drop-in replacement for pandas with lineage tracking:
 
 - `read_csv(filepath, project_path, strict=False, **kwargs)`: Read CSV with lineage
+- `read_excel(filepath, project_path, strict=False, **kwargs)`: Read Excel (.xlsx/.xls) with lineage
 - `read_json(filepath, project_path, strict=False, **kwargs)`: Read JSON with lineage
 - `merge(left, right, **kwargs)`: Merge DataFrames with combined lineage
 - `concat(dfs, **kwargs)`: Concatenate DataFrames with combined lineage
@@ -247,6 +248,7 @@ Drop-in replacement for pandas with lineage tracking:
 Main class for working with data:
 
 - `read_csv(filepath, project_path, strict=False, **kwargs)`: Read CSV with lineage tracking
+- `read_excel(filepath, project_path, strict=False, **kwargs)`: Read Excel with lineage tracking
 - `to_csv(path, slug, name, publish=False, **kwargs)`: Write CSV and register
 - `merge(right, **kwargs)`: Merge with another DataFrame
 - `join(other, **kwargs)`: Join with another DataFrame

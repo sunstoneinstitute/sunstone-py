@@ -76,7 +76,7 @@ result.to_csv(
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: `read_csv()` requires `project_path` parameter
+1. **Explicit project_path required**: `read_csv()` and `read_excel()` require `project_path` parameter
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs

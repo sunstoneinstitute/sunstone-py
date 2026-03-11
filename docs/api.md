@@ -43,6 +43,37 @@ df = pd.read_csv(
 
 ---
 
+#### `read_excel(filepath, project_path, strict=False, fetch_from_url=True, **kwargs)`
+
+Read Excel file (.xlsx/.xls) with lineage tracking.
+
+**Parameters:**
+
+- `filepath` (str | Path): Path to Excel file or dataset slug
+- `project_path` (str | Path): Path to project directory containing `datasets.yaml`
+- `strict` (bool | None): If True, dataset must be pre-registered. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
+- `fetch_from_url` (bool): If True and dataset has a source URL but no local file, automatically fetch from URL
+- `**kwargs`: Additional arguments passed to `pandas.read_excel()`
+
+**Returns:** `DataFrame` with lineage tracking
+
+**Raises:**
+
+- `DatasetNotFoundError`: If dataset not found in `datasets.yaml`
+- `FileNotFoundError`: If `datasets.yaml` doesn't exist
+
+**Example:**
+
+```python
+# Load by slug (recommended)
+df = pd.read_excel('my-excel-data', project_path='/path/to/project')
+
+# Load by file path
+df = pd.read_excel('data/schools.xlsx', project_path='/path/to/project', sheet_name='Sheet1')
+```
+
+---
+
 #### `read_json(filepath, project_path, strict=False, **kwargs)`
 
 Read JSON file with lineage tracking.
@@ -111,6 +142,16 @@ from sunstone import DataFrame
 Read CSV file and return DataFrame.
 
 **Parameters:** Same as `pandas.read_csv()`
+
+**Returns:** `DataFrame` instance
+
+---
+
+#### `read_excel(filepath, project_path, strict=False, fetch_from_url=True, **kwargs)`
+
+Read Excel file and return DataFrame.
+
+**Parameters:** Same as `pandas.read_excel()`
 
 **Returns:** `DataFrame` instance
 

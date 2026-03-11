@@ -15,7 +15,7 @@ sunstone-py helps data scientists and researchers build reproducible data pipeli
 - **Dataset Management**: Centralized `datasets.yaml` configuration for all data inputs and outputs
 - **Semantic Metadata**: RDF triple support with automatic prefix expansion for rich dataset descriptions
 - **Command-Line Tools**: Validate, lock, and publish datasets with the `sunstone` CLI
-- **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—use it like regular pandas
+- **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—supports CSV, Excel (.xlsx/.xls), and JSON
 - **Strict/Relaxed Modes**: Choose between automatic registration (exploratory) or enforced pre-registration (production)
 - **Data Package Publishing**: Build standards-compliant data packages and push to cloud storage
 - **Full Type Hints**: Complete type annotation support for better IDE integration and type safety
