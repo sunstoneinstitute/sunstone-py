@@ -46,4 +46,5 @@ build/
 /site
 
 
-.DS_Store workgrees
+.DS_Store
+worktrees
