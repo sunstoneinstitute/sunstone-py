@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, expand_env_vars, main
+from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, expand_env_vars, is_lfs_pointer, main
 from sunstone.lineage import Contributor, PackageMetadata
 
 
@@ -764,6 +764,67 @@ class TestPackagePushCommand:
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/DATA_METHODOLOGY.md"
+
+
+class TestIsLfsPointer:
+    """Tests for Git LFS pointer file detection."""
+
+    def test_lfs_pointer_detected(self, tmp_path: Path) -> None:
+        """Test that an LFS pointer file is correctly identified."""
+        pointer = tmp_path / "data.csv"
+        pointer.write_text(
+            "version https://git-lfs.github.com/spec/v1\n"
+            "oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\n"
+            "size 12345\n"
+        )
+        assert is_lfs_pointer(pointer) is True
+
+    def test_real_file_not_detected(self, tmp_path: Path) -> None:
+        """Test that a normal CSV file is not flagged as LFS pointer."""
+        real_file = tmp_path / "data.csv"
+        real_file.write_text("Country,Code\nTest,TST\n")
+        assert is_lfs_pointer(real_file) is False
+
+    def test_large_file_not_detected(self, tmp_path: Path) -> None:
+        """Test that a file larger than 1024 bytes is skipped (fast path)."""
+        large_file = tmp_path / "data.csv"
+        large_file.write_text("x" * 2000)
+        assert is_lfs_pointer(large_file) is False
+
+    def test_binary_file_not_detected(self, tmp_path: Path) -> None:
+        """Test that a binary file does not raise an error."""
+        binary_file = tmp_path / "data.bin"
+        binary_file.write_bytes(b"\x00\x01\x02\x03")
+        assert is_lfs_pointer(binary_file) is False
+
+    def test_nonexistent_file(self, tmp_path: Path) -> None:
+        """Test that a missing file returns False."""
+        assert is_lfs_pointer(tmp_path / "missing.csv") is False
+
+    def test_push_blocked_by_lfs_pointer(self, runner: CliRunner, test_project: Path) -> None:
+        """Test that push fails when data files are LFS pointers."""
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text(
+            "version https://git-lfs.github.com/spec/v1\n"
+            "oid sha256:4d7a214614ab2935c943f9e0ff69d22eadbb8f32b1258daaa5e2ca24d17e2393\n"
+            "size 12345\n"
+        )
+
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+
+        with patch("google.cloud.storage.Client", return_value=mock_client):
+            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            assert result.exit_code != 0
+            assert "Git LFS pointers" in result.output
+            assert "git lfs pull" in result.output
+            # Verify no uploads happened
+            mock_blob.upload_from_string.assert_not_called()
+            mock_blob.upload_from_filename.assert_not_called()
 
 
 class TestPublishConfigParsing:

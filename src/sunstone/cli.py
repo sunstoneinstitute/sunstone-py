@@ -830,6 +830,25 @@ def package_build(datasets_file: str, output_file: str) -> None:
         click.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
 
 
+def is_lfs_pointer(file_path: Path) -> bool:
+    """Check if a file is a Git LFS pointer file instead of actual content.
+
+    LFS pointer files are small text files with a specific format:
+        version https://git-lfs.github.com/spec/v1
+        oid sha256:<hash>
+        size <size>
+    """
+    try:
+        # LFS pointers are always small (< 200 bytes typically)
+        if file_path.stat().st_size > 1024:
+            return False
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return content.startswith("version https://git-lfs.github.com/spec/v1\n")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def push_group_to_gcs(
     dest_url: str,
     datasets: list[DatasetMetadata],
@@ -894,6 +913,17 @@ def push_group_to_gcs(
     if not resources:
         click.echo(f"Warning: No resources for destination: {dest_url}", err=True)
         return
+
+    # Guard: check for LFS pointer files before uploading
+    lfs_pointers = [
+        resource_path for local_path, _, resource_path in data_files if is_lfs_pointer(local_path)
+    ]
+    if lfs_pointers:
+        click.echo("Error: The following files are Git LFS pointers, not actual content:", err=True)
+        for p in lfs_pointers:
+            click.echo(f"  - {p}", err=True)
+        click.echo("Run 'git lfs pull' to download the actual files before pushing.", err=True)
+        sys.exit(1)
 
     datapackage: dict[str, Any] = {
         "name": project_slug,
