@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-03-11
+- Added: `sunstone.pandas.read_excel()`
+
 ## [1.2.1] - 2026-03-10
 - Fixed: Dataset metadata was missing from datapackage.json
 
