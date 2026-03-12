@@ -578,6 +578,8 @@ def build_resource_dict(
         resource = describe(str(data_path))
         resource.name = ds.slug
         resource.title = ds.name
+        if ds.description:
+            resource.description = ds.description
 
         # If as_url is configured, use full public URLs in datapackage.json
         if publish_config and publish_config.as_url:
@@ -666,8 +668,14 @@ def build_datapackage(
     if pkg_meta:
         datapackage.update(_package_metadata_to_dict(pkg_meta))
 
-    # Add top-level custom properties (RDF/namespaced fields from datasets.yaml)
-    datapackage.update(manager.get_top_level_custom_properties())
+    # Add top-level custom properties with RDF prefix expansion
+    top_level_props = manager.get_top_level_custom_properties()
+    rdf_prefixes = manager.get_default_rdf_prefixes()
+    if top_level_props and rdf_prefixes:
+        flatten = publish_config.flatten if publish_config else False
+        as_url = publish_config.as_url if publish_config else None
+        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, flatten=flatten, base_url=as_url)
+    datapackage.update(top_level_props)
 
     return datapackage
 
@@ -822,7 +830,26 @@ def push_group_to_gcs(
     if pkg_meta:
         datapackage.update(_package_metadata_to_dict(pkg_meta))
 
-    datapackage.update(manager.get_top_level_custom_properties())
+    # Add top-level custom properties with RDF prefix expansion
+    top_level_props = manager.get_top_level_custom_properties()
+    rdf_prefixes = manager.get_default_rdf_prefixes()
+    methodology_file: Optional[Path] = None
+    if top_level_props and rdf_prefixes:
+        # Before expansion, find methodology file path if it's a local file
+        for key, value in top_level_props.items():
+            expanded_key = expand_rdf_prefixes(key, rdf_prefixes)
+            if (
+                expanded_key == "https://sunstone.institute/rdf/vocab#methodology"
+                and isinstance(value, str)
+                and not is_uri(value)
+            ):
+                candidate = manager.get_absolute_path(value)
+                if candidate.exists():
+                    methodology_file = candidate
+        top_level_props = expand_custom_properties(
+            top_level_props, rdf_prefixes, flatten=publish_config.flatten, base_url=publish_config.as_url
+        )
+    datapackage.update(top_level_props)
 
     client = storage.Client()
     bucket = client.bucket(bucket_name)
@@ -835,6 +862,16 @@ def push_group_to_gcs(
         data_blob = bucket.blob(remote_path)
         data_blob.upload_from_filename(str(local_path))
         click.echo(f"✓ Uploaded {resource_path}")
+
+    # Upload methodology file if referenced
+    if methodology_file:
+        if publish_config.flatten:
+            methodology_remote = base_dir + methodology_file.name
+        else:
+            methodology_remote = base_dir + str(methodology_file.relative_to(manager.project_path))
+        methodology_blob = bucket.blob(methodology_remote)
+        methodology_blob.upload_from_filename(str(methodology_file))
+        click.echo(f"✓ Uploaded {methodology_remote}")
 
     click.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")
 
@@ -852,7 +889,18 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
 
     Uploads datapackage.json and data files, grouped by publish destination.
     Each unique destination gets its own datapackage.json with the relevant resources.
+
+    The --env flag sets SUNSTONE_PUBLIC_DATASETS_FOLDER so that publish
+    destinations using ${SUNSTONE_PUBLIC_DATASETS_FOLDER:-payloadcms-dev}
+    resolve to the correct environment bucket.
     """
+    # Map --env to the SUNSTONE_PUBLIC_DATASETS_FOLDER environment variable
+    env_folder_map = {
+        "dev": "payloadcms-dev",
+        "prod": "payloadcms-prod",
+    }
+    os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env]
+
     try:
         manager, project_path = get_manager(datasets_file)
     except FileNotFoundError as e:

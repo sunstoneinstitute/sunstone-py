@@ -148,6 +148,9 @@ class DatasetMetadata:
     location: str
     """File path or URL for the dataset."""
 
+    description: Optional[str] = None
+    """Human-readable description of the dataset."""
+
     resource_type: Optional[str] = None
     """Resource type (e.g., 'table'). Optional."""
 
