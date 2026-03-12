@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   via `sunstone package push`
 - Fixed: `publish.flatten: true` now also flattens `si:methodology` file
   paths in both datapackage.json URLs and GCS upload paths
+- Fixed: Methodology upload path used OS-native backslashes on Windows
 
 ## [1.2.5] - 2026-03-12
 - Fixed: Standard RDF prefixes (rdf:, dcat:, si:, si30:) not expanded in top-level
