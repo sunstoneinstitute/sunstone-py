@@ -32,14 +32,17 @@ dependencies = [
 ]
 ```
 
-If you are making changes to sunstone-py checked out at `~/git/sunstone-py` and testing them
-directly from your project:
+If you are making changes to a local checkout of sunstone-py and want to test them
+from your project, add a `[tool.uv.sources]` override to your project's `pyproject.toml`:
 
 ```toml
-dependencies = [
-    "sunstone-py @ file://${HOME}/git/sunstone-py"
-]
+[tool.uv.sources]
+sunstone-py = { path = "../path/to/sunstone-py", editable = true }
 ```
+
+The path is relative to your project's `pyproject.toml`. Leave the regular PyPI dependency
+in `[project.dependencies]` unchanged — the sources override takes precedence locally.
+Remember to remove the `[tool.uv.sources]` block before committing.
 
 ### For Development
 

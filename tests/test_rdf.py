@@ -214,6 +214,113 @@ outputs:
             # Default property should be included
             assert dataset.custom_properties["si:category"] == "environmental"
 
+    def test_top_level_rdf_prefixes(self) -> None:
+        """Test that top-level rdfPrefixes are applied to datasets."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            datasets_file.write_text(
+                """
+rdfPrefixes:
+  si: "https://sunstone.institute/rdf/vocab#"
+  si30: "https://sunstone.institute/rdf/threat/"
+
+outputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: outputs/test.csv
+    si:monitorsThreat: si30:27
+    fields:
+      - name: id
+        type: integer
+"""
+            )
+
+            manager = DatasetsManager(tmpdir)
+            dataset = manager.find_dataset_by_slug("test-dataset")
+
+            assert dataset is not None
+            assert dataset.rdf_prefixes is not None
+            assert dataset.rdf_prefixes["si"] == "https://sunstone.institute/rdf/vocab#"
+            assert dataset.rdf_prefixes["si30"] == "https://sunstone.institute/rdf/threat/"
+            assert dataset.custom_properties is not None
+            assert dataset.custom_properties["si:monitorsThreat"] == "si30:27"
+
+    def test_top_level_rdf_prefixes_via_get_default(self) -> None:
+        """Test that get_default_rdf_prefixes returns top-level prefixes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            datasets_file.write_text(
+                """
+rdfPrefixes:
+  si: "https://sunstone.institute/rdf/vocab#"
+
+outputs: []
+"""
+            )
+
+            manager = DatasetsManager(tmpdir)
+            prefixes = manager.get_default_rdf_prefixes()
+            assert prefixes["si"] == "https://sunstone.institute/rdf/vocab#"
+
+    def test_top_level_overrides_defaults_section(self) -> None:
+        """Test that top-level rdfPrefixes takes precedence over defaults section."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            datasets_file.write_text(
+                """
+rdfPrefixes:
+  si: "https://sunstone.institute/rdf/vocab#"
+
+defaults:
+  rdfPrefixes:
+    si: "https://old.example.com/vocab#"
+
+outputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: outputs/test.csv
+    fields:
+      - name: id
+        type: integer
+"""
+            )
+
+            manager = DatasetsManager(tmpdir)
+            dataset = manager.find_dataset_by_slug("test-dataset")
+            assert dataset is not None
+            assert dataset.rdf_prefixes is not None
+            assert dataset.rdf_prefixes["si"] == "https://sunstone.institute/rdf/vocab#"
+
+            prefixes = manager.get_default_rdf_prefixes()
+            assert prefixes["si"] == "https://sunstone.institute/rdf/vocab#"
+
+    def test_dataset_level_overrides_top_level(self) -> None:
+        """Test that dataset-level rdfPrefixes overrides top-level."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            datasets_file.write_text(
+                """
+rdfPrefixes:
+  si: "https://old.example.com/vocab#"
+
+outputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: outputs/test.csv
+    rdfPrefixes:
+      si: "https://sunstone.institute/rdf/vocab#"
+    fields:
+      - name: id
+        type: integer
+"""
+            )
+
+            manager = DatasetsManager(tmpdir)
+            dataset = manager.find_dataset_by_slug("test-dataset")
+            assert dataset is not None
+            assert dataset.rdf_prefixes is not None
+            assert dataset.rdf_prefixes["si"] == "https://sunstone.institute/rdf/vocab#"
+
     def test_override_default_prefixes(self) -> None:
         """Test that dataset-level prefixes override defaults."""
         with tempfile.TemporaryDirectory() as tmpdir:

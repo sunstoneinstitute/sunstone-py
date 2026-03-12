@@ -137,6 +137,9 @@ class DatasetsManager:
         # Load defaults if present
         self._defaults = self._data.get("defaults", {})
 
+        # Load top-level rdfPrefixes if present
+        self._rdf_prefixes: Dict[str, str] = self._data.get("rdfPrefixes", {})
+
     def _save(self) -> None:
         """Save the current data back to datasets.yaml."""
         with open(self.datasets_file, "w") as f:
@@ -257,8 +260,10 @@ class DatasetsManager:
             "publish",
         }
 
-        # Get RDF prefixes from dataset or defaults
+        # Get RDF prefixes with precedence: dataset > top-level > defaults
         rdf_prefixes = dataset_data.get("rdfPrefixes")
+        if rdf_prefixes is None and self._rdf_prefixes:
+            rdf_prefixes = self._rdf_prefixes
         if rdf_prefixes is None and "rdfPrefixes" in self._defaults:
             rdf_prefixes = self._defaults["rdfPrefixes"]
 
@@ -458,11 +463,15 @@ class DatasetsManager:
 
     def get_default_rdf_prefixes(self) -> Dict[str, str]:
         """
-        Get the default RDF prefixes from the defaults section.
+        Get the default RDF prefixes.
+
+        Checks top-level rdfPrefixes first, then falls back to defaults section.
 
         Returns:
             Dictionary of prefix -> namespace URI mappings, or empty dict if none.
         """
+        if self._rdf_prefixes:
+            return dict(self._rdf_prefixes)
         prefixes: Dict[str, str] = self._defaults.get("rdfPrefixes", {})
         return prefixes
 
