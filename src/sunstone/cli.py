@@ -7,7 +7,7 @@ import os
 import re
 import sys
 import tomllib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -885,7 +885,7 @@ def push_group_to_gcs(
     bucket_name = parsed.netloc
     datapackage_path = parsed.path.lstrip("/")
 
-    base_dir = str(Path(datapackage_path).parent)
+    base_dir = str(PurePosixPath(datapackage_path).parent)
     if base_dir and base_dir != ".":
         base_dir = base_dir + "/"
     else:
@@ -915,9 +915,7 @@ def push_group_to_gcs(
         return
 
     # Guard: check for LFS pointer files before uploading
-    lfs_pointers = [
-        resource_path for local_path, _, resource_path in data_files if is_lfs_pointer(local_path)
-    ]
+    lfs_pointers = [resource_path for local_path, _, resource_path in data_files if is_lfs_pointer(local_path)]
     if lfs_pointers:
         click.echo("Error: The following files are Git LFS pointers, not actual content:", err=True)
         for p in lfs_pointers:
@@ -968,7 +966,7 @@ def push_group_to_gcs(
         if publish_config.flatten:
             methodology_remote = base_dir + abs_path.name
         else:
-            methodology_remote = base_dir + str(abs_path.relative_to(manager.project_path))
+            methodology_remote = base_dir + abs_path.relative_to(manager.project_path).as_posix()
         methodology_blob = bucket.blob(methodology_remote)
         methodology_blob.upload_from_filename(str(abs_path))
         click.echo(f"✓ Uploaded {methodology_remote}")
