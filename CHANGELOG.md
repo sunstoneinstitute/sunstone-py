@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.2.6] - 2026-03-12
 - Fixed: Guard to prevent Git LFS pointer files from being published to GCS
   via `sunstone package push`
 - Fixed: `publish.flatten: true` now also flattens `si:methodology` file

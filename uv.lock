@@ -1497,7 +1497,7 @@ wheels = [
 
 [[package]]
 name = "sunstone-py"
-version = "1.2.5"
+version = "1.2.6"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
