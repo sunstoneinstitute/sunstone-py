@@ -247,6 +247,7 @@ class DatasetsManager:
         standard_fields = {
             "name",
             "slug",
+            "description",
             "location",
             "fields",
             "source",
@@ -300,6 +301,7 @@ class DatasetsManager:
             name=dataset_data["name"],
             slug=dataset_data["slug"],
             location=dataset_data["location"],
+            description=dataset_data.get("description"),
             resource_type=dataset_data.get("type"),
             fields=fields,
             source=source,
@@ -453,6 +455,16 @@ class DatasetsManager:
         like package, publish, inputs, outputs, and defaults.
         """
         return {key: value for key, value in self._data.items() if ":" in key}
+
+    def get_default_rdf_prefixes(self) -> Dict[str, str]:
+        """
+        Get the default RDF prefixes from the defaults section.
+
+        Returns:
+            Dictionary of prefix -> namespace URI mappings, or empty dict if none.
+        """
+        prefixes: Dict[str, str] = self._defaults.get("rdfPrefixes", {})
+        return prefixes
 
     def add_output_dataset(self, name: str, slug: str, location: str, fields: List[FieldSchema]) -> DatasetMetadata:
         """
