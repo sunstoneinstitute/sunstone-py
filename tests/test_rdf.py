@@ -415,8 +415,12 @@ class TestRDFInDatapackage:
         # Verify standard prefixes are defined
         assert "rdf" in STANDARD_RDF_PREFIXES
         assert "dcat" in STANDARD_RDF_PREFIXES
+        assert "si" in STANDARD_RDF_PREFIXES
+        assert "si30" in STANDARD_RDF_PREFIXES
         assert STANDARD_RDF_PREFIXES["rdf"] == "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
         assert STANDARD_RDF_PREFIXES["dcat"] == "http://www.w3.org/ns/dcat#"
+        assert STANDARD_RDF_PREFIXES["si"] == "https://sunstone.institute/rdf/vocab#"
+        assert STANDARD_RDF_PREFIXES["si30"] == "https://sunstone.institute/rdf/threat/"
 
         # Verify the expected type URIs
         rdf_type_uri = f"{STANDARD_RDF_PREFIXES['rdf']}type"
