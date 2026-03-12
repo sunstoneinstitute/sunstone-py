@@ -642,9 +642,9 @@ class TestPackagePushCommand:
             assert result.exit_code == 0
 
             # Verify methodology file was uploaded
-            assert any("DATA_METHODOLOGY.md" in b for b in uploaded_blobs), (
-                f"Methodology file not uploaded. Uploaded blobs: {uploaded_blobs}"
-            )
+            assert any(
+                "DATA_METHODOLOGY.md" in b for b in uploaded_blobs
+            ), f"Methodology file not uploaded. Uploaded blobs: {uploaded_blobs}"
 
             # Verify datapackage.json contains expanded methodology key
             dp_path = [b for b in uploaded_blobs if "datapackage.json" in b][0]
@@ -701,6 +701,69 @@ class TestPackagePushCommand:
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/report/DATA_METHODOLOGY.md"
+
+    def test_push_flattens_methodology_path(self, runner: CliRunner, test_project: Path) -> None:
+        """Test that push flattens methodology file path when publish.flatten is true."""
+        import json
+
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+        report_dir = test_project / "report"
+        report_dir.mkdir(exist_ok=True)
+        (report_dir / "DATA_METHODOLOGY.md").write_text("# Methodology\n")
+
+        yaml_path = test_project / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "to: gs://example-bucket/datasets/un-members/",
+            "to: gs://example-bucket/datasets/un-members/\n  as: https://data.example.com/un-members/\n  flatten: true",
+        )
+        content = (
+            'defaults:\n  rdfPrefixes:\n    si: "https://sunstone.institute/rdf/vocab#"\n\n'
+            "si:methodology: report/DATA_METHODOLOGY.md\n\n" + content
+        )
+        yaml_path.write_text(content)
+
+        uploaded_blobs: list[str] = []
+        uploaded_content: dict[str, str] = {}
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+
+        def make_blob(path: str) -> MagicMock:
+            blob = MagicMock()
+
+            def capture_string(content: str, content_type: str | None = None) -> None:
+                uploaded_blobs.append(path)
+                uploaded_content[path] = content
+
+            def capture_file(filename: str) -> None:
+                uploaded_blobs.append(path)
+
+            blob.upload_from_string.side_effect = capture_string
+            blob.upload_from_filename.side_effect = capture_file
+            return blob
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.side_effect = make_blob
+
+        with patch("google.cloud.storage.Client", return_value=mock_client):
+            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            assert result.exit_code == 0, result.output
+
+            # Methodology file should be uploaded with flattened path (just filename)
+            methodology_blobs = [b for b in uploaded_blobs if "DATA_METHODOLOGY.md" in b]
+            assert len(methodology_blobs) == 1
+            # Should be "datasets/un-members/DATA_METHODOLOGY.md", not "datasets/un-members/report/DATA_METHODOLOGY.md"
+            assert methodology_blobs[0] == "datasets/un-members/DATA_METHODOLOGY.md"
+
+            # datapackage.json should have flattened methodology URL
+            dp_path = [k for k in uploaded_content if "datapackage.json" in k][0]
+            datapackage = json.loads(uploaded_content[dp_path])
+            methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
+            assert methodology_key in datapackage
+            assert datapackage[methodology_key] == "https://data.example.com/un-members/DATA_METHODOLOGY.md"
 
 
 class TestPublishConfigParsing:

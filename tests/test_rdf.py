@@ -131,6 +131,44 @@ class TestCustomPropertiesExpansion:
             == "https://example.com/datasets/docs/project/methodology.md"
         )
 
+    def test_methodology_flatten_with_base_url(self) -> None:
+        """Test that methodology paths are flattened to filename when flatten=True."""
+        prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
+        custom_props = {
+            "si:methodology": "docs/methodology.md",
+        }
+        result = expand_custom_properties(
+            custom_props, prefixes, "outputs/data.csv", base_url="https://example.com/datasets/project", flatten=True
+        )
+        assert (
+            result["https://sunstone.institute/rdf/vocab#methodology"]
+            == "https://example.com/datasets/project/methodology.md"
+        )
+
+    def test_methodology_flatten_nested_path(self) -> None:
+        """Test that nested methodology paths are flattened to filename when flatten=True."""
+        prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
+        custom_props = {
+            "si:methodology": "docs/project/methodology.md",
+        }
+        result = expand_custom_properties(
+            custom_props, prefixes, "outputs/data.csv", base_url="https://example.com/datasets/", flatten=True
+        )
+        assert (
+            result["https://sunstone.institute/rdf/vocab#methodology"] == "https://example.com/datasets/methodology.md"
+        )
+
+    def test_methodology_flatten_uri_preserved(self) -> None:
+        """Test that methodology URIs are preserved even when flatten=True."""
+        prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
+        custom_props = {
+            "si:methodology": "https://example.org/methodology/v1",
+        }
+        result = expand_custom_properties(
+            custom_props, prefixes, "outputs/data.csv", base_url="https://other.com/datasets/", flatten=True
+        )
+        assert result["https://sunstone.institute/rdf/vocab#methodology"] == "https://example.org/methodology/v1"
+
     def test_methodology_uri_preserved(self) -> None:
         """Test that methodology URIs are preserved as-is."""
         prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}

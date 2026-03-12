@@ -131,7 +131,7 @@ def is_uri(value: str) -> bool:
 METHODOLOGY_URI = "https://sunstone.institute/rdf/vocab#methodology"
 
 
-def resolve_methodology_value(value: str, base_url: str | None = None) -> str:
+def resolve_methodology_value(value: str, base_url: str | None = None, flatten: bool = False) -> str:
     """
     Resolve a methodology value as a relative URI against the package base URI.
 
@@ -142,12 +142,16 @@ def resolve_methodology_value(value: str, base_url: str | None = None) -> str:
     Args:
         value: The methodology property value (path or URI)
         base_url: The package base URI (publish.as), used as the base for resolution
+        flatten: If True, use only the filename (no subdirectory structure)
 
     Returns:
         Resolved URI or relative path
     """
     if is_uri(value):
         return value
+
+    if flatten:
+        value = Path(value).name
 
     if base_url:
         # Ensure base URL ends with / so urljoin treats it as a directory
@@ -232,6 +236,7 @@ def expand_custom_properties(
     prefixes: dict[str, str],
     resource_path: Optional[str] = None,
     base_url: Optional[str] = None,
+    flatten: bool = False,
 ) -> dict[str, Any]:
     """
     Expand all RDF prefixes in custom properties (both keys and values).
@@ -245,6 +250,7 @@ def expand_custom_properties(
         prefixes: Dictionary of prefix -> namespace URI mappings
         resource_path: Optional path to the resource (for relative path resolution)
         base_url: If provided, used as base URI for resolving methodology paths
+        flatten: If True, use only filenames for methodology paths (no subdirectory structure)
 
     Returns:
         Dictionary with expanded property names and values
@@ -258,7 +264,7 @@ def expand_custom_properties(
         if isinstance(value, str):
             # Special case for methodology: resolve as relative URI against base
             if expanded_key == METHODOLOGY_URI:
-                expanded_value = resolve_methodology_value(value, base_url)
+                expanded_value = resolve_methodology_value(value, base_url, flatten=flatten)
             else:
                 expanded_value = expand_rdf_prefixes(value, prefixes)
         else:
@@ -666,9 +672,12 @@ def build_resource_dict(
 
         # Add expanded RDF properties if present
         as_url = publish_config.as_url if publish_config else None
+        should_flatten = publish_config.flatten if publish_config else False
         if ds.custom_properties:
             prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-            expanded_props = expand_custom_properties(ds.custom_properties, prefixes, ds.location, as_url)
+            expanded_props = expand_custom_properties(
+                ds.custom_properties, prefixes, ds.location, as_url, flatten=should_flatten
+            )
             resource_dict.update(expanded_props)
 
         return resource_dict
@@ -737,8 +746,11 @@ def build_datapackage(
     top_level_props = manager.get_top_level_custom_properties()
     rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
     as_url = publish_config.as_url if publish_config else None
+    should_flatten = publish_config.flatten if publish_config else False
     if top_level_props:
-        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
+        top_level_props = expand_custom_properties(
+            top_level_props, rdf_prefixes, base_url=as_url, flatten=should_flatten
+        )
     datapackage.update(top_level_props)
 
     return datapackage
@@ -899,7 +911,9 @@ def push_group_to_gcs(
     rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
     as_url = publish_config.as_url
     if top_level_props:
-        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
+        top_level_props = expand_custom_properties(
+            top_level_props, rdf_prefixes, base_url=as_url, flatten=publish_config.flatten
+        )
     datapackage.update(top_level_props)
 
     # Collect methodology files for upload
@@ -921,7 +935,10 @@ def push_group_to_gcs(
 
     # Upload methodology files alongside resources
     for abs_path, _resolved_uri in methodology_files:
-        methodology_remote = base_dir + str(abs_path.relative_to(manager.project_path))
+        if publish_config.flatten:
+            methodology_remote = base_dir + abs_path.name
+        else:
+            methodology_remote = base_dir + str(abs_path.relative_to(manager.project_path))
         methodology_blob = bucket.blob(methodology_remote)
         methodology_blob.upload_from_filename(str(abs_path))
         click.echo(f"✓ Uploaded {methodology_remote}")
