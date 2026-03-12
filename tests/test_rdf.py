@@ -408,6 +408,48 @@ class TestRDFInDatapackage:
         assert "si:monitorsThreat" not in expanded
         assert "si:category" not in expanded
 
+    def test_standard_prefixes_expanded_without_explicit_rdfPrefixes(self) -> None:
+        """Test that standard prefixes like si: are expanded even without rdfPrefixes in datasets.yaml."""
+        from sunstone.cli import STANDARD_RDF_PREFIXES, build_datapackage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            datasets_file.write_text(
+                """
+si:methodology: docs/methodology.md
+outputs:
+  - name: Test Dataset
+    slug: test-dataset
+    location: outputs/test.csv
+    si:monitorsThreat: si30:27
+    fields:
+      - name: id
+        type: integer
+"""
+            )
+
+            # Create required files
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "test.csv").write_text("id\n1\n")
+
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            datapackage = build_datapackage("test-project", datasets, manager, None)
+
+            assert datapackage is not None
+
+            # Top-level si:methodology should be expanded
+            methodology_key = f"{STANDARD_RDF_PREFIXES['si']}methodology"
+            assert (
+                methodology_key in datapackage
+            ), f"Expected {methodology_key} in datapackage, got keys: {list(datapackage.keys())}"
+
+            # Per-resource si:monitorsThreat should be expanded
+            resource = datapackage["resources"][0]
+            threat_key = f"{STANDARD_RDF_PREFIXES['si']}monitorsThreat"
+            assert threat_key in resource, f"Expected {threat_key} in resource, got keys: {list(resource.keys())}"
+            assert resource[threat_key] == f"{STANDARD_RDF_PREFIXES['si30']}27"
+
     def test_automatic_rdf_types(self) -> None:
         """Test that automatic RDF types are added to datapackage."""
         from sunstone.cli import STANDARD_RDF_PREFIXES

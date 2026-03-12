@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Fixed: Standard RDF prefixes (rdf:, dcat:, si:, si30:) not expanded in top-level
+  and per-resource custom properties when no explicit rdfPrefixes defined
 
 ## [1.2.4] - 2026-03-12
 - Changed: Methodology path resolution uses standard relative URI

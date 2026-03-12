@@ -210,15 +210,17 @@ def collect_methodology_files(
             seen[candidate] = resolved
 
     # Top-level properties
-    if top_level_props and rdf_prefixes:
-        raw = _extract_methodology_value(top_level_props, rdf_prefixes)
+    if top_level_props:
+        effective_prefixes = {**STANDARD_RDF_PREFIXES, **rdf_prefixes}
+        raw = _extract_methodology_value(top_level_props, effective_prefixes)
         if raw is not None:
             _consider(raw)
 
     # Per-dataset properties (includes inherited defaults)
     for ds in datasets:
-        if ds.custom_properties and ds.rdf_prefixes:
-            raw = _extract_methodology_value(ds.custom_properties, ds.rdf_prefixes)
+        if ds.custom_properties:
+            effective_prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
+            raw = _extract_methodology_value(ds.custom_properties, effective_prefixes)
             if raw is not None:
                 _consider(raw)
 
@@ -664,12 +666,10 @@ def build_resource_dict(
 
         # Add expanded RDF properties if present
         as_url = publish_config.as_url if publish_config else None
-        if ds.custom_properties and ds.rdf_prefixes:
-            expanded_props = expand_custom_properties(ds.custom_properties, ds.rdf_prefixes, ds.location, as_url)
+        if ds.custom_properties:
+            prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
+            expanded_props = expand_custom_properties(ds.custom_properties, prefixes, ds.location, as_url)
             resource_dict.update(expanded_props)
-        elif ds.custom_properties:
-            # No prefixes, just add custom properties as-is
-            resource_dict.update(ds.custom_properties)
 
         return resource_dict
     except Exception as e:
@@ -735,9 +735,9 @@ def build_datapackage(
 
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
-    rdf_prefixes = manager.get_default_rdf_prefixes()
+    rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
     as_url = publish_config.as_url if publish_config else None
-    if top_level_props and rdf_prefixes:
+    if top_level_props:
         top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
     datapackage.update(top_level_props)
 
@@ -896,15 +896,15 @@ def push_group_to_gcs(
 
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
-    rdf_prefixes = manager.get_default_rdf_prefixes()
+    rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
     as_url = publish_config.as_url
-    if top_level_props and rdf_prefixes:
+    if top_level_props:
         top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
     datapackage.update(top_level_props)
 
     # Collect methodology files for upload
     methodology_files = collect_methodology_files(
-        datasets, manager.get_top_level_custom_properties(), manager.get_default_rdf_prefixes(), manager, as_url
+        datasets, manager.get_top_level_custom_properties(), rdf_prefixes, manager, as_url
     )
 
     client = storage.Client()
