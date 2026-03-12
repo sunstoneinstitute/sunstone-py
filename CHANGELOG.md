@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: Methodology path resolution uses standard relative URI resolution against package base URI
 
 ## [1.2.3] - 2026-03-12
 - Added: `description` field for datasets

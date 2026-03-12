@@ -134,52 +134,55 @@ Example generated datapackage:
 
 This makes all generated datapackages compatible with DCAT-based data catalogs and semantic web tools without any additional configuration.
 
-### Methodology URLs
+### Methodology URL Handling
 
-The `si:methodology` property receives special handling. When the value is a file path (not already a URI), it can be automatically converted to a full URL during publishing:
+The `https://sunstone.institute/rdf/vocab#methodology` property receives special handling. When its value is not already a URI, it is resolved as a relative URI against the package base URI (`publish.as`). All referenced methodology files are uploaded alongside other resources during `sunstone package push`.
 
-- **Local build** (`sunstone package build`): Methodology paths are kept as relative paths since there's no publish destination
-- **Publishing** (`sunstone package push`): Methodology paths become full URLs when `publish.as` is configured
+This applies regardless of how the property is specified — via an `si:` prefix, a different prefix mapped to the same namespace, or as a full URI directly. The property can appear at the top level (via `defaults:`), on individual resources, or both — each resource can reference its own methodology file.
 
-Configure the public URL prefix with `publish.as`:
+- **Local build** (`sunstone package build`): Without `publish.as`, the value is kept as a relative path
+- **Publishing** (`sunstone package push`): The value is resolved against `publish.as` to produce a full URL, and all referenced local files are uploaded
+
+Configure the package base URI with `publish.as`:
 
 ```yaml
 publish:
   enabled: true
   to: gs://my-bucket/datasets/project/    # GCS destination for upload
-  as: https://cdn.example.com/datasets/project/  # Public URL prefix for references
+  as: https://cdn.example.com/datasets/project/  # Package base URI
 
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
+  si:methodology: docs/default-methodology.md  # Shared methodology for all datasets
 
 outputs:
   - name: Climate Dataset
     slug: climate-dataset
     location: outputs/climate.csv
-    si:methodology: docs/methodology.md  # Will become full URL when published
+    si:methodology: docs/climate-methodology.md  # Per-dataset override
     fields:
       - name: year
         type: integer
+
+  - name: Biodiversity Dataset
+    slug: biodiversity-dataset
+    location: outputs/biodiversity.csv
+    # Inherits docs/default-methodology.md from defaults
+    fields:
+      - name: species
+        type: string
 ```
 
-When published, the datapackage.json will contain:
+When published, each resource's datapackage.json entry will contain the resolved methodology URL, and all unique local methodology files are uploaded:
 
 ```json
 {
-  "https://sunstone.institute/rdf/vocab#methodology": "https://cdn.example.com/datasets/project/docs/methodology.md"
+  "https://sunstone.institute/rdf/vocab#methodology": "https://cdn.example.com/datasets/project/docs/climate-methodology.md"
 }
 ```
 
-If `publish.flatten: true` is also set, only the filename is used:
-
-```json
-{
-  "https://sunstone.institute/rdf/vocab#methodology": "https://cdn.example.com/datasets/project/methodology.md"
-}
-```
-
-If `si:methodology` already contains a full URI, it's preserved as-is regardless of publish settings.
+If the value already contains a full URI, it's preserved as-is. However, if the URI starts with the `publish.as` base URI, the corresponding local file is still uploaded.
 
 ### Complete Example
 

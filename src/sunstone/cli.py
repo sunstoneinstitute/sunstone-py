@@ -9,7 +9,7 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import click
 from click.shell_completion import CompletionItem
@@ -35,6 +35,8 @@ ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 STANDARD_RDF_PREFIXES = {
     "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
     "dcat": "http://www.w3.org/ns/dcat#",
+    "si": "https://sunstone.institute/rdf/vocab#",
+    "si30": "https://sunstone.institute/rdf/threat/",
 }
 
 
@@ -126,59 +128,125 @@ def is_uri(value: str) -> bool:
     return value.startswith("http://") or value.startswith("https://")
 
 
-def transform_methodology_path(methodology_path: str, flatten: bool = False, base_url: str | None = None) -> str:
+METHODOLOGY_URI = "https://sunstone.institute/rdf/vocab#methodology"
+
+
+def resolve_methodology_value(value: str, base_url: str | None = None) -> str:
     """
-    Transform a methodology path based on publish settings.
+    Resolve a methodology value as a relative URI against the package base URI.
+
+    If the value is already a full URI, it is returned as-is.
+    If a base_url is provided, the value is resolved as a relative URI.
+    Otherwise the value is kept as a relative path.
 
     Args:
-        methodology_path: The methodology file path
-        flatten: If True, use only the filename (no directory structure)
-        base_url: If provided, construct a full URL using this base
+        value: The methodology property value (path or URI)
+        base_url: The package base URI (publish.as), used as the base for resolution
 
     Returns:
-        Transformed path or URL
+        Resolved URI or relative path
     """
-    if flatten:
-        # Just use the filename
-        path = Path(methodology_path).name
-    else:
-        # Keep the path as-is (relative to datapackage location)
-        path = methodology_path
+    if is_uri(value):
+        return value
 
     if base_url:
-        # Construct full URL
+        # Ensure base URL ends with / so urljoin treats it as a directory
         if not base_url.endswith("/"):
             base_url += "/"
-        return base_url + path
+        return urljoin(base_url, value)
 
-    return path
+    return value
+
+
+def _extract_methodology_value(props: dict[str, Any], prefixes: dict[str, str]) -> Optional[str]:
+    """Extract the raw methodology value from a set of custom properties, if present."""
+    for key, value in props.items():
+        expanded_key = expand_rdf_prefixes(key, prefixes)
+        if expanded_key == METHODOLOGY_URI and isinstance(value, str):
+            return value
+    return None
+
+
+def collect_methodology_files(
+    datasets: list[DatasetMetadata],
+    top_level_props: dict[str, Any],
+    rdf_prefixes: dict[str, str],
+    manager: "DatasetsManager",
+    base_url: Optional[str] = None,
+) -> list[tuple[Path, str]]:
+    """
+    Collect all methodology files referenced across datasets and top-level properties.
+
+    Scans top-level custom properties, defaults (inherited into datasets), and
+    per-dataset custom properties for methodology values. For any value that is
+    a local file path (not a URI) that exists on disk, includes it in the result.
+    Also includes URIs that start with the base_url, as these represent project
+    files that should be uploaded.
+
+    Args:
+        datasets: All datasets in the current group.
+        top_level_props: Top-level custom properties from datasets.yaml.
+        rdf_prefixes: Default RDF prefix mappings.
+        manager: DatasetsManager for resolving paths.
+        base_url: Package base URI (publish.as) for resolving methodology URIs.
+
+    Returns:
+        List of (absolute_path, resolved_uri) tuples, deduplicated by path.
+    """
+    seen: dict[Path, str] = {}
+
+    def _consider(value: str) -> None:
+        if is_uri(value):
+            # If the URI starts with our base_url, it's a project file we should upload
+            if base_url and value.startswith(base_url.rstrip("/") + "/"):
+                rel_path = value[len(base_url.rstrip("/") + "/") :]
+                candidate = manager.get_absolute_path(rel_path)
+                if candidate.exists() and candidate not in seen:
+                    seen[candidate] = value
+            return
+        candidate = manager.get_absolute_path(value)
+        if candidate.exists() and candidate not in seen:
+            resolved = resolve_methodology_value(value, base_url)
+            seen[candidate] = resolved
+
+    # Top-level properties
+    if top_level_props and rdf_prefixes:
+        raw = _extract_methodology_value(top_level_props, rdf_prefixes)
+        if raw is not None:
+            _consider(raw)
+
+    # Per-dataset properties (includes inherited defaults)
+    for ds in datasets:
+        if ds.custom_properties and ds.rdf_prefixes:
+            raw = _extract_methodology_value(ds.custom_properties, ds.rdf_prefixes)
+            if raw is not None:
+                _consider(raw)
+
+    return [(path, uri) for path, uri in seen.items()]
 
 
 def expand_custom_properties(
     custom_props: dict[str, Any],
     prefixes: dict[str, str],
     resource_path: Optional[str] = None,
-    flatten: bool = False,
     base_url: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Expand all RDF prefixes in custom properties (both keys and values).
 
-    Special handling for si:methodology: if the value is not a URI, it's treated
-    as a file path that gets transformed based on publish settings.
+    Special handling for the methodology property (expanded URI
+    https://sunstone.institute/rdf/vocab#methodology): if the value is not
+    a URI, it is resolved as a relative URI against base_url.
 
     Args:
         custom_props: Dictionary of custom properties
         prefixes: Dictionary of prefix -> namespace URI mappings
         resource_path: Optional path to the resource (for relative path resolution)
-        flatten: If True, flatten directory structure for file paths
-        base_url: If provided, construct full URLs for methodology paths
+        base_url: If provided, used as base URI for resolving methodology paths
 
     Returns:
         Dictionary with expanded property names and values
     """
-    methodology_uri = "https://sunstone.institute/rdf/vocab#methodology"
-
     expanded = {}
     for key, value in custom_props.items():
         # Expand the key if it's a prefixed name
@@ -186,9 +254,9 @@ def expand_custom_properties(
 
         # Expand the value if it's a string that might contain a prefix
         if isinstance(value, str):
-            # Special case for methodology: if not a URI, transform as path
-            if expanded_key == methodology_uri and not is_uri(value):
-                expanded_value = transform_methodology_path(value, flatten, base_url)
+            # Special case for methodology: resolve as relative URI against base
+            if expanded_key == METHODOLOGY_URI:
+                expanded_value = resolve_methodology_value(value, base_url)
             else:
                 expanded_value = expand_rdf_prefixes(value, prefixes)
         else:
@@ -595,12 +663,9 @@ def build_resource_dict(
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
 
         # Add expanded RDF properties if present
-        flatten = publish_config.flatten if publish_config else False
         as_url = publish_config.as_url if publish_config else None
         if ds.custom_properties and ds.rdf_prefixes:
-            expanded_props = expand_custom_properties(
-                ds.custom_properties, ds.rdf_prefixes, ds.location, flatten, as_url
-            )
+            expanded_props = expand_custom_properties(ds.custom_properties, ds.rdf_prefixes, ds.location, as_url)
             resource_dict.update(expanded_props)
         elif ds.custom_properties:
             # No prefixes, just add custom properties as-is
@@ -671,10 +736,9 @@ def build_datapackage(
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
     rdf_prefixes = manager.get_default_rdf_prefixes()
+    as_url = publish_config.as_url if publish_config else None
     if top_level_props and rdf_prefixes:
-        flatten = publish_config.flatten if publish_config else False
-        as_url = publish_config.as_url if publish_config else None
-        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, flatten=flatten, base_url=as_url)
+        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
     datapackage.update(top_level_props)
 
     return datapackage
@@ -833,23 +897,15 @@ def push_group_to_gcs(
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
     rdf_prefixes = manager.get_default_rdf_prefixes()
-    methodology_file: Optional[Path] = None
+    as_url = publish_config.as_url
     if top_level_props and rdf_prefixes:
-        # Before expansion, find methodology file path if it's a local file
-        for key, value in top_level_props.items():
-            expanded_key = expand_rdf_prefixes(key, rdf_prefixes)
-            if (
-                expanded_key == "https://sunstone.institute/rdf/vocab#methodology"
-                and isinstance(value, str)
-                and not is_uri(value)
-            ):
-                candidate = manager.get_absolute_path(value)
-                if candidate.exists():
-                    methodology_file = candidate
-        top_level_props = expand_custom_properties(
-            top_level_props, rdf_prefixes, flatten=publish_config.flatten, base_url=publish_config.as_url
-        )
+        top_level_props = expand_custom_properties(top_level_props, rdf_prefixes, base_url=as_url)
     datapackage.update(top_level_props)
+
+    # Collect methodology files for upload
+    methodology_files = collect_methodology_files(
+        datasets, manager.get_top_level_custom_properties(), manager.get_default_rdf_prefixes(), manager, as_url
+    )
 
     client = storage.Client()
     bucket = client.bucket(bucket_name)
@@ -863,14 +919,11 @@ def push_group_to_gcs(
         data_blob.upload_from_filename(str(local_path))
         click.echo(f"✓ Uploaded {resource_path}")
 
-    # Upload methodology file if referenced
-    if methodology_file:
-        if publish_config.flatten:
-            methodology_remote = base_dir + methodology_file.name
-        else:
-            methodology_remote = base_dir + str(methodology_file.relative_to(manager.project_path))
+    # Upload methodology files alongside resources
+    for abs_path, _resolved_uri in methodology_files:
+        methodology_remote = base_dir + str(abs_path.relative_to(manager.project_path))
         methodology_blob = bucket.blob(methodology_remote)
-        methodology_blob.upload_from_filename(str(methodology_file))
+        methodology_blob.upload_from_filename(str(abs_path))
         click.echo(f"✓ Uploaded {methodology_remote}")
 
     click.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")

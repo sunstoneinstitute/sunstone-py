@@ -5,7 +5,7 @@ Tests for RDF triple support in datasets.yaml.
 import tempfile
 from pathlib import Path
 
-from sunstone.cli import expand_custom_properties, expand_rdf_prefixes
+from sunstone.cli import collect_methodology_files, expand_custom_properties, expand_rdf_prefixes
 from sunstone.datasets import DatasetsManager
 
 
@@ -89,27 +89,26 @@ class TestCustomPropertiesExpansion:
         assert result["https://sunstone.institute/rdf/vocab#tags"] == ["climate", "environment"]
 
     def test_methodology_path_without_base_url(self) -> None:
-        """Test that si:methodology paths are kept as relative paths when no base_url is provided."""
+        """Test that methodology paths are kept as relative paths when no base_url is provided."""
         prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
         custom_props = {
             "si:methodology": "docs/methodology.md",
         }
         # Without base_url, path is kept as-is (for local package_build)
-        result = expand_custom_properties(custom_props, prefixes, "outputs/data.csv", flatten=False)
+        result = expand_custom_properties(custom_props, prefixes, "outputs/data.csv")
         # Key should be expanded
         assert "https://sunstone.institute/rdf/vocab#methodology" in result
-        # Value should be kept as a path (not expanded to URL)
+        # Value should be kept as a relative path
         assert result["https://sunstone.institute/rdf/vocab#methodology"] == "docs/methodology.md"
 
     def test_methodology_path_with_base_url(self) -> None:
-        """Test that si:methodology paths become full URLs when base_url is provided."""
+        """Test that methodology paths are resolved as relative URIs against base_url."""
         prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
         custom_props = {
             "si:methodology": "docs/methodology.md",
         }
-        # With base_url, path becomes a full URL (for package_push with publish.as)
         result = expand_custom_properties(
-            custom_props, prefixes, "outputs/data.csv", flatten=False, base_url="https://example.com/datasets/project"
+            custom_props, prefixes, "outputs/data.csv", base_url="https://example.com/datasets/project"
         )
         assert "https://sunstone.institute/rdf/vocab#methodology" in result
         assert (
@@ -117,30 +116,30 @@ class TestCustomPropertiesExpansion:
             == "https://example.com/datasets/project/docs/methodology.md"
         )
 
-    def test_methodology_path_flattened_with_base_url(self) -> None:
-        """Test that si:methodology paths are flattened and converted to URL when both options set."""
+    def test_methodology_nested_path_with_base_url(self) -> None:
+        """Test that nested methodology paths are resolved correctly against base_url."""
         prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
         custom_props = {
             "si:methodology": "docs/project/methodology.md",
         }
-        # With flatten and base_url, only filename is used in URL
         result = expand_custom_properties(
-            custom_props, prefixes, "outputs/data.csv", flatten=True, base_url="https://example.com/datasets/"
+            custom_props, prefixes, "outputs/data.csv", base_url="https://example.com/datasets/"
         )
         assert "https://sunstone.institute/rdf/vocab#methodology" in result
         assert (
-            result["https://sunstone.institute/rdf/vocab#methodology"] == "https://example.com/datasets/methodology.md"
+            result["https://sunstone.institute/rdf/vocab#methodology"]
+            == "https://example.com/datasets/docs/project/methodology.md"
         )
 
     def test_methodology_uri_preserved(self) -> None:
-        """Test that si:methodology URIs are preserved as-is."""
+        """Test that methodology URIs are preserved as-is."""
         prefixes = {"si": "https://sunstone.institute/rdf/vocab#"}
         custom_props = {
             "si:methodology": "https://example.org/methodology/v1",
         }
-        # URIs should be preserved regardless of flatten or base_url settings
+        # URIs should be preserved regardless of base_url settings
         result = expand_custom_properties(
-            custom_props, prefixes, "outputs/data.csv", flatten=True, base_url="https://other.com/datasets/"
+            custom_props, prefixes, "outputs/data.csv", base_url="https://other.com/datasets/"
         )
         assert "https://sunstone.institute/rdf/vocab#methodology" in result
         assert result["https://sunstone.institute/rdf/vocab#methodology"] == "https://example.org/methodology/v1"
@@ -427,3 +426,224 @@ class TestRDFInDatapackage:
         assert rdf_type_uri == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
         assert dcat_dataset_uri == "http://www.w3.org/ns/dcat#Dataset"
         assert dcat_distribution_uri == "http://www.w3.org/ns/dcat#Distribution"
+
+
+class TestCollectMethodologyFiles:
+    """Tests for collecting methodology files across datasets and top-level properties."""
+
+    def test_collects_top_level_methodology(self) -> None:
+        """Test that top-level methodology files are collected."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = str(Path(tmpdir).resolve())
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "docs").mkdir()
+            (Path(tmpdir) / "docs" / "methodology.md").write_text("# Method")
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "data.csv").write_text("a,b\n1,2\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+  si:methodology: docs/methodology.md
+
+outputs:
+  - name: Data
+    slug: data
+    location: outputs/data.csv
+    fields:
+      - name: a
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager)
+            assert len(results) == 1
+            assert results[0][0] == Path(tmpdir) / "docs" / "methodology.md"
+            assert results[0][1] == "docs/methodology.md"
+
+    def test_collects_per_dataset_methodology(self) -> None:
+        """Test that per-dataset methodology files are collected."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "docs").mkdir()
+            (Path(tmpdir) / "docs" / "method_a.md").write_text("# A")
+            (Path(tmpdir) / "docs" / "method_b.md").write_text("# B")
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "a.csv").write_text("x\n1\n")
+            (Path(tmpdir) / "outputs" / "b.csv").write_text("x\n2\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+
+outputs:
+  - name: Dataset A
+    slug: dataset-a
+    location: outputs/a.csv
+    si:methodology: docs/method_a.md
+    fields:
+      - name: x
+        type: integer
+  - name: Dataset B
+    slug: dataset-b
+    location: outputs/b.csv
+    si:methodology: docs/method_b.md
+    fields:
+      - name: x
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager)
+            paths = {r[0].name for r in results}
+            assert paths == {"method_a.md", "method_b.md"}
+
+    def test_deduplicates_same_file(self) -> None:
+        """Test that the same file referenced by multiple datasets is only collected once."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "docs").mkdir()
+            (Path(tmpdir) / "docs" / "methodology.md").write_text("# Method")
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "a.csv").write_text("x\n1\n")
+            (Path(tmpdir) / "outputs" / "b.csv").write_text("x\n2\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+  si:methodology: docs/methodology.md
+
+outputs:
+  - name: Dataset A
+    slug: dataset-a
+    location: outputs/a.csv
+    fields:
+      - name: x
+        type: integer
+  - name: Dataset B
+    slug: dataset-b
+    location: outputs/b.csv
+    fields:
+      - name: x
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager)
+            assert len(results) == 1
+
+    def test_skips_external_uris(self) -> None:
+        """Test that external methodology URIs are not collected for upload."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "data.csv").write_text("x\n1\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+
+outputs:
+  - name: Data
+    slug: data
+    location: outputs/data.csv
+    si:methodology: https://external.example.com/method
+    fields:
+      - name: x
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager)
+            assert len(results) == 0
+
+    def test_collects_uri_matching_base_url(self) -> None:
+        """Test that methodology URIs matching base_url are collected as local files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = str(Path(tmpdir).resolve())
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "docs").mkdir()
+            (Path(tmpdir) / "docs" / "methodology.md").write_text("# Method")
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "data.csv").write_text("x\n1\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+
+outputs:
+  - name: Data
+    slug: data
+    location: outputs/data.csv
+    si:methodology: https://cdn.example.com/datasets/project/docs/methodology.md
+    fields:
+      - name: x
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+            base_url = "https://cdn.example.com/datasets/project/"
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager, base_url)
+            assert len(results) == 1
+            assert results[0][0] == Path(tmpdir) / "docs" / "methodology.md"
+            # The URI is kept as-is since it's already fully resolved
+            assert results[0][1] == "https://cdn.example.com/datasets/project/docs/methodology.md"
+
+    def test_resolves_relative_paths_with_base_url(self) -> None:
+        """Test that relative methodology paths are resolved against base_url."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            datasets_file = Path(tmpdir) / "datasets.yaml"
+            (Path(tmpdir) / "docs").mkdir()
+            (Path(tmpdir) / "docs" / "methodology.md").write_text("# Method")
+            (Path(tmpdir) / "outputs").mkdir()
+            (Path(tmpdir) / "outputs" / "data.csv").write_text("x\n1\n")
+            datasets_file.write_text(
+                """
+defaults:
+  rdfPrefixes:
+    si: "https://sunstone.institute/rdf/vocab#"
+
+outputs:
+  - name: Data
+    slug: data
+    location: outputs/data.csv
+    si:methodology: docs/methodology.md
+    fields:
+      - name: x
+        type: integer
+"""
+            )
+            manager = DatasetsManager(tmpdir)
+            datasets = manager.get_all_outputs()
+            top_props = manager.get_top_level_custom_properties()
+            prefixes = manager.get_default_rdf_prefixes()
+            base_url = "https://cdn.example.com/datasets/project/"
+
+            results = collect_methodology_files(datasets, top_props, prefixes, manager, base_url)
+            assert len(results) == 1
+            assert results[0][1] == "https://cdn.example.com/datasets/project/docs/methodology.md"
