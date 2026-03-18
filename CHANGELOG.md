@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: Bump all CI actions to Node.js 24-compatible versions
 
 ## [1.2.7] - 2026-03-18
 - Added: Field-level metadata support (description, unit, source) in datasets.yaml
