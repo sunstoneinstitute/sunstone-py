@@ -637,7 +637,7 @@ def build_resource_dict(
 
     Returns None if the data file doesn't exist or description fails.
     """
-    from frictionless import describe
+    from frictionless import Resource, describe  # noqa: F401
 
     data_path = manager.get_absolute_path(ds.location)
     if not data_path.exists():
@@ -651,7 +651,8 @@ def build_resource_dict(
         else:
             resource_path = ds.location
 
-        resource = describe(str(data_path))
+        resource = Resource(source=str(data_path))
+        resource.infer()
         resource.name = ds.slug
         resource.title = ds.name
         if ds.description:
