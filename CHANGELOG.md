@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: Field-level metadata support (description, unit, source) in datasets.yaml
 
 ## [1.2.6] - 2026-03-12
 - Fixed: Guard to prevent Git LFS pointer files from being published to GCS

@@ -637,7 +637,7 @@ def build_resource_dict(
 
     Returns None if the data file doesn't exist or description fails.
     """
-    from frictionless import describe
+    from frictionless import Resource, describe  # noqa: F401
 
     data_path = manager.get_absolute_path(ds.location)
     if not data_path.exists():
@@ -651,7 +651,8 @@ def build_resource_dict(
         else:
             resource_path = ds.location
 
-        resource = describe(str(data_path))
+        resource = Resource(source=str(data_path))
+        resource.infer()
         resource.name = ds.slug
         resource.title = ds.name
         if ds.description:
@@ -664,8 +665,27 @@ def build_resource_dict(
         else:
             resource.path = resource_path
 
+        # Set field-level description from datasets.yaml (standard Frictionless property)
+        if ds.fields:
+            yaml_fields_by_name = {f.name: f for f in ds.fields}
+            for field_descriptor in resource.schema.fields:
+                yaml_field = yaml_fields_by_name.get(field_descriptor.name)
+                if yaml_field and yaml_field.description:
+                    field_descriptor.description = yaml_field.description
+
         # Convert to dict and add custom RDF properties
         resource_dict: dict[str, Any] = resource.to_dict()
+
+        # Add field-level unit and source from datasets.yaml (custom properties)
+        if ds.fields:
+            yaml_fields_by_name = {f.name: f for f in ds.fields}
+            for field_dict in resource_dict.get("schema", {}).get("fields", []):
+                yaml_field = yaml_fields_by_name.get(field_dict["name"])
+                if yaml_field:
+                    if yaml_field.unit:
+                        field_dict["unit"] = yaml_field.unit
+                    if yaml_field.source:
+                        field_dict["source"] = yaml_field.source
 
         # Add automatic RDF type for resource
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"

@@ -35,6 +35,20 @@ _yaml.default_flow_style = False
 _yaml.indent(mapping=2, sequence=4, offset=2)
 
 
+def _field_schema_to_dict(field: FieldSchema) -> dict:
+    """Convert a FieldSchema to a dict for YAML serialization, omitting None values."""
+    d: dict = {"name": field.name, "type": field.type}
+    if field.constraints:
+        d["constraints"] = field.constraints
+    if field.description:
+        d["description"] = field.description
+    if field.unit:
+        d["unit"] = field.unit
+    if field.source:
+        d["source"] = field.source
+    return d
+
+
 def _is_public_url(url: str) -> bool:
     """
     Validate that a URL points to a public (non-private) resource.
@@ -168,7 +182,14 @@ class DatasetsManager:
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
         """Parse field schema data from YAML."""
         return [
-            FieldSchema(name=field["name"], type=field["type"], constraints=field.get("constraints"))
+            FieldSchema(
+                name=field["name"],
+                type=field["type"],
+                constraints=field.get("constraints"),
+                description=field.get("description"),
+                unit=field.get("unit"),
+                source=field.get("source"),
+            )
             for field in fields_data
         ]
 
@@ -500,14 +521,7 @@ class DatasetsManager:
             "name": name,
             "slug": slug,
             "location": location,
-            "fields": [
-                {
-                    "name": field.name,
-                    "type": field.type,
-                    **({"constraints": field.constraints} if field.constraints else {}),
-                }
-                for field in fields
-            ],
+            "fields": [_field_schema_to_dict(field) for field in fields],
         }
 
         # Add to outputs
@@ -538,14 +552,7 @@ class DatasetsManager:
         for i, dataset_data in enumerate(self._data["outputs"]):
             if dataset_data["slug"] == slug:
                 if fields is not None:
-                    dataset_data["fields"] = [
-                        {
-                            "name": field.name,
-                            "type": field.type,
-                            **({"constraints": field.constraints} if field.constraints else {}),
-                        }
-                        for field in fields
-                    ]
+                    dataset_data["fields"] = [_field_schema_to_dict(field) for field in fields]
                 if location is not None:
                     dataset_data["location"] = location
 
