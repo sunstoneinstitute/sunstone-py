@@ -479,6 +479,162 @@ class TestPackageBuildCommand:
         assert datapackage[methodology_key] == "https://data.example.com/un-members/report/DATA_METHODOLOGY.md"
 
 
+class TestFieldMetadataInDatapackage:
+    """Tests for field-level description, unit, and source in datapackage output."""
+
+    def test_field_description_in_datapackage(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that field description from datasets.yaml appears in datapackage.json."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+        (project / "outputs" / "data.csv").write_text("name,value\nAlice,42\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Test Data\n"
+            "    slug: test-data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: name\n"
+            "        type: string\n"
+            '        description: "Full name of the person"\n'
+            "      - name: value\n"
+            "        type: integer\n"
+            '        description: "Measured value"\n'
+        )
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((project / "datapackage.json").read_text())
+        fields = datapackage["resources"][0]["schema"]["fields"]
+        fields_by_name = {f["name"]: f for f in fields}
+        assert fields_by_name["name"]["description"] == "Full name of the person"
+        assert fields_by_name["value"]["description"] == "Measured value"
+
+    def test_field_unit_in_datapackage(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that field unit from datasets.yaml appears in datapackage.json."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+        (project / "outputs" / "data.csv").write_text("city,population\nOslo,700000\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: City Data\n"
+            "    slug: city-data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: city\n"
+            "        type: string\n"
+            "      - name: population\n"
+            "        type: integer\n"
+            '        unit: "people"\n'
+        )
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((project / "datapackage.json").read_text())
+        fields = datapackage["resources"][0]["schema"]["fields"]
+        fields_by_name = {f["name"]: f for f in fields}
+        assert fields_by_name["population"]["unit"] == "people"
+        assert "unit" not in fields_by_name["city"]
+
+    def test_field_source_in_datapackage(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test that field source from datasets.yaml appears in datapackage.json."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+        (project / "outputs" / "data.csv").write_text("country,score\nNorway,9.5\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Country Scores\n"
+            "    slug: country-scores\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: country\n"
+            "        type: string\n"
+            "      - name: score\n"
+            "        type: number\n"
+            '        source: "world-happiness-report"\n'
+        )
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((project / "datapackage.json").read_text())
+        fields = datapackage["resources"][0]["schema"]["fields"]
+        fields_by_name = {f["name"]: f for f in fields}
+        assert fields_by_name["score"]["source"] == "world-happiness-report"
+        assert "source" not in fields_by_name["country"]
+
+    def test_all_field_metadata_combined(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test description, unit, and source together on a single field."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+        (project / "outputs" / "data.csv").write_text("metric,value\nGDP,50000\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Economic Data\n"
+            "    slug: economic-data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: metric\n"
+            "        type: string\n"
+            "      - name: value\n"
+            "        type: integer\n"
+            '        description: "GDP per capita"\n'
+            '        unit: "USD"\n'
+            '        source: "world-bank-data"\n'
+        )
+
+        result = runner.invoke(
+            main,
+            ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((project / "datapackage.json").read_text())
+        fields = datapackage["resources"][0]["schema"]["fields"]
+        value_field = next(f for f in fields if f["name"] == "value")
+        assert value_field["description"] == "GDP per capita"
+        assert value_field["unit"] == "USD"
+        assert value_field["source"] == "world-bank-data"
+
+
 class TestPackagePushCommand:
     """Tests for the package push command."""
 

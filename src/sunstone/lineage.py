@@ -65,6 +65,15 @@ class FieldSchema:
     constraints: Optional[Dict[str, Any]] = None
     """Optional constraints (e.g., enum values)."""
 
+    description: Optional[str] = None
+    """Human-readable description of the field."""
+
+    unit: Optional[str] = None
+    """Human-readable unit of measure (e.g., 'kg', '%', 'people')."""
+
+    source: Optional[str] = None
+    """Slug of the input dataset this field's data comes from."""
+
 
 @dataclass
 class Contributor:

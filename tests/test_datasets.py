@@ -50,6 +50,120 @@ class TestDatasetsManager:
         assert dataset is None
 
 
+class TestFieldSchemaExtendedProperties:
+    """Tests for field-level description, unit, and source."""
+
+    def test_parse_fields_with_description(self, project_copy: Path) -> None:
+        """Test that field description is parsed from datasets.yaml."""
+        yaml_path = project_copy / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "  - name: Member State\n        type: string",
+            '  - name: Member State\n        type: string\n        description: "Name of the UN member state"',
+        )
+        yaml_path.write_text(content)
+
+        manager = sunstone.DatasetsManager(project_copy)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+        assert dataset is not None
+        assert dataset.fields is not None
+        member_state_field = next(f for f in dataset.fields if f.name == "Member State")
+        assert member_state_field.description == "Name of the UN member state"
+
+    def test_parse_fields_with_unit(self, project_copy: Path) -> None:
+        """Test that field unit is parsed from datasets.yaml."""
+        yaml_path = project_copy / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "  - name: M49 Code\n        type: string",
+            '  - name: M49 Code\n        type: string\n        unit: "code"',
+        )
+        yaml_path.write_text(content)
+
+        manager = sunstone.DatasetsManager(project_copy)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+        assert dataset is not None
+        assert dataset.fields is not None
+        m49_field = next(f for f in dataset.fields if f.name == "M49 Code")
+        assert m49_field.unit == "code"
+
+    def test_parse_fields_with_source(self, project_copy: Path) -> None:
+        """Test that field source is parsed from datasets.yaml."""
+        yaml_path = project_copy / "datasets.yaml"
+        content = yaml_path.read_text()
+        content = content.replace(
+            "  - name: ISO Code\n        type: string",
+            '  - name: ISO Code\n        type: string\n        source: "iso-standards"',
+        )
+        yaml_path.write_text(content)
+
+        manager = sunstone.DatasetsManager(project_copy)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+        assert dataset is not None
+        assert dataset.fields is not None
+        iso_field = next(f for f in dataset.fields if f.name == "ISO Code")
+        assert iso_field.source == "iso-standards"
+
+    def test_parse_fields_without_extended_properties(self, project_path: Path) -> None:
+        """Test that fields without new properties default to None."""
+        manager = sunstone.DatasetsManager(project_path)
+        dataset = manager.find_dataset_by_slug("official-un-member-states")
+        assert dataset is not None
+        assert dataset.fields is not None
+        field = dataset.fields[0]
+        assert field.description is None
+        assert field.unit is None
+        assert field.source is None
+
+
+class TestFieldSchemaSerialization:
+    """Tests for field schema serialization helper."""
+
+    def test_field_to_dict_minimal(self) -> None:
+        """Test serialization with only required fields."""
+        from sunstone.datasets import _field_schema_to_dict
+        from sunstone.lineage import FieldSchema
+
+        field = FieldSchema(name="x", type="string")
+        d = _field_schema_to_dict(field)
+        assert d == {"name": "x", "type": "string"}
+
+    def test_field_to_dict_all_properties(self) -> None:
+        """Test serialization with all properties set."""
+        from sunstone.datasets import _field_schema_to_dict
+        from sunstone.lineage import FieldSchema
+
+        field = FieldSchema(
+            name="population",
+            type="integer",
+            description="Total population",
+            unit="people",
+            source="census-data",
+            constraints={"minimum": 0},
+        )
+        d = _field_schema_to_dict(field)
+        assert d == {
+            "name": "population",
+            "type": "integer",
+            "constraints": {"minimum": 0},
+            "description": "Total population",
+            "unit": "people",
+            "source": "census-data",
+        }
+
+    def test_field_to_dict_omits_none(self) -> None:
+        """Test that None values are omitted from serialization."""
+        from sunstone.datasets import _field_schema_to_dict
+        from sunstone.lineage import FieldSchema
+
+        field = FieldSchema(name="x", type="string", description="A field")
+        d = _field_schema_to_dict(field)
+        assert "unit" not in d
+        assert "source" not in d
+        assert "constraints" not in d
+        assert d["description"] == "A field"
+
+
 class TestPackageMetadata:
     """Tests for package metadata parsing."""
 
