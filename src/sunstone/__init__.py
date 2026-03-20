@@ -13,11 +13,8 @@ Example:
     ...     project_path='/path/to/project'
     ... )
     >>>
-    >>> # Perform operations - lineage is tracked
-    >>> result = df.apply_operation(
-    ...     lambda d: d[d['Amount'] > 100],
-    ...     description="Filter countries with >100 schools"
-    ... )
+    >>> # Perform operations using familiar pandas syntax
+    >>> result = df[df['Amount'] > 100]
     >>>
     >>> # Write output (auto-registers in relaxed mode)
     >>> result.to_csv(
