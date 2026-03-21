@@ -627,22 +627,116 @@ def package() -> None:
     pass
 
 
+# File suffixes that frictionless cannot describe — use schema-from-yaml path instead.
+_NON_FRICTIONLESS_SUFFIXES: frozenset[str] = frozenset({".parquet", ".parq"})
+
+# IANA media type for Apache Parquet
+_PARQUET_MEDIATYPE = "application/vnd.apache.parquet"
+
+
+def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
+    """Build a Frictionless-compatible schema dict from datasets.yaml field declarations.
+
+    Returns None if no fields are declared.
+    """
+    if not ds.fields:
+        return None
+    field_dicts = []
+    for f in ds.fields:
+        field_dict: dict[str, Any] = {"name": f.name, "type": f.type}
+        if f.description:
+            field_dict["description"] = f.description
+        if f.unit:
+            field_dict["unit"] = f.unit
+        if f.source:
+            field_dict["source"] = f.source
+        if f.constraints:
+            field_dict["constraints"] = f.constraints
+        field_dicts.append(field_dict)
+    return {"fields": field_dicts}
+
+
+def _build_non_frictionless_resource_dict(
+    ds: DatasetMetadata,
+    manager: DatasetsManager,
+    publish_config: Optional[PublishConfig],
+    data_path: Path,
+    mediatype: str,
+) -> dict[str, Any]:
+    """Build a resource dict for file types that frictionless cannot describe.
+
+    Uses field declarations from datasets.yaml as the schema rather than
+    inferring from the file content.
+    """
+    if publish_config and publish_config.flatten:
+        resource_path = data_path.name
+    else:
+        resource_path = ds.location
+
+    if publish_config and publish_config.as_url:
+        public_base = publish_config.as_url.rstrip("/") + "/"
+        path = public_base + resource_path
+    else:
+        path = resource_path
+
+    resource_dict: dict[str, Any] = {
+        "name": ds.slug,
+        "title": ds.name,
+        "path": path,
+        "mediatype": mediatype,
+        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Distribution",
+    }
+
+    if ds.description:
+        resource_dict["description"] = ds.description
+
+    schema = _build_schema_from_yaml(ds)
+    if schema:
+        resource_dict["schema"] = schema
+
+    as_url = publish_config.as_url if publish_config else None
+    should_flatten = publish_config.flatten if publish_config else False
+    if ds.custom_properties:
+        prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
+        resource_dict.update(
+            expand_custom_properties(ds.custom_properties, prefixes, ds.location, as_url, flatten=should_flatten)
+        )
+
+    return resource_dict
+
+
 def build_resource_dict(
     ds: DatasetMetadata,
     manager: DatasetsManager,
     publish_config: Optional[PublishConfig],
 ) -> Optional[dict[str, Any]]:
     """
-    Build a Frictionless resource dict for a dataset.
+    Build a resource dict for a dataset.
+
+    For file types supported by frictionless (CSV, Excel, JSON, …), the schema
+    is inferred from the file content and augmented with metadata from datasets.yaml.
+
+    For file types NOT supported by frictionless (Parquet, …), the schema is
+    built entirely from the ``fields`` declared in datasets.yaml, and the file
+    content is not read.  This avoids silent failures where frictionless raises
+    an exception and the dataset is quietly dropped from the package.
 
     Returns None if the data file doesn't exist or description fails.
     """
-    from frictionless import Resource, describe  # noqa: F401
-
     data_path = manager.get_absolute_path(ds.location)
     if not data_path.exists():
         click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
         return None
+
+    suffix = data_path.suffix.lower()
+
+    # --- Non-frictionless path (e.g. Parquet) ---
+    if suffix in _NON_FRICTIONLESS_SUFFIXES:
+        mediatype = _PARQUET_MEDIATYPE if suffix in {".parquet", ".parq"} else "application/octet-stream"
+        return _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, mediatype)
+
+    # --- Frictionless path (CSV, Excel, JSON, …) ---
+    from frictionless import Resource, describe  # noqa: F401
 
     try:
         # Determine resource path based on flatten and as_url settings
