@@ -658,7 +658,7 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
 
 def _build_non_frictionless_resource_dict(
     ds: DatasetMetadata,
-    manager: DatasetsManager,
+    _manager: DatasetsManager,
     publish_config: Optional[PublishConfig],
     data_path: Path,
     mediatype: str,
