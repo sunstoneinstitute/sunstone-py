@@ -733,7 +733,7 @@ def build_resource_dict(
     # --- Non-frictionless path (e.g. Parquet) ---
     if suffix in _NON_FRICTIONLESS_SUFFIXES:
         try:
-            mediatype = _PARQUET_MEDIATYPE if suffix in {".parquet", ".parq"} else "application/octet-stream"
+            mediatype = _PARQUET_MEDIATYPE
             return _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, mediatype)
         except Exception as e:
             click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
