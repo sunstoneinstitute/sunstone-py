@@ -84,6 +84,9 @@ norecursedirs = [
     "worktrees",
 ]
 
+[tool.coverage.run]
+omit = ["src/sunstone/_release.py"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",

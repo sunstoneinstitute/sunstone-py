@@ -111,6 +111,11 @@ def _mock_detect_context() -> Any:
 class TestSessionRecording:
     """Tests that read methods record reads in the session."""
 
+    @pytest.fixture(autouse=True)
+    def _fresh_session(self) -> None:
+        """Ensure a fresh session for each test."""
+        close_session()
+
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_read_dataset_records_session_read(self, mock_ctx: Any, flow_project: Path) -> None:
         """After read_dataset(), session should have 1 read recorded."""

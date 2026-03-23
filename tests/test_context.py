@@ -2,12 +2,20 @@
 Unit tests for ExecutionContext and detect_execution_context().
 """
 
+import sys
+import types
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sunstone.context import ExecutionContext, detect_execution_context
+from sunstone.context import (
+    ExecutionContext,
+    _detect_notebook_path,
+    _detect_script_path,
+    _detect_user,
+    detect_execution_context,
+)
 
 
 class TestExecutionContext:
@@ -122,3 +130,98 @@ class TestDetectExecutionContext:
         ctx = detect_execution_context()
         assert ctx.notebook_path is None
         assert ctx.script_path == "/path/to/script.py"
+
+
+class TestDetectNotebookPath:
+    """Tests for _detect_notebook_path() internal function."""
+
+    def test_returns_path_when_ipynb_path_installed(self) -> None:
+        """Should return string path when ipynb_path.get() succeeds."""
+        mock_module = types.ModuleType("ipynb_path")
+        mock_module.get = MagicMock(return_value="/home/user/notebook.ipynb")  # type: ignore[attr-defined]
+
+        with patch.dict(sys.modules, {"ipynb_path": mock_module}):
+            result = _detect_notebook_path()
+
+        assert result == "/home/user/notebook.ipynb"
+
+    def test_returns_none_when_ipynb_path_returns_none(self) -> None:
+        """Should return None when ipynb_path.get() returns None."""
+        mock_module = types.ModuleType("ipynb_path")
+        mock_module.get = MagicMock(return_value=None)  # type: ignore[attr-defined]
+
+        with patch.dict(sys.modules, {"ipynb_path": mock_module}):
+            result = _detect_notebook_path()
+
+        assert result is None
+
+    def test_returns_none_on_non_import_error(self) -> None:
+        """Should return None when ipynb_path.get() raises a non-ImportError."""
+        mock_module = types.ModuleType("ipynb_path")
+        mock_module.get = MagicMock(side_effect=RuntimeError("kernel not available"))  # type: ignore[attr-defined]
+
+        with patch.dict(sys.modules, {"ipynb_path": mock_module}):
+            result = _detect_notebook_path()
+
+        assert result is None
+
+
+class TestDetectScriptPath:
+    """Tests for _detect_script_path() internal function."""
+
+    def test_returns_argv0_when_valid(self) -> None:
+        """Should return sys.argv[0] when it contains a valid script path."""
+        with patch.object(sys, "argv", ["/home/user/script.py", "--flag"]):
+            result = _detect_script_path()
+
+        assert result == "/home/user/script.py"
+
+    def test_returns_none_for_empty_argv0(self) -> None:
+        """Should return None when argv[0] is empty."""
+        with patch.object(sys, "argv", [""]):
+            result = _detect_script_path()
+
+        assert result is None
+
+    def test_returns_none_for_dash_c(self) -> None:
+        """Should return None when argv[0] is '-c'."""
+        with patch.object(sys, "argv", ["-c"]):
+            result = _detect_script_path()
+
+        assert result is None
+
+
+class TestDetectUser:
+    """Tests for _detect_user() fallback chain."""
+
+    def test_falls_back_to_getpass_on_os_login_error(self) -> None:
+        """Should fall back to getpass.getuser() when os.getlogin() raises OSError."""
+        with (
+            patch("sunstone.context.os.getlogin", side_effect=OSError("no tty")),
+            patch("sunstone.context.getpass.getuser", return_value="fallback_user"),
+        ):
+            result = _detect_user()
+
+        assert result == "fallback_user"
+
+    def test_falls_back_to_env_user_when_all_else_fails(self) -> None:
+        """Should fall back to os.environ['USER'] when getlogin and getuser both fail."""
+        with (
+            patch("sunstone.context.os.getlogin", side_effect=OSError("no tty")),
+            patch("sunstone.context.getpass.getuser", side_effect=Exception("no user")),
+            patch.dict("os.environ", {"USER": "env_user"}),
+        ):
+            result = _detect_user()
+
+        assert result == "env_user"
+
+    def test_returns_none_when_everything_fails(self) -> None:
+        """Should return None when all user detection methods fail."""
+        with (
+            patch("sunstone.context.os.getlogin", side_effect=OSError("no tty")),
+            patch("sunstone.context.getpass.getuser", side_effect=Exception("no user")),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            result = _detect_user()
+
+        assert result is None
