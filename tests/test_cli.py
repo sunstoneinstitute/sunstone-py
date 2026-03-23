@@ -1577,3 +1577,195 @@ class TestLineageCLI:
         assert result.exit_code == 0
         assert "derived-data" in result.output
         assert "source-data" in result.output
+
+
+class TestParquetResourceSupport:
+    """Tests for Parquet file support in build_resource_dict and package push."""
+
+    @pytest.fixture
+    def parquet_project(self, tmp_path: Path) -> Path:
+        """Create a temporary project with a Parquet output file and datasets.yaml."""
+        project = tmp_path / "project"
+        project.mkdir()
+        data_dir = project / "data" / "output"
+        data_dir.mkdir(parents=True)
+
+        # Create a minimal valid Parquet file
+        try:
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+
+            table = pa.table(
+                {
+                    "geo_path": pa.array(["no.mun_3303"], type=pa.string()),
+                    "area_name": pa.array(["Kongsberg"], type=pa.string()),
+                    "year": pa.array([2024], type=pa.int16()),
+                    "value": pa.array([28848.0], type=pa.float64()),
+                }
+            )
+            pq.write_table(table, data_dir / "population.parquet")
+        except ImportError:
+            # Fallback: write a minimal Parquet magic-byte file for path-detection tests
+            parquet_magic = b"PAR1" + b"\x00" * 8 + b"PAR1"
+            (data_dir / "population.parquet").write_bytes(parquet_magic)
+
+        datasets_yaml = project / "datasets.yaml"
+        datasets_yaml.write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://test-bucket/test-project/\n"
+            "\n"
+            "outputs:\n"
+            "  - name: Population Statistics\n"
+            "    slug: population-oslo\n"
+            "    location: data/output/population.parquet\n"
+            "    type: table\n"
+            "    fields:\n"
+            "      - name: geo_path\n"
+            "        type: string\n"
+            "        description: ltree geographic path\n"
+            "      - name: area_name\n"
+            "        type: string\n"
+            "      - name: year\n"
+            "        type: integer\n"
+            "        unit: year\n"
+            "      - name: value\n"
+            "        type: number\n"
+        )
+        return project
+
+    def test_build_resource_dict_parquet_returns_dict(self, parquet_project: Path) -> None:
+        """build_resource_dict returns a dict for Parquet files (not None)."""
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        assert len(outputs) == 1, "Expected one output dataset"
+
+        publish_config = PublishConfig(enabled=True, to="gs://test-bucket/test-project/")
+        result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None, "build_resource_dict returned None for a Parquet file"
+
+    def test_build_resource_dict_parquet_has_correct_mediatype(self, parquet_project: Path) -> None:
+        """Parquet resource dict has application/vnd.apache.parquet mediatype."""
+        from sunstone.cli import _PARQUET_MEDIATYPE, build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        publish_config = PublishConfig(enabled=True, to="gs://test-bucket/test-project/")
+        result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None
+        assert result["mediatype"] == _PARQUET_MEDIATYPE
+
+    def test_build_resource_dict_parquet_schema_from_yaml(self, parquet_project: Path) -> None:
+        """Parquet resource dict schema comes from datasets.yaml fields, not frictionless."""
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        publish_config = PublishConfig(enabled=True, to="gs://test-bucket/test-project/")
+        result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None
+        schema = result.get("schema", {})
+        fields = schema.get("fields", [])
+        field_names = [f["name"] for f in fields]
+
+        assert "geo_path" in field_names
+        assert "year" in field_names
+        assert "value" in field_names
+
+        # Check unit is preserved from datasets.yaml
+        year_field = next(f for f in fields if f["name"] == "year")
+        assert year_field.get("unit") == "year"
+
+        # Check description is preserved
+        geo_field = next(f for f in fields if f["name"] == "geo_path")
+        assert geo_field.get("description") == "ltree geographic path"
+
+    def test_build_resource_dict_parquet_no_frictionless_call(self, parquet_project: Path) -> None:
+        """frictionless Resource.infer() is NOT called for Parquet files."""
+        from unittest.mock import patch
+
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        publish_config = PublishConfig(enabled=True, to="gs://test-bucket/test-project/")
+
+        with patch("frictionless.Resource.infer") as mock_infer:
+            result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None
+        mock_infer.assert_not_called()
+
+    def test_package_push_parquet_uploads_file(self, runner: CliRunner, parquet_project: Path) -> None:
+        """package push uploads Parquet files when publish is configured."""
+        from unittest.mock import MagicMock, patch
+
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        mock_bucket.blob.return_value = mock_blob
+
+        with patch("google.cloud.storage.Client") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client_cls.return_value = mock_client
+            mock_client.bucket.return_value = mock_bucket
+
+            result = runner.invoke(
+                main,
+                ["package", "push", "-f", str(parquet_project / "datasets.yaml")],
+            )
+
+        assert result.exit_code == 0, f"Command failed: {result.output}"
+        # Verify upload_from_filename was called for the Parquet file
+        upload_calls = mock_blob.upload_from_filename.call_args_list
+        parquet_calls = [c for c in upload_calls if str(c.args[0]).endswith(".parquet")]
+        assert len(parquet_calls) >= 1, (
+            f"Expected at least one Parquet upload, got: {upload_calls}"
+        )
+
+    def test_parquet_resource_has_rdf_type(self, parquet_project: Path) -> None:
+        """Parquet resource dict includes the DCAT Distribution RDF type."""
+        from sunstone.cli import STANDARD_RDF_PREFIXES, build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        publish_config = PublishConfig(enabled=True, to="gs://test-bucket/test-project/")
+        result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None
+        rdf_type_key = f"{STANDARD_RDF_PREFIXES['rdf']}type"
+        assert rdf_type_key in result
+        assert "Distribution" in result[rdf_type_key]
+
+    def test_parquet_resource_path_with_as_url(self, parquet_project: Path) -> None:
+        """Parquet resource path uses as_url when configured."""
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+
+        manager = DatasetsManager(parquet_project)
+        outputs = manager.get_all_outputs()
+        publish_config = PublishConfig(
+            enabled=True,
+            to="gs://test-bucket/test-project/",
+            as_url="https://cdn.example.com/test-project",
+        )
+        result = build_resource_dict(outputs[0], manager, publish_config)
+
+        assert result is not None
+        assert result["path"].startswith("https://cdn.example.com/test-project/")
+        assert result["path"].endswith("population.parquet")
