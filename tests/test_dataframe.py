@@ -276,6 +276,64 @@ class TestReadDataset:
         assert len(df.lineage.sources) > 0
 
 
+class TestToCsvTrackParameter:
+    """Tests for the track parameter on to_csv()."""
+
+    def test_track_false_writes_csv_without_registration(self, tmp_path: Path) -> None:
+        """Test that track=False writes the file without requiring datasets.yaml."""
+        df = sunstone.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        output_path = tmp_path / "output.csv"
+
+        df.to_csv(output_path, track=False, index=False)
+
+        assert output_path.exists()
+        import pandas as pd
+
+        result = pd.read_csv(output_path)
+        assert list(result.columns) == ["a", "b"]
+        assert len(result) == 3
+
+    def test_track_false_creates_parent_directories(self, tmp_path: Path) -> None:
+        """Test that track=False creates parent directories as needed."""
+        df = sunstone.DataFrame({"x": [1]})
+        output_path = tmp_path / "nested" / "dir" / "output.csv"
+
+        df.to_csv(output_path, track=False, index=False)
+
+        assert output_path.exists()
+
+    def test_track_false_bypasses_strict_mode(self, tmp_path: Path) -> None:
+        """Test that track=False works even in strict mode."""
+        df = sunstone.DataFrame({"a": [1]}, strict=True)
+        output_path = tmp_path / "strict_output.csv"
+
+        df.to_csv(output_path, track=False, index=False)
+
+        assert output_path.exists()
+
+    def test_track_defaults_to_true(self, tmp_path: Path, project_path: Path, monkeypatch: Any) -> None:
+        """Test that track defaults to True (existing behavior unchanged)."""
+        monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=project_path,
+        )
+
+        with pytest.raises(sunstone.StrictModeError):
+            df.to_csv(tmp_path / "test_unregistered.csv", index=False)
+
+    def test_track_false_passes_kwargs_to_pandas(self, tmp_path: Path) -> None:
+        """Test that pandas kwargs are forwarded when track=False."""
+        df = sunstone.DataFrame({"a": [1, 2], "b": [3, 4]})
+        output_path = tmp_path / "output.csv"
+
+        df.to_csv(output_path, track=False, index=False, sep=";")
+
+        content = output_path.read_text()
+        assert ";" in content
+        assert "," not in content.split("\n")[0]
+
+
 class TestContentHashLineage:
     """Tests for content-hash based lineage tracking."""
 
