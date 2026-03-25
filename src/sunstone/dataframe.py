@@ -423,6 +423,7 @@ class DataFrame:
         name: Optional[str] = None,
         publish: bool = False,
         transformation_params: Optional[dict] = None,
+        track: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -436,6 +437,8 @@ class DataFrame:
             slug: Dataset slug (required in relaxed mode if not registered).
             name: Dataset name (required in relaxed mode if not registered).
             publish: Reserved for future use (publishing to data catalog).
+            track: If False, write the CSV directly without lineage tracking
+                or dataset registration. Useful for tests and exploratory work.
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
@@ -444,6 +447,12 @@ class DataFrame:
         """
         # Filter out any Sunstone-specific kwargs that might have slipped through
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
+
+        if not track:
+            path = Path(path_or_buf)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.data.to_csv(path, **pandas_kwargs)
+            return
 
         manager = self._get_datasets_manager()
         location = str(path_or_buf)
