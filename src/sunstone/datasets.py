@@ -651,6 +651,14 @@ class DatasetsManager:
         if lineage.sources:
             lineage_data["sources"] = [{"slug": src.slug} for src in lineage.sources]
         if context:
+            # Convert script_path to relative when it's within the project
+            if "script_path" in context:
+                try:
+                    rel = Path(context["script_path"]).resolve().relative_to(self.project_path)
+                    if not str(rel).startswith(".."):
+                        context = {**context, "script_path": str(rel)}
+                except ValueError:
+                    pass  # Outside project_path, keep absolute
             lineage_data["context"] = context
         if transformation_params:
             lineage_data["transformation_params"] = transformation_params

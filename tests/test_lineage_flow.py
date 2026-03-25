@@ -213,3 +213,69 @@ class TestFlushAndPersist:
         session = get_session()
         # Reads should be cleared after flush
         assert len(session._reads) == 0
+
+    def test_script_path_relative_when_inside_project(self, flow_project: Path) -> None:
+        """script_path in context should be relative when inside the project."""
+        abs_script = str(flow_project / "scripts" / "process.py")
+
+        def _mock_ctx_with_script() -> Any:
+            from sunstone.context import ExecutionContext
+
+            return ExecutionContext(
+                script_path=abs_script,
+                user="test-user",
+                execution_timestamp="2026-01-15T10:00:00+00:00",
+            )
+
+        with patch(
+            "sunstone.context.detect_execution_context",
+            side_effect=_mock_ctx_with_script,
+        ):
+            df = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+            df.to_csv(
+                "outputs/relative_test.csv",
+                slug="relative-test",
+                name="Relative Test",
+                index=False,
+            )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next(d for d in data["outputs"] if d["slug"] == "relative-test")
+        context = output["lineage"]["context"]
+        assert context["script_path"] == "scripts/process.py"
+
+    def test_script_path_kept_absolute_when_outside_project(self, flow_project: Path) -> None:
+        """script_path should stay absolute when outside the project."""
+        abs_script = "/some/other/place/process.py"
+
+        def _mock_ctx_outside() -> Any:
+            from sunstone.context import ExecutionContext
+
+            return ExecutionContext(
+                script_path=abs_script,
+                user="test-user",
+                execution_timestamp="2026-01-15T10:00:00+00:00",
+            )
+
+        with patch(
+            "sunstone.context.detect_execution_context",
+            side_effect=_mock_ctx_outside,
+        ):
+            df = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+            df.to_csv(
+                "outputs/absolute_test.csv",
+                slug="absolute-test",
+                name="Absolute Test",
+                index=False,
+            )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next(d for d in data["outputs"] if d["slug"] == "absolute-test")
+        context = output["lineage"]["context"]
+        assert context["script_path"] == "/some/other/place/process.py"
