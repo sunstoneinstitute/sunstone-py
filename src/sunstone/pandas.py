@@ -22,7 +22,7 @@ Example:
 """
 
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any
 
 import pandas as _pd
 
@@ -68,10 +68,10 @@ __all__ = [
 
 def read_dataset(
     slug: str,
-    project_path: Union[str, Path],
-    strict: Optional[bool] = None,
+    project_path: str | Path | None = None,
+    strict: bool | None = None,
     fetch_from_url: bool = True,
-    format: Optional[str] = None,
+    format: str | None = None,
     **kwargs: Any,
 ) -> DataFrame:
     """
@@ -91,7 +91,7 @@ def read_dataset(
     Args:
         slug: Dataset slug to look up in datasets.yaml.
         project_path: Path to project directory containing datasets.yaml.
-                     Must be provided explicitly (no auto-detection).
+                     Defaults to current working directory.
         strict: Whether to operate in strict mode. If None, reads from
                SUNSTONE_DATAFRAME_STRICT environment variable.
         fetch_from_url: If True and dataset has a source URL but no local file,
@@ -111,15 +111,14 @@ def read_dataset(
     Examples:
         >>> from sunstone import pandas as pd
         >>>
-        >>> # Auto-detect format from extension
-        >>> df = pd.read_dataset('official-un-member-states', project_path='/path/to/project')
+        >>> # Auto-detect format from extension (uses cwd as project path)
+        >>> df = pd.read_dataset('official-un-member-states')
         >>>
-        >>> # Explicitly specify format
+        >>> # Explicitly specify format and project path
         >>> df = pd.read_dataset('my-data', format='json', project_path='/path/to/project')
         >>>
         >>> # With additional reader arguments
-        >>> df = pd.read_dataset('data-file', project_path='/path/to/project',
-        ...                      encoding='utf-8', skiprows=1)
+        >>> df = pd.read_dataset('data-file', encoding='utf-8', skiprows=1)
     """
     return DataFrame.read_dataset(
         slug=slug,
@@ -132,9 +131,9 @@ def read_dataset(
 
 
 def read_csv(
-    filepath_or_buffer: Union[str, Path],
-    project_path: Union[str, Path],
-    strict: Optional[bool] = None,
+    filepath_or_buffer: str | Path,
+    project_path: str | Path | None = None,
+    strict: bool | None = None,
     fetch_from_url: bool = True,
     **kwargs: Any,
 ) -> DataFrame:
@@ -149,7 +148,7 @@ def read_csv(
                           If it's a slug (e.g., 'official-un-member-states'),
                           the dataset will be looked up in datasets.yaml.
         project_path: Path to project directory containing datasets.yaml.
-                     Must be provided explicitly (no auto-detection).
+                     Defaults to current working directory.
         strict: Whether to operate in strict mode. If None, reads from
                SUNSTONE_DATAFRAME_STRICT environment variable.
         fetch_from_url: If True and dataset has a source URL but no local file,
@@ -166,15 +165,14 @@ def read_csv(
     Examples:
         >>> from sunstone import pandas as pd
         >>>
-        >>> # Load by slug (recommended)
-        >>> df = pd.read_csv('official-un-member-states', project_path='/path/to/project')
+        >>> # Load by slug (recommended, uses cwd as project path)
+        >>> df = pd.read_csv('official-un-member-states')
         >>>
-        >>> # Load by file path
+        >>> # Load by file path with explicit project path
         >>> df = pd.read_csv('schools.csv', project_path='/path/to/project')
         >>>
         >>> # With additional pandas arguments
-        >>> df = pd.read_csv('schools.csv', project_path='/path/to/project',
-        ...                  encoding='utf-8', skiprows=1)
+        >>> df = pd.read_csv('schools.csv', encoding='utf-8', skiprows=1)
     """
     return DataFrame.read_csv(
         filepath_or_buffer=filepath_or_buffer,
@@ -186,9 +184,9 @@ def read_csv(
 
 
 def read_excel(
-    filepath_or_buffer: Union[str, Path],
-    project_path: Union[str, Path],
-    strict: Optional[bool] = None,
+    filepath_or_buffer: str | Path,
+    project_path: str | Path | None = None,
+    strict: bool | None = None,
     fetch_from_url: bool = True,
     **kwargs: Any,
 ) -> DataFrame:
@@ -203,7 +201,7 @@ def read_excel(
                           If it's a slug (e.g., 'my-excel-data'),
                           the dataset will be looked up in datasets.yaml.
         project_path: Path to project directory containing datasets.yaml.
-                     Must be provided explicitly (no auto-detection).
+                     Defaults to current working directory.
         strict: Whether to operate in strict mode. If None, reads from
                SUNSTONE_DATAFRAME_STRICT environment variable.
         fetch_from_url: If True and dataset has a source URL but no local file,
@@ -220,10 +218,10 @@ def read_excel(
     Examples:
         >>> from sunstone import pandas as pd
         >>>
-        >>> # Load by slug (recommended)
-        >>> df = pd.read_excel('my-excel-data', project_path='/path/to/project')
+        >>> # Load by slug (recommended, uses cwd as project path)
+        >>> df = pd.read_excel('my-excel-data')
         >>>
-        >>> # Load by file path
+        >>> # Load by file path with explicit project path
         >>> df = pd.read_excel('data.xlsx', project_path='/path/to/project')
     """
     return DataFrame.read_excel(
@@ -265,7 +263,7 @@ def merge(
 
 
 def concat(
-    objs: List[DataFrame],
+    objs: list[DataFrame],
     **kwargs: Any,
 ) -> DataFrame:
     """
