@@ -248,6 +248,6 @@ def validate_project_notebooks(
             continue
 
         result = check_notebook_imports(notebook_path)
-        results[str(notebook_path.relative_to(project_path))] = result
+        results[notebook_path.relative_to(project_path).as_posix()] = result
 
     return results
