@@ -326,10 +326,11 @@ class TestGetAbsolutePath:
         result = mgr.get_absolute_path("outputs/data.csv")
         assert result == (project_copy / "outputs" / "data.csv").resolve()
 
-    def test_absolute_path_passthrough(self, project_copy: Path) -> None:
+    def test_absolute_path_passthrough(self, project_copy: Path, tmp_path: Path) -> None:
         mgr = DatasetsManager(project_copy)
-        result = mgr.get_absolute_path("/tmp/some/file.csv")
-        assert result == Path("/tmp/some/file.csv")
+        abs_file = tmp_path / "some" / "file.csv"
+        result = mgr.get_absolute_path(str(abs_file))
+        assert result == abs_file
 
 
 class TestFetchFromUrl:
