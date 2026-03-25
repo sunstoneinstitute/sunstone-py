@@ -3,7 +3,10 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-03-25
 - Added: `track` parameter on `DataFrame.to_csv()` to bypass lineage tracking
+- Changed: `project_path` now defaults to `Path.cwd()` in pandas wrapper functions
 - Changed: Bump all CI actions to Node.js 24-compatible versions
 
 ## [1.2.7] - 2026-03-18
