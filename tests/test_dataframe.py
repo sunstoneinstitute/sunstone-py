@@ -311,7 +311,7 @@ class TestToCsvTrackParameter:
 
         assert output_path.exists()
 
-    def test_track_defaults_to_true(self, project_path: Path, monkeypatch: Any) -> None:
+    def test_track_defaults_to_true(self, tmp_path: Path, project_path: Path, monkeypatch: Any) -> None:
         """Test that track defaults to True (existing behavior unchanged)."""
         monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
         df = sunstone.DataFrame.read_csv(
@@ -320,7 +320,7 @@ class TestToCsvTrackParameter:
         )
 
         with pytest.raises(sunstone.StrictModeError):
-            df.to_csv("/tmp/test_unregistered.csv", index=False)
+            df.to_csv(tmp_path / "test_unregistered.csv", index=False)
 
     def test_track_false_passes_kwargs_to_pandas(self, tmp_path: Path) -> None:
         """Test that pandas kwargs are forwarded when track=False."""
