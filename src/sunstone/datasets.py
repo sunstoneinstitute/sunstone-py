@@ -654,7 +654,7 @@ class DatasetsManager:
                 try:
                     rel = Path(context["script_path"]).resolve().relative_to(self.project_path)
                     if not str(rel).startswith(".."):
-                        context = {**context, "script_path": str(rel)}
+                        context = {**context, "script_path": rel.as_posix()}
                 except ValueError:
                     pass  # Outside project_path, keep absolute
             lineage_data["context"] = context

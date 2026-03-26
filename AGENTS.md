@@ -81,6 +81,10 @@ result.to_csv(
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs
 
+## Cross-Platform (Windows CI)
+
+CI runs on Windows. Never use `str(path)` for paths written to files like `datasets.yaml` — on Windows this produces backslashes. Use `path.as_posix()` for portable forward-slash paths.
+
 ## Development
 
 ### Installing in Other Projects
