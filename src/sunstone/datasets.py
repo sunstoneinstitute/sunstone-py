@@ -631,17 +631,15 @@ class DatasetsManager:
         # Get existing lineage data if present
         existing_lineage = self._data["outputs"][dataset_idx].get("lineage", {})
         existing_hash = existing_lineage.get("content_hash")
-        existing_timestamp = existing_lineage.get("created_at")
 
         # Determine if content has changed
         content_changed = existing_hash != content_hash
 
-        # Only update timestamp if content changed
-        if content_changed:
-            timestamp = datetime.now().isoformat()
-        else:
-            # Preserve existing timestamp
-            timestamp = existing_timestamp
+        # If content hasn't changed, skip the write entirely
+        if not content_changed:
+            return
+
+        timestamp = datetime.now().isoformat()
 
         # Build lineage metadata to add (order: content_hash, created_at, sources)
         lineage_data: dict[str, Any] = {}
