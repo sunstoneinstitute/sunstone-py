@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-03-26
+- Fixed: Use `as_posix()` for `script_path` in datasets.yaml to avoid backslashes on Windows CI
+- Changed: Skip dataset outputs update entirely when content hash matches (performance optimization)
+- Changed: Make lineage.context.script\_path relative in datasets.yaml
+
 ## [1.3.0] - 2026-03-25
 - Added: `track` parameter on `DataFrame.to_csv()` to bypass lineage tracking
 - Changed: `project_path` now defaults to `Path.cwd()` in pandas wrapper functions
