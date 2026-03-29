@@ -96,7 +96,7 @@ class URLHandler(Protocol):
         """Return True if this handler can resolve the given URL."""
         ...
 
-    def fetch(self, url: str, dest: Path, config: dict) -> Path:
+    def fetch(self, url: str, dest: Path) -> Path:
         """Download/resolve URL to a local file. Return path to the file."""
         ...
 
@@ -125,7 +125,7 @@ Design notes:
 
 - `@runtime_checkable` enables `isinstance()` checks in the registry for structural typing at runtime.
 - `AuthProvider` returns headers (not a requests object) to stay transport-agnostic. URL handlers that use non-HTTP transports (e.g. boto3 for S3) handle their own auth by also implementing `AuthProvider`.
-- `URLHandler.fetch` takes a `dest` path so the caller decides file location (consistent with existing `fetch_from_url` behavior).
+- `URLHandler.fetch` takes a `dest` path so the caller decides file location (consistent with existing `fetch_from_url` behavior). Config is received via the constructor, not passed per-call.
 - `FormatHandler` splits `can_read`/`can_write` because a plugin might support reading but not writing a format (or vice versa).
 - `FormatHandler` does not handle lineage. Sidecar `.lineage.json` is a core feature, not a plugin responsibility.
 
@@ -147,7 +147,7 @@ def _resolve_and_fetch(self, dataset: DatasetMetadata, dest: Path) -> Path:
 
     if handler:
         # Plugin handles fetch (e.g. s3://, gs://, sftp://)
-        return handler.fetch(url, dest, config=registry.get_config(handler))
+        return handler.fetch(url, dest)
 
     # Fall back to built-in HTTP fetch
     if not _is_public_url(url):
@@ -253,7 +253,7 @@ class S3Plugin:
     def can_handle(self, url: str) -> bool:
         return url.startswith("s3://")
 
-    def fetch(self, url: str, dest: Path, config: dict) -> Path:
+    def fetch(self, url: str, dest: Path) -> Path:
         import boto3
         bucket, key = self._parse_s3_url(url)
         s3 = boto3.client("s3", region_name=self.region)
@@ -307,7 +307,7 @@ class FakeAuthProvider:
 
 class FakeURLHandler:
     def can_handle(self, url): return url.startswith("fake://")
-    def fetch(self, url, dest, config):
+    def fetch(self, url, dest):
         dest.write_text("col1,col2\na,b\n")
         return dest
 
