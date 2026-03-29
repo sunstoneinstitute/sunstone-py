@@ -7,12 +7,12 @@ import os
 import re
 import sys
 import tomllib
+from enum import Enum
 from pathlib import Path, PurePosixPath
 from typing import Any, Optional
 from urllib.parse import urljoin, urlparse
 
-import click
-from click.shell_completion import CompletionItem
+import typer
 from ruamel.yaml import YAML
 
 from .datasets import DatasetsManager
@@ -333,17 +333,12 @@ def get_manager(datasets_file: str) -> tuple[DatasetsManager, Path]:
     return manager, project_path
 
 
-def complete_dataset_slugs(ctx: click.Context, param: click.Parameter, incomplete: str) -> list[CompletionItem]:
+def complete_dataset_slugs(incomplete: str) -> list[str]:
     """Shell completion for dataset slugs."""
-    # Get the datasets file from context or use default
-    datasets_file = ctx.params.get("datasets_file", "datasets.yaml")
-
     try:
-        manager, _ = get_manager(datasets_file)
+        manager, _ = get_manager("datasets.yaml")
         all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
-        slugs = [ds.slug for ds in all_datasets]
-
-        return [CompletionItem(slug) for slug in slugs if slug.startswith(incomplete)]
+        return [slug for ds in all_datasets if (slug := ds.slug).startswith(incomplete)]
     except Exception:
         return []
 
@@ -353,11 +348,29 @@ def complete_dataset_slugs(ctx: click.Context, param: click.Parameter, incomplet
 # =============================================================================
 
 
-@click.group()
-@click.version_option()
-def main() -> None:
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import version
+
+        typer.echo(f"sunstone {version('sunstone-py')}")
+        raise typer.Exit()
+
+
+app = typer.Typer(help="Sunstone dataset and package management CLI.")
+dataset_app = typer.Typer(help="Manage datasets in datasets.yaml.")
+package_app = typer.Typer(help="Manage data packages.")
+lineage_app = typer.Typer(help="Query dataset lineage.")
+
+app.add_typer(dataset_app, name="dataset")
+app.add_typer(package_app, name="package")
+app.add_typer(lineage_app, name="lineage")
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(False, "--version", callback=_version_callback, is_eager=True, help="Show version"),
+) -> None:
     """Sunstone dataset and package management CLI."""
-    pass
 
 
 # =============================================================================
@@ -365,22 +378,15 @@ def main() -> None:
 # =============================================================================
 
 
-@main.group()
-def dataset() -> None:
-    """Manage datasets in datasets.yaml."""
-    pass
-
-
-@dataset.command("list")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-def dataset_list(datasets_file: str) -> None:
+@dataset_app.command("list")
+def dataset_list(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+) -> None:
     """List all datasets."""
     try:
         manager, _ = get_manager(datasets_file)
     except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     inputs = manager.get_all_inputs()
@@ -389,47 +395,47 @@ def dataset_list(datasets_file: str) -> None:
 
     # Show publish configuration if present
     if publish_config and publish_config.enabled:
-        click.echo("Publishing:")
+        typer.echo("Publishing:")
         if publish_config.to:
-            click.echo(f"  to: {publish_config.to}")
+            typer.echo(f"  to: {publish_config.to}")
         if publish_config.flatten:
-            click.echo("  flatten: true")
-        click.echo()
+            typer.echo("  flatten: true")
+        typer.echo()
 
     if inputs:
-        click.echo("Inputs:")
+        typer.echo("Inputs:")
         for ds in inputs:
             flags = []
             if ds.strict:
                 flags.append("strict")
             flag_str = f" [{', '.join(flags)}]" if flags else ""
-            click.echo(f"  - {ds.slug} ({ds.name}){flag_str}")
+            typer.echo(f"  - {ds.slug} ({ds.name}){flag_str}")
 
     if outputs:
         if inputs:
-            click.echo()
-        click.echo("Outputs:")
+            typer.echo()
+        typer.echo("Outputs:")
         for ds in outputs:
             flags = []
             if ds.strict:
                 flags.append("strict")
             flag_str = f" [{', '.join(flags)}]" if flags else ""
-            click.echo(f"  - {ds.slug} ({ds.name}){flag_str}")
+            typer.echo(f"  - {ds.slug} ({ds.name}){flag_str}")
 
     if not inputs and not outputs:
-        click.echo("No datasets found.")
+        typer.echo("No datasets found.")
 
 
-@dataset.command("validate")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.argument("datasets", nargs=-1, shell_complete=complete_dataset_slugs)
-def dataset_validate(datasets_file: str, datasets: tuple[str, ...]) -> None:
+@dataset_app.command("validate")
+def dataset_validate(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
+) -> None:
     """Validate datasets.
 
     If no datasets are specified, validates all datasets.
     """
+    datasets = datasets or []
     datasets_path = Path(datasets_file).resolve()
 
     errors: list[str] = []
@@ -439,7 +445,7 @@ def dataset_validate(datasets_file: str, datasets: tuple[str, ...]) -> None:
         with open(datasets_path, "r") as f:
             data = _yaml.load(f)
     except Exception as e:
-        click.echo(f"Error: Failed to parse YAML: {e}", err=True)
+        typer.echo(f"Error: Failed to parse YAML: {e}", err=True)
         sys.exit(1)
 
     if data is None:
@@ -531,40 +537,40 @@ def dataset_validate(datasets_file: str, datasets: tuple[str, ...]) -> None:
             errors.append(f"Dataset '{slug}' not found")
 
     if errors:
-        click.echo("Validation errors:", err=True)
+        typer.echo("Validation errors:", err=True)
         for error in errors:
-            click.echo(f"  - {error}", err=True)
+            typer.echo(f"  - {error}", err=True)
         sys.exit(1)
     else:
         if datasets:
-            click.echo(f"✓ {len(datasets)} dataset(s) valid")
+            typer.echo(f"✓ {len(datasets)} dataset(s) valid")
         else:
-            click.echo(f"✓ {datasets_file} is valid")
+            typer.echo(f"✓ {datasets_file} is valid")
 
 
-@dataset.command("lock")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.argument("datasets", nargs=-1, shell_complete=complete_dataset_slugs)
-def dataset_lock(datasets_file: str, datasets: tuple[str, ...]) -> None:
+@dataset_app.command("lock")
+def dataset_lock(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
+) -> None:
     """Enable strict mode for datasets.
 
     If no datasets are specified, locks all datasets.
     """
+    datasets = datasets or []
     try:
         manager, _ = get_manager(datasets_file)
     except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     # Get all datasets if none specified
     if not datasets:
         all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
-        datasets = tuple(ds.slug for ds in all_datasets)
+        datasets = [ds.slug for ds in all_datasets]
 
     if not datasets:
-        click.echo("No datasets found.")
+        typer.echo("No datasets found.")
         return
 
     locked = []
@@ -573,35 +579,35 @@ def dataset_lock(datasets_file: str, datasets: tuple[str, ...]) -> None:
             manager.set_dataset_strict(slug, strict=True)
             locked.append(slug)
         except DatasetNotFoundError:
-            click.echo(f"Warning: Dataset '{slug}' not found", err=True)
+            typer.echo(f"Warning: Dataset '{slug}' not found", err=True)
 
     if locked:
-        click.echo(f"✓ Locked {len(locked)} dataset(s): {', '.join(locked)}")
+        typer.echo(f"✓ Locked {len(locked)} dataset(s): {', '.join(locked)}")
 
 
-@dataset.command("unlock")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.argument("datasets", nargs=-1, shell_complete=complete_dataset_slugs)
-def dataset_unlock(datasets_file: str, datasets: tuple[str, ...]) -> None:
+@dataset_app.command("unlock")
+def dataset_unlock(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
+) -> None:
     """Disable strict mode for datasets.
 
     If no datasets are specified, unlocks all datasets.
     """
+    datasets = datasets or []
     try:
         manager, _ = get_manager(datasets_file)
     except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     # Get all datasets if none specified
     if not datasets:
         all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
-        datasets = tuple(ds.slug for ds in all_datasets)
+        datasets = [ds.slug for ds in all_datasets]
 
     if not datasets:
-        click.echo("No datasets found.")
+        typer.echo("No datasets found.")
         return
 
     unlocked = []
@@ -610,10 +616,10 @@ def dataset_unlock(datasets_file: str, datasets: tuple[str, ...]) -> None:
             manager.set_dataset_strict(slug, strict=False)
             unlocked.append(slug)
         except DatasetNotFoundError:
-            click.echo(f"Warning: Dataset '{slug}' not found", err=True)
+            typer.echo(f"Warning: Dataset '{slug}' not found", err=True)
 
     if unlocked:
-        click.echo(f"✓ Unlocked {len(unlocked)} dataset(s): {', '.join(unlocked)}")
+        typer.echo(f"✓ Unlocked {len(unlocked)} dataset(s): {', '.join(unlocked)}")
 
 
 # =============================================================================
@@ -621,10 +627,7 @@ def dataset_unlock(datasets_file: str, datasets: tuple[str, ...]) -> None:
 # =============================================================================
 
 
-@main.group()
-def package() -> None:
-    """Manage data packages."""
-    pass
+# Package commands are registered on package_app above
 
 
 # File suffixes that frictionless cannot describe — use schema-from-yaml path instead.
@@ -725,7 +728,7 @@ def build_resource_dict(
     """
     data_path = manager.get_absolute_path(ds.location)
     if not data_path.exists():
-        click.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
+        typer.echo(f"Warning: Data file not found for '{ds.slug}': {data_path}", err=True)
         return None
 
     suffix = data_path.suffix.lower()
@@ -736,7 +739,7 @@ def build_resource_dict(
             mediatype = _PARQUET_MEDIATYPE
             return _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, mediatype)
         except Exception as e:
-            click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
+            typer.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
             return None
 
     # --- Frictionless path (CSV, Excel, JSON, …) ---
@@ -800,7 +803,7 @@ def build_resource_dict(
 
         return resource_dict
     except Exception as e:
-        click.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
+        typer.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
         return None
 
 
@@ -844,7 +847,7 @@ def build_datapackage(
         resource_dict = build_resource_dict(ds, manager, publish_config)
         if resource_dict:
             resources.append(resource_dict)
-            click.echo(f"  + {ds.slug}")
+            typer.echo(f"  + {ds.slug}")
 
     if not resources:
         return None
@@ -874,12 +877,11 @@ def build_datapackage(
     return datapackage
 
 
-@package.command("build")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.option("-o", "--output", "output_file", type=click.Path(), default="datapackage.json", help="Output file path")
-def package_build(datasets_file: str, output_file: str) -> None:
+@package_app.command("build")
+def package_build(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    output_file: str = typer.Option("datapackage.json", "-o", "--output", help="Output file path"),
+) -> None:
     """Build a datapackage.json from datasets.yaml.
 
     Creates a Data Package (https://datapackage.org/) with publishable datasets as resources.
@@ -889,13 +891,13 @@ def package_build(datasets_file: str, output_file: str) -> None:
     try:
         manager, project_path = get_manager(datasets_file)
     except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     try:
         from frictionless import describe  # noqa: F401
     except ImportError:
-        click.echo("Error: frictionless is required for package build", err=True)
+        typer.echo("Error: frictionless is required for package build", err=True)
         sys.exit(1)
 
     project_slug = get_project_slug(project_path)
@@ -905,7 +907,7 @@ def package_build(datasets_file: str, output_file: str) -> None:
     groups = group_datasets_by_destination(all_datasets, top_level_publish)
 
     if not groups:
-        click.echo("No publishable datasets found.", err=True)
+        typer.echo("No publishable datasets found.", err=True)
         sys.exit(1)
 
     if len(groups) == 1:
@@ -913,14 +915,14 @@ def package_build(datasets_file: str, output_file: str) -> None:
         dest, (pub_config, datasets) = next(iter(groups.items()))
         datapackage = build_datapackage(project_slug, datasets, manager, pub_config)
         if not datapackage:
-            click.echo("Error: No resources could be added to the package", err=True)
+            typer.echo("Error: No resources could be added to the package", err=True)
             sys.exit(1)
 
         output_path = Path(output_file)
         with open(output_path, "w") as f:
             json.dump(datapackage, f, indent=2)
 
-        click.echo(f"\n✓ Created {output_file} with {len(datapackage['resources'])} resource(s)")
+        typer.echo(f"\n✓ Created {output_file} with {len(datapackage['resources'])} resource(s)")
     else:
         # Multiple destinations: write separate files
         output_base = Path(output_file)
@@ -929,7 +931,7 @@ def package_build(datasets_file: str, output_file: str) -> None:
         for i, (dest, (pub_config, datasets)) in enumerate(groups.items()):
             datapackage = build_datapackage(project_slug, datasets, manager, pub_config)
             if not datapackage:
-                click.echo(f"Warning: No resources for destination: {dest}", err=True)
+                typer.echo(f"Warning: No resources for destination: {dest}", err=True)
                 continue
 
             if i == 0:
@@ -943,9 +945,9 @@ def package_build(datasets_file: str, output_file: str) -> None:
             n = len(datapackage["resources"])
             total_resources += n
             files_created += 1
-            click.echo(f"\n✓ Created {out_path} with {n} resource(s) -> {dest}")
+            typer.echo(f"\n✓ Created {out_path} with {n} resource(s) -> {dest}")
 
-        click.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
+        typer.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
 
 
 def is_lfs_pointer(file_path: Path) -> bool:
@@ -988,7 +990,7 @@ def push_group_to_gcs(
 
     parsed = urlparse(dest_url)
     if parsed.scheme != "gs":
-        click.echo(f"Error: Destination must be a gs:// URL, got: {dest_url}", err=True)
+        typer.echo(f"Error: Destination must be a gs:// URL, got: {dest_url}", err=True)
         sys.exit(1)
 
     # Resolve datapackage.json path and base directory
@@ -1029,16 +1031,16 @@ def push_group_to_gcs(
         data_files.append((data_path, remote_path, resource_path))
 
     if not resources:
-        click.echo(f"Warning: No resources for destination: {dest_url}", err=True)
+        typer.echo(f"Warning: No resources for destination: {dest_url}", err=True)
         return
 
     # Guard: check for LFS pointer files before uploading
     lfs_pointers = [resource_path for local_path, _, resource_path in data_files if is_lfs_pointer(local_path)]
     if lfs_pointers:
-        click.echo("Error: The following files are Git LFS pointers, not actual content:", err=True)
+        typer.echo("Error: The following files are Git LFS pointers, not actual content:", err=True)
         for p in lfs_pointers:
-            click.echo(f"  - {p}", err=True)
-        click.echo("Run 'git lfs pull' to download the actual files before pushing.", err=True)
+            typer.echo(f"  - {p}", err=True)
+        typer.echo("Run 'git lfs pull' to download the actual files before pushing.", err=True)
         sys.exit(1)
 
     datapackage: dict[str, Any] = {
@@ -1072,12 +1074,12 @@ def push_group_to_gcs(
 
     datapackage_blob = bucket.blob(datapackage_path)
     datapackage_blob.upload_from_string(json.dumps(datapackage, indent=2), content_type="application/json")
-    click.echo(f"✓ Uploaded {datapackage_path}")
+    typer.echo(f"✓ Uploaded {datapackage_path}")
 
     for local_path, remote_path, resource_path in data_files:
         data_blob = bucket.blob(remote_path)
         data_blob.upload_from_filename(str(local_path))
-        click.echo(f"✓ Uploaded {resource_path}")
+        typer.echo(f"✓ Uploaded {resource_path}")
 
     # Upload methodology files alongside resources
     for abs_path, _resolved_uri in methodology_files:
@@ -1087,20 +1089,24 @@ def push_group_to_gcs(
             methodology_remote = base_dir + abs_path.relative_to(manager.project_path).as_posix()
         methodology_blob = bucket.blob(methodology_remote)
         methodology_blob.upload_from_filename(str(abs_path))
-        click.echo(f"✓ Uploaded {methodology_remote}")
+        typer.echo(f"✓ Uploaded {methodology_remote}")
 
-    click.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")
+    typer.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")
 
 
-@package.command("push")
-@click.option("--env", type=click.Choice(["dev", "prod"]), default="dev", help="Target environment")
-@click.option(
-    "-f", "--file", "datasets_file", type=click.Path(exists=True), default="datasets.yaml", help="Path to datasets.yaml"
-)
-@click.option(
-    "--destination", "-d", "destination", type=str, default=None, help="Override destination gs:// URL for all datasets"
-)
-def package_push(env: str, datasets_file: str, destination: Optional[str]) -> None:
+class EnvChoice(str, Enum):
+    dev = "dev"
+    prod = "prod"
+
+
+@package_app.command("push")
+def package_push(
+    env: EnvChoice = typer.Option(EnvChoice.dev, "--env", help="Target environment"),
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    destination: Optional[str] = typer.Option(
+        None, "--destination", "-d", help="Override destination gs:// URL for all datasets"
+    ),
+) -> None:
     """Push data packages to Google Cloud Storage.
 
     Uploads datapackage.json and data files, grouped by publish destination.
@@ -1115,18 +1121,18 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
         "dev": "payloadcms-dev",
         "prod": "payloadcms-prod",
     }
-    os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env]
+    os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env.value]
 
     try:
         manager, project_path = get_manager(datasets_file)
     except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     try:
         from frictionless import describe  # noqa: F401
     except ImportError:
-        click.echo("Error: frictionless is required for package push", err=True)
+        typer.echo("Error: frictionless is required for package push", err=True)
         sys.exit(1)
 
     project_slug = get_project_slug(project_path)
@@ -1148,38 +1154,38 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
             and get_effective_publish(ds, top_level_publish).enabled  # type: ignore[union-attr]
         ]
         if not publishable:
-            click.echo("Error: No publishable datasets found", err=True)
+            typer.echo("Error: No publishable datasets found", err=True)
             sys.exit(1)
 
         dest_url = expand_env_vars(destination)
         try:
             push_group_to_gcs(dest_url, publishable, manager, project_slug, override_config)
         except ImportError:
-            click.echo("Error: google-cloud-storage is required for push", err=True)
-            click.echo("Install with: pip install google-cloud-storage", err=True)
+            typer.echo("Error: google-cloud-storage is required for push", err=True)
+            typer.echo("Install with: pip install google-cloud-storage", err=True)
             sys.exit(1)
         except Exception as e:
-            click.echo(f"Error uploading to GCS: {e}", err=True)
+            typer.echo(f"Error uploading to GCS: {e}", err=True)
             sys.exit(1)
     else:
         groups = group_datasets_by_destination(all_datasets, top_level_publish)
 
         if not groups:
-            click.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
+            typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
             sys.exit(1)
 
         try:
             for dest_url, (pub_config, datasets) in groups.items():
                 push_group_to_gcs(dest_url, datasets, manager, project_slug, pub_config)
-                click.echo()
+                typer.echo()
 
-            click.echo(f"✓ Pushed to {len(groups)} destination(s)")
+            typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
         except ImportError:
-            click.echo("Error: google-cloud-storage is required for push", err=True)
-            click.echo("Install with: pip install google-cloud-storage", err=True)
+            typer.echo("Error: google-cloud-storage is required for push", err=True)
+            typer.echo("Install with: pip install google-cloud-storage", err=True)
             sys.exit(1)
         except Exception as e:
-            click.echo(f"Error uploading to GCS: {e}", err=True)
+            typer.echo(f"Error uploading to GCS: {e}", err=True)
             sys.exit(1)
 
 
@@ -1188,25 +1194,16 @@ def package_push(env: str, datasets_file: str, destination: Optional[str]) -> No
 # =============================================================================
 
 
-@main.group()
-def lineage() -> None:
-    """Query dataset lineage."""
-    pass
+# Lineage commands are registered on lineage_app above
 
 
-@lineage.command("upstream")
-@click.option(
-    "-f",
-    "--file",
-    "datasets_file",
-    type=click.Path(exists=True),
-    default="datasets.yaml",
-    help="Path to datasets.yaml",
-)
-@click.option("--depth", default=10, type=int, help="Maximum traversal depth")
-@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
-@click.argument("slug")
-def lineage_upstream(datasets_file: str, depth: int, json_output: bool, slug: str) -> None:
+@lineage_app.command("upstream")
+def lineage_upstream(
+    slug: str = typer.Argument(...),
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    depth: int = typer.Option(10, "--depth", help="Maximum traversal depth"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+) -> None:
     """Show upstream dependencies for a dataset."""
     import json as json_mod
 
@@ -1216,27 +1213,21 @@ def lineage_upstream(datasets_file: str, depth: int, json_output: bool, slug: st
     try:
         node = get_upstream(slug, project_path=project_path, max_depth=depth)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
     if json_output:
-        click.echo(json_mod.dumps(lineage_to_dict(node), indent=2))
+        typer.echo(json_mod.dumps(lineage_to_dict(node), indent=2))
     else:
-        click.echo(display_lineage(node))
+        typer.echo(display_lineage(node))
 
 
-@lineage.command("tree")
-@click.option(
-    "-f",
-    "--file",
-    "datasets_file",
-    type=click.Path(exists=True),
-    default="datasets.yaml",
-    help="Path to datasets.yaml",
-)
-@click.option("--depth", default=3, type=int, help="Maximum tree depth")
-@click.argument("slug")
-def lineage_tree(datasets_file: str, depth: int, slug: str) -> None:
+@lineage_app.command("tree")
+def lineage_tree(
+    slug: str = typer.Argument(...),
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    depth: int = typer.Option(3, "--depth", help="Maximum tree depth"),
+) -> None:
     """Show lineage tree for a dataset (alias for upstream with depth=3)."""
     from .queries import display_lineage, get_upstream
 
@@ -1244,11 +1235,11 @@ def lineage_tree(datasets_file: str, depth: int, slug: str) -> None:
     try:
         node = get_upstream(slug, project_path=project_path, max_depth=depth)
     except Exception as e:
-        click.echo(f"Error: {e}", err=True)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    click.echo(display_lineage(node))
+    typer.echo(display_lineage(node))
 
 
 if __name__ == "__main__":
-    main()
+    app()

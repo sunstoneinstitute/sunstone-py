@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
-from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, expand_env_vars, is_lfs_pointer, main
+from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
 from sunstone.lineage import Contributor, PackageMetadata
 
 
@@ -80,28 +80,28 @@ class TestDatasetValidateCommand:
 
     def test_validate_valid_file(self, runner: CliRunner, project_path: Path) -> None:
         """Test validating a valid datasets.yaml."""
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(project_path / "datasets.yaml")])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(project_path / "datasets.yaml")])
         assert result.exit_code == 0
         assert "is valid" in result.output
 
     def test_validate_specific_dataset(self, runner: CliRunner, project_path: Path) -> None:
         """Test validating a specific dataset."""
         result = runner.invoke(
-            main, ["dataset", "validate", "-f", str(project_path / "datasets.yaml"), "official-un-member-states"]
+            app, ["dataset", "validate", "-f", str(project_path / "datasets.yaml"), "official-un-member-states"]
         )
         assert result.exit_code == 0
         assert "1 dataset(s) valid" in result.output
 
     def test_validate_missing_file(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test validating a non-existent file."""
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(tmp_path / "missing.yaml")])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(tmp_path / "missing.yaml")])
         assert result.exit_code != 0
 
     def test_validate_invalid_yaml(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test validating invalid YAML structure."""
         yaml_file = tmp_path / "datasets.yaml"
         yaml_file.write_text("not: valid: yaml: {{}")
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "Error" in result.output
 
@@ -113,7 +113,7 @@ inputs:
   - name: Test Dataset
     # missing slug, location
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "missing required field" in result.output
 
@@ -127,7 +127,7 @@ inputs:
     type: table
     location: data.csv
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "required for table resources" in result.output
 
@@ -140,7 +140,7 @@ inputs:
     slug: test-dataset
     location: data.csv
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_non_table_without_fields(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -153,7 +153,7 @@ inputs:
     type: file
     location: image.png
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_table_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -169,7 +169,7 @@ inputs:
       - name: col1
         type: string
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_no_type_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -184,7 +184,7 @@ inputs:
       - name: col1
         type: string
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_non_table_with_fields(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -200,7 +200,7 @@ inputs:
       - name: geometry
         type: string
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_table_with_empty_fields(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -214,7 +214,7 @@ inputs:
     location: data.csv
     fields: []
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_array_and_object_field_types(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -231,7 +231,7 @@ inputs:
       - name: metadata
         type: object
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code == 0
 
     def test_validate_invalid_field_type(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -246,7 +246,7 @@ inputs:
       - name: col1
         type: invalid_type
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "invalid type" in result.output
 
@@ -268,13 +268,13 @@ inputs:
       - name: col1
         type: string
 """)
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "duplicate slug" in result.output
 
     def test_validate_nonexistent_dataset(self, runner: CliRunner, project_path: Path) -> None:
         """Test validating a non-existent dataset slug."""
-        result = runner.invoke(main, ["dataset", "validate", "-f", str(project_path / "datasets.yaml"), "nonexistent"])
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(project_path / "datasets.yaml"), "nonexistent"])
         assert result.exit_code != 0
         assert "not found" in result.output
 
@@ -284,7 +284,7 @@ class TestDatasetListCommand:
 
     def test_list_datasets(self, runner: CliRunner, project_path: Path) -> None:
         """Test listing datasets."""
-        result = runner.invoke(main, ["dataset", "list", "-f", str(project_path / "datasets.yaml")])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(project_path / "datasets.yaml")])
         assert result.exit_code == 0
         assert "Publishing:" in result.output
         assert "to: gs://example-bucket/datasets/un-members/" in result.output
@@ -297,7 +297,7 @@ class TestDatasetListCommand:
         """Test listing empty datasets.yaml."""
         yaml_file = tmp_path / "datasets.yaml"
         yaml_file.write_text("inputs: []\noutputs: []")
-        result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(yaml_file)])
         assert result.exit_code == 0
         assert "No datasets found" in result.output
 
@@ -308,7 +308,7 @@ class TestDatasetLockUnlockCommands:
     def test_lock_single_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking a single dataset."""
         result = runner.invoke(
-            main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
+            app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
         assert "Locked 1 dataset(s)" in result.output
@@ -319,25 +319,25 @@ class TestDatasetLockUnlockCommands:
 
     def test_lock_all_datasets(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking all datasets."""
-        result = runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml")])
+        result = runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
         assert "Locked 3 dataset(s)" in result.output
 
     def test_unlock_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test unlocking a dataset."""
         # First lock it
-        runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"])
+        runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"])
 
         # Then unlock
         result = runner.invoke(
-            main, ["dataset", "unlock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
+            app, ["dataset", "unlock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
         assert "Unlocked 1 dataset(s)" in result.output
 
     def test_lock_nonexistent_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test locking a non-existent dataset."""
-        result = runner.invoke(main, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "nonexistent"])
+        result = runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "nonexistent"])
         assert "not found" in result.output
 
 
@@ -352,7 +352,7 @@ class TestPackageBuildCommand:
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         result = runner.invoke(
-            main,
+            app,
             [
                 "package",
                 "build",
@@ -370,7 +370,7 @@ class TestPackageBuildCommand:
         """Test building with no output datasets."""
         yaml_file = tmp_path / "datasets.yaml"
         yaml_file.write_text("inputs: []\noutputs: []")
-        result = runner.invoke(main, ["package", "build", "-f", str(yaml_file)])
+        result = runner.invoke(app, ["package", "build", "-f", str(yaml_file)])
         assert result.exit_code != 0
         assert "No publishable datasets found" in result.output
 
@@ -391,7 +391,7 @@ class TestPackageBuildCommand:
         yaml_path.write_text(content)
 
         result = runner.invoke(
-            main,
+            app,
             [
                 "package",
                 "build",
@@ -431,7 +431,7 @@ class TestPackageBuildCommand:
         yaml_path.write_text(content)
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_path), "-o", str(test_project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -466,7 +466,7 @@ class TestPackageBuildCommand:
         yaml_path.write_text(content)
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_path), "-o", str(test_project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -507,7 +507,7 @@ class TestFieldMetadataInDatapackage:
         )
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -544,7 +544,7 @@ class TestFieldMetadataInDatapackage:
         )
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -581,7 +581,7 @@ class TestFieldMetadataInDatapackage:
         )
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -620,7 +620,7 @@ class TestFieldMetadataInDatapackage:
         )
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -646,7 +646,7 @@ class TestPackagePushCommand:
         content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
 
-        result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+        result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
         assert result.exit_code != 0
         assert "No publishable datasets found" in result.output
 
@@ -665,7 +665,7 @@ class TestPackagePushCommand:
         mock_bucket.blob.return_value = mock_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
             assert "datapackage.json" in result.output
             assert "Package pushed to" in result.output
@@ -686,7 +686,7 @@ class TestPackagePushCommand:
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
             result = runner.invoke(
-                main, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
+                app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
             )
             assert result.exit_code == 0
             mock_client.bucket.assert_called_with("my-bucket")
@@ -699,7 +699,7 @@ class TestPackagePushCommand:
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         result = runner.invoke(
-            main, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "https://example.com/"]
+            app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "https://example.com/"]
         )
         assert result.exit_code != 0
         assert "gs://" in result.output
@@ -736,7 +736,7 @@ class TestPackagePushCommand:
         mock_blob.upload_from_string.side_effect = capture_upload
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify datapackage.json has public URLs
@@ -794,7 +794,7 @@ class TestPackagePushCommand:
         mock_bucket.blob.side_effect = make_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify methodology file was uploaded
@@ -849,7 +849,7 @@ class TestPackagePushCommand:
         mock_bucket.blob.side_effect = make_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             dp_path = [k for k in uploaded_content if "datapackage.json" in k][0]
@@ -905,7 +905,7 @@ class TestPackagePushCommand:
         mock_bucket.blob.side_effect = make_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0, result.output
 
             # Methodology file should be uploaded with flattened path (just filename)
@@ -974,7 +974,7 @@ class TestIsLfsPointer:
         mock_bucket.blob.return_value = mock_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code != 0
             assert "Git LFS pointers" in result.output
             assert "git lfs pull" in result.output
@@ -988,7 +988,7 @@ class TestPublishConfigParsing:
 
     def test_publish_enabled(self, runner: CliRunner, test_project: Path) -> None:
         """Test that top-level publish config is displayed."""
-        result = runner.invoke(main, ["dataset", "list", "-f", str(test_project / "datasets.yaml")])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
         assert "Publishing:" in result.output
         assert "to: gs://example-bucket/datasets/un-members/" in result.output
@@ -1000,7 +1000,7 @@ class TestPublishConfigParsing:
         content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
 
-        result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
         assert "Publishing:" not in result.output
 
@@ -1015,7 +1015,7 @@ class TestPublishConfigParsing:
         )
         yaml_path.write_text(content)
 
-        result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
         assert "Publishing:" in result.output
         assert "flatten: true" in result.output
@@ -1030,7 +1030,7 @@ class TestPublishConfigParsing:
         )
         yaml_path.write_text(content)
 
-        result = runner.invoke(main, ["dataset", "list", "-f", str(yaml_path)])
+        result = runner.invoke(app, ["dataset", "list", "-f", str(yaml_path)])
         assert result.exit_code == 0
         assert "[publish]" not in result.output
 
@@ -1065,7 +1065,7 @@ class TestPerDatasetPublish:
         (tmp_path / "excluded.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -1105,7 +1105,7 @@ class TestPerDatasetPublish:
         (tmp_path / "custom.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -1159,7 +1159,7 @@ class TestPerDatasetPublish:
         (tmp_path / "output.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -1191,7 +1191,7 @@ class TestPerDatasetPublish:
         (tmp_path / "input.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
         )
         # No publishable datasets (input has no publish, no outputs)
@@ -1227,7 +1227,7 @@ class TestPerDatasetPublish:
         (tmp_path / "b.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "datapackage.json")],
         )
         assert result.exit_code == 0
@@ -1279,7 +1279,7 @@ class TestPerDatasetPublish:
         mock_bucket.blob.return_value = mock_blob
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(yaml_file)])
+            result = runner.invoke(app, ["package", "push", "-f", str(yaml_file)])
             assert result.exit_code == 0
             assert "Pushed to 2 destination(s)" in result.output
 
@@ -1407,7 +1407,7 @@ class TestBuildDatapackageWithPackageMetadata:
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(test_project / "datasets.yaml"), "-o", str(test_project / "dp.json")],
         )
         assert result.exit_code == 0
@@ -1440,7 +1440,7 @@ class TestBuildDatapackageWithPackageMetadata:
         (tmp_path / "test.csv").write_text("col\nval")
 
         result = runner.invoke(
-            main,
+            app,
             ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "dp.json")],
         )
         assert result.exit_code == 0
@@ -1471,7 +1471,7 @@ class TestBuildDatapackageWithPackageMetadata:
         mock_blob.upload_from_string.side_effect = capture_upload
 
         with patch("google.cloud.storage.Client", return_value=mock_client):
-            result = runner.invoke(main, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
 
             dp = json.loads(uploaded_content["datapackage"])
@@ -1486,14 +1486,14 @@ class TestCLIHelp:
 
     def test_main_help(self, runner: CliRunner) -> None:
         """Test main help shows subcommands."""
-        result = runner.invoke(main, ["--help"])
+        result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "dataset" in result.output
         assert "package" in result.output
 
     def test_dataset_help(self, runner: CliRunner) -> None:
         """Test dataset subcommand help."""
-        result = runner.invoke(main, ["dataset", "--help"])
+        result = runner.invoke(app, ["dataset", "--help"])
         assert result.exit_code == 0
         assert "list" in result.output
         assert "validate" in result.output
@@ -1502,14 +1502,14 @@ class TestCLIHelp:
 
     def test_package_help(self, runner: CliRunner) -> None:
         """Test package subcommand help."""
-        result = runner.invoke(main, ["package", "--help"])
+        result = runner.invoke(app, ["package", "--help"])
         assert result.exit_code == 0
         assert "build" in result.output
         assert "push" in result.output
 
     def test_lineage_help(self, runner: CliRunner) -> None:
         """Test lineage subcommand help."""
-        result = runner.invoke(main, ["lineage", "--help"])
+        result = runner.invoke(app, ["lineage", "--help"])
         assert result.exit_code == 0
         assert "upstream" in result.output
         assert "tree" in result.output
@@ -1542,7 +1542,7 @@ class TestLineageCLI:
     def test_lineage_upstream_ascii(self, runner: CliRunner, lineage_project: Path) -> None:
         """Test upstream command shows ASCII tree."""
         datasets_file = str(lineage_project / "datasets.yaml")
-        result = runner.invoke(main, ["lineage", "upstream", "-f", datasets_file, "derived-data"])
+        result = runner.invoke(app, ["lineage", "upstream", "-f", datasets_file, "derived-data"])
         assert result.exit_code == 0
         assert "derived-data" in result.output
         assert "source-data" in result.output
@@ -1553,7 +1553,7 @@ class TestLineageCLI:
 
         datasets_file = str(lineage_project / "datasets.yaml")
         result = runner.invoke(
-            main,
+            app,
             ["lineage", "upstream", "-f", datasets_file, "--json", "derived-data"],
         )
         assert result.exit_code == 0
@@ -1565,7 +1565,7 @@ class TestLineageCLI:
     def test_lineage_upstream_not_found(self, runner: CliRunner, lineage_project: Path) -> None:
         """Test upstream command with nonexistent slug returns graceful output."""
         datasets_file = str(lineage_project / "datasets.yaml")
-        result = runner.invoke(main, ["lineage", "upstream", "-f", datasets_file, "nonexistent"])
+        result = runner.invoke(app, ["lineage", "upstream", "-f", datasets_file, "nonexistent"])
         # get_upstream returns a leaf node for unknown slugs (graceful)
         assert result.exit_code == 0
         assert "nonexistent" in result.output
@@ -1573,7 +1573,7 @@ class TestLineageCLI:
     def test_lineage_tree(self, runner: CliRunner, lineage_project: Path) -> None:
         """Test tree command works as alias with depth=3 default."""
         datasets_file = str(lineage_project / "datasets.yaml")
-        result = runner.invoke(main, ["lineage", "tree", "-f", datasets_file, "derived-data"])
+        result = runner.invoke(app, ["lineage", "tree", "-f", datasets_file, "derived-data"])
         assert result.exit_code == 0
         assert "derived-data" in result.output
         assert "source-data" in result.output
@@ -1723,7 +1723,7 @@ class TestParquetResourceSupport:
             mock_client.bucket.return_value = mock_bucket
 
             result = runner.invoke(
-                main,
+                app,
                 ["package", "push", "-f", str(parquet_project / "datasets.yaml")],
             )
 
@@ -1731,9 +1731,7 @@ class TestParquetResourceSupport:
         # Verify upload_from_filename was called for the Parquet file
         upload_calls = mock_blob.upload_from_filename.call_args_list
         parquet_calls = [c for c in upload_calls if str(c.args[0]).endswith(".parquet")]
-        assert len(parquet_calls) >= 1, (
-            f"Expected at least one Parquet upload, got: {upload_calls}"
-        )
+        assert len(parquet_calls) >= 1, f"Expected at least one Parquet upload, got: {upload_calls}"
 
     def test_parquet_resource_has_rdf_type(self, parquet_project: Path) -> None:
         """Parquet resource dict includes the DCAT Distribution RDF type."""
