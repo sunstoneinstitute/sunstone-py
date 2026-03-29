@@ -9,7 +9,7 @@ A plugin system for sunstone-py that supports three plugin types: authentication
 - **Typed Protocols** (structural typing) for plugin contracts — no inheritance required
 - **Entry point discovery** via `sunstone.plugins` group in `pyproject.toml`
 - **Pipeline composition** with defined phases: resolve URL -> authenticate -> fetch -> read format
-- **Plugin config** in `[tool.sunstone.plugins.<name>]` sections of the data project's `pyproject.toml`
+- **Cascading plugin config** — `pyproject.toml` -> `datasets.yaml` -> env vars, so projects use whichever they have
 - **Plugins take priority** over builtins — a custom CSV handler overrides the default
 - **Zero overhead** when no plugins installed — existing code paths run unchanged
 
@@ -46,7 +46,7 @@ class PluginRegistry:
         """Load plugins from entry points."""
         for ep in importlib.metadata.entry_points(group="sunstone.plugins"):
             plugin_cls = ep.load()
-            config = self._load_config(ep.name)
+            config = self._load_config(ep.name)  # cascading: pyproject.toml -> datasets.yaml -> env vars
             plugin = plugin_cls(config) if config else plugin_cls()
             self._register(ep.name, plugin)
 
@@ -62,15 +62,34 @@ class PluginRegistry:
 
 ### Config loading
 
-Plugin-specific configuration lives in the data project's `pyproject.toml`:
+Plugin config uses a cascading lookup. Sources are checked in order, with later sources overriding earlier ones:
+
+1. **`pyproject.toml`** — `[tool.sunstone.plugins.<name>]` section. For Python-packaged projects.
+2. **`datasets.yaml`** — `plugins:` top-level key. For notebook-only projects without a `pyproject.toml`.
+3. **Environment variables** — `SUNSTONE_PLUGIN_<NAME>_<KEY>=value`. For CI/Docker overrides.
 
 ```toml
+# Option 1: pyproject.toml
 [tool.sunstone.plugins.s3]
 region = "eu-west-1"
 role_arn = "arn:aws:iam::123:role/data-reader"
 ```
 
-The config dict is passed to the plugin constructor. Plugins that need no config accept no arguments.
+```yaml
+# Option 2: datasets.yaml
+plugins:
+  s3:
+    region: eu-west-1
+    role_arn: arn:aws:iam::123:role/data-reader
+```
+
+```bash
+# Option 3: environment variables (override any file-based config)
+SUNSTONE_PLUGIN_S3_REGION=eu-west-1
+SUNSTONE_PLUGIN_S3_ROLE_ARN=arn:aws:iam::123:role/data-reader
+```
+
+The merged config dict is passed to the plugin constructor. Plugins that need no config accept no arguments. Environment variables use uppercase plugin name and key, with hyphens converted to underscores (e.g. `bearer-auth` becomes `SUNSTONE_PLUGIN_BEARER_AUTH_`).
 
 ## Protocol Definitions
 
@@ -327,7 +346,7 @@ These live in sunstone-py's test suite. Plugin packages have their own tests for
 - `sunstone/plugins.py` module — `PluginRegistry`, three `Protocol` definitions, pipeline helpers
 - Refactor `dataframe.py` read/write methods to call through the pipeline
 - Add auth header injection to `datasets.py` HTTP fetch
-- Config loading from `pyproject.toml` `[tool.sunstone.plugins.*]`
+- Cascading config loading from `pyproject.toml`, `datasets.yaml`, and environment variables
 - Test suite for plugin infrastructure with test doubles
 - Sidecar `.lineage.json` for plugin-handled formats (core feature, not plugin)
 
