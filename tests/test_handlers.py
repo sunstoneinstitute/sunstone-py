@@ -1,11 +1,12 @@
 """Tests for internal plugin handlers."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from sunstone.handlers import BuiltinFormatHandler
+from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler
 
 
 @pytest.fixture
@@ -104,3 +105,108 @@ class TestBuiltinFormatHandlerWrite:
         result = pd.read_csv(f)
         assert list(result.columns) == ["x"]
         assert len(result) == 2
+
+
+@pytest.fixture
+def http_handler():
+    return HttpURLHandler()
+
+
+class TestHttpURLHandlerCanHandle:
+    def test_http(self, http_handler):
+        assert http_handler.can_handle("http://example.com/data.csv")
+
+    def test_https(self, http_handler):
+        assert http_handler.can_handle("https://example.com/data.csv")
+
+    def test_s3(self, http_handler):
+        assert not http_handler.can_handle("s3://bucket/data.csv")
+
+    def test_gs(self, http_handler):
+        assert not http_handler.can_handle("gs://bucket/data.csv")
+
+    def test_ftp(self, http_handler):
+        assert not http_handler.can_handle("ftp://example.com/data.csv")
+
+    def test_bare_path(self, http_handler):
+        assert not http_handler.can_handle("/local/path/data.csv")
+
+    def test_relative_path(self, http_handler):
+        assert not http_handler.can_handle("data.csv")
+
+
+class TestHttpURLHandlerFetch:
+    def test_fetches_to_dest(self, http_handler, tmp_path):
+        dest = tmp_path / "data.csv"
+        mock_response = MagicMock()
+        mock_response.is_redirect = False
+        mock_response.content = b"a,b\n1,2\n"
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.requests.get", return_value=mock_response),
+        ):
+            result = http_handler.fetch("https://example.com/data.csv", dest)
+            assert result == dest
+            assert dest.read_bytes() == b"a,b\n1,2\n"
+
+    def test_rejects_private_url(self, http_handler, tmp_path):
+        dest = tmp_path / "data.csv"
+        with patch("sunstone.handlers._is_public_url", return_value=False):
+            with pytest.raises(ValueError, match="not allowed"):
+                http_handler.fetch("http://192.168.1.1/data.csv", dest)
+
+    def test_follows_redirects(self, http_handler, tmp_path):
+        dest = tmp_path / "data.csv"
+        redirect_response = MagicMock()
+        redirect_response.is_redirect = True
+        redirect_response.headers = {"Location": "https://cdn.example.com/data.csv"}
+
+        final_response = MagicMock()
+        final_response.is_redirect = False
+        final_response.content = b"a,b\n1,2\n"
+        final_response.raise_for_status = MagicMock()
+
+        with (
+            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.requests.get", side_effect=[redirect_response, final_response]),
+        ):
+            result = http_handler.fetch("https://example.com/redirect", dest)
+            assert result == dest
+
+    def test_strips_auth_on_cross_origin_redirect(self, http_handler, tmp_path):
+        dest = tmp_path / "data.csv"
+
+        redirect_response = MagicMock()
+        redirect_response.is_redirect = True
+        redirect_response.headers = {"Location": "https://other.com/data.csv"}
+
+        final_response = MagicMock()
+        final_response.is_redirect = False
+        final_response.content = b"data"
+        final_response.raise_for_status = MagicMock()
+
+        http_handler.headers = {"Authorization": "Bearer secret"}
+
+        with (
+            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.requests.get", side_effect=[redirect_response, final_response]) as mock_get,
+        ):
+            http_handler.fetch("https://example.com/data.csv", dest)
+            # Second call (redirect) should not have Authorization header
+            second_call_headers = mock_get.call_args_list[1][1]["headers"]
+            assert "Authorization" not in second_call_headers
+
+    def test_too_many_redirects(self, http_handler, tmp_path):
+        dest = tmp_path / "data.csv"
+        redirect_response = MagicMock()
+        redirect_response.is_redirect = True
+        redirect_response.headers = {"Location": "https://example.com/loop"}
+
+        with (
+            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.requests.get", return_value=redirect_response),
+        ):
+            with pytest.raises(ValueError, match="Too many redirects"):
+                http_handler.fetch("https://example.com/data.csv", dest)
