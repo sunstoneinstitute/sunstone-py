@@ -133,7 +133,8 @@ class PluginRegistry:
         return cls._instance
 
     def _discover(self) -> None:
-        """Load plugins from entry points."""
+        """Load plugins from entry points, then register internal handlers."""
+        # External plugins first (they take priority)
         for ep in _get_entry_points():
             try:
                 plugin_cls = ep.load()
@@ -142,6 +143,12 @@ class PluginRegistry:
                 self._register(ep.name, plugin)
             except Exception:
                 logger.exception("Failed to load plugin '%s'", ep.name)
+
+        # Internal handlers last (fallback)
+        from .handlers import BuiltinFormatHandler, HttpURLHandler
+
+        self._format_handlers.append(BuiltinFormatHandler())
+        self._url_handlers.append(HttpURLHandler())
 
     def _register(self, name: str, plugin: object) -> None:
         """Classify plugin by protocol conformance."""

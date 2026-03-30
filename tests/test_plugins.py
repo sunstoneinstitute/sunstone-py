@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
+from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler
 from sunstone.datasets import DatasetsManager
 from sunstone.dataframe import DataFrame
 
@@ -108,22 +109,22 @@ def test_registry_discovers_auth_provider():
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
             assert len(registry.get_auth_providers()) == 1
-            assert len(registry.get_url_handlers()) == 0
-            assert len(registry.get_format_handlers()) == 0
+            assert not any(isinstance(h, FakeURLHandler) for h in registry.get_url_handlers())
+            assert not any(isinstance(h, FakeFormatHandler) for h in registry.get_format_handlers())
 
 
 def test_registry_discovers_url_handler():
     with patch("sunstone.plugins._get_entry_points", return_value=[_make_entry_point("fake-url", FakeURLHandler)]):
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
-            assert len(registry.get_url_handlers()) == 1
+            assert any(isinstance(h, FakeURLHandler) for h in registry.get_url_handlers())
 
 
 def test_registry_discovers_format_handler():
     with patch("sunstone.plugins._get_entry_points", return_value=[_make_entry_point("fake-fmt", FakeFormatHandler)]):
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
-            assert len(registry.get_format_handlers()) == 1
+            assert any(isinstance(h, FakeFormatHandler) for h in registry.get_format_handlers())
 
 
 def test_registry_multi_protocol_plugin():
@@ -143,7 +144,7 @@ def test_registry_multi_protocol_plugin():
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
             assert len(registry.get_auth_providers()) == 1
-            assert len(registry.get_url_handlers()) == 1
+            assert any(isinstance(h, MultiPlugin) for h in registry.get_url_handlers())
 
 
 def test_registry_ignores_non_plugin(caplog):
@@ -151,8 +152,8 @@ def test_registry_ignores_non_plugin(caplog):
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
             assert len(registry.get_auth_providers()) == 0
-            assert len(registry.get_url_handlers()) == 0
-            assert len(registry.get_format_handlers()) == 0
+            assert not any(isinstance(h, NotAPlugin) for h in registry.get_url_handlers())
+            assert not any(isinstance(h, NotAPlugin) for h in registry.get_format_handlers())
             assert "does not implement any known plugin protocol" in caplog.text
 
 
@@ -161,8 +162,54 @@ def test_registry_no_plugins():
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
             registry = PluginRegistry.get()
             assert len(registry.get_auth_providers()) == 0
-            assert len(registry.get_url_handlers()) == 0
-            assert len(registry.get_format_handlers()) == 0
+            # Internal handlers are always registered
+            assert any(isinstance(h, HttpURLHandler) for h in registry.get_url_handlers())
+            assert any(isinstance(h, BuiltinFormatHandler) for h in registry.get_format_handlers())
+
+
+def test_registry_registers_builtin_format_handler():
+    """BuiltinFormatHandler is registered as a default."""
+    with patch("sunstone.plugins._get_entry_points", return_value=[]):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            handlers = registry.get_format_handlers()
+            assert any(isinstance(h, BuiltinFormatHandler) for h in handlers)
+
+
+def test_registry_registers_http_url_handler():
+    """HttpURLHandler is registered as a default."""
+    with patch("sunstone.plugins._get_entry_points", return_value=[]):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            handlers = registry.get_url_handlers()
+            assert any(isinstance(h, HttpURLHandler) for h in handlers)
+
+
+def test_external_plugin_takes_priority_over_builtin():
+    """External plugins registered via entry points come before builtins."""
+
+    class ExternalCSVHandler:
+        def can_read(self, path, format):
+            return path.suffix == ".csv"
+
+        def read(self, path, **kwargs):
+            return pd.DataFrame({"external": [True]})
+
+        def can_write(self, path, format):
+            return path.suffix == ".csv"
+
+        def write(self, df, path, **kwargs):
+            pass
+
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("ext-csv", ExternalCSVHandler)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            handler = registry.find_format_reader(Path("data.csv"), None)
+            # External plugin should win because it's registered first
+            assert isinstance(handler, ExternalCSVHandler)
 
 
 def test_registry_passes_config_to_constructor():
