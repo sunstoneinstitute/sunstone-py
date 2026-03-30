@@ -491,7 +491,7 @@ def test_read_dataset_uses_format_handler(project_with_fake_format):
 
 
 def test_read_dataset_builtin_format_still_works(tmp_path):
-    """CSV reading still works without any plugins."""
+    """CSV reading still works with only the builtin format handler registered."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
         "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
@@ -499,7 +499,8 @@ def test_read_dataset_builtin_format_still_works(tmp_path):
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n3,4\n")
 
-    registry = PluginRegistry()  # No format handlers
+    registry = PluginRegistry()
+    registry._format_handlers.append(BuiltinFormatHandler())  # always registered in production
 
     with patch.object(PluginRegistry, "get", return_value=registry):
         df = DataFrame.read_dataset("csv-data", project_path=tmp_path)
@@ -582,6 +583,23 @@ def test_to_csv_uses_format_writer(tmp_path):
 
     assert len(write_called) == 1
     assert write_called[0].name == "data.fake"
+
+
+def test_read_dataset_unknown_format_without_plugin(tmp_path):
+    """Unknown format raises ValueError when no handler matches."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n"
+        "  - name: Unknown Data\n"
+        "    slug: unknown-data\n"
+        "    location: inputs/data.xyz\n"
+        "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "data.xyz").write_text("stuff")
+
+    with pytest.raises(ValueError, match="No format handler found"):
+        DataFrame.read_dataset("unknown-data", project_path=tmp_path)
 
 
 def test_fetch_from_url_uses_url_handler(dataset_with_url):

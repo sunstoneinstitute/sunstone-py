@@ -4,7 +4,7 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 
 import os
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import pandas as pd
 
@@ -157,50 +157,23 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Determine format from extension (for builtin fallback)
-        extension = absolute_path.suffix.lower()
-        if format is None:
-            format_map = {
-                ".csv": "csv",
-                ".json": "json",
-                ".xlsx": "excel",
-                ".xls": "excel",
-                ".parquet": "parquet",
-                ".tsv": "tsv",
-                ".txt": "tsv",  # Assume tab-delimited for .txt
-            }
-            format = format_map.get(extension)
-
-        # Check plugin format handlers first
+        # Find a format handler (plugin or builtin) for this file
         from .plugins import PluginRegistry
 
         registry = PluginRegistry.get()
+
+        # Try explicit format string first, then extension-based detection
         format_handler = registry.find_format_reader(absolute_path, format)
 
-        if format_handler:
-            df = format_handler.read(absolute_path, **kwargs)
-        else:
-            # Fall back to built-in readers
-            if format is None:
-                raise ValueError(
-                    f"Cannot auto-detect format for file extension '{extension}'. "
-                    f"Supported extensions: .csv, .json, .xlsx, .xls, .parquet, .tsv, .txt. "
-                    f"Please specify format explicitly using the 'format' parameter."
-                )
+        if format_handler is None:
+            extension = absolute_path.suffix.lower()
+            raise ValueError(
+                f"No format handler found for '{absolute_path.name}'"
+                + (f" (format='{format}')" if format else f" (extension='{extension}')")
+                + ". Install a plugin or check the file extension."
+            )
 
-            reader_map: dict[str, Callable[..., pd.DataFrame]] = {
-                "csv": pd.read_csv,
-                "json": pd.read_json,
-                "excel": pd.read_excel,
-                "parquet": pd.read_parquet,
-                "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
-            }
-
-            reader = reader_map.get(format)
-            if reader is None:
-                raise ValueError(f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}")
-
-            df = reader(absolute_path, **kwargs)
+        df = format_handler.read(absolute_path, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))

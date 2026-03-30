@@ -180,7 +180,7 @@ class TestReadDatasetFormatDetection:
 
     def test_unsupported_format_raises_value_error(self, project_copy: Path) -> None:
         """Line 192: Unsupported explicit format raises ValueError."""
-        with pytest.raises(ValueError, match="Unsupported format"):
+        with pytest.raises(ValueError, match="No format handler found"):
             DataFrame.read_dataset(
                 "official-un-member-states",
                 project_path=project_copy,
@@ -200,7 +200,7 @@ class TestReadDatasetFormatDetection:
             location="inputs/test_data.xyz",
         )
 
-        with pytest.raises(ValueError, match="Cannot auto-detect format"):
+        with pytest.raises(ValueError, match="No format handler found"):
             DataFrame.read_dataset(
                 "test-weird",
                 project_path=project_copy,
