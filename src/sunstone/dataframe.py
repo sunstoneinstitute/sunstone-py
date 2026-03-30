@@ -157,10 +157,9 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Determine format
+        # Determine format from extension (for builtin fallback)
+        extension = absolute_path.suffix.lower()
         if format is None:
-            # Auto-detect from file extension
-            extension = absolute_path.suffix.lower()
             format_map = {
                 ".csv": "csv",
                 ".json": "json",
@@ -171,27 +170,37 @@ class DataFrame:
                 ".txt": "tsv",  # Assume tab-delimited for .txt
             }
             format = format_map.get(extension)
+
+        # Check plugin format handlers first
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        format_handler = registry.find_format_reader(absolute_path, format)
+
+        if format_handler:
+            df = format_handler.read(absolute_path, **kwargs)
+        else:
+            # Fall back to built-in readers
             if format is None:
                 raise ValueError(
                     f"Cannot auto-detect format for file extension '{extension}'. "
-                    f"Supported extensions: {', '.join(format_map.keys())}. "
+                    f"Supported extensions: .csv, .json, .xlsx, .xls, .parquet, .tsv, .txt. "
                     f"Please specify format explicitly using the 'format' parameter."
                 )
 
-        # Read using appropriate pandas function
-        reader_map: dict[str, Callable[..., pd.DataFrame]] = {
-            "csv": pd.read_csv,
-            "json": pd.read_json,
-            "excel": pd.read_excel,
-            "parquet": pd.read_parquet,
-            "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
-        }
+            reader_map: dict[str, Callable[..., pd.DataFrame]] = {
+                "csv": pd.read_csv,
+                "json": pd.read_json,
+                "excel": pd.read_excel,
+                "parquet": pd.read_parquet,
+                "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
+            }
 
-        reader = reader_map.get(format)
-        if reader is None:
-            raise ValueError(f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}")
+            reader = reader_map.get(format)
+            if reader is None:
+                raise ValueError(f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}")
 
-        df = reader(absolute_path, **kwargs)
+            df = reader(absolute_path, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))

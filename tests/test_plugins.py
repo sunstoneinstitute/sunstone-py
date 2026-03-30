@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
 from sunstone.datasets import DatasetsManager
+from sunstone.dataframe import DataFrame
 
 
 class FakeAuth:
@@ -409,6 +410,75 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
         manager.fetch_from_url(dataset, force=True)
         _, kwargs = mock_get.call_args
         assert kwargs["headers"] == {}
+
+
+@pytest.fixture
+def project_with_fake_format(tmp_path):
+    """Create a project with a dataset using a custom format."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n" "  - name: Fake Data\n" "    slug: fake-data\n" "    location: inputs/data.fake\n" "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "data.fake").write_text("custom format content")
+    return tmp_path
+
+
+def test_read_dataset_uses_format_handler(project_with_fake_format):
+    registry = PluginRegistry()
+    registry._format_handlers.append(FakeFormatHandler())
+
+    with patch.object(PluginRegistry, "get", return_value=registry):
+        df = DataFrame.read_dataset("fake-data", project_path=project_with_fake_format)
+        assert list(df.data.columns) == ["x"]
+        assert len(df.data) == 3
+
+
+def test_read_dataset_builtin_format_still_works(tmp_path):
+    """CSV reading still works without any plugins."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n3,4\n")
+
+    registry = PluginRegistry()  # No format handlers
+
+    with patch.object(PluginRegistry, "get", return_value=registry):
+        df = DataFrame.read_dataset("csv-data", project_path=tmp_path)
+        assert list(df.data.columns) == ["a", "b"]
+        assert len(df.data) == 2
+
+
+def test_read_dataset_plugin_overrides_builtin(tmp_path):
+    """A plugin that handles .csv overrides the builtin CSV reader."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n")
+
+    class CustomCSVHandler:
+        def can_read(self, path, format):
+            return path.suffix == ".csv"
+
+        def read(self, path, **kwargs):
+            return pd.DataFrame({"custom": [True]})
+
+        def can_write(self, path, format):
+            return False
+
+        def write(self, df, path, **kwargs):
+            pass
+
+    registry = PluginRegistry()
+    registry._format_handlers.append(CustomCSVHandler())
+
+    with patch.object(PluginRegistry, "get", return_value=registry):
+        df = DataFrame.read_dataset("csv-data", project_path=tmp_path)
+        assert list(df.data.columns) == ["custom"]
 
 
 def test_fetch_from_url_uses_url_handler(dataset_with_url):
