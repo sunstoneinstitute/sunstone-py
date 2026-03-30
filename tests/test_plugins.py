@@ -2,6 +2,7 @@
 
 import pytest
 import pandas as pd
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
@@ -247,3 +248,57 @@ def test_config_no_pyproject_no_error(tmp_path):
 
     config = _load_cascading_config("s3", tmp_path)
     assert config == {"region": "eu-west-1"}
+
+
+def test_find_url_handler_matching():
+    registry = PluginRegistry()
+    handler = FakeURLHandler()
+    registry._url_handlers.append(handler)
+
+    result = registry.find_url_handler("fake://bucket/file.csv")
+    assert result is handler
+
+
+def test_find_url_handler_no_match():
+    registry = PluginRegistry()
+    handler = FakeURLHandler()
+    registry._url_handlers.append(handler)
+
+    result = registry.find_url_handler("https://example.com/file.csv")
+    assert result is None
+
+
+def test_find_format_reader_matching():
+    registry = PluginRegistry()
+    handler = FakeFormatHandler()
+    registry._format_handlers.append(handler)
+
+    result = registry.find_format_reader(Path("data.fake"), None)
+    assert result is handler
+
+
+def test_find_format_reader_no_match():
+    registry = PluginRegistry()
+    handler = FakeFormatHandler()
+    registry._format_handlers.append(handler)
+
+    result = registry.find_format_reader(Path("data.csv"), None)
+    assert result is None
+
+
+def test_find_format_writer_matching():
+    registry = PluginRegistry()
+    handler = FakeFormatHandler()
+    registry._format_handlers.append(handler)
+
+    result = registry.find_format_writer(Path("data.fake"), None)
+    assert result is handler
+
+
+def test_find_format_writer_no_match():
+    registry = PluginRegistry()
+    handler = FakeFormatHandler()
+    registry._format_handlers.append(handler)
+
+    result = registry.find_format_writer(Path("data.csv"), None)
+    assert result is None
