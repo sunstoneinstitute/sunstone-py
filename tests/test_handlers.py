@@ -210,3 +210,53 @@ class TestHttpURLHandlerFetch:
         ):
             with pytest.raises(ValueError, match="Too many redirects"):
                 http_handler.fetch("https://example.com/data.csv", dest)
+
+
+def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
+    """Auth providers set headers on the HttpURLHandler before fetch."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n"
+        "  - name: Test Dataset\n"
+        "    slug: test-dataset\n"
+        "    location: inputs/test.csv\n"
+        "    source:\n"
+        "      name: Test Source\n"
+        "      location:\n"
+        "        data: https://example.com/test.csv\n"
+        "      attributedTo: Test Org\n"
+        "      acquiredAt: '2026-01-01'\n"
+        "      acquisitionMethod: manual-download\n"
+        "      license: CC-BY-4.0\n"
+        "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+
+    from sunstone.datasets import DatasetsManager
+    from sunstone.plugins import PluginRegistry
+
+    manager = DatasetsManager(tmp_path)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    class TestAuth:
+        def authenticate(self, url, headers, dataset):
+            headers["Authorization"] = "Bearer test-token"
+            return headers
+
+    registry = PluginRegistry()
+    registry._auth_providers.append(TestAuth())
+    registry._url_handlers.append(HttpURLHandler())
+
+    mock_response = MagicMock()
+    mock_response.is_redirect = False
+    mock_response.content = b"col1,col2\na,b\n"
+    mock_response.raise_for_status = MagicMock()
+
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        _, kwargs = mock_get.call_args
+        assert kwargs["headers"]["Authorization"] == "Bearer test-token"

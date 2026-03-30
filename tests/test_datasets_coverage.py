@@ -13,7 +13,8 @@ import pytest
 import requests
 from ruamel.yaml import YAML
 
-from sunstone.datasets import DatasetsManager, _is_public_url
+from sunstone.datasets import DatasetsManager
+from sunstone.handlers import _is_public_url
 from sunstone.exceptions import DatasetNotFoundError, DatasetValidationError
 from sunstone.lineage import (
     DatasetMetadata,
@@ -46,21 +47,21 @@ class TestIsPublicUrlErrorPaths:
     """Tests for _is_public_url error handling (lines 102-110)."""
 
     def test_gaierror_returns_false(self) -> None:
-        with patch("sunstone.datasets.socket.getaddrinfo", side_effect=socket.gaierror("DNS failure")):
+        with patch("sunstone.handlers.socket.getaddrinfo", side_effect=socket.gaierror("DNS failure")):
             assert _is_public_url("https://nonexistent.invalid/data.csv") is False
 
     def test_value_error_returns_false(self) -> None:
         # Trigger ValueError by making ip_address raise on a bad address
         with patch(
-            "sunstone.datasets.socket.getaddrinfo",
+            "sunstone.handlers.socket.getaddrinfo",
             return_value=[(None, None, None, None, ("not-an-ip",))],
         ):
-            with patch("sunstone.datasets.ipaddress.ip_address", side_effect=ValueError("bad IP")):
+            with patch("sunstone.handlers.ipaddress.ip_address", side_effect=ValueError("bad IP")):
                 assert _is_public_url("https://example.com/data.csv") is False
 
     def test_unexpected_exception_is_reraised(self) -> None:
         with patch(
-            "sunstone.datasets.socket.getaddrinfo",
+            "sunstone.handlers.socket.getaddrinfo",
             side_effect=RuntimeError("unexpected"),
         ):
             with pytest.raises(RuntimeError, match="unexpected"):
@@ -387,21 +388,21 @@ class TestFetchFromUrl:
         assert target.read_text() == "existing data"
 
     def test_timeout_exception_propagates(self, project_copy: Path) -> None:
-        """Lines 801-802: Timeout handling."""
+        """Timeout handling."""
         mgr = DatasetsManager(project_copy)
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
-        with patch("sunstone.datasets._is_public_url", return_value=True):
-            with patch("sunstone.datasets.requests.get", side_effect=requests.Timeout("timed out")):
+        with patch("sunstone.handlers._is_public_url", return_value=True):
+            with patch("sunstone.handlers.requests.get", side_effect=requests.Timeout("timed out")):
                 with pytest.raises(requests.Timeout):
                     mgr.fetch_from_url(dataset, force=True)
 
     def test_request_exception_propagates(self, project_copy: Path) -> None:
-        """Lines 804-805: RequestException handling."""
+        """RequestException handling."""
         mgr = DatasetsManager(project_copy)
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
-        with patch("sunstone.datasets._is_public_url", return_value=True):
+        with patch("sunstone.handlers._is_public_url", return_value=True):
             with patch(
-                "sunstone.datasets.requests.get",
+                "sunstone.handlers.requests.get",
                 side_effect=requests.ConnectionError("connection failed"),
             ):
                 with pytest.raises(requests.ConnectionError):

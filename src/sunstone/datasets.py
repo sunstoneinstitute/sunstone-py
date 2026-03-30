@@ -2,16 +2,12 @@
 Parser and manager for datasets.yaml files.
 """
 
-import ipaddress
 import logging
 import os
-import socket
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urljoin, urlparse
 
-import requests
 from ruamel.yaml import YAML
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
@@ -47,67 +43,6 @@ def _field_schema_to_dict(field: FieldSchema) -> dict:
     if field.source:
         d["source"] = field.source
     return d
-
-
-def _is_public_url(url: str) -> bool:
-    """
-    Validate that a URL points to a public (non-private) resource.
-
-    This function prevents SSRF attacks by blocking:
-    - Non-HTTP(S) schemes (e.g., file://, ftp://)
-    - Private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
-    - Localhost and loopback addresses
-    - Link-local addresses (169.254.x.x)
-
-    Args:
-        url: The URL to validate.
-
-    Returns:
-        True if the URL points to a public resource, False otherwise.
-
-    Raises:
-        Exception: Re-raises unexpected exceptions after logging.
-    """
-    try:
-        parsed = urlparse(url)
-
-        # Only allow HTTP and HTTPS schemes
-        if parsed.scheme not in ("http", "https"):
-            logger.warning("URL scheme '%s' not allowed (only http/https permitted)", parsed.scheme)
-            return False
-
-        # Ensure hostname is present
-        if not parsed.hostname:
-            logger.warning("URL has no hostname")
-            return False
-
-        # Resolve hostname to all IP addresses (IPv4 and IPv6) and check each
-        addrinfos = socket.getaddrinfo(parsed.hostname, None)
-        for addrinfo in addrinfos:
-            sockaddr = addrinfo[4]
-            ip = sockaddr[0]
-            ip_obj = ipaddress.ip_address(ip)
-
-            # Block private, loopback, and link-local addresses
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
-                logger.warning(
-                    "URL hostname '%s' resolves to restricted IP address: %s",
-                    parsed.hostname,
-                    ip,
-                )
-                return False
-
-        return True
-
-    except socket.gaierror:
-        logger.warning("Unable to resolve hostname: %s", parsed.hostname)
-        return False
-    except ValueError as e:
-        logger.warning("Error validating URL '%s': %s", url, e)
-        return False
-    except Exception as e:
-        logger.exception("Unexpected error validating URL '%s': %s", url, e)
-        raise
 
 
 class DatasetsManager:
@@ -728,7 +663,8 @@ class DatasetsManager:
         """
         Fetch a dataset from its source URL if available.
 
-        Auth plugins are consulted to inject headers before each HTTP request.
+        Delegates to URL handler plugins. Auth plugins inject headers
+        into the handler before fetching.
 
         Args:
             dataset: The dataset metadata containing source URL.
@@ -740,7 +676,7 @@ class DatasetsManager:
             Path to the local file (newly downloaded or existing).
 
         Raises:
-            ValueError: If dataset has no source URL or URL is not allowed.
+            ValueError: If dataset has no source URL or no handler matches.
             requests.RequestException: If the fetch fails.
         """
         if not dataset.source or not dataset.source.location.data:
@@ -755,83 +691,18 @@ class DatasetsManager:
 
         url = dataset.source.location.data
 
-        # Check if a URL handler plugin can handle this URL
         from .plugins import PluginRegistry
 
         registry = PluginRegistry.get()
         url_handler = registry.find_url_handler(url)
 
-        if url_handler:
-            local_path.parent.mkdir(parents=True, exist_ok=True)
-            return url_handler.fetch(url, local_path)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
 
-        # Fall back to built-in HTTP fetch
-        # Validate URL points to public resource to prevent SSRF attacks
-        if not _is_public_url(url):
-            raise ValueError(
-                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
-            )
+        # Inject auth headers if the handler supports it
+        if hasattr(url_handler, "headers"):
+            for auth in registry.get_auth_providers():
+                url_handler.headers = auth.authenticate(url, url_handler.headers, dataset)
 
-        # Collect auth headers from plugins
-        headers: dict[str, str] = {}
-        for auth in registry.get_auth_providers():
-            headers = auth.authenticate(url, headers, dataset)
-
-        logger.info("Fetching dataset from URL: %s", url)
-
-        try:
-            # Disable automatic redirects and handle them manually to prevent SSRF bypass
-            # An attacker could use a public URL that redirects to a private IP
-            current_url = url
-            response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=headers)
-            redirect_count = 0
-
-            while response.is_redirect and redirect_count < max_redirects:
-                redirect_url = response.headers.get("Location")
-                if not redirect_url:
-                    raise ValueError("Redirect response without Location header")
-
-                # Resolve relative URLs against the current URL
-                redirect_url = urljoin(current_url, redirect_url)
-
-                # Validate the redirect target URL for SSRF protection
-                if not _is_public_url(redirect_url):
-                    raise ValueError(
-                        f"Redirect URL '{redirect_url}' is not allowed. Only HTTP/HTTPS URLs "
-                        "pointing to public internet addresses are permitted."
-                    )
-
-                # Strip auth headers on cross-origin redirects to prevent credential leaking
-                redirect_parsed = urlparse(redirect_url)
-                original_parsed = urlparse(url)
-                if redirect_parsed.scheme != original_parsed.scheme or redirect_parsed.netloc != original_parsed.netloc:
-                    redirect_headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
-                else:
-                    redirect_headers = headers
-
-                logger.info("Following redirect to: %s", redirect_url)
-                current_url = redirect_url
-                response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=redirect_headers)
-                redirect_count += 1
-
-            if response.is_redirect:
-                raise ValueError(f"Too many redirects (max: {max_redirects})")
-
-            response.raise_for_status()
-
-            # Ensure parent directory exists
-            local_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Save to local file
-            with open(local_path, "wb") as f:
-                f.write(response.content)
-
-            logger.info("✓ Successfully saved to %s (%d bytes)", local_path, len(response.content))
-            return local_path
-
-        except requests.Timeout:
-            logger.error("Request timed out after %d seconds", timeout)
-            raise
-        except requests.RequestException as e:
-            logger.error("Failed to fetch from URL: %s", e)
-            raise
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        return url_handler.fetch(url, local_path)
