@@ -86,7 +86,7 @@ def _load_cascading_config(name: str, project_path: Path) -> dict | None:
     if datasets_path.exists():
         with open(datasets_path) as f:
             data = _config_yaml.load(f) or {}
-        plugins_section = data.get("plugins", {})
+        plugins_section = data.get("plugins") or {}
         if name in plugins_section and plugins_section[name]:
             config.update(plugins_section[name])
 

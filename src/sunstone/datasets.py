@@ -801,9 +801,17 @@ class DatasetsManager:
                         "pointing to public internet addresses are permitted."
                     )
 
+                # Strip auth headers on cross-origin redirects to prevent credential leaking
+                redirect_parsed = urlparse(redirect_url)
+                original_parsed = urlparse(url)
+                if redirect_parsed.scheme != original_parsed.scheme or redirect_parsed.netloc != original_parsed.netloc:
+                    redirect_headers = {k: v for k, v in headers.items() if k.lower() != "authorization"}
+                else:
+                    redirect_headers = headers
+
                 logger.info("Following redirect to: %s", redirect_url)
                 current_url = redirect_url
-                response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=headers)
+                response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=redirect_headers)
                 redirect_count += 1
 
             if response.is_redirect:
