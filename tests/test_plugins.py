@@ -4,7 +4,7 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry
+from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
 
 
 class FakeAuth:
@@ -176,3 +176,74 @@ def test_registry_singleton():
             r1 = PluginRegistry.get()
             r2 = PluginRegistry.get()
             assert r1 is r2
+
+
+def test_config_from_pyproject(tmp_path):
+    """Config loaded from pyproject.toml [tool.sunstone.plugins.<name>]."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.sunstone.plugins.s3]\nregion = "eu-west-1"\n')
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\n")
+
+    config = _load_cascading_config("s3", tmp_path)
+    assert config == {"region": "eu-west-1"}
+
+
+def test_config_from_datasets_yaml(tmp_path):
+    """Config loaded from datasets.yaml plugins section when no pyproject.toml."""
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\nplugins:\n  s3:\n    region: eu-west-1\n")
+
+    config = _load_cascading_config("s3", tmp_path)
+    assert config == {"region": "eu-west-1"}
+
+
+def test_config_pyproject_overrides_datasets_yaml(tmp_path):
+    """pyproject.toml takes precedence over datasets.yaml."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.sunstone.plugins.s3]\nregion = "us-east-1"\n')
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\nplugins:\n  s3:\n    region: eu-west-1\n")
+
+    config = _load_cascading_config("s3", tmp_path)
+    assert config == {"region": "us-east-1"}
+
+
+def test_config_env_var_override(tmp_path, monkeypatch):
+    """Environment variables override file-based config."""
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[tool.sunstone.plugins.s3]\nregion = "eu-west-1"\n')
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\n")
+
+    monkeypatch.setenv("SUNSTONE_PLUGIN_S3_REGION", "ap-southeast-1")
+    config = _load_cascading_config("s3", tmp_path)
+    assert config["region"] == "ap-southeast-1"
+
+
+def test_config_env_var_hyphen_to_underscore(tmp_path, monkeypatch):
+    """Plugin names with hyphens convert to underscores in env vars."""
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\n")
+
+    monkeypatch.setenv("SUNSTONE_PLUGIN_BEARER_AUTH_TOKEN", "secret123")
+    config = _load_cascading_config("bearer-auth", tmp_path)
+    assert config == {"token": "secret123"}
+
+
+def test_config_no_config_returns_none(tmp_path):
+    """Returns None when no config found anywhere."""
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\n")
+
+    config = _load_cascading_config("nonexistent", tmp_path)
+    assert config is None
+
+
+def test_config_no_pyproject_no_error(tmp_path):
+    """Missing pyproject.toml doesn't cause an error."""
+    datasets = tmp_path / "datasets.yaml"
+    datasets.write_text("inputs: []\noutputs: []\nplugins:\n  s3:\n    region: eu-west-1\n")
+
+    config = _load_cascading_config("s3", tmp_path)
+    assert config == {"region": "eu-west-1"}

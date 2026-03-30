@@ -6,12 +6,17 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
+import os
+import tomllib
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import pandas as pd
+from ruamel.yaml import YAML
 
 from .lineage import DatasetMetadata
+
+_config_yaml = YAML()
 
 
 @runtime_checkable
@@ -65,9 +70,48 @@ def _get_entry_points() -> list:
     return list(importlib.metadata.entry_points(group="sunstone.plugins"))
 
 
+def _load_cascading_config(name: str, project_path: Path) -> dict | None:
+    """
+    Load plugin config with cascading precedence:
+    1. pyproject.toml [tool.sunstone.plugins.<name>]
+    2. datasets.yaml plugins.<name>
+    3. Environment variables SUNSTONE_PLUGIN_<NAME>_<KEY>
+
+    Later sources override earlier ones. Returns None if no config found.
+    """
+    config: dict = {}
+
+    # Source 1: datasets.yaml
+    datasets_path = project_path / "datasets.yaml"
+    if datasets_path.exists():
+        with open(datasets_path) as f:
+            data = _config_yaml.load(f) or {}
+        plugins_section = data.get("plugins", {})
+        if name in plugins_section and plugins_section[name]:
+            config.update(plugins_section[name])
+
+    # Source 2: pyproject.toml (overrides datasets.yaml)
+    pyproject_path = project_path / "pyproject.toml"
+    if pyproject_path.exists():
+        with open(pyproject_path, "rb") as f:
+            pyproject = tomllib.load(f)
+        plugin_config = pyproject.get("tool", {}).get("sunstone", {}).get("plugins", {}).get(name)
+        if plugin_config:
+            config.update(plugin_config)
+
+    # Source 3: environment variables (override everything)
+    env_prefix = f"SUNSTONE_PLUGIN_{name.upper().replace('-', '_')}_"
+    for key, value in os.environ.items():
+        if key.startswith(env_prefix):
+            config_key = key[len(env_prefix) :].lower()
+            config[config_key] = value
+
+    return config if config else None
+
+
 def _load_plugin_config(name: str) -> dict | None:
-    """Load config for a plugin. Separated for testability. Full implementation in Task 3."""
-    return None
+    """Load config for a plugin using cascading lookup from cwd."""
+    return _load_cascading_config(name, Path.cwd())
 
 
 class PluginRegistry:
