@@ -728,6 +728,8 @@ class DatasetsManager:
         """
         Fetch a dataset from its source URL if available.
 
+        Auth plugins are consulted to inject headers before each HTTP request.
+
         Args:
             dataset: The dataset metadata containing source URL.
             timeout: Request timeout in seconds.
@@ -753,11 +755,27 @@ class DatasetsManager:
 
         url = dataset.source.location.data
 
+        # Check if a URL handler plugin can handle this URL
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        url_handler = registry.find_url_handler(url)
+
+        if url_handler:
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            return url_handler.fetch(url, local_path)
+
+        # Fall back to built-in HTTP fetch
         # Validate URL points to public resource to prevent SSRF attacks
         if not _is_public_url(url):
             raise ValueError(
                 f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
             )
+
+        # Collect auth headers from plugins
+        headers: dict[str, str] = {}
+        for auth in registry.get_auth_providers():
+            headers = auth.authenticate(url, headers, dataset)
 
         logger.info("Fetching dataset from URL: %s", url)
 
@@ -765,7 +783,7 @@ class DatasetsManager:
             # Disable automatic redirects and handle them manually to prevent SSRF bypass
             # An attacker could use a public URL that redirects to a private IP
             current_url = url
-            response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+            response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=headers)
             redirect_count = 0
 
             while response.is_redirect and redirect_count < max_redirects:
@@ -785,7 +803,7 @@ class DatasetsManager:
 
                 logger.info("Following redirect to: %s", redirect_url)
                 current_url = redirect_url
-                response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+                response = requests.get(current_url, timeout=timeout, allow_redirects=False, headers=headers)
                 redirect_count += 1
 
             if response.is_redirect:

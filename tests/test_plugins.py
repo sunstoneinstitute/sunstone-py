@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
+from sunstone.datasets import DatasetsManager
 
 
 class FakeAuth:
@@ -302,3 +303,135 @@ def test_find_format_writer_no_match():
 
     result = registry.find_format_writer(Path("data.csv"), None)
     assert result is None
+
+
+@pytest.fixture
+def dataset_with_url(tmp_path):
+    """Create a minimal project with a dataset that has a source URL."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n"
+        "  - name: Test Dataset\n"
+        "    slug: test-dataset\n"
+        "    location: inputs/test.csv\n"
+        "    source:\n"
+        "      name: Test Source\n"
+        "      location:\n"
+        "        data: https://example.com/test.csv\n"
+        "      attributedTo: Test Org\n"
+        "      acquiredAt: '2026-01-01'\n"
+        "      acquisitionMethod: manual-download\n"
+        "      license: CC-BY-4.0\n"
+        "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    return tmp_path
+
+
+def test_fetch_from_url_injects_auth_headers(dataset_with_url):
+    class TestAuth:
+        def authenticate(self, url, headers, dataset):
+            headers["Authorization"] = "Bearer test-token"
+            return headers
+
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    registry = PluginRegistry()
+    registry._auth_providers.append(TestAuth())
+
+    mock_response = MagicMock()
+    mock_response.is_redirect = False
+    mock_response.content = b"col1,col2\na,b\n"
+    mock_response.raise_for_status = MagicMock()
+
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.datasets._is_public_url", return_value=True),
+        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        _, kwargs = mock_get.call_args
+        assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+
+
+def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
+    class AuthA:
+        def authenticate(self, url, headers, dataset):
+            headers["X-Auth-A"] = "a"
+            return headers
+
+    class AuthB:
+        def authenticate(self, url, headers, dataset):
+            headers["X-Auth-B"] = "b"
+            return headers
+
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    registry = PluginRegistry()
+    registry._auth_providers.append(AuthA())
+    registry._auth_providers.append(AuthB())
+
+    mock_response = MagicMock()
+    mock_response.is_redirect = False
+    mock_response.content = b"col1,col2\na,b\n"
+    mock_response.raise_for_status = MagicMock()
+
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.datasets._is_public_url", return_value=True),
+        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        _, kwargs = mock_get.call_args
+        assert kwargs["headers"]["X-Auth-A"] == "a"
+        assert kwargs["headers"]["X-Auth-B"] == "b"
+
+
+def test_fetch_from_url_no_auth_still_works(dataset_with_url):
+    """Without auth plugins, fetch works exactly as before."""
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    registry = PluginRegistry()  # No auth providers
+
+    mock_response = MagicMock()
+    mock_response.is_redirect = False
+    mock_response.content = b"col1,col2\na,b\n"
+    mock_response.raise_for_status = MagicMock()
+
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.datasets._is_public_url", return_value=True),
+        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        _, kwargs = mock_get.call_args
+        assert kwargs["headers"] == {}
+
+
+def test_fetch_from_url_uses_url_handler(dataset_with_url):
+    """URL handler plugin handles the fetch instead of HTTP."""
+    fetched_urls = []
+
+    class TestURLHandler:
+        def can_handle(self, url):
+            return True  # Handle everything for this test
+
+        def fetch(self, url, dest):
+            fetched_urls.append(url)
+            dest.write_text("col1,col2\na,b\n")
+            return dest
+
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    registry = PluginRegistry()
+    registry._url_handlers.append(TestURLHandler())
+
+    with patch.object(PluginRegistry, "get", return_value=registry):
+        result = manager.fetch_from_url(dataset, force=True)
+        assert len(fetched_urls) == 1
+        assert fetched_urls[0] == "https://example.com/test.csv"
+        assert result.exists()
