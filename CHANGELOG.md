@@ -3,6 +3,11 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: Plugin system with AuthProvider, URLHandler, and FormatHandler protocols
+- Added: Plugin discovery via Python entry points (`sunstone.plugins` group)
+- Added: Cascading plugin config from pyproject.toml, datasets.yaml, and environment variables
+- Added: Auth header injection in dataset URL fetching
+- Added: Format handler integration in read and write pipelines
 
 ## [1.3.1] - 2026-03-26
 - Fixed: Use `as_posix()` for `script_path` in datasets.yaml to avoid backslashes on Windows CI

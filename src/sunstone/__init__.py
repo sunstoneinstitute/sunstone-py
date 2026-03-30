@@ -44,6 +44,9 @@ from .lineage import (
     SourceLocation,
 )
 
+# Plugin system
+from .plugins import AuthProvider, FormatHandler, PluginRegistry, URLHandler
+
 # Import pandas module for pd-like interface
 from . import pandas
 
@@ -99,6 +102,11 @@ __all__ = [
     "close_session",
     "LineageSession",
     "DatasetRead",
+    # Plugin system
+    "AuthProvider",
+    "URLHandler",
+    "FormatHandler",
+    "PluginRegistry",
     # Lineage queries
     "LineageNode",
     "get_upstream",
