@@ -8,6 +8,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: Cascading plugin config from pyproject.toml, datasets.yaml, and environment variables
 - Added: Auth header injection in dataset URL fetching
 - Added: Format handler integration in read and write pipelines
+- Changed: Built-in format handlers (CSV, JSON, Excel, Parquet, TSV) now registered as internal plugins
+- Changed: HTTP URL fetching now handled by internal HttpURLHandler plugin
 
 ## [1.3.1] - 2026-03-26
 - Fixed: Use `as_posix()` for `script_path` in datasets.yaml to avoid backslashes on Windows CI

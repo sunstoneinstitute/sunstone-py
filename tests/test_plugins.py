@@ -402,10 +402,12 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
     mock_response.content = b"col1,col2\na,b\n"
     mock_response.raise_for_status = MagicMock()
 
+    registry._url_handlers.append(HttpURLHandler())
+
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.datasets._is_public_url", return_value=True),
-        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
     ):
         manager.fetch_from_url(dataset, force=True)
         _, kwargs = mock_get.call_args
@@ -435,10 +437,12 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
     mock_response.content = b"col1,col2\na,b\n"
     mock_response.raise_for_status = MagicMock()
 
+    registry._url_handlers.append(HttpURLHandler())
+
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.datasets._is_public_url", return_value=True),
-        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
     ):
         manager.fetch_from_url(dataset, force=True)
         _, kwargs = mock_get.call_args
@@ -458,10 +462,12 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
     mock_response.content = b"col1,col2\na,b\n"
     mock_response.raise_for_status = MagicMock()
 
+    registry._url_handlers.append(HttpURLHandler())
+
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.datasets._is_public_url", return_value=True),
-        patch("sunstone.datasets.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
     ):
         manager.fetch_from_url(dataset, force=True)
         _, kwargs = mock_get.call_args
