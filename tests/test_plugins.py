@@ -10,6 +10,15 @@ from sunstone.datasets import DatasetsManager
 from sunstone.dataframe import DataFrame
 
 
+def _mock_execution_context():
+    from sunstone.context import ExecutionContext
+
+    return ExecutionContext(
+        user="test-user",
+        execution_timestamp="2026-01-15T10:00:00+00:00",
+    )
+
+
 class FakeAuth:
     def authenticate(self, url, headers, dataset):
         headers["X-Test"] = "value"
@@ -479,6 +488,53 @@ def test_read_dataset_plugin_overrides_builtin(tmp_path):
     with patch.object(PluginRegistry, "get", return_value=registry):
         df = DataFrame.read_dataset("csv-data", project_path=tmp_path)
         assert list(df.data.columns) == ["custom"]
+
+
+def test_to_csv_uses_format_writer(tmp_path):
+    """When a format handler matches, it handles the write."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs: []\n"
+        "outputs:\n"
+        "  - name: Fake Output\n"
+        "    slug: fake-output\n"
+        "    location: outputs/data.fake\n"
+        "    fields:\n"
+        "      - name: x\n"
+        "        type: integer\n"
+    )
+    (tmp_path / "outputs").mkdir()
+
+    write_called = []
+
+    class TrackingFormatHandler:
+        def can_read(self, path, format):
+            return path.suffix == ".fake"
+
+        def read(self, path, **kwargs):
+            return pd.DataFrame()
+
+        def can_write(self, path, format):
+            return path.suffix == ".fake"
+
+        def write(self, df, path, **kwargs):
+            write_called.append(path)
+            df.to_csv(path)
+
+    registry = PluginRegistry()
+    registry._format_handlers.append(TrackingFormatHandler())
+
+    df = DataFrame(data=pd.DataFrame({"x": [1, 2, 3]}), project_path=tmp_path)
+
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.dataframe.compute_dataframe_hash", return_value="abc123"),
+        patch("sunstone.context.detect_execution_context", side_effect=_mock_execution_context),
+    ):
+        df.to_csv("outputs/data.fake", index=False)
+
+    assert len(write_called) == 1
+    assert write_called[0].name == "data.fake"
 
 
 def test_fetch_from_url_uses_url_handler(dataset_with_url):

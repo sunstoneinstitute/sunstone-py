@@ -489,10 +489,20 @@ class DataFrame:
                 # Register the new output
                 dataset = manager.add_output_dataset(name=name, slug=slug, location=location, fields=fields)
 
-        # Write the CSV
+        # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
-        self.data.to_csv(absolute_path, **pandas_kwargs)
+
+        # Check if a format handler plugin can write this file
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        format_writer = registry.find_format_writer(absolute_path, None)
+
+        if format_writer:
+            format_writer.write(self.data, absolute_path, **pandas_kwargs)
+        else:
+            self.data.to_csv(absolute_path, **pandas_kwargs)
 
         # Compute content hash for change detection
         content_hash = compute_dataframe_hash(self.data)
