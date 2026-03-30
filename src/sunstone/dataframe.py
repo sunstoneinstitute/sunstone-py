@@ -274,8 +274,14 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Read the CSV using pandas
-        df = pd.read_csv(absolute_path, **kwargs)
+        # Read via format handler registry
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        format_handler = registry.find_format_reader(absolute_path, "csv")
+        if format_handler is None:
+            raise ValueError("No format handler found for CSV files")
+        df = format_handler.read(absolute_path, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -374,8 +380,14 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Read the Excel file using pandas
-        df = pd.read_excel(absolute_path, **kwargs)
+        # Read via format handler registry
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        format_handler = registry.find_format_reader(absolute_path, "excel")
+        if format_handler is None:
+            raise ValueError("No format handler found for Excel files")
+        df = format_handler.read(absolute_path, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))

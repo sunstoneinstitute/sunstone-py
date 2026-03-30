@@ -626,3 +626,17 @@ def test_fetch_from_url_uses_url_handler(dataset_with_url):
         assert len(fetched_urls) == 1
         assert fetched_urls[0] == "https://example.com/test.csv"
         assert result.exists()
+
+
+def test_read_csv_by_path_uses_registry(tmp_path):
+    """read_csv with a file path routes through the format handler registry."""
+    datasets_yaml = tmp_path / "datasets.yaml"
+    datasets_yaml.write_text(
+        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+    )
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n")
+
+    # This should work via the builtin format handler in the registry
+    df = DataFrame.read_csv("inputs/data.csv", project_path=tmp_path)
+    assert list(df.data.columns) == ["a", "b"]
