@@ -153,10 +153,11 @@ class PluginRegistry:
                 logger.exception("Failed to load plugin '%s'", ep.name)
 
         # Internal handlers last (fallback)
-        from .handlers import BuiltinFormatHandler, HttpURLHandler
+        from .handlers import BuiltinFormatHandler, HttpURLHandler, LocalFileHandler
 
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]  # TODO: update in Task 4
         self._url_handlers.append(HttpURLHandler())  # type: ignore[arg-type]  # TODO: update in Task 5
+        self._url_handlers.append(LocalFileHandler())  # type: ignore[arg-type]  # last fallback
 
     def _register(self, name: str, plugin: object) -> None:
         """Classify plugin by protocol conformance."""

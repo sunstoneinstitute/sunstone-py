@@ -8,7 +8,7 @@ import ipaddress
 import logging
 import socket
 from pathlib import Path
-from typing import Callable
+from typing import BinaryIO, Callable, TextIO
 from urllib.parse import urljoin, urlparse
 
 import pandas as pd
@@ -172,3 +172,28 @@ class HttpURLHandler:
 
         logger.info("Successfully saved to %s (%d bytes)", dest, len(response.content))
         return dest
+
+
+_REMOTE_SCHEMES = {"http", "https", "gs", "s3", "r2"}
+
+
+class LocalFileHandler:
+    """Handles local filesystem paths and file:// URLs."""
+
+    def can_handle(self, url: str) -> bool:
+        parsed = urlparse(url)
+        return parsed.scheme in ("", "file") and parsed.scheme not in _REMOTE_SCHEMES
+
+    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
+        import builtins as _builtins
+
+        parsed = urlparse(url)
+        if parsed.scheme == "file":
+            path = Path(parsed.path)
+        else:
+            path = Path(url)
+
+        if "w" in mode:
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+        return _builtins.open(path, mode)  # type: ignore[return-value]

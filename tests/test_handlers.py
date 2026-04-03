@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler
+from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler, LocalFileHandler
 
 
 @pytest.fixture
@@ -210,6 +210,72 @@ class TestHttpURLHandlerFetch:
         ):
             with pytest.raises(ValueError, match="Too many redirects"):
                 http_handler.fetch("https://example.com/data.csv", dest)
+
+
+@pytest.fixture
+def local_handler():
+    return LocalFileHandler()
+
+
+class TestLocalFileHandlerCanHandle:
+    def test_bare_relative_path(self, local_handler):
+        assert local_handler.can_handle("data.csv")
+
+    def test_bare_absolute_path(self, local_handler):
+        assert local_handler.can_handle("/tmp/data.csv")
+
+    def test_file_scheme(self, local_handler):
+        assert local_handler.can_handle("file:///tmp/data.csv")
+
+    def test_http_scheme(self, local_handler):
+        assert not local_handler.can_handle("http://example.com/data.csv")
+
+    def test_gs_scheme(self, local_handler):
+        assert not local_handler.can_handle("gs://bucket/data.csv")
+
+    def test_s3_scheme(self, local_handler):
+        assert not local_handler.can_handle("s3://bucket/data.csv")
+
+    def test_r2_scheme(self, local_handler):
+        assert not local_handler.can_handle("r2://bucket/data.csv")
+
+
+class TestLocalFileHandlerOpen:
+    def test_read_binary(self, local_handler, tmp_path):
+        f = tmp_path / "data.csv"
+        f.write_bytes(b"a,b\n1,2\n")
+        with local_handler.open(str(f), "rb") as stream:
+            assert stream.read() == b"a,b\n1,2\n"
+
+    def test_read_text(self, local_handler, tmp_path):
+        f = tmp_path / "data.csv"
+        f.write_text("a,b\n1,2\n")
+        with local_handler.open(str(f), "r") as stream:
+            assert stream.read() == "a,b\n1,2\n"
+
+    def test_write_binary(self, local_handler, tmp_path):
+        f = tmp_path / "out.csv"
+        with local_handler.open(str(f), "wb") as stream:
+            stream.write(b"a,b\n1,2\n")
+        assert f.read_bytes() == b"a,b\n1,2\n"
+
+    def test_write_text(self, local_handler, tmp_path):
+        f = tmp_path / "out.csv"
+        with local_handler.open(str(f), "w") as stream:
+            stream.write("a,b\n1,2\n")
+        assert f.read_text() == "a,b\n1,2\n"
+
+    def test_file_scheme(self, local_handler, tmp_path):
+        f = tmp_path / "data.csv"
+        f.write_bytes(b"a,b\n1,2\n")
+        with local_handler.open(f"file://{f}", "rb") as stream:
+            assert stream.read() == b"a,b\n1,2\n"
+
+    def test_creates_parent_dirs_on_write(self, local_handler, tmp_path):
+        f = tmp_path / "sub" / "dir" / "out.csv"
+        with local_handler.open(str(f), "wb") as stream:
+            stream.write(b"data")
+        assert f.read_bytes() == b"data"
 
 
 def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
