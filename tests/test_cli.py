@@ -14,6 +14,80 @@ from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, e
 from sunstone.lineage import Contributor, PackageMetadata
 
 
+import contextlib
+import io
+
+
+class _MockURLHandler:
+    """A mock URL handler that captures all writes for test assertions.
+
+    Usage::
+
+        handler = _MockURLHandler()
+        with handler.patch():
+            # run CLI commands that call push_group
+            ...
+        # inspect handler.uploaded_text, handler.uploaded_bytes, handler.uploaded_blobs
+    """
+
+    def __init__(self) -> None:
+        self.uploaded_text: dict[str, str] = {}
+        self.uploaded_bytes: dict[str, bytes] = {}
+        self.uploaded_blobs: list[str] = []
+
+    def can_handle(self, url: str) -> bool:
+        return True
+
+    def open(self, url: str, mode: str = "rb") -> io.IOBase:
+        if mode == "w":
+            return self._TextCapture(self, url)
+        elif mode == "wb":
+            return self._BytesCapture(self, url)
+        raise NotImplementedError(f"Mode {mode!r} not supported by _MockURLHandler")
+
+    class _TextCapture(io.StringIO):
+        def __init__(self, handler: "_MockURLHandler", url: str) -> None:
+            super().__init__()
+            self._handler = handler
+            self._url = url
+
+        def close(self) -> None:
+            content = self.getvalue()
+            # Extract blob path from URL
+            from urllib.parse import urlparse
+
+            parsed = urlparse(self._url)
+            blob_path = parsed.path.lstrip("/")
+            self._handler.uploaded_text[blob_path] = content
+            self._handler.uploaded_blobs.append(blob_path)
+            super().close()
+
+    class _BytesCapture(io.BytesIO):
+        def __init__(self, handler: "_MockURLHandler", url: str) -> None:
+            super().__init__()
+            self._handler = handler
+            self._url = url
+
+        def close(self) -> None:
+            content = self.getvalue()
+            from urllib.parse import urlparse
+
+            parsed = urlparse(self._url)
+            blob_path = parsed.path.lstrip("/")
+            self._handler.uploaded_bytes[blob_path] = content
+            self._handler.uploaded_blobs.append(blob_path)
+            super().close()
+
+    @contextlib.contextmanager
+    def patch(self):
+        """Context manager that patches PluginRegistry to return this handler."""
+        mock_registry = MagicMock()
+        mock_registry.find_url_handler.return_value = self
+        with patch("sunstone.packaging.PluginRegistry") as MockPR:
+            MockPR.get.return_value = mock_registry
+            yield self
+
+
 @pytest.fixture
 def runner() -> CliRunner:
     """Create a Click CLI test runner."""
@@ -657,14 +731,8 @@ class TestPackagePushCommand:
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
-        # Mock GCS client
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
             assert "datapackage.json" in result.output
@@ -677,22 +745,17 @@ class TestPackagePushCommand:
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
-        # Mock GCS client
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(
                 app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
             )
             assert result.exit_code == 0
-            mock_client.bucket.assert_called_with("my-bucket")
+            # Verify uploads went to the custom bucket path
+            assert any("custom/datapackage.json" in b for b in handler.uploaded_blobs)
 
     def test_push_invalid_destination_scheme(self, runner: CliRunner, test_project: Path) -> None:
-        """Test push with non-gs:// destination fails."""
+        """Test push with a destination that doesn't support writes fails."""
         # Create the output file
         output_dir = test_project / "outputs"
         output_dir.mkdir(exist_ok=True)
@@ -702,10 +765,9 @@ class TestPackagePushCommand:
             app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "https://example.com/"]
         )
         assert result.exit_code != 0
-        assert "gs://" in result.output
 
     def test_push_with_as_url(self, runner: CliRunner, test_project: Path) -> None:
-        """Test that as_url produces public URLs in datapackage.json while uploads go to GCS."""
+        """Test that as_url produces public URLs in datapackage.json while uploads go to destination."""
         import json
 
         # Create the output file
@@ -722,30 +784,19 @@ class TestPackagePushCommand:
         )
         yaml_path.write_text(content)
 
-        # Mock GCS client and capture uploaded datapackage content
-        uploaded_content = {}
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        def capture_upload(content: str, content_type: str | None = None) -> None:
-            uploaded_content["datapackage"] = content
-
-        mock_blob.upload_from_string.side_effect = capture_upload
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify datapackage.json has public URLs
-            datapackage = json.loads(uploaded_content["datapackage"])
+            dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+            datapackage = json.loads(handler.uploaded_text[dp_path])
             resource_path = datapackage["resources"][0]["path"]
             assert resource_path == "https://data.example.com/un-members/outputs/current_un_member_states.csv"
 
-            # Verify uploads went to GCS
-            mock_client.bucket.assert_called_with("example-bucket")
+            # Verify uploads went to GCS bucket path
+            assert any("datasets/un-members/" in b for b in handler.uploaded_blobs)
 
     def test_push_uploads_methodology_file(self, runner: CliRunner, test_project: Path) -> None:
         """Test that push uploads the methodology file referenced by si:methodology."""
@@ -769,42 +820,19 @@ class TestPackagePushCommand:
         )
         yaml_path.write_text(content)
 
-        # Mock GCS client and track blob paths
-        uploaded_blobs: list[str] = []
-        uploaded_content: dict[str, str] = {}
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-
-        def make_blob(path: str) -> MagicMock:
-            blob = MagicMock()
-            blob.name = path
-
-            def capture_string(content: str, content_type: str | None = None) -> None:
-                uploaded_blobs.append(path)
-                uploaded_content[path] = content
-
-            def capture_file(filename: str) -> None:
-                uploaded_blobs.append(path)
-
-            blob.upload_from_string.side_effect = capture_string
-            blob.upload_from_filename.side_effect = capture_file
-            return blob
-
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.side_effect = make_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify methodology file was uploaded
             assert any(
-                "DATA_METHODOLOGY.md" in b for b in uploaded_blobs
-            ), f"Methodology file not uploaded. Uploaded blobs: {uploaded_blobs}"
+                "DATA_METHODOLOGY.md" in b for b in handler.uploaded_blobs
+            ), f"Methodology file not uploaded. Uploaded blobs: {handler.uploaded_blobs}"
 
             # Verify datapackage.json contains expanded methodology key
-            dp_path = [b for b in uploaded_blobs if "datapackage.json" in b][0]
-            datapackage = json.loads(uploaded_content[dp_path])
+            dp_path = [b for b in handler.uploaded_text if "datapackage.json" in b][0]
+            datapackage = json.loads(handler.uploaded_text[dp_path])
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
 
@@ -832,28 +860,13 @@ class TestPackagePushCommand:
         )
         yaml_path.write_text(content)
 
-        uploaded_content: dict[str, str] = {}
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-
-        def make_blob(path: str) -> MagicMock:
-            blob = MagicMock()
-
-            def capture_string(content: str, content_type: str | None = None) -> None:
-                uploaded_content[path] = content
-
-            blob.upload_from_string.side_effect = capture_string
-            return blob
-
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.side_effect = make_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
-            dp_path = [k for k in uploaded_content if "datapackage.json" in k][0]
-            datapackage = json.loads(uploaded_content[dp_path])
+            dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+            datapackage = json.loads(handler.uploaded_text[dp_path])
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/report/DATA_METHODOLOGY.md"
@@ -882,41 +895,20 @@ class TestPackagePushCommand:
         )
         yaml_path.write_text(content)
 
-        uploaded_blobs: list[str] = []
-        uploaded_content: dict[str, str] = {}
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-
-        def make_blob(path: str) -> MagicMock:
-            blob = MagicMock()
-
-            def capture_string(content: str, content_type: str | None = None) -> None:
-                uploaded_blobs.append(path)
-                uploaded_content[path] = content
-
-            def capture_file(filename: str) -> None:
-                uploaded_blobs.append(path)
-
-            blob.upload_from_string.side_effect = capture_string
-            blob.upload_from_filename.side_effect = capture_file
-            return blob
-
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.side_effect = make_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
             assert result.exit_code == 0, result.output
 
             # Methodology file should be uploaded with flattened path (just filename)
-            methodology_blobs = [b for b in uploaded_blobs if "DATA_METHODOLOGY.md" in b]
+            methodology_blobs = [b for b in handler.uploaded_blobs if "DATA_METHODOLOGY.md" in b]
             assert len(methodology_blobs) == 1
             # Should be "datasets/un-members/DATA_METHODOLOGY.md", not "datasets/un-members/report/DATA_METHODOLOGY.md"
             assert methodology_blobs[0] == "datasets/un-members/DATA_METHODOLOGY.md"
 
             # datapackage.json should have flattened methodology URL
-            dp_path = [k for k in uploaded_content if "datapackage.json" in k][0]
-            datapackage = json.loads(uploaded_content[dp_path])
+            dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+            datapackage = json.loads(handler.uploaded_text[dp_path])
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/DATA_METHODOLOGY.md"
@@ -967,20 +959,14 @@ class TestIsLfsPointer:
             "size 12345\n"
         )
 
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code != 0
-            assert "Git LFS pointers" in result.output
+            assert "LFS pointers" in result.output
             assert "git lfs pull" in result.output
             # Verify no uploads happened
-            mock_blob.upload_from_string.assert_not_called()
-            mock_blob.upload_from_filename.assert_not_called()
+            assert len(handler.uploaded_blobs) == 0
 
 
 class TestPublishConfigParsing:
@@ -1272,21 +1258,15 @@ class TestPerDatasetPublish:
         (tmp_path / "a.csv").write_text("col\nval")
         (tmp_path / "b.csv").write_text("col\nval")
 
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(yaml_file)])
             assert result.exit_code == 0
             assert "Pushed to 2 destination(s)" in result.output
 
             # Verify both datapackage.json paths were uploaded
-            blob_calls = [call[0][0] for call in mock_bucket.blob.call_args_list]
-            assert "a/datapackage.json" in blob_calls
-            assert "b/datapackage.json" in blob_calls
+            assert any("a/datapackage.json" in b for b in handler.uploaded_blobs)
+            assert any("b/datapackage.json" in b for b in handler.uploaded_blobs)
 
     def test_publish_not_in_custom_properties(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test that per-dataset publish config doesn't leak into custom_properties."""
@@ -1458,23 +1438,13 @@ class TestBuildDatapackageWithPackageMetadata:
         output_dir.mkdir(exist_ok=True)
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
-        uploaded_content: dict[str, str] = {}
-        mock_client = MagicMock()
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_client.bucket.return_value = mock_bucket
-        mock_bucket.blob.return_value = mock_blob
-
-        def capture_upload(content: str, content_type: str | None = None) -> None:
-            uploaded_content["datapackage"] = content
-
-        mock_blob.upload_from_string.side_effect = capture_upload
-
-        with patch("google.cloud.storage.Client", return_value=mock_client):
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
 
-            dp = json.loads(uploaded_content["datapackage"])
+            dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+            dp = json.loads(handler.uploaded_text[dp_path])
             assert dp["title"] == "UN Member States Dataset"
             assert dp["version"] == "1.0.0"
             assert dp["license"] == "CC-BY-4.0"
@@ -1711,27 +1681,17 @@ class TestParquetResourceSupport:
 
     def test_package_push_parquet_uploads_file(self, runner: CliRunner, parquet_project: Path) -> None:
         """package push uploads Parquet files when publish is configured."""
-        from unittest.mock import MagicMock, patch
-
-        mock_bucket = MagicMock()
-        mock_blob = MagicMock()
-        mock_bucket.blob.return_value = mock_blob
-
-        with patch("google.cloud.storage.Client") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client_cls.return_value = mock_client
-            mock_client.bucket.return_value = mock_bucket
-
+        handler = _MockURLHandler()
+        with handler.patch():
             result = runner.invoke(
                 app,
                 ["package", "push", "-f", str(parquet_project / "datasets.yaml")],
             )
 
         assert result.exit_code == 0, f"Command failed: {result.output}"
-        # Verify upload_from_filename was called for the Parquet file
-        upload_calls = mock_blob.upload_from_filename.call_args_list
-        parquet_calls = [c for c in upload_calls if str(c.args[0]).endswith(".parquet")]
-        assert len(parquet_calls) >= 1, f"Expected at least one Parquet upload, got: {upload_calls}"
+        # Verify a Parquet file was uploaded
+        parquet_blobs = [b for b in handler.uploaded_blobs if b.endswith(".parquet")]
+        assert len(parquet_blobs) >= 1, f"Expected at least one Parquet upload, got: {handler.uploaded_blobs}"
 
     def test_parquet_resource_has_rdf_type(self, parquet_project: Path) -> None:
         """Parquet resource dict includes the DCAT Distribution RDF type."""

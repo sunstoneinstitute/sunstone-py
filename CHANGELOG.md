@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: `sunstone.packaging` module with reusable `push_group()` and `is_lfs_pointer()` for programmatic package uploads
+- Changed: `package push` CLI now delegates to `packaging.push_group()` using URLHandler plugins instead of hardcoded GCS client
 - Added: Plugin system with AuthProvider, URLHandler, and FormatHandler protocols
 - Added: Plugin discovery via Python entry points (`sunstone.plugins` group)
 - Added: Cascading plugin config from pyproject.toml, datasets.yaml, and environment variables

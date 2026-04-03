@@ -8,7 +8,7 @@ import re
 import sys
 import tomllib
 from enum import Enum
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -953,20 +953,11 @@ def package_build(
 def is_lfs_pointer(file_path: Path) -> bool:
     """Check if a file is a Git LFS pointer file instead of actual content.
 
-    LFS pointer files are small text files with a specific format:
-        version https://git-lfs.github.com/spec/v1
-        oid sha256:<hash>
-        size <size>
+    Delegates to :func:`sunstone.packaging.is_lfs_pointer`.
     """
-    try:
-        # LFS pointers are always small (< 200 bytes typically)
-        if file_path.stat().st_size > 1024:
-            return False
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return content.startswith("version https://git-lfs.github.com/spec/v1\n")
-    except (OSError, UnicodeDecodeError):
-        return False
+    from .packaging import is_lfs_pointer as _is_lfs_pointer
+
+    return _is_lfs_pointer(file_path)
 
 
 def push_group_to_gcs(
@@ -977,84 +968,28 @@ def push_group_to_gcs(
     publish_config: PublishConfig,
 ) -> None:
     """
-    Push a group of datasets to a single GCS destination.
+    Push a group of datasets to a remote destination.
+
+    Delegates core logic to :func:`sunstone.packaging.push_group` and
+    prints progress output for the CLI.
 
     Args:
-        dest_url: The GCS destination URL (gs://...).
+        dest_url: The destination URL (gs://, s3://, r2://, etc.).
         datasets: The datasets to include in this datapackage.
         manager: The DatasetsManager instance.
         project_slug: The project slug for the datapackage name.
         publish_config: The effective publish config for this group.
     """
-    from google.cloud import storage  # type: ignore[import-untyped]
+    from .packaging import push_group
 
-    parsed = urlparse(dest_url)
-    if parsed.scheme != "gs":
-        typer.echo(f"Error: Destination must be a gs:// URL, got: {dest_url}", err=True)
-        sys.exit(1)
+    # Prepare package metadata callback
+    def package_metadata_fn() -> Optional[dict[str, Any]]:
+        pkg_meta = manager.get_package_metadata()
+        if pkg_meta:
+            return _package_metadata_to_dict(pkg_meta)
+        return None
 
-    # Resolve datapackage.json path and base directory
-    if not dest_url.endswith(".json"):
-        if not dest_url.endswith("/"):
-            dest_url += "/"
-        datapackage_url = dest_url + "datapackage.json"
-    else:
-        datapackage_url = dest_url
-
-    parsed = urlparse(datapackage_url)
-    bucket_name = parsed.netloc
-    datapackage_path = parsed.path.lstrip("/")
-
-    base_dir = str(PurePosixPath(datapackage_path).parent)
-    if base_dir and base_dir != ".":
-        base_dir = base_dir + "/"
-    else:
-        base_dir = ""
-
-    resources = []
-    data_files: list[tuple[Path, str, str]] = []
-
-    for ds in datasets:
-        resource_dict = build_resource_dict(ds, manager, publish_config)
-        if not resource_dict:
-            continue
-
-        data_path = manager.get_absolute_path(ds.location)
-        if publish_config.flatten:
-            remote_path = base_dir + data_path.name
-            resource_path = data_path.name
-        else:
-            remote_path = base_dir + ds.location
-            resource_path = ds.location
-
-        resources.append(resource_dict)
-        data_files.append((data_path, remote_path, resource_path))
-
-    if not resources:
-        typer.echo(f"Warning: No resources for destination: {dest_url}", err=True)
-        return
-
-    # Guard: check for LFS pointer files before uploading
-    lfs_pointers = [resource_path for local_path, _, resource_path in data_files if is_lfs_pointer(local_path)]
-    if lfs_pointers:
-        typer.echo("Error: The following files are Git LFS pointers, not actual content:", err=True)
-        for p in lfs_pointers:
-            typer.echo(f"  - {p}", err=True)
-        typer.echo("Run 'git lfs pull' to download the actual files before pushing.", err=True)
-        sys.exit(1)
-
-    datapackage: dict[str, Any] = {
-        "name": project_slug,
-        f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
-        "resources": resources,
-    }
-
-    # Add standard package metadata (title, description, etc.)
-    pkg_meta = manager.get_package_metadata()
-    if pkg_meta:
-        datapackage.update(_package_metadata_to_dict(pkg_meta))
-
-    # Add top-level custom properties with RDF prefix expansion
+    # Prepare top-level properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
     rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
     as_url = publish_config.as_url
@@ -1062,36 +997,41 @@ def push_group_to_gcs(
         top_level_props = expand_custom_properties(
             top_level_props, rdf_prefixes, base_url=as_url, flatten=publish_config.flatten
         )
-    datapackage.update(top_level_props)
 
     # Collect methodology files for upload
     methodology_files = collect_methodology_files(
         datasets, manager.get_top_level_custom_properties(), rdf_prefixes, manager, as_url
     )
 
-    client = storage.Client()
-    bucket = client.bucket(bucket_name)
+    try:
+        uploaded = push_group(
+            dest_url=dest_url,
+            datasets=datasets,
+            manager=manager,
+            project_slug=project_slug,
+            publish_config=publish_config,
+            build_resource_dict_fn=build_resource_dict,
+            package_metadata_fn=package_metadata_fn,
+            rdf_prefixes=rdf_prefixes,
+            top_level_props=top_level_props or {},
+            methodology_files=methodology_files,
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
-    datapackage_blob = bucket.blob(datapackage_path)
-    datapackage_blob.upload_from_string(json.dumps(datapackage, indent=2), content_type="application/json")
-    typer.echo(f"✓ Uploaded {datapackage_path}")
+    if not uploaded:
+        typer.echo(f"Warning: No resources for destination: {dest_url}", err=True)
+        return
 
-    for local_path, remote_path, resource_path in data_files:
-        data_blob = bucket.blob(remote_path)
-        data_blob.upload_from_filename(str(local_path))
-        typer.echo(f"✓ Uploaded {resource_path}")
+    for path in uploaded:
+        typer.echo(f"✓ Uploaded {path}")
 
-    # Upload methodology files alongside resources
-    for abs_path, _resolved_uri in methodology_files:
-        if publish_config.flatten:
-            methodology_remote = base_dir + abs_path.name
-        else:
-            methodology_remote = base_dir + abs_path.relative_to(manager.project_path).as_posix()
-        methodology_blob = bucket.blob(methodology_remote)
-        methodology_blob.upload_from_filename(str(abs_path))
-        typer.echo(f"✓ Uploaded {methodology_remote}")
-
-    typer.echo(f"✓ Package pushed to: gs://{bucket_name}/{base_dir}")
+    # Determine the base URL for the final summary
+    parsed = urlparse(dest_url)
+    typer.echo(
+        f"✓ Package pushed to: {parsed.scheme}://{parsed.netloc}/{uploaded[0].rsplit('/', 1)[0] + '/' if '/' in uploaded[0] else ''}"
+    )
 
 
 class EnvChoice(str, Enum):
