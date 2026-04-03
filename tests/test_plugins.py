@@ -41,16 +41,16 @@ class FakeURLHandler:
 
 class FakeFormatHandler:
     def can_read(self, path, format):
-        return path.suffix == ".fake"
+        return str(path).endswith(".fake")
 
-    def read(self, path, **kwargs):
-        return pd.DataFrame({"x": [1, 2, 3]})
+    def read(self, stream, **kwargs):
+        return pd.read_csv(stream)
 
     def can_write(self, path, format):
-        return path.suffix == ".fake"
+        return str(path).endswith(".fake")
 
-    def write(self, df, path, **kwargs):
-        df.to_csv(path)
+    def write(self, df, stream, **kwargs):
+        df.to_csv(stream)
 
 
 class PartialFormatHandler:
@@ -59,7 +59,7 @@ class PartialFormatHandler:
     def can_read(self, path, format):
         return True
 
-    def read(self, path, **kwargs):
+    def read(self, stream, **kwargs):
         return pd.DataFrame()
 
 
@@ -196,15 +196,15 @@ def test_external_plugin_takes_priority_over_builtin():
 
     class ExternalCSVHandler:
         def can_read(self, path, format):
-            return path.suffix == ".csv"
+            return str(path).endswith(".csv")
 
-        def read(self, path, **kwargs):
+        def read(self, stream, **kwargs):
             return pd.DataFrame({"external": [True]})
 
         def can_write(self, path, format):
-            return path.suffix == ".csv"
+            return str(path).endswith(".csv")
 
-        def write(self, df, path, **kwargs):
+        def write(self, df, stream, **kwargs):
             pass
 
     with patch(
@@ -488,7 +488,7 @@ def project_with_fake_format(tmp_path):
         "inputs:\n" "  - name: Fake Data\n" "    slug: fake-data\n" "    location: inputs/data.fake\n" "outputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
-    (tmp_path / "inputs" / "data.fake").write_text("custom format content")
+    (tmp_path / "inputs" / "data.fake").write_text("x\n1\n2\n3\n")
     return tmp_path
 
 
@@ -531,15 +531,15 @@ def test_read_dataset_plugin_overrides_builtin(tmp_path):
 
     class CustomCSVHandler:
         def can_read(self, path, format):
-            return path.suffix == ".csv"
+            return str(path).endswith(".csv")
 
-        def read(self, path, **kwargs):
+        def read(self, stream, **kwargs):
             return pd.DataFrame({"custom": [True]})
 
         def can_write(self, path, format):
             return False
 
-        def write(self, df, path, **kwargs):
+        def write(self, df, stream, **kwargs):
             pass
 
     registry = PluginRegistry()
@@ -569,17 +569,17 @@ def test_to_csv_uses_format_writer(tmp_path):
 
     class TrackingFormatHandler:
         def can_read(self, path, format):
-            return path.suffix == ".fake"
+            return str(path).endswith(".fake")
 
-        def read(self, path, **kwargs):
+        def read(self, stream, **kwargs):
             return pd.DataFrame()
 
         def can_write(self, path, format):
-            return path.suffix == ".fake"
+            return str(path).endswith(".fake")
 
-        def write(self, df, path, **kwargs):
-            write_called.append(path)
-            df.to_csv(path)
+        def write(self, df, stream, **kwargs):
+            write_called.append(stream)
+            df.to_csv(stream)
 
     registry = PluginRegistry()
     registry._format_handlers.append(TrackingFormatHandler())

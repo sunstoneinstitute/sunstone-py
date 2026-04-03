@@ -173,7 +173,7 @@ class DataFrame:
                 + ". Install a plugin or check the file extension."
             )
 
-        df = format_handler.read(absolute_path, **kwargs)
+        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -281,7 +281,7 @@ class DataFrame:
         format_handler = registry.find_format_reader(absolute_path, "csv")
         if format_handler is None:
             raise ValueError("No format handler found for CSV files")
-        df = format_handler.read(absolute_path, **kwargs)
+        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -387,7 +387,7 @@ class DataFrame:
         format_handler = registry.find_format_reader(absolute_path, "excel")
         if format_handler is None:
             raise ValueError("No format handler found for Excel files")
-        df = format_handler.read(absolute_path, **kwargs)
+        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -485,7 +485,7 @@ class DataFrame:
         format_writer = registry.find_format_writer(absolute_path, None)
 
         if format_writer:
-            format_writer.write(self.data, absolute_path, **pandas_kwargs)
+            format_writer.write(self.data, absolute_path, **pandas_kwargs)  # type: ignore[arg-type]  # TODO: update in Task 8
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 

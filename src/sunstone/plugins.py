@@ -51,22 +51,22 @@ class URLHandler(Protocol):
 
 @runtime_checkable
 class FormatHandler(Protocol):
-    """Reads and writes data formats not built into sunstone."""
+    """Reads and writes data formats."""
 
-    def can_read(self, path: Path, format: str | None) -> bool:
-        """Return True if this handler can read the given file/format."""
+    def can_read(self, path: str, format: str | None) -> bool:
+        """Return True if this handler can read the given format. path is used for extension detection."""
         ...
 
-    def read(self, path: Path, **kwargs: object) -> pd.DataFrame:
-        """Read file into a pandas DataFrame."""
+    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
+        """Read stream into a pandas DataFrame."""
         ...
 
-    def can_write(self, path: Path, format: str | None) -> bool:
-        """Return True if this handler can write the given file/format."""
+    def can_write(self, path: str, format: str | None) -> bool:
+        """Return True if this handler can write the given format. path is used for extension detection."""
         ...
 
-    def write(self, df: pd.DataFrame, path: Path, **kwargs: object) -> None:
-        """Write DataFrame to file."""
+    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+        """Write DataFrame to stream."""
         ...
 
 
@@ -155,7 +155,7 @@ class PluginRegistry:
         # Internal handlers last (fallback)
         from .handlers import BuiltinFormatHandler, HttpURLHandler
 
-        self._format_handlers.append(BuiltinFormatHandler())
+        self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]  # TODO: update in Task 4
         self._url_handlers.append(HttpURLHandler())  # type: ignore[arg-type]  # TODO: update in Task 5
 
     def _register(self, name: str, plugin: object) -> None:
@@ -192,17 +192,19 @@ class PluginRegistry:
                 return handler
         return None
 
-    def find_format_reader(self, path: Path, format: str | None) -> FormatHandler | None:
+    def find_format_reader(self, path: Path | str, format: str | None) -> FormatHandler | None:
         """Find the first format handler that can read the given file."""
+        path_str = str(path)
         for handler in self._format_handlers:
-            if handler.can_read(path, format):
+            if handler.can_read(path_str, format):
                 return handler
         return None
 
-    def find_format_writer(self, path: Path, format: str | None) -> FormatHandler | None:
+    def find_format_writer(self, path: Path | str, format: str | None) -> FormatHandler | None:
         """Find the first format handler that can write the given file."""
+        path_str = str(path)
         for handler in self._format_handlers:
-            if handler.can_write(path, format):
+            if handler.can_write(path_str, format):
                 return handler
         return None
 
