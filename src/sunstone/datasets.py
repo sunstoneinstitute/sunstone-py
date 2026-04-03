@@ -663,8 +663,8 @@ class DatasetsManager:
         """
         Fetch a dataset from its source URL if available.
 
-        Delegates to URL handler plugins. Auth plugins inject headers
-        into the handler before fetching.
+        .. deprecated::
+            Use ``PluginRegistry.get().fetch(url, dest)`` instead.
 
         Args:
             dataset: The dataset metadata containing source URL.
@@ -677,8 +677,15 @@ class DatasetsManager:
 
         Raises:
             ValueError: If dataset has no source URL or no handler matches.
-            requests.RequestException: If the fetch fails.
         """
+        import warnings
+
+        warnings.warn(
+            "fetch_from_url is deprecated. Use PluginRegistry.get().fetch(url, dest) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if not dataset.source or not dataset.source.location.data:
             raise ValueError(f"Dataset '{dataset.slug}' has no source URL")
 
@@ -691,7 +698,13 @@ class DatasetsManager:
 
         url = dataset.source.location.data
 
+        from urllib.parse import urlparse as _urlparse
+
         from .plugins import PluginRegistry
+
+        _scheme = _urlparse(url).scheme
+        if _scheme not in ("http", "https", "gs", "s3", "r2"):
+            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
 
         registry = PluginRegistry.get()
         url_handler = registry.find_url_handler(url)
@@ -705,6 +718,4 @@ class DatasetsManager:
                 url_handler.headers = auth.authenticate(url, url_handler.headers, dataset)
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        with url_handler.open(url, "rb") as stream:  # type: ignore[attr-defined]
-            local_path.write_bytes(stream.read())
-        return local_path
+        return registry.fetch(url, local_path)
