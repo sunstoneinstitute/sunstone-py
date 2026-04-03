@@ -60,9 +60,12 @@ class BuiltinFormatHandler:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _READER_MAP
 
-    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
+    def read(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
+        # If stream is actually a Path (pre-Task-7 call site), use it for format detection
+        if isinstance(stream, Path) and path is None:
+            path = stream
         if fmt is None and path is not None:
             fmt = self._resolve_format(str(path), None)
         if fmt is None:

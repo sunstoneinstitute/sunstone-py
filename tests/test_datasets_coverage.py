@@ -6,11 +6,12 @@ add/update operations, lineage strict mode, and fetch_from_url.
 """
 
 import socket
+import urllib.error
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import requests
 from ruamel.yaml import YAML
 
 from sunstone.datasets import DatasetsManager
@@ -392,8 +393,8 @@ class TestFetchFromUrl:
         mgr = DatasetsManager(project_copy)
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
         with patch("sunstone.handlers._is_public_url", return_value=True):
-            with patch("sunstone.handlers.requests.get", side_effect=requests.Timeout("timed out")):
-                with pytest.raises(requests.Timeout):
+            with patch("sunstone.handlers.urlopen", side_effect=socket.timeout("timed out")):
+                with pytest.raises(socket.timeout):
                     mgr.fetch_from_url(dataset, force=True)
 
     def test_request_exception_propagates(self, project_copy: Path) -> None:
@@ -402,8 +403,8 @@ class TestFetchFromUrl:
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
         with patch("sunstone.handlers._is_public_url", return_value=True):
             with patch(
-                "sunstone.handlers.requests.get",
-                side_effect=requests.ConnectionError("connection failed"),
+                "sunstone.handlers.urlopen",
+                side_effect=urllib.error.URLError("connection failed"),
             ):
-                with pytest.raises(requests.ConnectionError):
+                with pytest.raises(urllib.error.URLError):
                     mgr.fetch_from_url(dataset, force=True)
