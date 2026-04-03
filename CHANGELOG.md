@@ -12,6 +12,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Changed: HTTP URL fetching now handled by internal HttpURLHandler plugin
 - Added: LocalFileHandler plugin for local filesystem paths and file:// URLs, registered as last fallback in URL handler chain
 - Changed: HttpURLHandler now uses stdlib urllib.request instead of requests library, with stream-based open() interface
+- Changed: Read pipeline in dataframe.py now routes through URLHandler.open() → stream → FormatHandler.read() instead of passing Path directly
+- Changed: LocalFileHandler is always registered in PluginRegistry (not only during plugin discovery)
 
 ## [1.3.1] - 2026-03-26
 - Fixed: Use `as_posix()` for `script_path` in datasets.yaml to avoid backslashes on Windows CI

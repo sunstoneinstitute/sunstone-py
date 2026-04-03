@@ -129,7 +129,9 @@ class PluginRegistry:
 
     def __init__(self) -> None:
         self._auth_providers: list[AuthProvider] = []
-        self._url_handlers: list[URLHandler] = []
+        from .handlers import LocalFileHandler
+
+        self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
 
     @classmethod
@@ -153,11 +155,11 @@ class PluginRegistry:
                 logger.exception("Failed to load plugin '%s'", ep.name)
 
         # Internal handlers last (fallback)
-        from .handlers import BuiltinFormatHandler, HttpURLHandler, LocalFileHandler
+        from .handlers import BuiltinFormatHandler, HttpURLHandler
 
         self._format_handlers.append(BuiltinFormatHandler())
         self._url_handlers.append(HttpURLHandler())
-        self._url_handlers.append(LocalFileHandler())
+        # LocalFileHandler is always present (registered in __init__)
 
     def _register(self, name: str, plugin: object) -> None:
         """Classify plugin by protocol conformance."""

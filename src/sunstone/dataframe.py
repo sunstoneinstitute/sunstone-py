@@ -163,7 +163,8 @@ class DataFrame:
         registry = PluginRegistry.get()
 
         # Try explicit format string first, then extension-based detection
-        format_handler = registry.find_format_reader(absolute_path, format)
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, format)
 
         if format_handler is None:
             extension = absolute_path.suffix.lower()
@@ -173,7 +174,12 @@ class DataFrame:
                 + ". Install a plugin or check the file extension."
             )
 
-        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format=format, path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -278,10 +284,17 @@ class DataFrame:
         from .plugins import PluginRegistry
 
         registry = PluginRegistry.get()
-        format_handler = registry.find_format_reader(absolute_path, "csv")
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, "csv")
         if format_handler is None:
             raise ValueError("No format handler found for CSV files")
-        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
+
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format="csv", path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -384,10 +397,17 @@ class DataFrame:
         from .plugins import PluginRegistry
 
         registry = PluginRegistry.get()
-        format_handler = registry.find_format_reader(absolute_path, "excel")
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, "excel")
         if format_handler is None:
             raise ValueError("No format handler found for Excel files")
-        df = format_handler.read(absolute_path, **kwargs)  # type: ignore[arg-type]  # TODO: update in Task 7
+
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format="excel", path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
