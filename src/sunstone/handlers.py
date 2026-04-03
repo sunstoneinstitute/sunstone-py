@@ -7,7 +7,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import socket
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import BinaryIO, Callable, TextIO
 from urllib.parse import urljoin, urlparse
 
@@ -44,29 +44,44 @@ _WRITER_MAP: dict[str, str] = {
 class BuiltinFormatHandler:
     """Handles CSV, JSON, Excel, Parquet, and TSV formats using pandas."""
 
-    def _resolve_format(self, path: Path, format: str | None) -> str | None:
+    def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve a format string from explicit format or file extension."""
         if format is not None:
             return format if format in _READER_MAP or format in _WRITER_MAP else None
-        return _EXTENSION_MAP.get(path.suffix.lower())
+        # Extract extension from path or URL
+        parsed = urlparse(path)
+        file_path = parsed.path if parsed.scheme else path
+        suffix = PurePosixPath(file_path).suffix.lower()
+        return _EXTENSION_MAP.get(suffix)
 
-    def can_read(self, path: Path, format: str | None) -> bool:
+    def can_read(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _READER_MAP
 
-    def read(self, path: Path, **kwargs: object) -> pd.DataFrame:
-        fmt = self._resolve_format(path, None)
-        reader = _READER_MAP[fmt]  # type: ignore[index]
-        return reader(path, **kwargs)
+    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
+        fmt = kwargs.pop("format", None)
+        path = kwargs.pop("path", None)
+        if fmt is None and path is not None:
+            fmt = self._resolve_format(str(path), None)
+        if fmt is None:
+            fmt = "csv"  # safe default
+        reader = _READER_MAP[str(fmt)]
+        return reader(stream, **kwargs)
 
-    def can_write(self, path: Path, format: str | None) -> bool:
+    def can_write(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _WRITER_MAP
 
-    def write(self, df: pd.DataFrame, path: Path, **kwargs: object) -> None:
-        fmt = self._resolve_format(path, None)
-        writer = getattr(df, _WRITER_MAP[fmt])  # type: ignore[index]
-        writer(path, **kwargs)
+    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+        fmt = kwargs.pop("format", None)
+        path = kwargs.pop("path", None)
+        if fmt is None and path is not None:
+            fmt = self._resolve_format(str(path), None)
+        if fmt is None:
+            fmt = "csv"
+        method_name = _WRITER_MAP[str(fmt)]
+        writer = getattr(df, method_name)
+        writer(stream, **kwargs)
 
 
 logger = logging.getLogger(__name__)
