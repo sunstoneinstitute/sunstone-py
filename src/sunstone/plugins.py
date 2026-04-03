@@ -156,8 +156,8 @@ class PluginRegistry:
         from .handlers import BuiltinFormatHandler, HttpURLHandler, LocalFileHandler
 
         self._format_handlers.append(BuiltinFormatHandler())
-        self._url_handlers.append(HttpURLHandler())  # type: ignore[arg-type]  # TODO: update in Task 5
-        self._url_handlers.append(LocalFileHandler())  # type: ignore[arg-type]  # last fallback
+        self._url_handlers.append(HttpURLHandler())
+        self._url_handlers.append(LocalFileHandler())
 
     def _register(self, name: str, plugin: object) -> None:
         """Classify plugin by protocol conformance."""

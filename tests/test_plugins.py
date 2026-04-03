@@ -404,20 +404,18 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
     registry._auth_providers.append(TestAuth())
 
     mock_response = MagicMock()
-    mock_response.is_redirect = False
-    mock_response.content = b"col1,col2\na,b\n"
-    mock_response.raise_for_status = MagicMock()
+    mock_response.read.return_value = b"col1,col2\na,b\n"
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
     ):
         manager.fetch_from_url(dataset, force=True)
-        _, kwargs = mock_get.call_args
-        assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+        request_obj = mock_urlopen.call_args[0][0]
+        assert request_obj.get_header("Authorization") == "Bearer test-token"
 
 
 def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
@@ -439,21 +437,19 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
     registry._auth_providers.append(AuthB())
 
     mock_response = MagicMock()
-    mock_response.is_redirect = False
-    mock_response.content = b"col1,col2\na,b\n"
-    mock_response.raise_for_status = MagicMock()
+    mock_response.read.return_value = b"col1,col2\na,b\n"
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
     ):
         manager.fetch_from_url(dataset, force=True)
-        _, kwargs = mock_get.call_args
-        assert kwargs["headers"]["X-Auth-A"] == "a"
-        assert kwargs["headers"]["X-Auth-B"] == "b"
+        request_obj = mock_urlopen.call_args[0][0]
+        assert request_obj.get_header("X-auth-a") == "a"
+        assert request_obj.get_header("X-auth-b") == "b"
 
 
 def test_fetch_from_url_no_auth_still_works(dataset_with_url):
@@ -464,20 +460,18 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
     registry = PluginRegistry()  # No auth providers
 
     mock_response = MagicMock()
-    mock_response.is_redirect = False
-    mock_response.content = b"col1,col2\na,b\n"
-    mock_response.raise_for_status = MagicMock()
+    mock_response.read.return_value = b"col1,col2\na,b\n"
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
     ):
         manager.fetch_from_url(dataset, force=True)
-        _, kwargs = mock_get.call_args
-        assert kwargs["headers"] == {}
+        request_obj = mock_urlopen.call_args[0][0]
+        assert request_obj.headers == {}
 
 
 @pytest.fixture
@@ -616,16 +610,17 @@ def test_read_dataset_unknown_format_without_plugin(tmp_path):
 
 def test_fetch_from_url_uses_url_handler(dataset_with_url):
     """URL handler plugin handles the fetch instead of HTTP."""
+    import io as _io
+
     fetched_urls = []
 
     class TestURLHandler:
         def can_handle(self, url):
             return True  # Handle everything for this test
 
-        def fetch(self, url, dest):
+        def open(self, url, mode="rb"):
             fetched_urls.append(url)
-            dest.write_text("col1,col2\na,b\n")
-            return dest
+            return _io.BytesIO(b"col1,col2\na,b\n")
 
     manager = DatasetsManager(dataset_with_url)
     dataset = manager.find_dataset_by_slug("test-dataset")

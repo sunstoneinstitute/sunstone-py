@@ -143,81 +143,91 @@ class TestHttpURLHandlerCanHandle:
         assert not http_handler.can_handle("data.csv")
 
 
-class TestHttpURLHandlerFetch:
-    def test_fetches_to_dest(self, http_handler, tmp_path):
-        dest = tmp_path / "data.csv"
+class TestHttpURLHandlerOpen:
+    def test_read_binary(self, http_handler):
         mock_response = MagicMock()
-        mock_response.is_redirect = False
-        mock_response.content = b"a,b\n1,2\n"
-        mock_response.raise_for_status = MagicMock()
+        mock_response.read.return_value = b"a,b\n1,2\n"
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.requests.get", return_value=mock_response),
+            patch("sunstone.handlers.urlopen", return_value=mock_response),
         ):
-            result = http_handler.fetch("https://example.com/data.csv", dest)
-            assert result == dest
-            assert dest.read_bytes() == b"a,b\n1,2\n"
+            stream = http_handler.open("https://example.com/data.csv", "rb")
+            assert stream.read() == b"a,b\n1,2\n"
 
-    def test_rejects_private_url(self, http_handler, tmp_path):
-        dest = tmp_path / "data.csv"
+    def test_read_text(self, http_handler):
+        mock_response = MagicMock()
+        mock_response.read.return_value = b"a,b\n1,2\n"
+
+        with (
+            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.urlopen", return_value=mock_response),
+        ):
+            stream = http_handler.open("https://example.com/data.csv", "r")
+            assert stream.read() == "a,b\n1,2\n"
+
+    def test_write_raises(self, http_handler):
+        with pytest.raises(NotImplementedError):
+            http_handler.open("https://example.com/data.csv", "wb")
+
+    def test_rejects_private_url(self, http_handler):
         with patch("sunstone.handlers._is_public_url", return_value=False):
             with pytest.raises(ValueError, match="not allowed"):
-                http_handler.fetch("http://192.168.1.1/data.csv", dest)
+                http_handler.open("http://192.168.1.1/data.csv", "rb")
 
-    def test_follows_redirects(self, http_handler, tmp_path):
-        dest = tmp_path / "data.csv"
-        redirect_response = MagicMock()
-        redirect_response.is_redirect = True
-        redirect_response.headers = {"Location": "https://cdn.example.com/data.csv"}
+    def test_follows_redirects(self, http_handler):
+        from urllib.error import HTTPError as UrllibHTTPError
 
+        redirect_error = UrllibHTTPError(
+            "https://example.com/data.csv",
+            302,
+            "Found",
+            {"Location": "https://cdn.example.com/data.csv"},
+            io.BytesIO(b""),
+        )
         final_response = MagicMock()
-        final_response.is_redirect = False
-        final_response.content = b"a,b\n1,2\n"
-        final_response.raise_for_status = MagicMock()
+        final_response.read.return_value = b"a,b\n1,2\n"
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.requests.get", side_effect=[redirect_response, final_response]),
+            patch("sunstone.handlers.urlopen", side_effect=[redirect_error, final_response]),
         ):
-            result = http_handler.fetch("https://example.com/redirect", dest)
-            assert result == dest
+            stream = http_handler.open("https://example.com/redirect", "rb")
+            assert stream.read() == b"a,b\n1,2\n"
 
-    def test_strips_auth_on_cross_origin_redirect(self, http_handler, tmp_path):
-        dest = tmp_path / "data.csv"
+    def test_strips_auth_on_cross_origin_redirect(self, http_handler):
+        from urllib.error import HTTPError as UrllibHTTPError
 
-        redirect_response = MagicMock()
-        redirect_response.is_redirect = True
-        redirect_response.headers = {"Location": "https://other.com/data.csv"}
-
+        redirect_error = UrllibHTTPError(
+            "https://example.com/data.csv", 302, "Found", {"Location": "https://other.com/data.csv"}, io.BytesIO(b"")
+        )
         final_response = MagicMock()
-        final_response.is_redirect = False
-        final_response.content = b"data"
-        final_response.raise_for_status = MagicMock()
+        final_response.read.return_value = b"data"
 
         http_handler.headers = {"Authorization": "Bearer secret"}
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.requests.get", side_effect=[redirect_response, final_response]) as mock_get,
+            patch("sunstone.handlers.urlopen", side_effect=[redirect_error, final_response]) as mock_urlopen,
         ):
-            http_handler.fetch("https://example.com/data.csv", dest)
-            # Second call (redirect) should not have Authorization header
-            second_call_headers = mock_get.call_args_list[1][1]["headers"]
-            assert "Authorization" not in second_call_headers
+            http_handler.open("https://example.com/data.csv", "rb")
+            # Second call should not have Authorization header
+            second_request = mock_urlopen.call_args_list[1][0][0]
+            assert "Authorization" not in second_request.headers
 
-    def test_too_many_redirects(self, http_handler, tmp_path):
-        dest = tmp_path / "data.csv"
-        redirect_response = MagicMock()
-        redirect_response.is_redirect = True
-        redirect_response.headers = {"Location": "https://example.com/loop"}
+    def test_too_many_redirects(self, http_handler):
+        from urllib.error import HTTPError as UrllibHTTPError
+
+        redirect_error = UrllibHTTPError(
+            "https://example.com/loop", 302, "Found", {"Location": "https://example.com/loop"}, io.BytesIO(b"")
+        )
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.requests.get", return_value=redirect_response),
+            patch("sunstone.handlers.urlopen", side_effect=redirect_error),
         ):
             with pytest.raises(ValueError, match="Too many redirects"):
-                http_handler.fetch("https://example.com/data.csv", dest)
+                http_handler.open("https://example.com/data.csv", "rb")
 
 
 @pytest.fixture
@@ -317,20 +327,19 @@ def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
             headers["Authorization"] = "Bearer test-token"
             return headers
 
+    handler = HttpURLHandler()
     registry = PluginRegistry()
     registry._auth_providers.append(TestAuth())
-    registry._url_handlers.append(HttpURLHandler())
+    registry._url_handlers.append(handler)
 
     mock_response = MagicMock()
-    mock_response.is_redirect = False
-    mock_response.content = b"col1,col2\na,b\n"
-    mock_response.raise_for_status = MagicMock()
+    mock_response.read.return_value = b"col1,col2\na,b\n"
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.requests.get", return_value=mock_response) as mock_get,
+        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
     ):
         manager.fetch_from_url(dataset, force=True)
-        _, kwargs = mock_get.call_args
-        assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+        request_obj = mock_urlopen.call_args[0][0]
+        assert request_obj.get_header("Authorization") == "Bearer test-token"

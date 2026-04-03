@@ -4,15 +4,17 @@ Internal plugin implementations for built-in formats and HTTP fetching.
 
 from __future__ import annotations
 
+import io
 import ipaddress
 import logging
 import socket
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Callable, TextIO
+from typing import BinaryIO, Callable, Literal, TextIO, overload
+from urllib.error import HTTPError
 from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 
 import pandas as pd
-import requests
 
 
 # Extension -> format string mapping
@@ -138,55 +140,72 @@ class HttpURLHandler:
         parsed = urlparse(url)
         return parsed.scheme in ("http", "https")
 
-    def fetch(self, url: str, dest: Path) -> Path:
+    @overload
+    def open(self, url: str, mode: Literal["r"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["rb"]) -> BinaryIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
+    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
+        if "w" in mode:
+            raise NotImplementedError(
+                "HTTP write is not supported. Use a cloud storage handler (gs://, s3://) for uploads."
+            )
+
         if not _is_public_url(url):
             raise ValueError(
-                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
+                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to "
+                "public internet addresses are permitted."
             )
 
         logger.info("Fetching dataset from URL: %s", url)
 
         current_url = url
-        response = requests.get(current_url, timeout=self.timeout, allow_redirects=False, headers=self.headers)
+        current_headers = dict(self.headers)
         redirect_count = 0
 
-        while response.is_redirect and redirect_count < self.max_redirects:
-            redirect_url = response.headers.get("Location")
-            if not redirect_url:
-                raise ValueError("Redirect response without Location header")
+        while redirect_count <= self.max_redirects:
+            request = Request(current_url, headers=current_headers)
+            try:
+                response = urlopen(request, timeout=self.timeout)  # noqa: S310
+                break
+            except HTTPError as e:
+                if e.status in (301, 302, 303, 307, 308):
+                    redirect_url = e.headers.get("Location")
+                    if not redirect_url:
+                        raise ValueError("Redirect response without Location header") from e
 
-            redirect_url = urljoin(current_url, redirect_url)
+                    redirect_url = urljoin(current_url, redirect_url)
 
-            if not _is_public_url(redirect_url):
-                raise ValueError(
-                    f"Redirect URL '{redirect_url}' is not allowed. Only HTTP/HTTPS URLs "
-                    "pointing to public internet addresses are permitted."
-                )
+                    if not _is_public_url(redirect_url):
+                        raise ValueError(f"Redirect URL '{redirect_url}' is not allowed.") from e
 
-            # Strip auth headers on cross-origin redirects
-            redirect_parsed = urlparse(redirect_url)
-            original_parsed = urlparse(url)
-            if redirect_parsed.scheme != original_parsed.scheme or redirect_parsed.netloc != original_parsed.netloc:
-                redirect_headers = {k: v for k, v in self.headers.items() if k.lower() != "authorization"}
-            else:
-                redirect_headers = self.headers
+                    # Strip auth headers on cross-origin redirects
+                    redirect_parsed = urlparse(redirect_url)
+                    original_parsed = urlparse(url)
+                    if (
+                        redirect_parsed.scheme != original_parsed.scheme
+                        or redirect_parsed.netloc != original_parsed.netloc
+                    ):
+                        current_headers = {k: v for k, v in current_headers.items() if k.lower() != "authorization"}
 
-            logger.info("Following redirect to: %s", redirect_url)
-            current_url = redirect_url
-            response = requests.get(current_url, timeout=self.timeout, allow_redirects=False, headers=redirect_headers)
-            redirect_count += 1
-
-        if response.is_redirect:
+                    logger.info("Following redirect to: %s", redirect_url)
+                    current_url = redirect_url
+                    redirect_count += 1
+                else:
+                    raise
+        else:
             raise ValueError(f"Too many redirects (max: {self.max_redirects})")
 
-        response.raise_for_status()
+        data = response.read()
+        logger.info("Fetched %d bytes from %s", len(data), current_url)
 
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        with open(dest, "wb") as f:
-            f.write(response.content)
-
-        logger.info("Successfully saved to %s (%d bytes)", dest, len(response.content))
-        return dest
+        if "b" in mode:
+            return io.BytesIO(data)
+        else:
+            return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8")
 
 
 _REMOTE_SCHEMES = {"http", "https", "gs", "s3", "r2"}
@@ -199,6 +218,14 @@ class LocalFileHandler:
         parsed = urlparse(url)
         return parsed.scheme in ("", "file") and parsed.scheme not in _REMOTE_SCHEMES
 
+    @overload
+    def open(self, url: str, mode: Literal["r"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["rb"]) -> BinaryIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
     def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
         import builtins as _builtins
 
