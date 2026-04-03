@@ -30,9 +30,13 @@ class FakeURLHandler:
     def can_handle(self, url):
         return url.startswith("fake://")
 
-    def fetch(self, url, dest):
-        dest.write_text("col1,col2\na,b\n")
-        return dest
+    def open(self, url, mode="rb"):
+        import io
+
+        if "b" in mode:
+            return io.BytesIO(b"col1,col2\na,b\n")
+        else:
+            return io.StringIO("col1,col2\na,b\n")
 
 
 class FakeFormatHandler:
@@ -137,8 +141,10 @@ def test_registry_multi_protocol_plugin():
         def can_handle(self, url):
             return url.startswith("multi://")
 
-        def fetch(self, url, dest):
-            return dest
+        def open(self, url, mode="rb"):
+            import io
+
+            return io.BytesIO(b"")
 
     with patch("sunstone.plugins._get_entry_points", return_value=[_make_entry_point("multi", MultiPlugin)]):
         with patch("sunstone.plugins._load_plugin_config", return_value=None):
@@ -646,3 +652,19 @@ def test_read_csv_by_path_uses_registry(tmp_path):
     # This should work via the builtin format handler in the registry
     df = DataFrame.read_csv("inputs/data.csv", project_path=tmp_path)
     assert list(df.data.columns) == ["a", "b"]
+
+
+def test_registry_fetch_convenience(tmp_path):
+    registry = PluginRegistry()
+    registry._url_handlers.append(FakeURLHandler())
+
+    dest = tmp_path / "out.csv"
+    result = registry.fetch("fake://data.csv", dest)
+    assert result == dest
+    assert dest.read_bytes() == b"col1,col2\na,b\n"
+
+
+def test_registry_fetch_no_handler():
+    registry = PluginRegistry()
+    with pytest.raises(ValueError, match="No URL handler found"):
+        registry.fetch("unknown://data.csv", Path("/tmp/out"))

@@ -4,12 +4,14 @@ Plugin system for extending sunstone with custom auth, URL handlers, and format 
 
 from __future__ import annotations
 
+import builtins
 import importlib.metadata
 import logging
 import os
+import shutil
 import tomllib
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
 
 import pandas as pd
 from ruamel.yaml import YAML
@@ -30,15 +32,21 @@ class AuthProvider(Protocol):
 
 @runtime_checkable
 class URLHandler(Protocol):
-    """Resolves custom URL schemes to local file paths."""
+    """Resolves URLs to readable/writable streams."""
 
     def can_handle(self, url: str) -> bool:
         """Return True if this handler can resolve the given URL."""
         ...
 
-    def fetch(self, url: str, dest: Path) -> Path:
-        """Download/resolve URL to a local file. Return path to the file."""
-        ...
+    @overload
+    def open(self, url: str, mode: Literal["r"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["rb"]) -> BinaryIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
+    @overload
+    def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
+    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO: ...
 
 
 @runtime_checkable
@@ -148,7 +156,7 @@ class PluginRegistry:
         from .handlers import BuiltinFormatHandler, HttpURLHandler
 
         self._format_handlers.append(BuiltinFormatHandler())
-        self._url_handlers.append(HttpURLHandler())
+        self._url_handlers.append(HttpURLHandler())  # type: ignore[arg-type]  # TODO: update in Task 5
 
     def _register(self, name: str, plugin: object) -> None:
         """Classify plugin by protocol conformance."""
@@ -197,3 +205,12 @@ class PluginRegistry:
             if handler.can_write(path, format):
                 return handler
         return None
+
+    def fetch(self, url: str, dest: Path) -> Path:
+        """Convenience: download url to local file via open()."""
+        handler = self.find_url_handler(url)
+        if handler is None:
+            raise ValueError(f"No URL handler found for: {url}")
+        with handler.open(url, "rb") as src, builtins.open(dest, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+        return dest

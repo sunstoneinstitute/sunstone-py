@@ -705,4 +705,4 @@ class DatasetsManager:
                 url_handler.headers = auth.authenticate(url, url_handler.headers, dataset)
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        return url_handler.fetch(url, local_path)
+        return url_handler.fetch(url, local_path)  # type: ignore[attr-defined, no-any-return]  # TODO: update in Task 6
