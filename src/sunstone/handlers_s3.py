@@ -30,7 +30,7 @@ class S3URLHandler:
     """Handles s3:// and r2:// URLs using boto3."""
 
     def __init__(self, config: dict | None = None) -> None:
-        import boto3  # type: ignore[import-untyped]
+        import boto3  # type: ignore[import-untyped,import-not-found]
 
         config = config or {}
         endpoint_url = config.get("endpoint_url")
