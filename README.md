@@ -10,6 +10,7 @@ A Python library for managing datasets with lineage tracking in data science pro
 - **Automatic Lineage Tracking**: Track data provenance through all operations automatically
 - **Dataset Management**: Integration with `datasets.yaml` for organized dataset registration
 - **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd` (CSV, Excel, JSON)
+- **Plugin System**: Extensible architecture for custom auth providers, URL handlers, and format handlers via entry points
 - **Strict/Relaxed Modes**: Control whether operations can modify `datasets.yaml`
 - **Validation Tools**: Check notebooks and scripts for correct import usage
 - **Full Type Hints**: Complete type hint support for better IDE integration
@@ -177,6 +178,44 @@ for path, result in results.items():
         print(result.summary())
 ```
 
+## Plugin System
+
+sunstone-py uses a plugin architecture for reading, writing, and fetching data. Built-in handlers cover common formats (CSV, JSON, Excel, Parquet, TSV) and HTTP/HTTPS, local file, GCS, and S3/R2 URLs.
+
+### Plugin Protocols
+
+Plugins implement one or more of these protocols:
+
+- **`AuthProvider`**: Injects authentication headers into HTTP requests
+- **`URLHandler`**: Opens URLs for reading/writing, returning file-like streams (`BinaryIO`/`TextIO`)
+- **`FormatHandler`**: Reads and writes data formats not built into sunstone
+
+### Installation Extras
+
+```bash
+pip install sunstone-py          # Core + HTTP + local file handling
+pip install sunstone-py[gcs]     # Adds GCS (gs://) support
+pip install sunstone-py[s3]      # Adds S3 (s3://) and R2 (r2://) support
+pip install sunstone-py[gcs,s3]  # Both
+```
+
+### Registering Custom Plugins
+
+Plugins are discovered via Python [entry points](https://packaging.python.org/en/latest/specifications/entry-points/):
+
+```toml
+[project.entry-points."sunstone.plugins"]
+my-plugin = "my_package:MyPlugin"
+```
+
+### Plugin Configuration
+
+Plugin config uses cascading precedence (later sources override earlier):
+
+1. `datasets.yaml` — `plugins.<name>` section
+2. `pyproject.toml` — `[tool.sunstone.plugins.<name>]` table
+3. Environment variables — `SUNSTONE_PLUGIN_<NAME>_<KEY>`
+
 ## Advanced Usage
 
 ### Direct DataFrame API
@@ -276,6 +315,25 @@ Manage `datasets.yaml` files:
 - `check_notebook_imports(notebook_path)`: Validate a single notebook
 - `validate_project_notebooks(project_path)`: Validate all notebooks in project
 
+### Plugin Protocols
+
+- `AuthProvider`: Implement `authenticate(url, headers, dataset) -> headers` to inject auth
+- `URLHandler`: Implement `can_handle(url) -> bool` and `open(url, mode) -> BinaryIO | TextIO`
+- `FormatHandler`: Implement `can_read(path, format)`, `read(stream, **kwargs)`, `can_write(path, format)`, `write(df, stream, **kwargs)`
+
+### PluginRegistry Class
+
+Singleton that discovers and manages plugins:
+
+- `PluginRegistry.get()`: Get the singleton registry instance
+- `get_auth_providers()`: Return all registered auth providers
+- `get_url_handlers()`: Return all registered URL handlers
+- `get_format_handlers()`: Return all registered format handlers
+- `find_url_handler(url)`: Find first handler that can handle a URL
+- `find_format_reader(path, format)`: Find first handler that can read a file
+- `find_format_writer(path, format)`: Find first handler that can write a file
+- `fetch(url, dest)`: Convenience — download URL to local file via `open()`
+
 ### Exceptions
 
 - `SunstoneError`: Base exception
@@ -287,6 +345,7 @@ Manage `datasets.yaml` files:
 ## Environment Variables
 
 - `SUNSTONE_DATAFRAME_STRICT`: Set to `"1"` or `"true"` to enable strict mode globally
+- `SUNSTONE_PLUGIN_<NAME>_<KEY>`: Override plugin configuration (highest precedence)
 
 ## Development
 

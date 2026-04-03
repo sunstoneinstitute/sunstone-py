@@ -3,20 +3,20 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added: `sunstone.packaging` module with reusable `push_group()` and `is_lfs_pointer()` for programmatic package uploads
-- Changed: `package push` CLI now delegates to `packaging.push_group()` using URLHandler plugins instead of hardcoded GCS client
-- Added: Plugin system with AuthProvider, URLHandler, and FormatHandler protocols
+- Added: Stream-based plugin IO — URLHandler.open(url, mode) returns file-like objects instead of downloading to temp files
+- Added: FormatHandler protocol now uses BinaryIO streams for read/write
+- Added: LocalFileHandler for local paths and file:// URLs
+- Added: GcsURLHandler for gs:// URLs (install with `sunstone-py[gcs]`)
+- Added: S3URLHandler for s3:// and r2:// URLs (install with `sunstone-py[s3]`)
+- Added: `sunstone.packaging` module for programmatic data package builds and uploads
 - Added: Plugin discovery via Python entry points (`sunstone.plugins` group)
 - Added: Cascading plugin config from pyproject.toml, datasets.yaml, and environment variables
-- Added: Auth header injection in dataset URL fetching
-- Added: Format handler integration in read and write pipelines
-- Changed: Built-in format handlers (CSV, JSON, Excel, Parquet, TSV) now registered as internal plugins
-- Changed: HTTP URL fetching now handled by internal HttpURLHandler plugin
-- Added: LocalFileHandler plugin for local filesystem paths and file:// URLs, registered as last fallback in URL handler chain
-- Changed: HttpURLHandler now uses stdlib urllib.request instead of requests library, with stream-based open() interface
-- Changed: Read pipeline in dataframe.py now routes through URLHandler.open() → stream → FormatHandler.read() instead of passing Path directly
-- Changed: Write pipeline in dataframe.py now routes through URLHandler.open() → stream → FormatHandler.write() for both tracked and untracked writes
-- Changed: LocalFileHandler is always registered in PluginRegistry (not only during plugin discovery)
+- Changed: All data reads/writes route through URLHandler.open() → FormatHandler stream pipeline
+- Changed: HTTP fetching uses stdlib urllib.request instead of requests
+- Changed: `package push` uses URLHandler plugins instead of hardcoded google-cloud-storage
+- Changed: `google-cloud-storage` moved to optional `[gcs]` extra
+- Removed: `requests` dependency (replaced by urllib.request)
+- Deprecated: `DatasetsManager.fetch_from_url()` — use `PluginRegistry.get().fetch()` instead
 
 ## [1.3.1] - 2026-03-26
 - Fixed: Use `as_posix()` for `script_path` in datasets.yaml to avoid backslashes on Windows CI
