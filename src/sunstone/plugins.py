@@ -154,6 +154,22 @@ class PluginRegistry:
             except Exception:
                 logger.exception("Failed to load plugin '%s'", ep.name)
 
+        # Optional cloud handlers
+        try:
+            from .handlers_gcs import GcsURLHandler
+
+            self._url_handlers.append(GcsURLHandler())
+        except ImportError:
+            pass  # google-cloud-storage not installed
+
+        try:
+            from .handlers_s3 import S3URLHandler
+
+            s3_config = _load_plugin_config("s3")
+            self._url_handlers.append(S3URLHandler(config=s3_config))
+        except ImportError:
+            pass  # boto3 not installed
+
         # Internal handlers last (fallback)
         from .handlers import BuiltinFormatHandler, HttpURLHandler
 
