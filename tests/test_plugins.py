@@ -588,7 +588,7 @@ def test_to_csv_uses_format_writer(tmp_path):
         df.to_csv("outputs/data.fake", index=False)
 
     assert len(write_called) == 1
-    assert write_called[0].name == "data.fake"
+    assert Path(write_called[0].name).name == "data.fake"
 
 
 def test_read_dataset_unknown_format_without_plugin(tmp_path):

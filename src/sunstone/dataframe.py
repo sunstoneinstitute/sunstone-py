@@ -463,9 +463,19 @@ class DataFrame:
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
 
         if not track:
-            path = Path(path_or_buf)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            self.data.to_csv(path, **pandas_kwargs)
+            from .plugins import PluginRegistry
+
+            registry = PluginRegistry.get()
+            location = str(path_or_buf)
+
+            url_handler = registry.find_url_handler(location)
+            if url_handler:
+                with url_handler.open(location, "wb") as stream:
+                    self.data.to_csv(stream, **pandas_kwargs)
+            else:
+                path = Path(path_or_buf)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self.data.to_csv(path, **pandas_kwargs)
             return
 
         manager = self._get_datasets_manager()
@@ -496,16 +506,21 @@ class DataFrame:
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
-        absolute_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Check if a format handler plugin can write this file
         from .plugins import PluginRegistry
 
         registry = PluginRegistry.get()
-        format_writer = registry.find_format_writer(absolute_path, None)
+        location = str(absolute_path)
 
-        if format_writer:
-            format_writer.write(self.data, absolute_path, **pandas_kwargs)  # type: ignore[arg-type]  # TODO: update in Task 8
+        url_handler = registry.find_url_handler(location)
+        format_writer = registry.find_format_writer(location, None)
+
+        if url_handler and format_writer:
+            with url_handler.open(location, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+        elif format_writer:
+            with open(absolute_path, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 
