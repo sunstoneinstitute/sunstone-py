@@ -28,7 +28,7 @@ def lfs_pointer_file(tmp_path: Path) -> Path:
     """Create a file that looks like a Git LFS pointer."""
     p = tmp_path / "outputs" / "big.csv"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("version https://git-lfs.github.com/spec/v1\n" "oid sha256:abc123\n" "size 999999\n")
+    p.write_text("version https://git-lfs.github.com/spec/v1\noid sha256:abc123\nsize 999999\n")
     return p
 
 
@@ -207,7 +207,7 @@ def test_push_group_raises_on_lfs_pointers(tmp_path: Path) -> None:
     """push_group raises ValueError when data files are LFS pointers."""
     lfs_file = tmp_path / "outputs" / "big.csv"
     lfs_file.parent.mkdir(parents=True, exist_ok=True)
-    lfs_file.write_text("version https://git-lfs.github.com/spec/v1\n" "oid sha256:abc123\n" "size 999999\n")
+    lfs_file.write_text("version https://git-lfs.github.com/spec/v1\noid sha256:abc123\nsize 999999\n")
 
     ds = DatasetMetadata(slug="big", name="Big", location="outputs/big.csv", dataset_type="output")
     manager = MagicMock()

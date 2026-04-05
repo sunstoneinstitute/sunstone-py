@@ -479,7 +479,7 @@ def project_with_fake_format(tmp_path):
     """Create a project with a dataset using a custom format."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
-        "inputs:\n" "  - name: Fake Data\n" "    slug: fake-data\n" "    location: inputs/data.fake\n" "outputs: []\n"
+        "inputs:\n  - name: Fake Data\n    slug: fake-data\n    location: inputs/data.fake\noutputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.fake").write_text("x\n1\n2\n3\n")
@@ -500,7 +500,7 @@ def test_read_dataset_builtin_format_still_works(tmp_path):
     """CSV reading still works with only the builtin format handler registered."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
-        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+        "inputs:\n  - name: CSV Data\n    slug: csv-data\n    location: inputs/data.csv\noutputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n3,4\n")
@@ -518,7 +518,7 @@ def test_read_dataset_plugin_overrides_builtin(tmp_path):
     """A plugin that handles .csv overrides the builtin CSV reader."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
-        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+        "inputs:\n  - name: CSV Data\n    slug: csv-data\n    location: inputs/data.csv\noutputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n")
@@ -595,11 +595,7 @@ def test_read_dataset_unknown_format_without_plugin(tmp_path):
     """Unknown format raises ValueError when no handler matches."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
-        "inputs:\n"
-        "  - name: Unknown Data\n"
-        "    slug: unknown-data\n"
-        "    location: inputs/data.xyz\n"
-        "outputs: []\n"
+        "inputs:\n  - name: Unknown Data\n    slug: unknown-data\n    location: inputs/data.xyz\noutputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.xyz").write_text("stuff")
@@ -639,7 +635,7 @@ def test_read_csv_by_path_uses_registry(tmp_path):
     """read_csv with a file path routes through the format handler registry."""
     datasets_yaml = tmp_path / "datasets.yaml"
     datasets_yaml.write_text(
-        "inputs:\n" "  - name: CSV Data\n" "    slug: csv-data\n" "    location: inputs/data.csv\n" "outputs: []\n"
+        "inputs:\n  - name: CSV Data\n    slug: csv-data\n    location: inputs/data.csv\noutputs: []\n"
     )
     (tmp_path / "inputs").mkdir()
     (tmp_path / "inputs" / "data.csv").write_text("a,b\n1,2\n")

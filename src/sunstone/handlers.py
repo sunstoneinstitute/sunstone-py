@@ -159,8 +159,7 @@ class HttpURLHandler:
 
         if not _is_public_url(url):
             raise ValueError(
-                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to "
-                "public internet addresses are permitted."
+                f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
             )
 
         logger.info("Fetching dataset from URL: %s", url)
