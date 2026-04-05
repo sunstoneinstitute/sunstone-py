@@ -234,15 +234,11 @@ class LocalFileHandler:
     def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
     def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
         import builtins as _builtins
-        import sys
+        from urllib.request import url2pathname
 
         parsed = urlparse(url)
         if parsed.scheme == "file":
-            raw = parsed.path
-            # On Windows, file:///C:/path produces /C:/path — strip leading slash
-            if sys.platform == "win32" and len(raw) >= 3 and raw[0] == "/" and raw[2] == ":":
-                raw = raw[1:]
-            path = Path(raw)
+            path = Path(url2pathname(parsed.path))
         else:
             path = Path(url)
 

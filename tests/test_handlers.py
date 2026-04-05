@@ -289,7 +289,8 @@ class TestLocalFileHandlerOpen:
     def test_file_scheme(self, local_handler, tmp_path):
         f = tmp_path / "data.csv"
         f.write_bytes(b"a,b\n1,2\n")
-        with local_handler.open(f"file://{f}", "rb") as stream:
+        file_url = f.as_uri()  # produces correct file:///... on all platforms
+        with local_handler.open(file_url, "rb") as stream:
             assert stream.read() == b"a,b\n1,2\n"
 
     def test_creates_parent_dirs_on_write(self, local_handler, tmp_path):
