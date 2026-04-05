@@ -115,7 +115,7 @@ def test_push_group_uploads_via_handler(tmp_path: Path) -> None:
     data_dir = tmp_path / "outputs"
     data_dir.mkdir()
     data_file = data_dir / "result.csv"
-    data_file.write_text("x,y\n3,4\n")
+    data_file.write_bytes(b"x,y\n3,4\n")
 
     ds = DatasetMetadata(
         slug="result",

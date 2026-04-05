@@ -218,7 +218,11 @@ class LocalFileHandler:
 
     def can_handle(self, url: str) -> bool:
         parsed = urlparse(url)
-        return parsed.scheme in ("", "file") and parsed.scheme not in _REMOTE_SCHEMES
+        scheme = parsed.scheme
+        # On Windows, urlparse treats drive letters (C:) as schemes
+        if len(scheme) == 1 and scheme.isalpha():
+            return True
+        return scheme in ("", "file") and scheme not in _REMOTE_SCHEMES
 
     @overload
     def open(self, url: str, mode: Literal["r"]) -> TextIO: ...
@@ -230,10 +234,15 @@ class LocalFileHandler:
     def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
     def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
         import builtins as _builtins
+        import sys
 
         parsed = urlparse(url)
         if parsed.scheme == "file":
-            path = Path(parsed.path)
+            raw = parsed.path
+            # On Windows, file:///C:/path produces /C:/path — strip leading slash
+            if sys.platform == "win32" and len(raw) >= 3 and raw[0] == "/" and raw[2] == ":":
+                raw = raw[1:]
+            path = Path(raw)
         else:
             path = Path(url)
 

@@ -245,6 +245,9 @@ class TestLocalFileHandlerCanHandle:
     def test_file_scheme(self, local_handler):
         assert local_handler.can_handle("file:///tmp/data.csv")
 
+    def test_windows_drive_path(self, local_handler):
+        assert local_handler.can_handle("C:\\Users\\data.csv")
+
     def test_http_scheme(self, local_handler):
         assert not local_handler.can_handle("http://example.com/data.csv")
 
