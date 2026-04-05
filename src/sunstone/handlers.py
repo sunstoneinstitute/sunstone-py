@@ -9,10 +9,10 @@ import ipaddress
 import logging
 import socket
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Callable, Literal, TextIO, overload
-from urllib.error import HTTPError
+from typing import Any, BinaryIO, Callable, Literal, TextIO, overload
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+from http.client import HTTPMessage
 
 import pandas as pd
 
@@ -92,6 +92,15 @@ class BuiltinFormatHandler:
 logger = logging.getLogger(__name__)
 
 
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Return redirect responses to the caller so they can be validated manually."""
+
+    def http_error_302(self, req: Request, fp: Any, code: int, msg: str, headers: HTTPMessage) -> Any:
+        return fp
+
+    http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+
 def _is_public_url(url: str) -> bool:
     """
     Validate that a URL points to a public (non-private) resource.
@@ -137,21 +146,20 @@ class HttpURLHandler:
     def __init__(self, timeout: int = 30, max_redirects: int = 10) -> None:
         self.timeout = timeout
         self.max_redirects = max_redirects
-        self.headers: dict[str, str] = {}
 
     def can_handle(self, url: str) -> bool:
         parsed = urlparse(url)
         return parsed.scheme in ("http", "https")
 
     @overload
-    def open(self, url: str, mode: Literal["r"]) -> TextIO: ...
+    def open(self, url: str, mode: Literal["r"], *, headers: dict[str, str] | None = ...) -> TextIO: ...
     @overload
-    def open(self, url: str, mode: Literal["rb"]) -> BinaryIO: ...
+    def open(self, url: str, mode: Literal["rb"], *, headers: dict[str, str] | None = ...) -> BinaryIO: ...
     @overload
-    def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
+    def open(self, url: str, mode: Literal["w"], *, headers: dict[str, str] | None = ...) -> TextIO: ...
     @overload
-    def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
-    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
+    def open(self, url: str, mode: Literal["wb"], *, headers: dict[str, str] | None = ...) -> BinaryIO: ...
+    def open(self, url: str, mode: str = "rb", *, headers: dict[str, str] | None = None) -> BinaryIO | TextIO:
         if "w" in mode:
             raise NotImplementedError(
                 "HTTP write is not supported. Use a cloud storage handler (gs://, s3://) for uploads."
@@ -165,44 +173,40 @@ class HttpURLHandler:
         logger.info("Fetching dataset from URL: %s", url)
 
         current_url = url
-        current_headers = dict(self.headers)
-        redirect_count = 0
+        current_headers = dict(headers or {})
+        opener = build_opener(_NoRedirectHandler())
 
-        while redirect_count <= self.max_redirects:
+        for redirect_count in range(self.max_redirects + 1):
             request = Request(current_url, headers=current_headers)
-            try:
-                response = urlopen(request, timeout=self.timeout)  # noqa: S310
+            response = opener.open(request, timeout=self.timeout)  # noqa: S310
+            status = getattr(response, "status", None)
+            if status is None and hasattr(response, "getcode"):
+                status = response.getcode()
+
+            if status not in (301, 302, 303, 307, 308):
+                data = response.read()
+                logger.info("Fetched %d bytes from %s", len(data), current_url)
                 break
-            except HTTPError as e:
-                if e.status in (301, 302, 303, 307, 308):
-                    redirect_url = e.headers.get("Location")
-                    if not redirect_url:
-                        raise ValueError("Redirect response without Location header") from e
 
-                    redirect_url = urljoin(current_url, redirect_url)
+            redirect_url = response.headers.get("Location")
+            response.close()
+            if not redirect_url:
+                raise ValueError("Redirect response without Location header")
 
-                    if not _is_public_url(redirect_url):
-                        raise ValueError(f"Redirect URL '{redirect_url}' is not allowed.") from e
+            redirect_url = urljoin(current_url, redirect_url)
 
-                    # Strip auth headers on cross-origin redirects
-                    redirect_parsed = urlparse(redirect_url)
-                    original_parsed = urlparse(url)
-                    if (
-                        redirect_parsed.scheme != original_parsed.scheme
-                        or redirect_parsed.netloc != original_parsed.netloc
-                    ):
-                        current_headers = {k: v for k, v in current_headers.items() if k.lower() != "authorization"}
+            if not _is_public_url(redirect_url):
+                raise ValueError(f"Redirect URL '{redirect_url}' is not allowed.")
 
-                    logger.info("Following redirect to: %s", redirect_url)
-                    current_url = redirect_url
-                    redirect_count += 1
-                else:
-                    raise
+            redirect_parsed = urlparse(redirect_url)
+            current_parsed = urlparse(current_url)
+            if redirect_parsed.scheme != current_parsed.scheme or redirect_parsed.netloc != current_parsed.netloc:
+                current_headers = {k: v for k, v in current_headers.items() if k.lower() != "authorization"}
+
+            logger.info("Following redirect to: %s", redirect_url)
+            current_url = redirect_url
         else:
             raise ValueError(f"Too many redirects (max: {self.max_redirects})")
-
-        data = response.read()
-        logger.info("Fetched %d bytes from %s", len(data), current_url)
 
         if "b" in mode:
             return io.BytesIO(data)

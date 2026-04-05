@@ -145,7 +145,7 @@ def push_group(
         datapackage.update(top_level_props)
 
     # Find a URL handler for the destination
-    registry = PluginRegistry.get()
+    registry = PluginRegistry.get(manager.project_path)
     handler = registry.find_url_handler(datapackage_url)
     if handler is None:
         raise ValueError(f"No URL handler found for: {datapackage_url}")

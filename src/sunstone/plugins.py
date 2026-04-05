@@ -117,17 +117,19 @@ def _load_cascading_config(name: str, project_path: Path) -> dict | None:
     return config if config else None
 
 
-def _load_plugin_config(name: str) -> dict | None:
-    """Load config for a plugin using cascading lookup from cwd."""
-    return _load_cascading_config(name, Path.cwd())
+def _load_plugin_config(name: str, project_path: Path | None = None) -> dict | None:
+    """Load config for a plugin using cascading lookup from the target project."""
+    return _load_cascading_config(name, (project_path or Path.cwd()).resolve())
 
 
 class PluginRegistry:
     """Discovers and manages plugins."""
 
     _instance: PluginRegistry | None = None
+    _instances: dict[Path, "PluginRegistry"] = {}
 
-    def __init__(self) -> None:
+    def __init__(self, project_path: Path | None = None) -> None:
+        self.project_path = project_path.resolve() if project_path is not None else None
         self._auth_providers: list[AuthProvider] = []
         from .handlers import LocalFileHandler
 
@@ -135,12 +137,21 @@ class PluginRegistry:
         self._format_handlers: list[FormatHandler] = []
 
     @classmethod
-    def get(cls) -> PluginRegistry:
-        """Singleton - lazy-loads plugins on first access."""
-        if cls._instance is None:
-            cls._instance = cls()
-            cls._instance._discover()
-        return cls._instance
+    def get(cls, project_path: Path | str | None = None) -> PluginRegistry:
+        """Return a cached registry instance, scoped to the target project when provided."""
+        if project_path is None:
+            if cls._instance is None:
+                cls._instance = cls()
+                cls._instance._discover()
+            return cls._instance
+
+        project_key = Path(project_path).resolve()
+        registry = cls._instances.get(project_key)
+        if registry is None:
+            registry = cls(project_key)
+            registry._discover()
+            cls._instances[project_key] = registry
+        return registry
 
     def _discover(self) -> None:
         """Load plugins from entry points, then register internal handlers."""
@@ -148,7 +159,7 @@ class PluginRegistry:
         for ep in _get_entry_points():
             try:
                 plugin_cls = ep.load()
-                config = _load_plugin_config(ep.name)
+                config = _load_plugin_config(ep.name, self.project_path)
                 plugin = plugin_cls(config) if config else plugin_cls()
                 self._register(ep.name, plugin)
             except Exception:
@@ -165,7 +176,7 @@ class PluginRegistry:
         try:
             from .handlers_s3 import S3URLHandler
 
-            s3_config = _load_plugin_config("s3")
+            s3_config = _load_plugin_config("s3", self.project_path)
             self._url_handlers.append(S3URLHandler(config=s3_config))
         except ImportError:
             pass  # boto3 not installed

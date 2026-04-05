@@ -4,6 +4,7 @@ Parser and manager for datasets.yaml files.
 
 import logging
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -698,24 +699,25 @@ class DatasetsManager:
 
         url = dataset.source.location.data
 
-        from urllib.parse import urlparse as _urlparse
-
+        from .handlers import HttpURLHandler, LocalFileHandler
         from .plugins import PluginRegistry
 
-        _scheme = _urlparse(url).scheme
-        if _scheme not in ("http", "https", "gs", "s3", "r2"):
-            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
-
-        registry = PluginRegistry.get()
+        registry = PluginRegistry.get(self.project_path)
         url_handler = registry.find_url_handler(url)
 
         if url_handler is None:
             raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
-
-        # Inject auth headers if the handler supports it
-        if hasattr(url_handler, "headers"):
-            for auth in registry.get_auth_providers():
-                url_handler.headers = auth.authenticate(url, url_handler.headers, dataset)
+        if isinstance(url_handler, LocalFileHandler):
+            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if isinstance(url_handler, HttpURLHandler):
+            headers: dict[str, str] = {}
+            for auth in registry.get_auth_providers():
+                headers = auth.authenticate(url, headers, dataset)
+            with url_handler.open(url, "rb", headers=headers) as src, open(local_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            return local_path
+
         return registry.fetch(url, local_path)

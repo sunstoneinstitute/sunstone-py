@@ -160,7 +160,7 @@ class DataFrame:
         # Find a format handler (plugin or builtin) for this file
         from .plugins import PluginRegistry
 
-        registry = PluginRegistry.get()
+        registry = PluginRegistry.get(manager.project_path)
 
         # Try explicit format string first, then extension-based detection
         location = str(absolute_path)
@@ -283,7 +283,7 @@ class DataFrame:
         # Read via format handler registry
         from .plugins import PluginRegistry
 
-        registry = PluginRegistry.get()
+        registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
         format_handler = registry.find_format_reader(location, "csv")
         if format_handler is None:
@@ -396,7 +396,7 @@ class DataFrame:
         # Read via format handler registry
         from .plugins import PluginRegistry
 
-        registry = PluginRegistry.get()
+        registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
         format_handler = registry.find_format_reader(location, "excel")
         if format_handler is None:
@@ -465,7 +465,7 @@ class DataFrame:
         if not track:
             from .plugins import PluginRegistry
 
-            registry = PluginRegistry.get()
+            registry = PluginRegistry.get(Path(self.project_path) if self.project_path is not None else None)
             location = str(path_or_buf)
 
             url_handler = registry.find_url_handler(location)
@@ -509,7 +509,7 @@ class DataFrame:
 
         from .plugins import PluginRegistry
 
-        registry = PluginRegistry.get()
+        registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
 
         url_handler = registry.find_url_handler(location)

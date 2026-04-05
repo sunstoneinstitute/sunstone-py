@@ -5,9 +5,8 @@ Tests for Sunstone DatasetsManager functionality.
 import socket
 import unittest.mock
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from typing import Any
-from urllib.error import HTTPError
 
 
 import pytest
@@ -15,19 +14,20 @@ import sunstone
 from sunstone.handlers import _is_public_url
 
 
-def _make_redirect_error(url: str, status: int, location: str | None) -> HTTPError:
-    """Create an HTTPError that simulates an HTTP redirect response."""
-    headers: dict[str, str] = {}
+def _make_response(status: int, location: str | None = None, content: bytes = b"test data") -> MagicMock:
+    """Create a mock urllib response object."""
+    mock_resp = MagicMock()
+    mock_resp.status = status
+    mock_resp.headers = {}
     if location is not None:
-        headers["Location"] = location
-    return HTTPError(url, status, "Redirect", headers, None)  # type: ignore[arg-type]
+        mock_resp.headers["Location"] = location
+    mock_resp.read.return_value = content
+    return mock_resp
 
 
 def _make_ok_response(content: bytes = b"test data") -> unittest.mock.Mock:
     """Create a mock urlopen response for a successful (200) request."""
-    mock_resp = unittest.mock.Mock()
-    mock_resp.read.return_value = content
-    return mock_resp
+    return _make_response(200, content=content)
 
 
 def mock_getaddrinfo(ip: str) -> list[tuple[Any, ...]]:
@@ -440,12 +440,12 @@ class TestRedirectSSRFProtection:
                     return mock_getaddrinfo("192.168.1.1")  # Private IP
                 raise socket.gaierror("Unknown host")
 
-            redirect_error = _make_redirect_error(
-                "https://example.com/data.csv", 302, "http://evil-internal.local/metadata"
-            )
+            redirect_response = _make_response(302, "http://evil-internal.local/metadata")
+            mock_opener = MagicMock()
+            mock_opener.open.return_value = redirect_response
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_error):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -464,10 +464,12 @@ class TestRedirectSSRFProtection:
                     return mock_getaddrinfo("127.0.0.1")
                 raise socket.gaierror("Unknown host")
 
-            redirect_error = _make_redirect_error("https://example.com/data.csv", 302, "http://localhost/admin")
+            redirect_response = _make_response(302, "http://localhost/admin")
+            mock_opener = MagicMock()
+            mock_opener.open.return_value = redirect_response
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_error):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -486,12 +488,12 @@ class TestRedirectSSRFProtection:
                     return mock_getaddrinfo("169.254.169.254")
                 raise socket.gaierror("Unknown host")
 
-            redirect_error = _make_redirect_error(
-                "https://example.com/data.csv", 302, "http://169.254.169.254/latest/meta-data/"
-            )
+            redirect_response = _make_response(302, "http://169.254.169.254/latest/meta-data/")
+            mock_opener = MagicMock()
+            mock_opener.open.return_value = redirect_response
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_error):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -507,14 +509,13 @@ class TestRedirectSSRFProtection:
                 # Both URLs resolve to public IPs
                 return mock_getaddrinfo("93.184.216.34")
 
-            redirect_error = _make_redirect_error("https://example.com/old-path", 302, "https://example.com/new-path")
+            redirect_response = _make_response(302, "https://example.com/new-path")
             ok_response = _make_ok_response(b"test data")
+            mock_opener = MagicMock()
+            mock_opener.open.side_effect = [redirect_response, ok_response]
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch(
-                    "sunstone.handlers.urlopen",
-                    side_effect=[redirect_error, ok_response],
-                ):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     # Mock file writing to avoid modifying test input files
                     with patch("builtins.open", unittest.mock.mock_open()):
                         # Should succeed without raising an error
@@ -533,13 +534,12 @@ class TestRedirectSSRFProtection:
                 return mock_getaddrinfo("93.184.216.34")  # All public IPs
 
             # HttpURLHandler.max_redirects defaults to 10; loop exits after 11 redirects
-            redirect_errors = [
-                _make_redirect_error("https://example.com/redirect-loop", 302, "https://example.com/redirect-loop")
-                for _ in range(12)
-            ]
+            redirect_responses = [_make_response(302, "https://example.com/redirect-loop") for _ in range(12)]
+            mock_opener = MagicMock()
+            mock_opener.open.side_effect = redirect_responses
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_errors):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="Too many redirects"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -555,10 +555,12 @@ class TestRedirectSSRFProtection:
                 return mock_getaddrinfo("93.184.216.34")
 
             # Redirect with no Location header
-            redirect_error = _make_redirect_error("https://example.com/data.csv", 302, None)
+            redirect_response = _make_response(302, None)
+            mock_opener = MagicMock()
+            mock_opener.open.return_value = redirect_response
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_error):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="Location header"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -573,10 +575,12 @@ class TestRedirectSSRFProtection:
             def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")
 
-            redirect_error = _make_redirect_error("https://example.com/data.csv", 302, "file:///etc/passwd")
+            redirect_response = _make_response(302, "file:///etc/passwd")
+            mock_opener = MagicMock()
+            mock_opener.open.return_value = redirect_response
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch("sunstone.handlers.urlopen", side_effect=redirect_error):
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
 
@@ -591,20 +595,19 @@ class TestRedirectSSRFProtection:
             def dns_side_effect(hostname: str, port: Any) -> list[tuple[Any, ...]]:
                 return mock_getaddrinfo("93.184.216.34")  # Public IP
 
-            redirect_error = _make_redirect_error("https://example.com/old/data.csv", 302, "../new/data.csv")
+            redirect_response = _make_response(302, "../new/data.csv")
             ok_response = _make_ok_response(b"test data")
+            mock_opener = MagicMock()
+            mock_opener.open.side_effect = [redirect_response, ok_response]
 
             with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
-                with patch(
-                    "sunstone.handlers.urlopen",
-                    side_effect=[redirect_error, ok_response],
-                ) as mock_urlopen:
+                with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     # Mock file writing to avoid modifying test input files
                     with patch("builtins.open", unittest.mock.mock_open()):
                         result = manager.fetch_from_url(dataset, force=True)
                         assert result is not None
                         # Verify the relative URL was resolved to the correct absolute URL
                         # The second call should be to the resolved URL: https://example.com/new/data.csv
-                        assert mock_urlopen.call_count == 2
-                        second_call_request = mock_urlopen.call_args_list[1][0][0]
+                        assert mock_opener.open.call_count == 2
+                        second_call_request = mock_opener.open.call_args_list[1][0][0]
                         assert second_call_request.full_url == "https://example.com/new/data.csv"

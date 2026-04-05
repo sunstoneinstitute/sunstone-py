@@ -96,8 +96,10 @@ def test_not_a_plugin():
 def reset_registry():
     """Reset the singleton between tests."""
     PluginRegistry._instance = None
+    PluginRegistry._instances = {}
     yield
     PluginRegistry._instance = None
+    PluginRegistry._instances = {}
 
 
 def _make_entry_point(name, plugin_cls):
@@ -241,6 +243,21 @@ def test_registry_singleton():
             r1 = PluginRegistry.get()
             r2 = PluginRegistry.get()
             assert r1 is r2
+
+
+def test_registry_scoped_by_project_path(tmp_path):
+    project_a = tmp_path / "a"
+    project_b = tmp_path / "b"
+    project_a.mkdir()
+    project_b.mkdir()
+
+    with patch("sunstone.plugins._get_entry_points", return_value=[]):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            r1 = PluginRegistry.get(project_a)
+            r2 = PluginRegistry.get(project_a)
+            r3 = PluginRegistry.get(project_b)
+            assert r1 is r2
+            assert r1 is not r3
 
 
 def test_config_from_pyproject(tmp_path):
@@ -404,17 +421,20 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
     registry._auth_providers.append(TestAuth())
 
     mock_response = MagicMock()
+    mock_response.status = 200
     mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_opener = MagicMock()
+    mock_opener.open.return_value = mock_response
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
+        patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         manager.fetch_from_url(dataset, force=True)
-        request_obj = mock_urlopen.call_args[0][0]
+        request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.get_header("Authorization") == "Bearer test-token"
 
 
@@ -437,17 +457,20 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
     registry._auth_providers.append(AuthB())
 
     mock_response = MagicMock()
+    mock_response.status = 200
     mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_opener = MagicMock()
+    mock_opener.open.return_value = mock_response
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
+        patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         manager.fetch_from_url(dataset, force=True)
-        request_obj = mock_urlopen.call_args[0][0]
+        request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.get_header("X-auth-a") == "a"
         assert request_obj.get_header("X-auth-b") == "b"
 
@@ -460,18 +483,66 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
     registry = PluginRegistry()  # No auth providers
 
     mock_response = MagicMock()
+    mock_response.status = 200
     mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_opener = MagicMock()
+    mock_opener.open.return_value = mock_response
 
     registry._url_handlers.append(HttpURLHandler())
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
+        patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         manager.fetch_from_url(dataset, force=True)
-        request_obj = mock_urlopen.call_args[0][0]
+        request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.headers == {}
+
+
+def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_url):
+    class TestAuth:
+        def authenticate(self, url, headers, dataset):
+            headers["Authorization"] = "Bearer test-token"
+            return headers
+
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+
+    registry = PluginRegistry()
+    handler = HttpURLHandler()
+    registry._url_handlers.append(handler)
+
+    authed_response = MagicMock()
+    authed_response.status = 200
+    authed_response.read.return_value = b"col1,col2\na,b\n"
+    plain_response = MagicMock()
+    plain_response.status = 200
+    plain_response.read.return_value = b"col1,col2\na,b\n"
+
+    opener_with_auth = MagicMock()
+    opener_with_auth.open.return_value = authed_response
+    registry._auth_providers.append(TestAuth())
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.build_opener", return_value=opener_with_auth),
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        first_request = opener_with_auth.open.call_args[0][0]
+        assert first_request.get_header("Authorization") == "Bearer test-token"
+
+    registry._auth_providers.clear()
+    opener_without_auth = MagicMock()
+    opener_without_auth.open.return_value = plain_response
+    with (
+        patch.object(PluginRegistry, "get", return_value=registry),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.build_opener", return_value=opener_without_auth),
+    ):
+        manager.fetch_from_url(dataset, force=True)
+        second_request = opener_without_auth.open.call_args[0][0]
+        assert second_request.get_header("Authorization") is None
 
 
 @pytest.fixture
@@ -629,6 +700,33 @@ def test_fetch_from_url_uses_url_handler(dataset_with_url):
         assert len(fetched_urls) == 1
         assert fetched_urls[0] == "https://example.com/test.csv"
         assert result.exists()
+
+
+def test_fetch_from_url_supports_custom_url_schemes(dataset_with_url):
+    """Custom URL handlers discovered through the registry can bootstrap missing files."""
+    import io as _io
+
+    fetched_urls = []
+
+    class CustomURLHandler:
+        def can_handle(self, url):
+            return url.startswith("custom://")
+
+        def open(self, url, mode="rb"):
+            fetched_urls.append(url)
+            return _io.BytesIO(b"col1,col2\na,b\n")
+
+    manager = DatasetsManager(dataset_with_url)
+    dataset = manager.find_dataset_by_slug("test-dataset")
+    dataset.source.location.data = "custom://bucket/test.csv"
+
+    registry = PluginRegistry()
+    registry._url_handlers.append(CustomURLHandler())
+
+    with patch.object(PluginRegistry, "get", return_value=registry):
+        result = manager.fetch_from_url(dataset, force=True)
+        assert result.exists()
+        assert fetched_urls == ["custom://bucket/test.csv"]
 
 
 def test_read_csv_by_path_uses_registry(tmp_path):

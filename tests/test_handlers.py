@@ -146,22 +146,28 @@ class TestHttpURLHandlerCanHandle:
 class TestHttpURLHandlerOpen:
     def test_read_binary(self, http_handler):
         mock_response = MagicMock()
+        mock_response.status = 200
         mock_response.read.return_value = b"a,b\n1,2\n"
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = mock_response
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.urlopen", return_value=mock_response),
+            patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/data.csv", "rb")
             assert stream.read() == b"a,b\n1,2\n"
 
     def test_read_text(self, http_handler):
         mock_response = MagicMock()
+        mock_response.status = 200
         mock_response.read.return_value = b"a,b\n1,2\n"
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = mock_response
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.urlopen", return_value=mock_response),
+            patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/data.csv", "r")
             assert stream.read() == "a,b\n1,2\n"
@@ -176,55 +182,55 @@ class TestHttpURLHandlerOpen:
                 http_handler.open("http://192.168.1.1/data.csv", "rb")
 
     def test_follows_redirects(self, http_handler):
-        from urllib.error import HTTPError as UrllibHTTPError
-
-        redirect_error = UrllibHTTPError(
-            "https://example.com/data.csv",
-            302,
-            "Found",
-            {"Location": "https://cdn.example.com/data.csv"},
-            io.BytesIO(b""),
-        )
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {"Location": "https://cdn.example.com/data.csv"}
         final_response = MagicMock()
+        final_response.status = 200
         final_response.read.return_value = b"a,b\n1,2\n"
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.urlopen", side_effect=[redirect_error, final_response]),
+            patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/redirect", "rb")
             assert stream.read() == b"a,b\n1,2\n"
 
     def test_strips_auth_on_cross_origin_redirect(self, http_handler):
-        from urllib.error import HTTPError as UrllibHTTPError
-
-        redirect_error = UrllibHTTPError(
-            "https://example.com/data.csv", 302, "Found", {"Location": "https://other.com/data.csv"}, io.BytesIO(b"")
-        )
+        redirect_response = MagicMock()
+        redirect_response.status = 302
+        redirect_response.headers = {"Location": "https://other.com/data.csv"}
         final_response = MagicMock()
+        final_response.status = 200
         final_response.read.return_value = b"data"
-
-        http_handler.headers = {"Authorization": "Bearer secret"}
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.urlopen", side_effect=[redirect_error, final_response]) as mock_urlopen,
+            patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
-            http_handler.open("https://example.com/data.csv", "rb")
+            http_handler.open("https://example.com/data.csv", "rb", headers={"Authorization": "Bearer secret"})
             # Second call should not have Authorization header
-            second_request = mock_urlopen.call_args_list[1][0][0]
+            second_request = mock_opener.open.call_args_list[1][0][0]
             assert "Authorization" not in second_request.headers
 
     def test_too_many_redirects(self, http_handler):
-        from urllib.error import HTTPError as UrllibHTTPError
-
-        redirect_error = UrllibHTTPError(
-            "https://example.com/loop", 302, "Found", {"Location": "https://example.com/loop"}, io.BytesIO(b"")
-        )
+        http_handler = HttpURLHandler(max_redirects=1)
+        redirect_responses = []
+        for _ in range(2):
+            response = MagicMock()
+            response.status = 302
+            response.headers = {"Location": "https://example.com/loop"}
+            redirect_responses.append(response)
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = redirect_responses
 
         with (
             patch("sunstone.handlers._is_public_url", return_value=True),
-            patch("sunstone.handlers.urlopen", side_effect=redirect_error),
+            patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             with pytest.raises(ValueError, match="Too many redirects"):
                 http_handler.open("https://example.com/data.csv", "rb")
@@ -337,13 +343,16 @@ def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
     registry._url_handlers.append(handler)
 
     mock_response = MagicMock()
+    mock_response.status = 200
     mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_opener = MagicMock()
+    mock_opener.open.return_value = mock_response
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
         patch("sunstone.handlers._is_public_url", return_value=True),
-        patch("sunstone.handlers.urlopen", return_value=mock_response) as mock_urlopen,
+        patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         manager.fetch_from_url(dataset, force=True)
-        request_obj = mock_urlopen.call_args[0][0]
+        request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.get_header("Authorization") == "Bearer test-token"
