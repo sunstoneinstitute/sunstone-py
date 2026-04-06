@@ -4,7 +4,7 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 
 import os
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 import pandas as pd
 
@@ -157,41 +157,29 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Determine format
-        if format is None:
-            # Auto-detect from file extension
+        # Find a format handler (plugin or builtin) for this file
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+
+        # Try explicit format string first, then extension-based detection
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, format)
+
+        if format_handler is None:
             extension = absolute_path.suffix.lower()
-            format_map = {
-                ".csv": "csv",
-                ".json": "json",
-                ".xlsx": "excel",
-                ".xls": "excel",
-                ".parquet": "parquet",
-                ".tsv": "tsv",
-                ".txt": "tsv",  # Assume tab-delimited for .txt
-            }
-            format = format_map.get(extension)
-            if format is None:
-                raise ValueError(
-                    f"Cannot auto-detect format for file extension '{extension}'. "
-                    f"Supported extensions: {', '.join(format_map.keys())}. "
-                    f"Please specify format explicitly using the 'format' parameter."
-                )
+            raise ValueError(
+                f"No format handler found for '{absolute_path.name}'"
+                + (f" (format='{format}')" if format else f" (extension='{extension}')")
+                + ". Install a plugin or check the file extension."
+            )
 
-        # Read using appropriate pandas function
-        reader_map: dict[str, Callable[..., pd.DataFrame]] = {
-            "csv": pd.read_csv,
-            "json": pd.read_json,
-            "excel": pd.read_excel,
-            "parquet": pd.read_parquet,
-            "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
-        }
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
 
-        reader = reader_map.get(format)
-        if reader is None:
-            raise ValueError(f"Unsupported format '{format}'. Supported formats: {', '.join(reader_map.keys())}")
-
-        df = reader(absolute_path, **kwargs)
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format=format, path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -292,8 +280,21 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Read the CSV using pandas
-        df = pd.read_csv(absolute_path, **kwargs)
+        # Read via format handler registry
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, "csv")
+        if format_handler is None:
+            raise ValueError("No format handler found for CSV files")
+
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format="csv", path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -392,8 +393,21 @@ class DataFrame:
                     f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
                 )
 
-        # Read the Excel file using pandas
-        df = pd.read_excel(absolute_path, **kwargs)
+        # Read via format handler registry
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, "excel")
+        if format_handler is None:
+            raise ValueError("No format handler found for Excel files")
+
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            df = format_handler.read(stream, format="excel", path=location, **kwargs)
 
         # Create lineage metadata
         lineage = LineageMetadata(project_path=str(manager.project_path))
@@ -449,9 +463,19 @@ class DataFrame:
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
 
         if not track:
-            path = Path(path_or_buf)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            self.data.to_csv(path, **pandas_kwargs)
+            from .plugins import PluginRegistry
+
+            registry = PluginRegistry.get(Path(self.project_path) if self.project_path is not None else None)
+            location = str(path_or_buf)
+
+            url_handler = registry.find_url_handler(location)
+            if url_handler:
+                with url_handler.open(location, "wb") as stream:
+                    self.data.to_csv(stream, **pandas_kwargs)
+            else:
+                path = Path(path_or_buf)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self.data.to_csv(path, **pandas_kwargs)
             return
 
         manager = self._get_datasets_manager()
@@ -480,10 +504,25 @@ class DataFrame:
                 # Register the new output
                 dataset = manager.add_output_dataset(name=name, slug=slug, location=location, fields=fields)
 
-        # Write the CSV
+        # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
-        absolute_path.parent.mkdir(parents=True, exist_ok=True)
-        self.data.to_csv(absolute_path, **pandas_kwargs)
+
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+        location = str(absolute_path)
+
+        url_handler = registry.find_url_handler(location)
+        format_writer = registry.find_format_writer(location, None)
+
+        if url_handler and format_writer:
+            with url_handler.open(location, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+        elif format_writer:
+            with open(absolute_path, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+        else:
+            self.data.to_csv(absolute_path, **pandas_kwargs)
 
         # Compute content hash for change detection
         content_hash = compute_dataframe_hash(self.data)

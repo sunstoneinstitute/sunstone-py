@@ -8,6 +8,7 @@ data science workflow.
 The `sunstone-py` package provides:
 - **DataFrame wrapper**: Pandas-compatible DataFrame with automatic lineage tracking
 - **Dataset management**: Integration with `datasets.yaml` for all I/O operations
+- **Plugin system**: Extensible auth, URL handling, and format support via entry points
 - **Validation tools**: Check notebooks and scripts for correct import usage
 - **Pandas-like API**: Familiar interface for data scientists via `from sunstone import pandas as pd`
 
@@ -18,35 +19,61 @@ The `sunstone-py` package provides:
 ├── pyproject.toml
 ├── README.md
 ├── src
-│   └── sunstone
-│       ├── __init__.py
-│       ├── _release.py
-│       ├── dataframe.py
-│       ├── datasets.py
-│       ├── exceptions.py
-│       ├── lineage.py
-│       ├── pandas.py
-│       ├── py.typed
-│       └── validation.py
+│   └── sunstone
+│       ├── __init__.py
+│       ├── _release.py
+│       ├── cli.py
+│       ├── context.py
+│       ├── dataframe.py
+│       ├── datasets.py
+│       ├── errors.py
+│       ├── exceptions.py
+│       ├── handlers.py
+│       ├── handlers_gcs.py
+│       ├── handlers_s3.py
+│       ├── lineage.py
+│       ├── packaging.py
+│       ├── pandas.py
+│       ├── plugins.py
+│       ├── py.typed
+│       ├── queries.py
+│       ├── session.py
+│       └── validation.py
 ├── templates
-│   ├── analysis_notebook.ipynb
-│   ├── analysis_notebook.py
-│   └── README.md
+│   ├── analysis_notebook.ipynb
+│   ├── analysis_notebook.py
+│   └── README.md
 └── tests
-    ├── conftest.py
-    ├── test_dataframe.py
-    ├── test_datasets.py
-    ├── test_lineage_persistence.py
-    ├── test_pandas_compatibility.py
-    └── testdata
-        └── UNMembersProject
-            ├── create_un_members_dataset.py
-            ├── datasets.yaml
-            ├── inputs
-            │   └── official_un_member_states_raw.csv
-            ├── outputs
-            ├── pyproject.toml
-            └── uv.lock
+    ├── conftest.py
+    ├── test_cli.py
+    ├── test_context.py
+    ├── test_dataframe.py
+    ├── test_dataframe_coverage.py
+    ├── test_datasets.py
+    ├── test_datasets_coverage.py
+    ├── test_errors.py
+    ├── test_handlers.py
+    ├── test_handlers_gcs.py
+    ├── test_handlers_s3.py
+    ├── test_lineage_flow.py
+    ├── test_lineage_persistence.py
+    ├── test_packaging.py
+    ├── test_pandas_compatibility.py
+    ├── test_plugins.py
+    ├── test_queries.py
+    ├── test_rdf.py
+    ├── test_remaining_coverage.py
+    ├── test_session.py
+    ├── test_validation.py
+    └── testdata
+        └── UNMembersProject
+            ├── create_un_members_dataset.py
+            ├── datasets.yaml
+            ├── inputs
+            │   └── official_un_member_states_raw.csv
+            ├── outputs
+            ├── pyproject.toml
+            └── uv.lock
 ```
 
 ## Usage for Data Scientists
@@ -80,6 +107,23 @@ result.to_csv(
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs
+
+## Plugin System
+
+Reading, writing, and URL fetching are handled by a plugin registry. Built-in handlers
+cover CSV, JSON, Excel, Parquet, TSV formats and HTTP/HTTPS, local file, GCS, and S3/R2 URLs.
+External plugins are discovered via the `sunstone.plugins` entry point group and take priority
+over built-ins.
+
+Key modules:
+- `plugins.py` — Protocol definitions (`AuthProvider`, `URLHandler`, `FormatHandler`) and `PluginRegistry`
+- `handlers.py` — Built-in `BuiltinFormatHandler`, `HttpURLHandler`, and `LocalFileHandler`
+- `handlers_gcs.py` — `GcsURLHandler` for `gs://` URLs (requires `sunstone-py[gcs]`)
+- `handlers_s3.py` — `S3URLHandler` for `s3://` and `r2://` URLs (requires `sunstone-py[s3]`)
+- `packaging.py` — Library functions for building and pushing data packages via URLHandler
+
+URLHandler uses stream-based `open(url, mode) -> BinaryIO | TextIO` matching Python's built-in `open()`.
+Plugin config uses cascading precedence: `datasets.yaml` → `pyproject.toml` → environment variables (`SUNSTONE_PLUGIN_<NAME>_<KEY>`).
 
 ## Cross-Platform (Windows CI)
 

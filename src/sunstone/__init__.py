@@ -44,6 +44,12 @@ from .lineage import (
     SourceLocation,
 )
 
+# Plugin system
+from .plugins import AuthProvider, FormatHandler, PluginRegistry, URLHandler
+
+# Packaging (library functions for building and pushing data packages)
+from . import packaging
+
 # Import pandas module for pd-like interface
 from . import pandas
 
@@ -99,6 +105,13 @@ __all__ = [
     "close_session",
     "LineageSession",
     "DatasetRead",
+    # Plugin system
+    "AuthProvider",
+    "URLHandler",
+    "FormatHandler",
+    "PluginRegistry",
+    # Packaging
+    "packaging",
     # Lineage queries
     "LineageNode",
     "get_upstream",
