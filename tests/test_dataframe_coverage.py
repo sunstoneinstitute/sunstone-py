@@ -62,7 +62,7 @@ class TestGetDatasetsManagerNoProjectPath:
         """Line 85: _get_datasets_manager raises ValueError if project_path is None."""
         df = DataFrame(data=pd.DataFrame({"a": [1]}))
         # Force project_path to None after construction
-        df.lineage.project_path = None
+        df.metadata.lineage.project_path = None
 
         with pytest.raises(ValueError, match="Project path not set"):
             df._get_datasets_manager()

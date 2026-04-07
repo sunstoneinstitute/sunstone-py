@@ -13,7 +13,9 @@ from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
 
-pd.options.mode.copy_on_write = True
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    pd.options.mode.copy_on_write = True
 
 
 class DataFrame:

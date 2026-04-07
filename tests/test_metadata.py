@@ -1,6 +1,7 @@
 """Tests for the Metadata container."""
 
 import warnings
+from pathlib import Path
 
 import sunstone
 from sunstone.lineage import FieldSchema, LineageMetadata, Metadata
@@ -308,3 +309,101 @@ class TestBuildFieldSchema:
         schema = df._build_field_schema()
         assert schema[0].type == "integer"
         assert schema[0].description == "Count"
+
+
+class TestMetadataIntegration:
+    """End-to-end test: read -> annotate -> write -> verify datasets.yaml."""
+
+    def test_full_metadata_flow(self, project_path: Path, tmp_path: Path):
+        """Metadata set on DataFrame flows through to datasets.yaml on write."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        test_project = tmp_path / "project"
+        shutil.copytree(project_path, test_project)
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        result = df[["Member State", "ISO Code"]].head(5)
+        result.metadata.slug = "top-five-members"
+        result.metadata.name = "Top Five Members"
+        result.metadata.description = "First five UN member states"
+        result.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+        result.metadata.custom_properties = {"schema:about": "United Nations"}
+        result.set_field_metadata("Member State", description="Country name")
+        result.set_field_metadata("ISO Code", description="ISO 3166-1 alpha-3", source="official-un-member-states")
+        output_path = test_project / "outputs" / "top_five.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        result.to_csv(str(output_path), index=False)
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+        output = None
+        for o in data["outputs"]:
+            if o["slug"] == "top-five-members":
+                output = o
+                break
+        assert output is not None, "Output dataset not found in datasets.yaml"
+        assert output["name"] == "Top Five Members"
+        assert output["description"] == "First five UN member states"
+        assert output["rdfPrefixes"] == {"schema": "https://schema.org/"}
+        assert output["schema:about"] == "United Nations"
+        fields_by_name = {f["name"]: f for f in output["fields"]}
+        assert fields_by_name["Member State"]["description"] == "Country name"
+        assert fields_by_name["ISO Code"]["description"] == "ISO 3166-1 alpha-3"
+        assert fields_by_name["ISO Code"]["source"] == "official-un-member-states"
+        assert "lineage" in output
+        assert "sources" in output["lineage"]
+
+    def test_to_csv_slug_name_from_metadata(self, project_path: Path, tmp_path: Path):
+        """to_csv uses metadata slug/name when not passed as parameters."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        test_project = tmp_path / "project"
+        shutil.copytree(project_path, test_project)
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        result = df.head(3)
+        result.metadata.slug = "meta-slug"
+        result.metadata.name = "Meta Name"
+        output_path = test_project / "outputs" / "meta_test.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        result.to_csv(str(output_path), index=False)
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+        output = next(o for o in data["outputs"] if o["slug"] == "meta-slug")
+        assert output["name"] == "Meta Name"
+
+    def test_to_csv_params_override_metadata(self, project_path: Path, tmp_path: Path):
+        """Explicit to_csv params override metadata values."""
+        import shutil
+
+        from ruamel.yaml import YAML
+
+        test_project = tmp_path / "project"
+        shutil.copytree(project_path, test_project)
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=test_project,
+            strict=False,
+        )
+        result = df.head(3)
+        result.metadata.slug = "meta-slug"
+        result.metadata.name = "Meta Name"
+        output_path = test_project / "outputs" / "override_test.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        result.to_csv(str(output_path), slug="param-slug", name="Param Name", index=False)
+        yaml = YAML()
+        with open(test_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+        output = next(o for o in data["outputs"] if o["slug"] == "param-slug")
+        assert output["name"] == "Param Name"
