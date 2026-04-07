@@ -1,5 +1,8 @@
 """Tests for the Metadata container."""
 
+import warnings
+
+import sunstone
 from sunstone.lineage import FieldSchema, LineageMetadata, Metadata
 
 
@@ -61,3 +64,55 @@ class TestFieldSchemaOptionalType:
         assert fs.type is None
         assert fs.description == "A column"
         assert fs.unit == "kg"
+
+
+class TestDataFrameMetadataIntegration:
+    """Tests for DataFrame .metadata attribute and .lineage deprecation."""
+
+    def test_default_metadata_on_new_dataframe(self):
+        """New DataFrame gets an empty Metadata container."""
+        df = sunstone.DataFrame({"a": [1, 2, 3]})
+        assert isinstance(df.metadata, Metadata)
+        assert isinstance(df.metadata.lineage, LineageMetadata)
+
+    def test_metadata_parameter(self):
+        """DataFrame accepts a metadata parameter."""
+        meta = Metadata(description="test", slug="test-slug")
+        df = sunstone.DataFrame({"a": [1]}, metadata=meta)
+        assert df.metadata.description == "test"
+        assert df.metadata.slug == "test-slug"
+
+    def test_lineage_parameter_wraps_in_metadata(self):
+        """Passing lineage= wraps it in a Metadata container (backwards compat)."""
+        lineage = LineageMetadata()
+        df = sunstone.DataFrame({"a": [1]}, lineage=lineage)
+        assert isinstance(df.metadata, Metadata)
+        assert df.metadata.lineage is lineage
+
+    def test_lineage_property_deprecation_warning(self):
+        """Accessing df.lineage emits DeprecationWarning."""
+        df = sunstone.DataFrame({"a": [1]})
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            _ = df.lineage
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+    def test_lineage_setter_deprecation_warning(self):
+        """Setting df.lineage emits DeprecationWarning."""
+        df = sunstone.DataFrame({"a": [1]})
+        new_lineage = LineageMetadata()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            df.lineage = new_lineage
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+        assert df.metadata.lineage is new_lineage
+
+    def test_lineage_property_delegates_to_metadata(self):
+        """df.lineage returns the same object as df.metadata.lineage."""
+        df = sunstone.DataFrame({"a": [1]})
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            assert df.lineage is df.metadata.lineage

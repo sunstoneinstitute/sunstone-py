@@ -3,6 +3,7 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 """
 
 import os
+import warnings
 from pathlib import Path
 from typing import Any, List, Optional, Union
 
@@ -10,7 +11,7 @@ import pandas as pd
 
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
-from .lineage import FieldSchema, LineageMetadata, compute_dataframe_hash
+from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
 
 pd.options.mode.copy_on_write = True
 
@@ -32,6 +33,7 @@ class DataFrame:
         self,
         data: Any = None,
         lineage: Optional[LineageMetadata] = None,
+        metadata: Optional[Metadata] = None,
         strict: Optional[bool] = None,
         project_path: Optional[Union[str, Path]] = None,
         **kwargs: Any,
@@ -42,7 +44,8 @@ class DataFrame:
         Args:
             data: Data to wrap. Can be a pandas DataFrame or any data accepted
                  by pandas.DataFrame() constructor (dict, list of dicts, etc.).
-            lineage: Optional lineage metadata.
+            lineage: Optional lineage metadata. Deprecated: use metadata= instead.
+            metadata: Optional unified metadata container.
             strict: Whether to operate in strict mode. If None, reads from
                    SUNSTONE_DATAFRAME_STRICT environment variable.
             project_path: Path to the project directory. If None, uses current directory.
@@ -64,7 +67,13 @@ class DataFrame:
             # data is some other type (dict, list, etc.) - pass to pandas
             self.data = pd.DataFrame(data, **kwargs)
 
-        self.lineage = lineage if lineage is not None else LineageMetadata()
+        # Unified metadata container
+        if metadata is not None:
+            self.metadata = metadata
+        elif lineage is not None:
+            self.metadata = Metadata(lineage=lineage)
+        else:
+            self.metadata = Metadata()
 
         # Determine strict mode
         if strict is None:
@@ -75,15 +84,35 @@ class DataFrame:
 
         # Set project path
         if project_path is not None:
-            self.lineage.project_path = str(Path(project_path).resolve())
-        elif self.lineage.project_path is None:
-            self.lineage.project_path = str(Path.cwd())
+            self.metadata.lineage.project_path = str(Path(project_path).resolve())
+        elif self.metadata.lineage.project_path is None:
+            self.metadata.lineage.project_path = str(Path.cwd())
+
+    @property
+    def lineage(self) -> LineageMetadata:
+        """Deprecated: use .metadata.lineage instead."""
+        warnings.warn(
+            "DataFrame.lineage is deprecated, use DataFrame.metadata.lineage",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.metadata.lineage
+
+    @lineage.setter
+    def lineage(self, value: LineageMetadata) -> None:
+        """Deprecated: use .metadata.lineage instead."""
+        warnings.warn(
+            "DataFrame.lineage is deprecated, use DataFrame.metadata.lineage",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.metadata.lineage = value
 
     def _get_datasets_manager(self) -> DatasetsManager:
         """Get a DatasetsManager for the current project."""
-        if self.lineage.project_path is None:
+        if self.metadata.lineage.project_path is None:
             raise ValueError("Project path not set")
-        return DatasetsManager(self.lineage.project_path)
+        return DatasetsManager(self.metadata.lineage.project_path)
 
     @classmethod
     def read_dataset(

@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: `DataFrame` now stores metadata in a `.metadata` (`Metadata`) attribute; `.lineage` is a deprecated shim that emits `DeprecationWarning`
+- Added: `DataFrame.__init__` accepts a `metadata=` parameter for direct `Metadata` injection
 - Added: `Metadata` dataclass as unified metadata container for data objects (lineage, description, RDF prefixes, custom properties, per-field metadata, slug, name)
 - Changed: `FieldSchema.type` is now optional (`str | None`, default `None`) to allow type inference at write time
 - Added: Stream-based plugin IO — URLHandler.open(url, mode) returns file-like objects instead of downloading to temp files
