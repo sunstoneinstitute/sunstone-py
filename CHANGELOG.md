@@ -3,15 +3,11 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added: `DataFrame._build_field_schema()` merges explicit field metadata with dtype-inferred types at write time; replaces `_infer_field_schema()`
-- Added: `to_csv()` now passes dataset-level metadata (description, rdf_prefixes, custom_properties) through to `add_output_dataset()` in datasets.yaml
-- Added: `to_csv()` falls back to `df.metadata.slug`/`df.metadata.name` when slug/name parameters are not provided
-- Added: `DatasetsManager.add_output_dataset()` and `update_output_dataset()` accept optional `description`, `rdf_prefixes`, and `custom_properties` parameters
-- Changed: Metadata (description, slug, name, rdf_prefixes, custom_properties, field_metadata) now propagates through `_wrap_result`, `merge`, `join`, and `concat`; field_metadata entries for removed columns are dropped automatically
-- Changed: `DataFrame` now stores metadata in a `.metadata` (`Metadata`) attribute; `.lineage` is a deprecated shim that emits `DeprecationWarning`
-- Added: `DataFrame.__init__` accepts a `metadata=` parameter for direct `Metadata` injection
-- Added: `Metadata` dataclass as unified metadata container for data objects (lineage, description, RDF prefixes, custom properties, per-field metadata, slug, name)
-- Changed: `FieldSchema.type` is now optional (`str | None`, default `None`) to allow type inference at write time
+- Added: Metadata container for DataFrame with description, RDF prefixes, custom properties, and field-level metadata
+- Added: `set_field_metadata()` method for annotating DataFrame columns with description, unit, source
+- Added: `read_json()` to sunstone.pandas module
+- Changed: `FieldSchema.type` is now optional (None means infer at write time)
+- Deprecated: `DataFrame.lineage` property — use `DataFrame.metadata.lineage` instead
 - Added: Stream-based plugin IO — URLHandler.open(url, mode) returns file-like objects instead of downloading to temp files
 - Added: FormatHandler protocol now uses BinaryIO streams for read/write
 - Added: LocalFileHandler for local paths and file:// URLs
