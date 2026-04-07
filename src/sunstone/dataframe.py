@@ -673,103 +673,83 @@ class DataFrame:
         return fields
 
     def merge(self, right: "DataFrame", **kwargs: Any) -> "DataFrame":
-        """
-        Merge with another Sunstone DataFrame, combining lineage.
-
-        Args:
-            right: The other DataFrame to merge with.
-            **kwargs: Arguments passed to pandas.merge.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Perform the merge
+        """Merge with another Sunstone DataFrame, combining lineage."""
         merged_data = pd.merge(self.data, right.data, **kwargs)
+        merged_lineage = self.metadata.lineage.merge(right.metadata.lineage)
 
-        # Combine lineage (sources from both DataFrames)
-        merged_lineage = self.lineage.merge(right.lineage)
-
-        return DataFrame(
-            data=merged_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in merged_data.columns}
+        new_metadata = Metadata(
             lineage=merged_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=merged_data, metadata=new_metadata, strict=self.strict_mode)
 
     def join(self, other: "DataFrame", **kwargs: Any) -> "DataFrame":
-        """
-        Join with another Sunstone DataFrame, combining lineage.
-
-        Args:
-            other: The other DataFrame to join with.
-            **kwargs: Arguments passed to pandas.join.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Perform the join
+        """Join with another Sunstone DataFrame, combining lineage."""
         joined_data = self.data.join(other.data, **kwargs)
+        joined_lineage = self.metadata.lineage.merge(other.metadata.lineage)
 
-        # Combine lineage (sources from both DataFrames)
-        joined_lineage = self.lineage.merge(other.lineage)
-
-        return DataFrame(
-            data=joined_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in joined_data.columns}
+        new_metadata = Metadata(
             lineage=joined_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=joined_data, metadata=new_metadata, strict=self.strict_mode)
 
     def concat(self, others: List["DataFrame"], **kwargs: Any) -> "DataFrame":
-        """
-        Concatenate with other Sunstone DataFrames, combining lineage.
-
-        Args:
-            others: List of other DataFrames to concatenate.
-            **kwargs: Arguments passed to pandas.concat.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Collect all DataFrames
+        """Concatenate with other Sunstone DataFrames, combining lineage."""
         all_dfs = [self.data] + [df.data for df in others]
-
-        # Concatenate
         concatenated_data = pd.concat(all_dfs, **kwargs)
 
-        # Combine lineage (sources from all DataFrames)
-        combined_lineage = self.lineage
+        combined_lineage = self.metadata.lineage
         for other in others:
-            combined_lineage = combined_lineage.merge(other.lineage)
+            combined_lineage = combined_lineage.merge(other.metadata.lineage)
 
-        return DataFrame(
-            data=concatenated_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in concatenated_data.columns}
+        new_metadata = Metadata(
             lineage=combined_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=concatenated_data, metadata=new_metadata, strict=self.strict_mode)
 
     def _wrap_result(self, result: Any) -> Any:
-        """
-        Wrap a pandas result in a Sunstone DataFrame if applicable.
+        """Wrap a pandas result in a Sunstone DataFrame if applicable.
 
-        Args:
-            result: The result from a pandas operation.
-
-        Returns:
-            Wrapped DataFrame if result is a DataFrame, otherwise the result.
+        Copies all metadata, dropping field_metadata for columns no longer present.
         """
         if isinstance(result, pd.DataFrame):
-            new_lineage = LineageMetadata(
-                sources=self.lineage.sources.copy(),
-                project_path=self.lineage.project_path,
+            new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in result.columns}
+            new_metadata = Metadata(
+                lineage=LineageMetadata(
+                    sources=self.metadata.lineage.sources.copy(),
+                    project_path=self.metadata.lineage.project_path,
+                ),
+                description=self.metadata.description,
+                rdf_prefixes=self.metadata.rdf_prefixes,
+                custom_properties=self.metadata.custom_properties,
+                field_metadata=new_field_meta,
+                slug=self.metadata.slug,
+                name=self.metadata.name,
             )
-
             return DataFrame(
                 data=result,
-                lineage=new_lineage,
+                metadata=new_metadata,
                 strict=self.strict_mode,
-                project_path=self.lineage.project_path,
             )
         return result
 
@@ -826,7 +806,7 @@ class DataFrame:
 
     def __repr__(self) -> str:
         """String representation of the DataFrame."""
-        lineage_info = f"\n\nLineage: {len(self.lineage.sources)} source(s)"
+        lineage_info = f"\n\nLineage: {len(self.metadata.lineage.sources)} source(s)"
         return repr(self.data) + lineage_info
 
     def __str__(self) -> str:

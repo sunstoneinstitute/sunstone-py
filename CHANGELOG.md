@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: Metadata (description, slug, name, rdf_prefixes, custom_properties, field_metadata) now propagates through `_wrap_result`, `merge`, `join`, and `concat`; field_metadata entries for removed columns are dropped automatically
 - Changed: `DataFrame` now stores metadata in a `.metadata` (`Metadata`) attribute; `.lineage` is a deprecated shim that emits `DeprecationWarning`
 - Added: `DataFrame.__init__` accepts a `metadata=` parameter for direct `Metadata` injection
 - Added: `Metadata` dataclass as unified metadata container for data objects (lineage, description, RDF prefixes, custom properties, per-field metadata, slug, name)

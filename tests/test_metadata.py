@@ -192,3 +192,75 @@ class TestSetFieldMetadata:
         df = sunstone.DataFrame({"val": [1]})
         df.set_field_metadata("val", source="input-data")
         assert df.metadata.field_metadata["val"].source == "input-data"
+
+
+class TestMetadataPropagation:
+    """Tests for metadata flowing through pandas operations."""
+
+    def _make_df(self):
+        """Create a DataFrame with metadata set."""
+        df = sunstone.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        df.metadata.description = "test data"
+        df.metadata.slug = "test-slug"
+        df.metadata.name = "Test Data"
+        df.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+        df.metadata.custom_properties = {"schema:about": "Test"}
+        df.set_field_metadata("a", description="Column A", unit="m")
+        df.set_field_metadata("b", description="Column B", unit="kg")
+        return df
+
+    def test_filter_preserves_metadata(self):
+        df = self._make_df()
+        result = df[df["a"] > 1]
+        assert result.metadata.description == "test data"
+        assert result.metadata.slug == "test-slug"
+        assert result.metadata.rdf_prefixes == {"schema": "https://schema.org/"}
+        assert "a" in result.metadata.field_metadata
+        assert result.metadata.field_metadata["a"].unit == "m"
+
+    def test_column_selection_drops_removed_field_metadata(self):
+        df = self._make_df()
+        result = df[["a"]]
+        assert "a" in result.metadata.field_metadata
+        assert "b" not in result.metadata.field_metadata
+        assert result.metadata.description == "test data"
+
+    def test_head_preserves_metadata(self):
+        df = self._make_df()
+        result = df.head(2)
+        assert result.metadata.description == "test data"
+        assert result.metadata.field_metadata["a"].unit == "m"
+
+    def test_merge_uses_left_metadata(self):
+        left = sunstone.DataFrame({"key": [1], "val_l": [10]})
+        left.metadata.description = "left data"
+        left.set_field_metadata("val_l", unit="m")
+        right = sunstone.DataFrame({"key": [1], "val_r": [20]})
+        right.set_field_metadata("val_r", unit="kg")
+        result = left.merge(right, on="key")
+        assert result.metadata.description == "left data"
+        assert result.metadata.field_metadata["val_l"].unit == "m"
+        assert "val_r" not in result.metadata.field_metadata
+
+    def test_concat_uses_first_metadata(self):
+        df1 = sunstone.DataFrame({"a": [1]})
+        df1.metadata.description = "first"
+        df1.set_field_metadata("a", unit="m")
+        df2 = sunstone.DataFrame({"a": [2]})
+        df2.metadata.description = "second"
+        result = df1.concat([df2])
+        assert result.metadata.description == "first"
+        assert result.metadata.field_metadata["a"].unit == "m"
+
+    def test_join_uses_left_metadata(self):
+        left = sunstone.DataFrame({"val": [1]}, index=[0])
+        left.metadata.description = "left"
+        right = sunstone.DataFrame({"other": [2]}, index=[0])
+        result = left.join(right)
+        assert result.metadata.description == "left"
+
+    def test_metadata_is_independent_after_operation(self):
+        df = self._make_df()
+        result = df.head(2)
+        result.metadata.description = "modified"
+        assert df.metadata.description == "test data"
