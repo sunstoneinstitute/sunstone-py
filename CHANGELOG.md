@@ -3,6 +3,10 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: `DataFrame._build_field_schema()` merges explicit field metadata with dtype-inferred types at write time; replaces `_infer_field_schema()`
+- Added: `to_csv()` now passes dataset-level metadata (description, rdf_prefixes, custom_properties) through to `add_output_dataset()` in datasets.yaml
+- Added: `to_csv()` falls back to `df.metadata.slug`/`df.metadata.name` when slug/name parameters are not provided
+- Added: `DatasetsManager.add_output_dataset()` and `update_output_dataset()` accept optional `description`, `rdf_prefixes`, and `custom_properties` parameters
 - Changed: Metadata (description, slug, name, rdf_prefixes, custom_properties, field_metadata) now propagates through `_wrap_result`, `merge`, `join`, and `concat`; field_metadata entries for removed columns are dropped automatically
 - Changed: `DataFrame` now stores metadata in a `.metadata` (`Metadata`) attribute; `.lineage` is a deprecated shim that emits `DeprecationWarning`
 - Added: `DataFrame.__init__` accepts a `metadata=` parameter for direct `Metadata` injection

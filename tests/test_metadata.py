@@ -264,3 +264,47 @@ class TestMetadataPropagation:
         result = df.head(2)
         result.metadata.description = "modified"
         assert df.metadata.description == "test data"
+
+
+class TestBuildFieldSchema:
+    """Tests for write-time field schema merge."""
+
+    def test_inferred_only(self):
+        """Without field metadata, all types are inferred from dtypes."""
+        df = sunstone.DataFrame({"i": [1], "f": [1.5], "s": ["a"], "b": [True]})
+        schema = df._build_field_schema()
+        types = {f.name: f.type for f in schema}
+        assert types["i"] == "integer"
+        assert types["f"] == "number"
+        assert types["s"] == "string"
+        assert types["b"] == "boolean"
+
+    def test_explicit_overrides_inferred(self):
+        """Explicit field metadata takes precedence over inference."""
+        df = sunstone.DataFrame({"val": [1]})
+        df.set_field_metadata("val", type="number", description="A value", unit="kg")
+        schema = df._build_field_schema()
+        assert len(schema) == 1
+        assert schema[0].type == "number"
+        assert schema[0].description == "A value"
+        assert schema[0].unit == "kg"
+
+    def test_partial_annotation(self):
+        """Annotated and unannotated columns both get schemas."""
+        df = sunstone.DataFrame({"annotated": [1], "plain": ["x"]})
+        df.set_field_metadata("annotated", description="Important", unit="m")
+        schema = df._build_field_schema()
+        by_name = {f.name: f for f in schema}
+        assert by_name["annotated"].description == "Important"
+        assert by_name["annotated"].type == "integer"
+        assert by_name["plain"].type == "string"
+        assert by_name["plain"].description is None
+
+    def test_explicit_type_none_gets_inferred(self):
+        """FieldSchema with type=None gets type inferred from dtype."""
+        df = sunstone.DataFrame({"col": [42]})
+        df.set_field_metadata("col", description="Count")
+        assert df.metadata.field_metadata["col"].type is None
+        schema = df._build_field_schema()
+        assert schema[0].type == "integer"
+        assert schema[0].description == "Count"

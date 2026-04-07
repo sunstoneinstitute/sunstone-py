@@ -596,17 +596,28 @@ class DataFrame:
                 )
             else:
                 # Relaxed mode: auto-register
-                if slug is None or name is None:
+                effective_slug = slug or self.metadata.slug
+                effective_name = name or self.metadata.name
+                if effective_slug is None or effective_name is None:
                     raise ValueError(
                         "In relaxed mode, 'slug' and 'name' are required "
-                        "when writing to an unregistered output location."
+                        "when writing to an unregistered output location. "
+                        "Set them via to_csv() parameters or df.metadata.slug/name."
                     )
 
-                # Infer field schema from DataFrame
-                fields = self._infer_field_schema()
+                # Build field schema merging explicit metadata with inferred dtypes
+                fields = self._build_field_schema()
 
-                # Register the new output
-                dataset = manager.add_output_dataset(name=name, slug=slug, location=location, fields=fields)
+                # Register the new output with full metadata
+                dataset = manager.add_output_dataset(
+                    name=effective_name,
+                    slug=effective_slug,
+                    location=location,
+                    fields=fields,
+                    description=self.metadata.description,
+                    rdf_prefixes=self.metadata.rdf_prefixes,
+                    custom_properties=self.metadata.custom_properties,
+                )
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
@@ -647,31 +658,41 @@ class DataFrame:
             transformation_params=lineage_data.get("transformation_params"),
         )
 
-    def _infer_field_schema(self) -> List[FieldSchema]:
-        """
-        Infer field schema from the DataFrame.
+    def _infer_dtype(self, col: str) -> str:
+        """Infer the dataset type string for a column from its pandas dtype."""
+        dtype = self.data[col].dtype
+        if pd.api.types.is_integer_dtype(dtype):
+            return "integer"
+        elif pd.api.types.is_float_dtype(dtype):
+            return "number"
+        elif pd.api.types.is_bool_dtype(dtype):
+            return "boolean"
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            return "datetime"
+        return "string"
 
-        Returns:
-            List of FieldSchema objects based on DataFrame columns and dtypes.
-        """
+    def _build_field_schema(self) -> List[FieldSchema]:
+        """Merge explicit field metadata with dtype-inferred schema."""
         fields = []
         for col in self.data.columns:
-            dtype = self.data[col].dtype
-
-            # Map pandas dtypes to dataset types
-            if pd.api.types.is_integer_dtype(dtype):
-                field_type = "integer"
-            elif pd.api.types.is_float_dtype(dtype):
-                field_type = "number"
-            elif pd.api.types.is_bool_dtype(dtype):
-                field_type = "boolean"
-            elif pd.api.types.is_datetime64_any_dtype(dtype):
-                field_type = "datetime"
+            col_str = str(col)
+            explicit = self.metadata.field_metadata.get(col_str)
+            if explicit:
+                if explicit.type is None:
+                    fields.append(
+                        FieldSchema(
+                            name=explicit.name,
+                            type=self._infer_dtype(col_str),
+                            description=explicit.description,
+                            unit=explicit.unit,
+                            source=explicit.source,
+                            constraints=explicit.constraints,
+                        )
+                    )
+                else:
+                    fields.append(explicit)
             else:
-                field_type = "string"
-
-            fields.append(FieldSchema(name=str(col), type=field_type))
-
+                fields.append(FieldSchema(name=col_str, type=self._infer_dtype(col_str)))
         return fields
 
     def merge(self, right: "DataFrame", **kwargs: Any) -> "DataFrame":

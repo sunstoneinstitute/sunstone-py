@@ -10,7 +10,7 @@ Focuses on edge cases and branches not exercised by existing tests:
 - Strict vs relaxed mode error messages in read_csv / read_excel
 - _get_default_strict_mode env var parsing
 - to_csv relaxed mode missing slug/name
-- _infer_field_schema bool, datetime, and string branches
+- _build_field_schema bool, datetime, and string branches
 """
 
 from pathlib import Path
@@ -424,12 +424,12 @@ class TestToCsvRelaxedModeMissingSlugName:
 
 
 class TestInferFieldSchema:
-    """Tests for _infer_field_schema dtype branches."""
+    """Tests for _build_field_schema dtype branches."""
 
     def test_boolean_dtype(self) -> None:
         """Line 513: Boolean dtype maps to 'boolean'."""
         df = DataFrame(data=pd.DataFrame({"flag": pd.array([True, False, True], dtype="boolean")}))
-        fields = df._infer_field_schema()
+        fields = df._build_field_schema()
 
         assert len(fields) == 1
         assert fields[0].name == "flag"
@@ -438,7 +438,7 @@ class TestInferFieldSchema:
     def test_datetime_dtype(self) -> None:
         """Line 515: Datetime dtype maps to 'datetime'."""
         df = DataFrame(data=pd.DataFrame({"ts": pd.to_datetime(["2024-01-01", "2024-06-15", "2024-12-31"])}))
-        fields = df._infer_field_schema()
+        fields = df._build_field_schema()
 
         assert len(fields) == 1
         assert fields[0].name == "ts"
@@ -447,7 +447,7 @@ class TestInferFieldSchema:
     def test_string_dtype(self) -> None:
         """Line 517: Object/string dtype maps to 'string'."""
         df = DataFrame(data=pd.DataFrame({"name": ["Alice", "Bob", "Charlie"]}))
-        fields = df._infer_field_schema()
+        fields = df._build_field_schema()
 
         assert len(fields) == 1
         assert fields[0].name == "name"
@@ -466,7 +466,7 @@ class TestInferFieldSchema:
                 }
             )
         )
-        fields = df._infer_field_schema()
+        fields = df._build_field_schema()
         type_map = {f.name: f.type for f in fields}
 
         assert type_map["id"] == "integer"
