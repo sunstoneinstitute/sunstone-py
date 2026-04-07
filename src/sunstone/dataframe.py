@@ -284,8 +284,8 @@ class DataFrame:
             df = format_handler.read(stream, format=format, path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -293,7 +293,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @classmethod
     def read_csv(
@@ -399,8 +399,8 @@ class DataFrame:
             df = format_handler.read(stream, format="csv", path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -408,7 +408,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=dataset.slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @classmethod
     def read_excel(
@@ -512,8 +512,8 @@ class DataFrame:
             df = format_handler.read(stream, format="excel", path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -521,7 +521,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=dataset.slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @staticmethod
     def _get_default_strict_mode() -> bool:
@@ -567,7 +567,9 @@ class DataFrame:
         if not track:
             from .plugins import PluginRegistry
 
-            registry = PluginRegistry.get(Path(self.project_path) if self.project_path is not None else None)
+            registry = PluginRegistry.get(
+                Path(self.metadata.lineage.project_path) if self.metadata.lineage.project_path is not None else None
+            )
             location = str(path_or_buf)
 
             url_handler = registry.find_url_handler(location)
@@ -638,7 +640,7 @@ class DataFrame:
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.lineage,
+            lineage=self.metadata.lineage,
             content_hash=content_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
