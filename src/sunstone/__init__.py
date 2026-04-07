@@ -39,6 +39,7 @@ from .lineage import (
     DatasetMetadata,
     FieldSchema,
     LineageMetadata,
+    Metadata,
     PackageMetadata,
     Source,
     SourceLocation,
@@ -87,6 +88,7 @@ __all__ = [
     # Lineage classes
     "Contributor",
     "LineageMetadata",
+    "Metadata",
     "DatasetMetadata",
     "FieldSchema",
     "PackageMetadata",

@@ -34,7 +34,9 @@ _yaml.indent(mapping=2, sequence=4, offset=2)
 
 def _field_schema_to_dict(field: FieldSchema) -> dict:
     """Convert a FieldSchema to a dict for YAML serialization, omitting None values."""
-    d: dict = {"name": field.name, "type": field.type}
+    d: dict = {"name": field.name}
+    if field.type is not None:
+        d["type"] = field.type
     if field.constraints:
         d["constraints"] = field.constraints
     if field.description:
