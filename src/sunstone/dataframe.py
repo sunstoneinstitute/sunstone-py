@@ -5,7 +5,7 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 import os
 import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -107,6 +107,79 @@ class DataFrame:
             stacklevel=2,
         )
         self.metadata.lineage = value
+
+    @property
+    def description(self) -> Optional[str]:
+        """Dataset description. Delegates to metadata.description."""
+        return self.metadata.description
+
+    @description.setter
+    def description(self, value: Optional[str]) -> None:
+        self.metadata.description = value
+
+    @property
+    def rdf_prefixes(self) -> Optional[Dict[str, str]]:
+        """RDF namespace prefixes. Delegates to metadata.rdf_prefixes."""
+        return self.metadata.rdf_prefixes
+
+    @rdf_prefixes.setter
+    def rdf_prefixes(self, value: Optional[Dict[str, str]]) -> None:
+        self.metadata.rdf_prefixes = value
+
+    @property
+    def custom_properties(self) -> Optional[Dict[str, Any]]:
+        """Custom properties. Delegates to metadata.custom_properties."""
+        return self.metadata.custom_properties
+
+    @custom_properties.setter
+    def custom_properties(self, value: Optional[Dict[str, Any]]) -> None:
+        self.metadata.custom_properties = value
+
+    def set_field_metadata(
+        self,
+        column: str,
+        *,
+        description: Optional[str] = None,
+        unit: Optional[str] = None,
+        source: Optional[str] = None,
+        type: Optional[str] = None,
+        constraints: Optional[Dict[str, Any]] = None,
+    ) -> "DataFrame":
+        """Set metadata for a column. Returns self for chaining.
+
+        Args:
+            column: Column name to annotate.
+            description: Human-readable description of the field.
+            unit: Unit of measure (e.g., 'kg', 'students').
+            source: Slug of the input dataset this field comes from.
+            type: Data type override. If None, inferred from dtype at write time.
+            constraints: Optional constraints (e.g., enum values).
+
+        Returns:
+            self, for method chaining.
+        """
+        existing = self.metadata.field_metadata.get(column)
+        if existing:
+            if description is not None:
+                existing.description = description
+            if unit is not None:
+                existing.unit = unit
+            if source is not None:
+                existing.source = source
+            if type is not None:
+                existing.type = type
+            if constraints is not None:
+                existing.constraints = constraints
+        else:
+            self.metadata.field_metadata[column] = FieldSchema(
+                name=column,
+                type=type,
+                description=description,
+                unit=unit,
+                source=source,
+                constraints=constraints,
+            )
+        return self
 
     def _get_datasets_manager(self) -> DatasetsManager:
         """Get a DatasetsManager for the current project."""

@@ -116,3 +116,79 @@ class TestDataFrameMetadataIntegration:
         with warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             assert df.lineage is df.metadata.lineage
+
+
+class TestConvenienceProperties:
+    """Tests for df.description, df.rdf_prefixes, df.custom_properties."""
+
+    def test_description_property(self):
+        df = sunstone.DataFrame({"a": [1]})
+        assert df.description is None
+        df.description = "test description"
+        assert df.description == "test description"
+        assert df.metadata.description == "test description"
+
+    def test_rdf_prefixes_property(self):
+        df = sunstone.DataFrame({"a": [1]})
+        assert df.rdf_prefixes is None
+        df.rdf_prefixes = {"schema": "https://schema.org/"}
+        assert df.rdf_prefixes == {"schema": "https://schema.org/"}
+        assert df.metadata.rdf_prefixes == {"schema": "https://schema.org/"}
+
+    def test_custom_properties_property(self):
+        df = sunstone.DataFrame({"a": [1]})
+        assert df.custom_properties is None
+        df.custom_properties = {"schema:about": "Test"}
+        assert df.custom_properties == {"schema:about": "Test"}
+        assert df.metadata.custom_properties == {"schema:about": "Test"}
+
+
+class TestSetFieldMetadata:
+    """Tests for DataFrame.set_field_metadata()."""
+
+    def test_set_field_metadata_creates_entry(self):
+        """Setting metadata for a new column creates a FieldSchema."""
+        df = sunstone.DataFrame({"enrollment": [100, 200]})
+        df.set_field_metadata("enrollment", description="Total students", unit="students")
+        fm = df.metadata.field_metadata["enrollment"]
+        assert fm.name == "enrollment"
+        assert fm.description == "Total students"
+        assert fm.unit == "students"
+        assert fm.type is None  # not set, will be inferred at write time
+
+    def test_set_field_metadata_updates_existing(self):
+        """Setting metadata again updates rather than replaces."""
+        df = sunstone.DataFrame({"col": [1]})
+        df.set_field_metadata("col", description="First")
+        df.set_field_metadata("col", unit="kg")
+        fm = df.metadata.field_metadata["col"]
+        assert fm.description == "First"  # preserved
+        assert fm.unit == "kg"  # added
+
+    def test_set_field_metadata_chaining(self):
+        """set_field_metadata returns self for chaining."""
+        df = sunstone.DataFrame({"a": [1], "b": [2]})
+        result = df.set_field_metadata("a", unit="m").set_field_metadata("b", unit="kg")
+        assert result is df
+        assert df.metadata.field_metadata["a"].unit == "m"
+        assert df.metadata.field_metadata["b"].unit == "kg"
+
+    def test_set_field_metadata_with_explicit_type(self):
+        """Explicit type is stored and used instead of inference."""
+        df = sunstone.DataFrame({"col": [1]})
+        df.set_field_metadata("col", type="integer", description="Count")
+        fm = df.metadata.field_metadata["col"]
+        assert fm.type == "integer"
+
+    def test_set_field_metadata_with_constraints(self):
+        """Constraints can be set."""
+        df = sunstone.DataFrame({"status": ["active"]})
+        df.set_field_metadata("status", constraints={"enum": ["active", "inactive"]})
+        fm = df.metadata.field_metadata["status"]
+        assert fm.constraints == {"enum": ["active", "inactive"]}
+
+    def test_set_field_metadata_with_source(self):
+        """Source slug can be set."""
+        df = sunstone.DataFrame({"val": [1]})
+        df.set_field_metadata("val", source="input-data")
+        assert df.metadata.field_metadata["val"].source == "input-data"
