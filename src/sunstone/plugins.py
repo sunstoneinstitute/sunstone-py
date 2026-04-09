@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
 
 import pandas as pd
+import typer
 from ruamel.yaml import YAML
 
 from .lineage import DatasetMetadata
@@ -67,6 +68,15 @@ class FormatHandler(Protocol):
 
     def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
         """Write DataFrame to stream."""
+        ...
+
+
+@runtime_checkable
+class CLIProvider(Protocol):
+    """Provides CLI subcommand groups to mount on the main sunstone CLI."""
+
+    def cli_groups(self) -> list[tuple[str, typer.Typer]]:
+        """Return (name, typer_app) tuples to mount as CLI subcommand groups."""
         ...
 
 
@@ -135,6 +145,7 @@ class PluginRegistry:
 
         self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
+        self._cli_providers: list[CLIProvider] = []
 
     @classmethod
     def get(cls, project_path: Path | str | None = None) -> PluginRegistry:
@@ -200,6 +211,9 @@ class PluginRegistry:
         if isinstance(plugin, FormatHandler):
             self._format_handlers.append(plugin)
             registered = True
+        if isinstance(plugin, CLIProvider):
+            self._cli_providers.append(plugin)
+            registered = True
         if not registered:
             logger.warning("Plugin '%s' does not implement any known plugin protocol", name)
 
@@ -214,6 +228,13 @@ class PluginRegistry:
     def get_format_handlers(self) -> list[FormatHandler]:
         """Return all registered format handlers."""
         return self._format_handlers
+
+    def get_cli_groups(self) -> list[tuple[str, typer.Typer]]:
+        """Return all (name, typer_app) tuples from registered CLIProviders."""
+        groups: list[tuple[str, typer.Typer]] = []
+        for provider in self._cli_providers:
+            groups.extend(provider.cli_groups())
+        return groups
 
     def find_url_handler(self, url: str) -> URLHandler | None:
         """Find the first URL handler that can handle the given URL."""

@@ -5,7 +5,16 @@ import pandas as pd
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from sunstone.plugins import AuthProvider, FormatHandler, URLHandler, PluginRegistry, _load_cascading_config
+import typer
+
+from sunstone.plugins import (
+    AuthProvider,
+    CLIProvider,
+    FormatHandler,
+    URLHandler,
+    PluginRegistry,
+    _load_cascading_config,
+)
 from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler
 from sunstone.datasets import DatasetsManager
 from sunstone.dataframe import DataFrame
@@ -757,3 +766,59 @@ def test_registry_fetch_no_handler():
     registry = PluginRegistry()
     with pytest.raises(ValueError, match="No URL handler found"):
         registry.fetch("unknown://data.csv", Path("/tmp/out"))
+
+
+# --- CLIProvider tests ---
+
+
+class FakeCLIProvider:
+    def cli_groups(self):
+        test_app = typer.Typer(help="Test CLI group")
+        return [("test", test_app)]
+
+
+class NotACLIProvider:
+    pass
+
+
+def test_cli_provider_structural_typing():
+    assert isinstance(FakeCLIProvider(), CLIProvider)
+
+
+def test_cli_provider_negative():
+    assert not isinstance(NotACLIProvider(), CLIProvider)
+
+
+def test_cli_provider_registration():
+    registry = PluginRegistry()
+    provider = FakeCLIProvider()
+    registry._register("fake_cli", provider)
+    groups = registry.get_cli_groups()
+    assert len(groups) == 1
+    assert groups[0][0] == "test"
+
+
+def test_cli_provider_not_registered_for_non_provider():
+    registry = PluginRegistry()
+    registry._register("not_cli", NotAPlugin())
+    groups = registry.get_cli_groups()
+    assert len(groups) == 0
+
+
+def test_multi_protocol_plugin_with_cli():
+    class MultiPlugin:
+        def can_handle(self, url):
+            return url.startswith("multi://")
+
+        def open(self, url, mode="rb"):
+            import io
+
+            return io.BytesIO(b"")
+
+        def cli_groups(self):
+            return [("multi", typer.Typer(help="Multi"))]
+
+    registry = PluginRegistry()
+    registry._register("multi", MultiPlugin())
+    assert len(registry.get_cli_groups()) == 1
+    assert registry.find_url_handler("multi://test") is not None
