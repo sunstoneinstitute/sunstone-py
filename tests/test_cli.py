@@ -1793,3 +1793,160 @@ def test_plugin_cli_failure_does_not_break_cli():
 
         # Should not raise
         cli_mod._mount_plugin_cli_groups()
+
+
+# =============================================================================
+# Environment commands
+# =============================================================================
+
+
+def test_env_show_no_config(tmp_path):
+    """sunstone env with no config shows helpful message."""
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 0
+    assert "No environment configured" in result.output
+
+
+def test_env_show_with_active(tmp_path):
+    """sunstone env shows active environment."""
+    system_config = tmp_path / "system.toml"
+    system_config.write_text(
+        "[environments.prod]\n"
+        'catalog_url = "https://nessie.prod.example.com"\n'
+        's3_endpoint = "https://s3.prod.example.com"\n'
+    )
+    user_config = tmp_path / "user.toml"
+    user_config.write_text('active = "prod"\n')
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", system_config),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 0
+    assert "prod" in result.output
+
+
+def test_env_use_writes_project_config(tmp_path):
+    """sunstone env use writes .sunstone/data_platform.toml."""
+    system_config = tmp_path / "system.toml"
+    system_config.write_text(
+        "[environments.prod]\n"
+        'catalog_url = "https://nessie.prod.example.com"\n'
+        's3_endpoint = "https://s3.prod.example.com"\n'
+    )
+
+    project_sunstone = tmp_path / ".sunstone"
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", system_config),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env._PROJECT_CONFIG_NAME", ".sunstone/data_platform.toml"),
+        patch("pathlib.Path.cwd", return_value=tmp_path),
+    ):
+        result = runner.invoke(app, ["env", "use", "prod"])
+    assert result.exit_code == 0
+    config_text = (project_sunstone / "data_platform.toml").read_text()
+    assert "prod" in config_text
+
+
+def test_env_use_rejects_unknown(tmp_path):
+    """sunstone env use rejects unknown environment."""
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "use", "nonexistent"])
+    assert result.exit_code != 0
+
+
+def test_env_add_creates_environment(tmp_path):
+    """sunstone env add creates a new environment in user config."""
+    user_config = tmp_path / "user.toml"
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "--catalog-url",
+                "http://localhost:19120/api/v1",
+                "--s3-endpoint",
+                "http://localhost:9000",
+            ],
+        )
+    assert result.exit_code == 0
+    assert "Added environment 'dev'" in result.output
+    config_text = user_config.read_text()
+    assert "dev" in config_text
+    assert "http://localhost:19120/api/v1" in config_text
+
+
+def test_env_remove_deletes_environment(tmp_path):
+    """sunstone env remove deletes an environment from user config."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "remove", "dev"])
+    assert result.exit_code == 0
+    assert "Removed environment 'dev'" in result.output
+
+
+def test_env_update_modifies_environment(tmp_path):
+    """sunstone env update modifies an existing environment."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "update",
+                "dev",
+                "--catalog-url",
+                "http://newhost:19120/api/v1",
+            ],
+        )
+    assert result.exit_code == 0
+    assert "Updated environment 'dev'" in result.output
+    config_text = user_config.read_text()
+    assert "http://newhost:19120/api/v1" in config_text

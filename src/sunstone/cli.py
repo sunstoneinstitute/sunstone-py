@@ -363,10 +363,12 @@ app = typer.Typer(help="Sunstone dataset and package management CLI.")
 dataset_app = typer.Typer(help="Manage datasets in datasets.yaml.")
 package_app = typer.Typer(help="Manage data packages.")
 lineage_app = typer.Typer(help="Query dataset lineage.")
+env_app = typer.Typer(help="Manage data platform environments.")
 
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(package_app, name="package")
 app.add_typer(lineage_app, name="lineage")
+app.add_typer(env_app, name="env")
 
 # Mount plugin CLI groups
 _BUILTIN_GROUPS = {"dataset", "package", "lineage", "env"}
@@ -394,6 +396,132 @@ def main(
     version: bool = typer.Option(False, "--version", callback=_version_callback, is_eager=True, help="Show version"),
 ) -> None:
     """Sunstone dataset and package management CLI."""
+
+
+# =============================================================================
+# Environment commands
+# =============================================================================
+
+
+@env_app.callback(invoke_without_command=True)
+def env_show(ctx: typer.Context) -> None:
+    """Show active environment and all available environments."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    from sunstone.env import environment_source, list_environments, resolve_environment
+
+    env = resolve_environment()
+    all_envs = list_environments()
+
+    if not all_envs and env is None:
+        typer.echo("No environment configured.")
+        typer.echo("Run 'sunstone env add <name>' to create one.")
+        return
+
+    if env:
+        typer.echo(f"Active: {env.name} (from {env.source})")
+    else:
+        typer.echo("Active: none")
+    typer.echo()
+
+    for name, defn in sorted(all_envs.items()):
+        marker = "* " if env and name == env.name else "  "
+        source = environment_source(name)
+        typer.echo(f"{marker}{name:<12} {defn.get('catalog_url', ''):<45} ({source})")
+
+
+@env_app.command("use")
+def env_use(
+    name: str = typer.Argument(..., help="Environment name to activate"),
+    user: bool = typer.Option(False, "--user", help="Set in user config instead of project"),
+) -> None:
+    """Switch active environment."""
+    from sunstone.env import set_active
+
+    try:
+        path = set_active(name, user=user)
+        typer.echo(f"Active environment set to '{name}' in {path}")
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@env_app.command("add")
+def env_add(
+    name: str = typer.Argument(..., help="Environment name"),
+    catalog_url: str = typer.Option(..., "--catalog-url", help="Nessie catalog URL"),
+    s3_endpoint: str = typer.Option(..., "--s3-endpoint", help="S3/MinIO endpoint URL"),
+    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
+    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
+    auth: str | None = typer.Option(None, "--auth", help="Auth method (e.g. gcloud-adc)"),
+) -> None:
+    """Add a new environment to user config."""
+    from sunstone.env import add_environment
+
+    try:
+        path = add_environment(
+            name,
+            catalog_url=catalog_url,
+            s3_endpoint=s3_endpoint,
+            s3_access_key=s3_access_key,
+            s3_secret_key=s3_secret_key,
+            auth=auth,
+        )
+        typer.echo(f"Added environment '{name}' to {path}")
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@env_app.command("remove")
+def env_remove(
+    name: str = typer.Argument(..., help="Environment name to remove"),
+) -> None:
+    """Remove an environment from user config."""
+    from sunstone.env import remove_environment
+
+    try:
+        path = remove_environment(name)
+        typer.echo(f"Removed environment '{name}' from {path}")
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@env_app.command("update")
+def env_update(
+    name: str = typer.Argument(..., help="Environment name to update"),
+    catalog_url: str | None = typer.Option(None, "--catalog-url", help="Nessie catalog URL"),
+    s3_endpoint: str | None = typer.Option(None, "--s3-endpoint", help="S3/MinIO endpoint URL"),
+    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
+    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
+    auth: str | None = typer.Option(None, "--auth", help="Auth method"),
+) -> None:
+    """Update fields on an existing environment in user config."""
+    from sunstone.env import _USER_CONFIG, _load_toml, _write_config
+
+    user_data = _load_toml(_USER_CONFIG)
+    user_envs = user_data.get("environments", {})
+
+    if name not in user_envs:
+        typer.echo(f"Error: Environment '{name}' not found in {_USER_CONFIG}", err=True)
+        raise typer.Exit(1)
+
+    if catalog_url is not None:
+        user_envs[name]["catalog_url"] = catalog_url
+    if s3_endpoint is not None:
+        user_envs[name]["s3_endpoint"] = s3_endpoint
+    if s3_access_key is not None:
+        user_envs[name]["s3_access_key"] = s3_access_key
+    if s3_secret_key is not None:
+        user_envs[name]["s3_secret_key"] = s3_secret_key
+    if auth is not None:
+        user_envs[name]["auth"] = auth
+
+    user_data["environments"] = user_envs
+    _write_config(_USER_CONFIG, user_data)
+    typer.echo(f"Updated environment '{name}' in {_USER_CONFIG}")
 
 
 # =============================================================================
