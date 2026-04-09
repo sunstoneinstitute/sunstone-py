@@ -19,8 +19,8 @@ class TestLineagePersistence:
         assert isinstance(result, sunstone.DataFrame), f"Expected sunstone.DataFrame, got {type(result)}"
 
         # Check lineage presence
-        assert hasattr(result, "lineage")
-        assert len(result.lineage.sources) == len(df.lineage.sources)
+        assert hasattr(result, "metadata")
+        assert len(result.metadata.lineage.sources) == len(df.metadata.lineage.sources)
 
     def test_getitem_preserves_lineage(self, project_path: Path) -> None:
         """Test that boolean indexing/getitem returns sunstone DataFrame."""
@@ -32,7 +32,7 @@ class TestLineagePersistence:
         result = df[["Member State", "ISO Code"]]
 
         assert isinstance(result, sunstone.DataFrame)
-        assert len(result.lineage.sources) == len(df.lineage.sources)
+        assert len(result.metadata.lineage.sources) == len(df.metadata.lineage.sources)
 
     def test_sort_values_preserves_lineage(self, project_path: Path) -> None:
         """Test that sort_values returns sunstone DataFrame."""
@@ -43,7 +43,7 @@ class TestLineagePersistence:
         result = df.sort_values("Member State")
 
         assert isinstance(result, sunstone.DataFrame)
-        assert len(result.lineage.sources) == len(df.lineage.sources)
+        assert len(result.metadata.lineage.sources) == len(df.metadata.lineage.sources)
 
     def test_setitem_preserves_lineage(self, project_path: Path) -> None:
         """Test that in-place modification preserves lineage."""
@@ -51,9 +51,9 @@ class TestLineagePersistence:
             "inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False
         )
 
-        initial_sources = len(df.lineage.sources)
+        initial_sources = len(df.metadata.lineage.sources)
         df["NewCol"] = 1
 
         assert "NewCol" in df.data.columns
         # Lineage sources should be preserved after setitem
-        assert len(df.lineage.sources) == initial_sources
+        assert len(df.metadata.lineage.sources) == initial_sources

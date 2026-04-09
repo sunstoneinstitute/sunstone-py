@@ -3,6 +3,11 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: Metadata container for DataFrame with description, RDF prefixes, custom properties, and field-level metadata
+- Added: `set_field_metadata()` method for annotating DataFrame columns with description, unit, source
+- Added: `read_json()` to sunstone.pandas module
+- Changed: `FieldSchema.type` is now optional (None means infer at write time)
+- Deprecated: `DataFrame.lineage` property — use `DataFrame.metadata.lineage` instead
 - Added: Stream-based plugin IO — URLHandler.open(url, mode) returns file-like objects instead of downloading to temp files
 - Added: FormatHandler protocol now uses BinaryIO streams for read/write
 - Added: LocalFileHandler for local paths and file:// URLs

@@ -34,7 +34,9 @@ _yaml.indent(mapping=2, sequence=4, offset=2)
 
 def _field_schema_to_dict(field: FieldSchema) -> dict:
     """Convert a FieldSchema to a dict for YAML serialization, omitting None values."""
-    d: dict = {"name": field.name, "type": field.type}
+    d: dict = {"name": field.name}
+    if field.type is not None:
+        d["type"] = field.type
     if field.constraints:
         d["constraints"] = field.constraints
     if field.description:
@@ -432,7 +434,16 @@ class DatasetsManager:
         prefixes: Dict[str, str] = self._defaults.get("rdfPrefixes", {})
         return prefixes
 
-    def add_output_dataset(self, name: str, slug: str, location: str, fields: List[FieldSchema]) -> DatasetMetadata:
+    def add_output_dataset(
+        self,
+        name: str,
+        slug: str,
+        location: str,
+        fields: List[FieldSchema],
+        description: Optional[str] = None,
+        rdf_prefixes: Optional[Dict[str, str]] = None,
+        custom_properties: Optional[Dict[str, Any]] = None,
+    ) -> DatasetMetadata:
         """
         Add a new output dataset to datasets.yaml.
 
@@ -441,6 +452,9 @@ class DatasetsManager:
             slug: Kebab-case identifier.
             location: File path for the output.
             fields: List of field schemas.
+            description: Optional dataset description.
+            rdf_prefixes: Optional RDF namespace prefix map.
+            custom_properties: Optional custom/RDF properties to include.
 
         Returns:
             The newly created DatasetMetadata.
@@ -448,28 +462,33 @@ class DatasetsManager:
         Raises:
             DatasetValidationError: If a dataset with this slug already exists.
         """
-        # Check if slug already exists
         if self.find_dataset_by_slug(slug, "output"):
             raise DatasetValidationError(f"Output dataset with slug '{slug}' already exists")
-
-        # Create the dataset entry
-        dataset_data = {
+        dataset_data: Dict[str, Any] = {
             "name": name,
             "slug": slug,
             "location": location,
             "fields": [_field_schema_to_dict(field) for field in fields],
         }
-
-        # Add to outputs
+        if description is not None:
+            dataset_data["description"] = description
+        if rdf_prefixes is not None:
+            dataset_data["rdfPrefixes"] = rdf_prefixes
+        if custom_properties is not None:
+            for key, value in custom_properties.items():
+                dataset_data[key] = value
         self._data["outputs"].append(dataset_data)
-
-        # Save changes
         self._save()
-
         return self._parse_dataset(dataset_data, "output")
 
     def update_output_dataset(
-        self, slug: str, fields: Optional[List[FieldSchema]] = None, location: Optional[str] = None
+        self,
+        slug: str,
+        fields: Optional[List[FieldSchema]] = None,
+        location: Optional[str] = None,
+        description: Optional[str] = None,
+        rdf_prefixes: Optional[Dict[str, str]] = None,
+        custom_properties: Optional[Dict[str, Any]] = None,
     ) -> DatasetMetadata:
         """
         Update an existing output dataset.
@@ -478,6 +497,9 @@ class DatasetsManager:
             slug: The slug of the dataset to update.
             fields: Optional new field schema.
             location: Optional new location.
+            description: Optional dataset description.
+            rdf_prefixes: Optional RDF namespace prefix map.
+            custom_properties: Optional custom/RDF properties to include.
 
         Returns:
             The updated DatasetMetadata.
@@ -491,7 +513,13 @@ class DatasetsManager:
                     dataset_data["fields"] = [_field_schema_to_dict(field) for field in fields]
                 if location is not None:
                     dataset_data["location"] = location
-
+                if description is not None:
+                    dataset_data["description"] = description
+                if rdf_prefixes is not None:
+                    dataset_data["rdfPrefixes"] = rdf_prefixes
+                if custom_properties is not None:
+                    for key, value in custom_properties.items():
+                        dataset_data[key] = value
                 self._save()
                 return self._parse_dataset(dataset_data, "output")
 

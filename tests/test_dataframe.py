@@ -24,7 +24,7 @@ class TestDataFrameBasics:
         assert df is not None
         assert len(df.data) > 0
         assert len(df.data.columns) > 0
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
 
     def test_head_preserves_lineage(self, project_path: Path) -> None:
         """Test that head() preserves lineage."""
@@ -37,7 +37,7 @@ class TestDataFrameBasics:
         filtered = df.head(10)
 
         assert len(filtered.data) == 10
-        assert len(filtered.lineage.sources) == len(df.lineage.sources)
+        assert len(filtered.metadata.lineage.sources) == len(df.metadata.lineage.sources)
 
     def test_read_second_dataset(self, project_path: Path) -> None:
         """Test reading the same dataset twice creates separate lineage."""
@@ -51,8 +51,8 @@ class TestDataFrameBasics:
         assert members1 is not None
         assert members2 is not None
         assert len(members1.data) > 0
-        assert len(members1.lineage.sources) > 0
-        assert len(members2.lineage.sources) > 0
+        assert len(members1.metadata.lineage.sources) > 0
+        assert len(members2.metadata.lineage.sources) > 0
 
 
 class TestReadExcel:
@@ -69,7 +69,7 @@ class TestReadExcel:
         assert df is not None
         assert len(df.data) == 10
         assert len(df.data.columns) > 0
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
         assert "Member State" in df.data.columns
 
     def test_read_excel_by_slug(self, project_path: Path) -> None:
@@ -82,7 +82,7 @@ class TestReadExcel:
 
         assert df is not None
         assert len(df.data) == 10
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
 
     def test_read_excel_preserves_lineage(self, project_path: Path) -> None:
         """Test that read_excel tracks lineage correctly."""
@@ -92,7 +92,7 @@ class TestReadExcel:
             strict=False,
         )
 
-        assert df.lineage.sources[0].slug == "un-member-states-sample-excel"
+        assert df.metadata.lineage.sources[0].slug == "un-member-states-sample-excel"
 
     def test_read_excel_not_found(self, project_path: Path) -> None:
         """Test that read_excel raises error for unregistered file."""
@@ -151,13 +151,13 @@ class TestDataFrameMerge:
         assert merged is not None
         assert len(merged.data) > 0
         # Both sources come from the same file, but lineage should track them separately
-        assert len(merged.lineage.sources) >= 1
+        assert len(merged.metadata.lineage.sources) >= 1
 
     def test_merge_lineage_tracking(self, un_members_df1: Any, un_members_df2: Any) -> None:
         """Test that merge properly tracks lineage."""
         merged = un_members_df1.merge(un_members_df2, left_on="ISO Code", right_on="ISO Code", how="inner")
 
-        licenses = merged.lineage.get_licenses()
+        licenses = merged.metadata.lineage.get_licenses()
         assert licenses is not None
         assert len(licenses) > 0
 
@@ -179,7 +179,7 @@ class TestLineageMetadata:
 
     def test_lineage_to_dict(self, processed_df: Any) -> None:
         """Test converting lineage to dictionary."""
-        lineage_dict = processed_df.lineage.to_dict()
+        lineage_dict = processed_df.metadata.lineage.to_dict()
 
         assert lineage_dict is not None
         assert "sources" in lineage_dict
@@ -222,9 +222,9 @@ class TestReadDataset:
         assert df is not None
         assert len(df.data) > 0
         assert len(df.data.columns) > 0
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
         # Check that the source is tracked
-        assert df.lineage.sources[0].slug == "official-un-member-states"
+        assert df.metadata.lineage.sources[0].slug == "official-un-member-states"
 
     def test_read_dataset_with_explicit_format(self, project_path: Path) -> None:
         """Test reading a dataset with explicit format override."""
@@ -237,7 +237,7 @@ class TestReadDataset:
 
         assert df is not None
         assert len(df.data) > 0
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
 
     def test_read_dataset_slug_not_found(self, project_path: Path) -> None:
         """Test that reading non-existent slug raises error."""
@@ -273,7 +273,7 @@ class TestReadDataset:
         assert df is not None
         assert len(df.data) > 0
         # Check that the source is tracked
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
 
 
 class TestToCsvTrackParameter:
@@ -482,8 +482,8 @@ class TestContentHashLineage:
         )
 
         # Verify lineage has sources before save
-        assert len(df.lineage.sources) > 0
-        source_slug = df.lineage.sources[0].slug
+        assert len(df.metadata.lineage.sources) > 0
+        source_slug = df.metadata.lineage.sources[0].slug
 
         # Write the output
         output_path = "outputs/source_tracking_output.csv"

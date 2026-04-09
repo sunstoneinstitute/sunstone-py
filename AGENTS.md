@@ -10,6 +10,7 @@ The `sunstone-py` package provides:
 - **Dataset management**: Integration with `datasets.yaml` for all I/O operations
 - **Plugin system**: Extensible auth, URL handling, and format support via entry points
 - **Validation tools**: Check notebooks and scripts for correct import usage
+- **Metadata system**: Unified container for dataset-level and field-level metadata that flows through operations to write time
 - **Pandas-like API**: Familiar interface for data scientists via `from sunstone import pandas as pd`
 
 ## Package Structure
@@ -57,6 +58,7 @@ The `sunstone-py` package provides:
     ├── test_handlers_s3.py
     ├── test_lineage_flow.py
     ├── test_lineage_persistence.py
+    ├── test_metadata.py
     ├── test_packaging.py
     ├── test_pandas_compatibility.py
     ├── test_plugins.py
@@ -103,10 +105,12 @@ result.to_csv(
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: `read_csv()` and `read_excel()` require `project_path` parameter
+1. **Explicit project_path required**: `read_csv()`, `read_excel()`, and `read_json()` require `project_path` parameter
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
-4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs
+4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
+5. **Metadata container**: Use `df.metadata` for dataset-level metadata (description, RDF prefixes, custom properties) and `df.set_field_metadata()` for column-level metadata. All metadata propagates through operations and flows to `datasets.yaml` on write.
+6. **Lineage via metadata**: Access lineage through `df.metadata.lineage` (the old `df.lineage` accessor is deprecated)
 
 ## Plugin System
 

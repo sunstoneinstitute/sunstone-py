@@ -101,7 +101,7 @@ class TestPandasReadCsvPassthrough:
         )
         assert isinstance(df, sunstone.DataFrame)
         assert len(df.data) > 0
-        assert len(df.lineage.sources) > 0
+        assert len(df.metadata.lineage.sources) > 0
 
 
 class TestPandasConcatEmpty:

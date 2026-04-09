@@ -3,16 +3,19 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 """
 
 import os
+import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
-from .lineage import FieldSchema, LineageMetadata, compute_dataframe_hash
+from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
 
-pd.options.mode.copy_on_write = True
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    pd.options.mode.copy_on_write = True
 
 
 class DataFrame:
@@ -32,6 +35,7 @@ class DataFrame:
         self,
         data: Any = None,
         lineage: Optional[LineageMetadata] = None,
+        metadata: Optional[Metadata] = None,
         strict: Optional[bool] = None,
         project_path: Optional[Union[str, Path]] = None,
         **kwargs: Any,
@@ -42,7 +46,8 @@ class DataFrame:
         Args:
             data: Data to wrap. Can be a pandas DataFrame or any data accepted
                  by pandas.DataFrame() constructor (dict, list of dicts, etc.).
-            lineage: Optional lineage metadata.
+            lineage: Optional lineage metadata. Deprecated: use metadata= instead.
+            metadata: Optional unified metadata container.
             strict: Whether to operate in strict mode. If None, reads from
                    SUNSTONE_DATAFRAME_STRICT environment variable.
             project_path: Path to the project directory. If None, uses current directory.
@@ -64,7 +69,13 @@ class DataFrame:
             # data is some other type (dict, list, etc.) - pass to pandas
             self.data = pd.DataFrame(data, **kwargs)
 
-        self.lineage = lineage if lineage is not None else LineageMetadata()
+        # Unified metadata container
+        if metadata is not None:
+            self.metadata = metadata
+        elif lineage is not None:
+            self.metadata = Metadata(lineage=lineage)
+        else:
+            self.metadata = Metadata()
 
         # Determine strict mode
         if strict is None:
@@ -75,15 +86,108 @@ class DataFrame:
 
         # Set project path
         if project_path is not None:
-            self.lineage.project_path = str(Path(project_path).resolve())
-        elif self.lineage.project_path is None:
-            self.lineage.project_path = str(Path.cwd())
+            self.metadata.lineage.project_path = str(Path(project_path).resolve())
+        elif self.metadata.lineage.project_path is None:
+            self.metadata.lineage.project_path = str(Path.cwd())
+
+    @property
+    def lineage(self) -> LineageMetadata:
+        """Deprecated: use .metadata.lineage instead."""
+        warnings.warn(
+            "DataFrame.lineage is deprecated, use DataFrame.metadata.lineage",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.metadata.lineage
+
+    @lineage.setter
+    def lineage(self, value: LineageMetadata) -> None:
+        """Deprecated: use .metadata.lineage instead."""
+        warnings.warn(
+            "DataFrame.lineage is deprecated, use DataFrame.metadata.lineage",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.metadata.lineage = value
+
+    @property
+    def description(self) -> Optional[str]:
+        """Dataset description. Delegates to metadata.description."""
+        return self.metadata.description
+
+    @description.setter
+    def description(self, value: Optional[str]) -> None:
+        self.metadata.description = value
+
+    @property
+    def rdf_prefixes(self) -> Optional[Dict[str, str]]:
+        """RDF namespace prefixes. Delegates to metadata.rdf_prefixes."""
+        return self.metadata.rdf_prefixes
+
+    @rdf_prefixes.setter
+    def rdf_prefixes(self, value: Optional[Dict[str, str]]) -> None:
+        self.metadata.rdf_prefixes = value
+
+    @property
+    def custom_properties(self) -> Optional[Dict[str, Any]]:
+        """Custom properties. Delegates to metadata.custom_properties."""
+        return self.metadata.custom_properties
+
+    @custom_properties.setter
+    def custom_properties(self, value: Optional[Dict[str, Any]]) -> None:
+        self.metadata.custom_properties = value
+
+    def set_field_metadata(
+        self,
+        column: str,
+        *,
+        description: Optional[str] = None,
+        unit: Optional[str] = None,
+        source: Optional[str] = None,
+        type: Optional[str] = None,
+        constraints: Optional[Dict[str, Any]] = None,
+    ) -> "DataFrame":
+        """Set metadata for a column. Returns self for chaining.
+
+        Args:
+            column: Column name to annotate.
+            description: Human-readable description of the field.
+            unit: Unit of measure (e.g., 'kg', 'students').
+            source: Slug of the input dataset this field comes from.
+            type: Data type override. If None, inferred from dtype at write time.
+            constraints: Optional constraints (e.g., enum values).
+
+        Returns:
+            self, for method chaining.
+        """
+        existing = self.metadata.field_metadata.get(column)
+        if existing:
+            if description is not None:
+                existing.description = description
+            if unit is not None:
+                existing.unit = unit
+            if source is not None:
+                existing.source = source
+            if type is not None:
+                existing.type = type
+            if constraints is not None:
+                existing.constraints = constraints
+        else:
+            self.metadata.field_metadata[column] = FieldSchema(
+                name=column,
+                type=type,
+                description=description,
+                unit=unit,
+                source=source,
+                constraints=constraints,
+            )
+        return self
 
     def _get_datasets_manager(self) -> DatasetsManager:
         """Get a DatasetsManager for the current project."""
-        if self.lineage.project_path is None:
+        if self.metadata.lineage.project_path is None:
             raise ValueError("Project path not set")
-        return DatasetsManager(self.lineage.project_path)
+        return DatasetsManager(self.metadata.lineage.project_path)
 
     @classmethod
     def read_dataset(
@@ -182,8 +286,8 @@ class DataFrame:
             df = format_handler.read(stream, format=format, path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -191,7 +295,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @classmethod
     def read_csv(
@@ -297,8 +401,8 @@ class DataFrame:
             df = format_handler.read(stream, format="csv", path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -306,7 +410,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=dataset.slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @classmethod
     def read_excel(
@@ -410,8 +514,8 @@ class DataFrame:
             df = format_handler.read(stream, format="excel", path=location, **kwargs)
 
         # Create lineage metadata
-        lineage = LineageMetadata(project_path=str(manager.project_path))
-        lineage.add_source(dataset)
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -419,7 +523,7 @@ class DataFrame:
         get_session().record_read(DatasetRead(slug=dataset.slug))
 
         # Return wrapped DataFrame
-        return cls(data=df, lineage=lineage, strict=strict, project_path=project_path)
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
     @staticmethod
     def _get_default_strict_mode() -> bool:
@@ -465,7 +569,9 @@ class DataFrame:
         if not track:
             from .plugins import PluginRegistry
 
-            registry = PluginRegistry.get(Path(self.project_path) if self.project_path is not None else None)
+            registry = PluginRegistry.get(
+                Path(self.metadata.lineage.project_path) if self.metadata.lineage.project_path is not None else None
+            )
             location = str(path_or_buf)
 
             url_handler = registry.find_url_handler(location)
@@ -492,17 +598,28 @@ class DataFrame:
                 )
             else:
                 # Relaxed mode: auto-register
-                if slug is None or name is None:
+                effective_slug = slug or self.metadata.slug
+                effective_name = name or self.metadata.name
+                if effective_slug is None or effective_name is None:
                     raise ValueError(
                         "In relaxed mode, 'slug' and 'name' are required "
-                        "when writing to an unregistered output location."
+                        "when writing to an unregistered output location. "
+                        "Set them via to_csv() parameters or df.metadata.slug/name."
                     )
 
-                # Infer field schema from DataFrame
-                fields = self._infer_field_schema()
+                # Build field schema merging explicit metadata with inferred dtypes
+                fields = self._build_field_schema()
 
-                # Register the new output
-                dataset = manager.add_output_dataset(name=name, slug=slug, location=location, fields=fields)
+                # Register the new output with full metadata
+                dataset = manager.add_output_dataset(
+                    name=effective_name,
+                    slug=effective_slug,
+                    location=location,
+                    fields=fields,
+                    description=self.metadata.description,
+                    rdf_prefixes=self.metadata.rdf_prefixes,
+                    custom_properties=self.metadata.custom_properties,
+                )
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
@@ -536,138 +653,128 @@ class DataFrame:
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.lineage,
+            lineage=self.metadata.lineage,
             content_hash=content_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),
         )
 
-    def _infer_field_schema(self) -> List[FieldSchema]:
-        """
-        Infer field schema from the DataFrame.
+    def _infer_dtype(self, col: str) -> str:
+        """Infer the dataset type string for a column from its pandas dtype."""
+        dtype = self.data[col].dtype
+        if pd.api.types.is_integer_dtype(dtype):
+            return "integer"
+        elif pd.api.types.is_float_dtype(dtype):
+            return "number"
+        elif pd.api.types.is_bool_dtype(dtype):
+            return "boolean"
+        elif pd.api.types.is_datetime64_any_dtype(dtype):
+            return "datetime"
+        return "string"
 
-        Returns:
-            List of FieldSchema objects based on DataFrame columns and dtypes.
-        """
+    def _build_field_schema(self) -> List[FieldSchema]:
+        """Merge explicit field metadata with dtype-inferred schema."""
         fields = []
         for col in self.data.columns:
-            dtype = self.data[col].dtype
-
-            # Map pandas dtypes to dataset types
-            if pd.api.types.is_integer_dtype(dtype):
-                field_type = "integer"
-            elif pd.api.types.is_float_dtype(dtype):
-                field_type = "number"
-            elif pd.api.types.is_bool_dtype(dtype):
-                field_type = "boolean"
-            elif pd.api.types.is_datetime64_any_dtype(dtype):
-                field_type = "datetime"
+            col_str = str(col)
+            explicit = self.metadata.field_metadata.get(col_str)
+            if explicit:
+                if explicit.type is None:
+                    fields.append(
+                        FieldSchema(
+                            name=explicit.name,
+                            type=self._infer_dtype(col_str),
+                            description=explicit.description,
+                            unit=explicit.unit,
+                            source=explicit.source,
+                            constraints=explicit.constraints,
+                        )
+                    )
+                else:
+                    fields.append(explicit)
             else:
-                field_type = "string"
-
-            fields.append(FieldSchema(name=str(col), type=field_type))
-
+                fields.append(FieldSchema(name=col_str, type=self._infer_dtype(col_str)))
         return fields
 
     def merge(self, right: "DataFrame", **kwargs: Any) -> "DataFrame":
-        """
-        Merge with another Sunstone DataFrame, combining lineage.
-
-        Args:
-            right: The other DataFrame to merge with.
-            **kwargs: Arguments passed to pandas.merge.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Perform the merge
+        """Merge with another Sunstone DataFrame, combining lineage."""
         merged_data = pd.merge(self.data, right.data, **kwargs)
+        merged_lineage = self.metadata.lineage.merge(right.metadata.lineage)
 
-        # Combine lineage (sources from both DataFrames)
-        merged_lineage = self.lineage.merge(right.lineage)
-
-        return DataFrame(
-            data=merged_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in merged_data.columns}
+        new_metadata = Metadata(
             lineage=merged_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=merged_data, metadata=new_metadata, strict=self.strict_mode)
 
     def join(self, other: "DataFrame", **kwargs: Any) -> "DataFrame":
-        """
-        Join with another Sunstone DataFrame, combining lineage.
-
-        Args:
-            other: The other DataFrame to join with.
-            **kwargs: Arguments passed to pandas.join.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Perform the join
+        """Join with another Sunstone DataFrame, combining lineage."""
         joined_data = self.data.join(other.data, **kwargs)
+        joined_lineage = self.metadata.lineage.merge(other.metadata.lineage)
 
-        # Combine lineage (sources from both DataFrames)
-        joined_lineage = self.lineage.merge(other.lineage)
-
-        return DataFrame(
-            data=joined_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in joined_data.columns}
+        new_metadata = Metadata(
             lineage=joined_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=joined_data, metadata=new_metadata, strict=self.strict_mode)
 
     def concat(self, others: List["DataFrame"], **kwargs: Any) -> "DataFrame":
-        """
-        Concatenate with other Sunstone DataFrames, combining lineage.
-
-        Args:
-            others: List of other DataFrames to concatenate.
-            **kwargs: Arguments passed to pandas.concat.
-
-        Returns:
-            A new DataFrame with combined data and lineage.
-        """
-        # Collect all DataFrames
+        """Concatenate with other Sunstone DataFrames, combining lineage."""
         all_dfs = [self.data] + [df.data for df in others]
-
-        # Concatenate
         concatenated_data = pd.concat(all_dfs, **kwargs)
 
-        # Combine lineage (sources from all DataFrames)
-        combined_lineage = self.lineage
+        combined_lineage = self.metadata.lineage
         for other in others:
-            combined_lineage = combined_lineage.merge(other.lineage)
+            combined_lineage = combined_lineage.merge(other.metadata.lineage)
 
-        return DataFrame(
-            data=concatenated_data,
+        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in concatenated_data.columns}
+        new_metadata = Metadata(
             lineage=combined_lineage,
-            strict=self.strict_mode,
-            project_path=self.lineage.project_path,
+            description=self.metadata.description,
+            rdf_prefixes=self.metadata.rdf_prefixes,
+            custom_properties=self.metadata.custom_properties,
+            field_metadata=new_field_meta,
+            slug=self.metadata.slug,
+            name=self.metadata.name,
         )
+        return DataFrame(data=concatenated_data, metadata=new_metadata, strict=self.strict_mode)
 
     def _wrap_result(self, result: Any) -> Any:
-        """
-        Wrap a pandas result in a Sunstone DataFrame if applicable.
+        """Wrap a pandas result in a Sunstone DataFrame if applicable.
 
-        Args:
-            result: The result from a pandas operation.
-
-        Returns:
-            Wrapped DataFrame if result is a DataFrame, otherwise the result.
+        Copies all metadata, dropping field_metadata for columns no longer present.
         """
         if isinstance(result, pd.DataFrame):
-            new_lineage = LineageMetadata(
-                sources=self.lineage.sources.copy(),
-                project_path=self.lineage.project_path,
+            new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in result.columns}
+            new_metadata = Metadata(
+                lineage=LineageMetadata(
+                    sources=self.metadata.lineage.sources.copy(),
+                    project_path=self.metadata.lineage.project_path,
+                ),
+                description=self.metadata.description,
+                rdf_prefixes=self.metadata.rdf_prefixes,
+                custom_properties=self.metadata.custom_properties,
+                field_metadata=new_field_meta,
+                slug=self.metadata.slug,
+                name=self.metadata.name,
             )
-
             return DataFrame(
                 data=result,
-                lineage=new_lineage,
+                metadata=new_metadata,
                 strict=self.strict_mode,
-                project_path=self.lineage.project_path,
             )
         return result
 
@@ -724,7 +831,7 @@ class DataFrame:
 
     def __repr__(self) -> str:
         """String representation of the DataFrame."""
-        lineage_info = f"\n\nLineage: {len(self.lineage.sources)} source(s)"
+        lineage_info = f"\n\nLineage: {len(self.metadata.lineage.sources)} source(s)"
         return repr(self.data) + lineage_info
 
     def __str__(self) -> str:

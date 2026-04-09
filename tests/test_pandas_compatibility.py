@@ -110,7 +110,7 @@ class TestSelectionAndIndexing:
         assert isinstance(result, sunstone.DataFrame)
         assert len(result) <= len(sample_df)
         # Verify lineage is preserved
-        assert len(result.lineage.sources) > 0
+        assert len(result.metadata.lineage.sources) > 0
 
     def test_loc(self, sample_df: sunstone.DataFrame) -> None:
         """Test .loc accessor like pandas."""
@@ -131,11 +131,11 @@ class TestSelectionAndIndexing:
         """Test setting column values like pandas."""
         # Create a copy to avoid modifying fixture
         df = sample_df.head()
-        initial_sources = len(df.lineage.sources)
+        initial_sources = len(df.metadata.lineage.sources)
         df["test_column"] = "test_value"
         assert "test_column" in df.columns
         # Lineage sources should be preserved
-        assert len(df.lineage.sources) == initial_sources
+        assert len(df.metadata.lineage.sources) == initial_sources
 
 
 class TestDataManipulation:
@@ -155,7 +155,7 @@ class TestDataManipulation:
         assert isinstance(result, sunstone.DataFrame)
         assert len(result) == len(sample_df)
         # Check lineage is preserved
-        assert len(result.lineage.sources) > 0
+        assert len(result.metadata.lineage.sources) > 0
 
     def test_drop(self, sample_df: sunstone.DataFrame) -> None:
         """Test drop() method like pandas."""
@@ -241,7 +241,7 @@ class TestMergeAndJoin:
         result = spd.merge(df1, df2, on="ISO Code", how="inner")
         assert isinstance(result, sunstone.DataFrame)
         # Check that lineage includes both sources
-        assert len(result.lineage.sources) > 0
+        assert len(result.metadata.lineage.sources) > 0
 
     def test_merge_left(self, df1: sunstone.DataFrame, df2: sunstone.DataFrame) -> None:
         """Test left merge like pandas."""
@@ -288,7 +288,7 @@ class TestConcat:
         assert isinstance(result, sunstone.DataFrame)
         assert len(result) == len(df1) + len(df2)
         # Check lineage combines both sources
-        assert len(result.lineage.sources) > 0
+        assert len(result.metadata.lineage.sources) > 0
 
     def test_concat_ignore_index(self, df1: sunstone.DataFrame, df2: sunstone.DataFrame) -> None:
         """Test concat with ignore_index like pandas."""

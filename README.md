@@ -232,15 +232,44 @@ df = DataFrame.read_csv(
     strict=True
 )
 
-# Apply custom operations with lineage tracking
-result = df.apply_operation(
-    lambda d: d[d['value'] > 100],
-    description="Filter high-value rows"
-)
-
 # Access underlying pandas DataFrame
-pandas_df = result.data
+pandas_df = df.data
 ```
+
+### DataFrame Metadata
+
+Set metadata on DataFrames that flows through to `datasets.yaml` on write:
+
+```python
+from sunstone import pandas as pd
+
+df = pd.read_csv('input.csv', project_path=PROJECT_PATH)
+result = df[df['value'] > 100]
+
+# Set output identity and description
+result.metadata.slug = "filtered-data"
+result.metadata.name = "Filtered Data"
+result.metadata.description = "Values above threshold"
+
+# Set RDF metadata
+result.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+result.metadata.custom_properties = {"schema:about": "Analysis"}
+
+# Annotate columns
+result.set_field_metadata("value", description="Measured value", unit="kg")
+
+# Write — slug/name come from metadata
+result.to_csv('outputs/filtered.csv', index=False)
+```
+
+Available metadata:
+
+- `df.metadata.slug`: Dataset slug (used at write time)
+- `df.metadata.name`: Dataset name (used at write time)
+- `df.metadata.description`: Dataset description
+- `df.metadata.rdf_prefixes`: RDF namespace prefixes
+- `df.metadata.custom_properties`: Custom properties (RDF-style)
+- `df.set_field_metadata(column, *, description, unit, source, type, constraints)`: Annotate a column
 
 ### Managing datasets.yaml Programmatically
 
@@ -295,9 +324,10 @@ Main class for working with data:
 - `merge(right, **kwargs)`: Merge with another DataFrame
 - `join(other, **kwargs)`: Join with another DataFrame
 - `concat(others, **kwargs)`: Concatenate DataFrames
-- `apply_operation(operation, description)`: Apply transformation with lineage
+- `set_field_metadata(column, **kwargs)`: Annotate column metadata
 - `.data`: Access underlying pandas DataFrame
-- `.lineage`: Access lineage metadata
+- `.metadata`: Access unified metadata container
+- `.lineage`: Access lineage metadata (deprecated — use `.metadata.lineage`)
 
 ### DatasetsManager Class
 

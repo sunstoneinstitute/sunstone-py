@@ -59,8 +59,8 @@ class FieldSchema:
     name: str
     """Name of the field/column."""
 
-    type: str
-    """Data type (string, number, integer, boolean, date, datetime, array, object)."""
+    type: str | None = None
+    """Data type (string, number, integer, boolean, date, datetime, array, object). None means infer at write time."""
 
     constraints: Optional[Dict[str, Any]] = None
     """Optional constraints (e.g., enum values)."""
@@ -291,3 +291,34 @@ class LineageMetadata:
         if self.content_hash is not None:
             result["content_hash"] = self.content_hash
         return result
+
+
+@dataclass
+class Metadata:
+    """Unified metadata container for data objects.
+
+    Holds lineage, dataset identity, description, RDF prefixes,
+    custom properties, and per-field metadata. Not DataFrame-specific —
+    can be reused for other data containers.
+    """
+
+    lineage: LineageMetadata = field(default_factory=LineageMetadata)
+    """Lineage metadata tracking data provenance."""
+
+    description: str | None = None
+    """Human-readable description of the dataset."""
+
+    rdf_prefixes: Dict[str, str] | None = None
+    """RDF namespace prefixes for custom properties."""
+
+    custom_properties: Dict[str, Any] | None = None
+    """Custom properties including RDF triples."""
+
+    field_metadata: Dict[str, "FieldSchema"] = field(default_factory=dict)
+    """Per-column metadata, keyed by column name."""
+
+    slug: str | None = None
+    """Dataset slug (kebab-case identifier), used at write time."""
+
+    name: str | None = None
+    """Human-readable dataset name, used at write time."""
