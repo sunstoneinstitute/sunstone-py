@@ -2,20 +2,19 @@
 Tests for Sunstone CLI.
 """
 
+import contextlib
+import io
 import os
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer as _typer
 from typer.testing import CliRunner
 
 from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
 from sunstone.lineage import Contributor, PackageMetadata
-
-
-import contextlib
-import io
 
 
 class _MockURLHandler:
@@ -1727,3 +1726,70 @@ class TestParquetResourceSupport:
         assert result is not None
         assert result["path"].startswith("https://cdn.example.com/test-project/")
         assert result["path"].endswith("population.parquet")
+
+
+# =============================================================================
+# Plugin CLI group mounting tests
+# =============================================================================
+
+
+def test_plugin_cli_group_mounted():
+    """Plugin CLI groups appear as subcommands."""
+    test_main_app = _typer.Typer()
+    plugin_app = _typer.Typer(help="Test plugin")
+
+    @plugin_app.command("ping")
+    def ping():
+        _typer.echo("pong")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("testplug", plugin_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            cli_mod._mount_plugin_cli_groups()
+            runner = CliRunner()
+            result = runner.invoke(test_main_app, ["testplug", "ping"])
+            assert result.exit_code == 0
+            assert "pong" in result.output
+        finally:
+            cli_mod.app = original_app
+
+
+def test_plugin_cli_builtin_collision_skipped():
+    """Plugin group names that collide with builtins are skipped."""
+    test_main_app = _typer.Typer()
+    colliding_app = _typer.Typer(help="Collides")
+
+    @colliding_app.command("evil")
+    def evil():
+        _typer.echo("should not mount")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("dataset", colliding_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            cli_mod._mount_plugin_cli_groups()
+            # The colliding group must not have been added
+            group_names = [g.name for g in test_main_app.registered_groups]
+            assert "dataset" not in group_names
+        finally:
+            cli_mod.app = original_app
+
+
+def test_plugin_cli_failure_does_not_break_cli():
+    """If plugin loading fails, CLI still works."""
+    with patch("sunstone.plugins.PluginRegistry.get", side_effect=RuntimeError("crash")):
+        import sunstone.cli as cli_mod
+
+        # Should not raise
+        cli_mod._mount_plugin_cli_groups()

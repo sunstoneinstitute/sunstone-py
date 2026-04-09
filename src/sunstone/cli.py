@@ -3,6 +3,7 @@ Sunstone command-line interface.
 """
 
 import json
+import logging
 import os
 import re
 import sys
@@ -18,6 +19,8 @@ from ruamel.yaml import YAML
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError
 from .lineage import Contributor, DatasetMetadata, PackageMetadata, PublishConfig
+
+logger = logging.getLogger(__name__)
 
 # Configure ruamel.yaml for round-trip parsing
 _yaml = YAML()
@@ -364,6 +367,26 @@ lineage_app = typer.Typer(help="Query dataset lineage.")
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(package_app, name="package")
 app.add_typer(lineage_app, name="lineage")
+
+# Mount plugin CLI groups
+_BUILTIN_GROUPS = {"dataset", "package", "lineage", "env"}
+
+
+def _mount_plugin_cli_groups() -> None:
+    try:
+        from sunstone.plugins import PluginRegistry
+
+        registry = PluginRegistry.get()
+        for name, typer_app in registry.get_cli_groups():
+            if name in _BUILTIN_GROUPS:
+                logger.warning("Plugin CLI group '%s' conflicts with built-in group, skipping", name)
+                continue
+            app.add_typer(typer_app, name=name)
+    except Exception:
+        logger.debug("Failed to load plugin CLI groups", exc_info=True)
+
+
+_mount_plugin_cli_groups()
 
 
 @app.callback()
