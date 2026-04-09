@@ -389,22 +389,25 @@ class TestFetchFromUrl:
         assert target.read_text() == "existing data"
 
     def test_timeout_exception_propagates(self, project_copy: Path) -> None:
-        """Timeout handling."""
+        """Timeout from URLHandler.open() propagates through fetch_from_url."""
         mgr = DatasetsManager(project_copy)
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
-        with patch("sunstone.handlers._is_public_url", return_value=True):
-            with patch("sunstone.handlers.urlopen", side_effect=socket.timeout("timed out")):
+        from sunstone.handlers import HttpURLHandler
+
+        mock_handler = HttpURLHandler()
+        with patch.object(mock_handler, "open", side_effect=socket.timeout("timed out")):
+            with patch("sunstone.plugins.PluginRegistry.find_url_handler", return_value=mock_handler):
                 with pytest.raises(socket.timeout):
                     mgr.fetch_from_url(dataset, force=True)
 
     def test_request_exception_propagates(self, project_copy: Path) -> None:
-        """RequestException handling."""
+        """URLError from URLHandler.open() propagates through fetch_from_url."""
         mgr = DatasetsManager(project_copy)
         dataset = self._make_dataset_with_source(url="https://example.com/data.csv")
-        with patch("sunstone.handlers._is_public_url", return_value=True):
-            with patch(
-                "sunstone.handlers.urlopen",
-                side_effect=urllib.error.URLError("connection failed"),
-            ):
+        from sunstone.handlers import HttpURLHandler
+
+        mock_handler = HttpURLHandler()
+        with patch.object(mock_handler, "open", side_effect=urllib.error.URLError("connection failed")):
+            with patch("sunstone.plugins.PluginRegistry.find_url_handler", return_value=mock_handler):
                 with pytest.raises(urllib.error.URLError):
                     mgr.fetch_from_url(dataset, force=True)
