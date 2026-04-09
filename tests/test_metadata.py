@@ -267,6 +267,136 @@ class TestMetadataPropagation:
         assert df.metadata.description == "test data"
 
 
+class TestConflictingMetadata:
+    """Tests for merge/join/concat when both DataFrames have conflicting metadata.
+
+    The design rule: left/first DataFrame's metadata wins for all dataset-level
+    fields (description, slug, name, rdf_prefixes, custom_properties, field_metadata).
+    Lineage is merged from both sides.
+    """
+
+    def _make_left(self):
+        left = sunstone.DataFrame({"key": [1, 2], "value": [10, 20]})
+        left.metadata.slug = "left-dataset"
+        left.metadata.name = "Left Dataset"
+        left.metadata.description = "Left description"
+        left.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+        left.metadata.custom_properties = {"schema:about": "Left topic"}
+        left.set_field_metadata("key", description="Join key", type="integer")
+        left.set_field_metadata("value", description="Left value", unit="meters")
+        left.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source A", slug="source-a", location="a.csv"))
+        return left
+
+    def _make_right(self):
+        right = sunstone.DataFrame({"key": [1, 2], "score": [0.5, 0.9]})
+        right.metadata.slug = "right-dataset"
+        right.metadata.name = "Right Dataset"
+        right.metadata.description = "Right description"
+        right.metadata.rdf_prefixes = {"dc": "http://purl.org/dc/terms/"}
+        right.metadata.custom_properties = {"dc:subject": "Right topic"}
+        right.set_field_metadata("key", description="Right join key", type="string")
+        right.set_field_metadata("score", description="Right score", unit="ratio")
+        right.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source B", slug="source-b", location="b.csv"))
+        return right
+
+    def test_merge_conflicting_metadata(self):
+        """Merge: left wins for dataset-level, lineage combined, right field_metadata lost."""
+        left = self._make_left()
+        right = self._make_right()
+        result = left.merge(right, on="key")
+
+        # Dataset-level: left wins
+        assert result.metadata.slug == "left-dataset"
+        assert result.metadata.name == "Left Dataset"
+        assert result.metadata.description == "Left description"
+        assert result.metadata.rdf_prefixes == {"schema": "https://schema.org/"}
+        assert result.metadata.custom_properties == {"schema:about": "Left topic"}
+
+        # Lineage: merged from both sides
+        slugs = {s.slug for s in result.metadata.lineage.sources}
+        assert slugs == {"source-a", "source-b"}
+
+        # Field metadata: left's fields survive, right's do not
+        assert "key" in result.metadata.field_metadata
+        assert result.metadata.field_metadata["key"].description == "Join key"
+        assert result.metadata.field_metadata["key"].type == "integer"  # not "string" from right
+        assert "value" in result.metadata.field_metadata
+        assert result.metadata.field_metadata["value"].unit == "meters"
+        assert "score" not in result.metadata.field_metadata  # right's field metadata lost
+
+    def test_join_conflicting_metadata(self):
+        """Join: left wins for dataset-level, lineage combined."""
+        left = sunstone.DataFrame({"val_l": [10, 20]})
+        left.metadata.description = "Left join"
+        left.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+        left.set_field_metadata("val_l", unit="kg")
+        left.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source A", slug="source-a", location="a.csv"))
+
+        right = sunstone.DataFrame({"val_r": [30, 40]})
+        right.metadata.description = "Right join"
+        right.metadata.rdf_prefixes = {"dc": "http://purl.org/dc/terms/"}
+        right.set_field_metadata("val_r", unit="lbs")
+        right.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source B", slug="source-b", location="b.csv"))
+
+        result = left.join(right)
+
+        # Dataset-level: left wins
+        assert result.metadata.description == "Left join"
+        assert result.metadata.rdf_prefixes == {"schema": "https://schema.org/"}
+
+        # Lineage: combined
+        slugs = {s.slug for s in result.metadata.lineage.sources}
+        assert slugs == {"source-a", "source-b"}
+
+        # Field metadata: left's survives, right's lost
+        assert result.metadata.field_metadata["val_l"].unit == "kg"
+        assert "val_r" not in result.metadata.field_metadata
+
+    def test_concat_conflicting_metadata(self):
+        """Concat: first DataFrame wins for dataset-level, lineage combined."""
+        df1 = sunstone.DataFrame({"x": [1, 2]})
+        df1.metadata.slug = "first-slug"
+        df1.metadata.name = "First"
+        df1.metadata.description = "First description"
+        df1.metadata.rdf_prefixes = {"schema": "https://schema.org/"}
+        df1.metadata.custom_properties = {"schema:about": "Topic A"}
+        df1.set_field_metadata("x", description="First x", unit="m")
+        df1.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source 1", slug="source-1", location="1.csv"))
+
+        df2 = sunstone.DataFrame({"x": [3, 4]})
+        df2.metadata.slug = "second-slug"
+        df2.metadata.name = "Second"
+        df2.metadata.description = "Second description"
+        df2.metadata.rdf_prefixes = {"dc": "http://purl.org/dc/terms/"}
+        df2.metadata.custom_properties = {"dc:subject": "Topic B"}
+        df2.set_field_metadata("x", description="Second x", unit="ft")
+        df2.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source 2", slug="source-2", location="2.csv"))
+
+        df3 = sunstone.DataFrame({"x": [5]})
+        df3.metadata.description = "Third description"
+        df3.metadata.lineage.add_source(sunstone.DatasetMetadata(name="Source 3", slug="source-3", location="3.csv"))
+
+        result = df1.concat([df2, df3], ignore_index=True)
+
+        # Dataset-level: first wins
+        assert result.metadata.slug == "first-slug"
+        assert result.metadata.name == "First"
+        assert result.metadata.description == "First description"
+        assert result.metadata.rdf_prefixes == {"schema": "https://schema.org/"}
+        assert result.metadata.custom_properties == {"schema:about": "Topic A"}
+
+        # Field metadata: first wins
+        assert result.metadata.field_metadata["x"].description == "First x"
+        assert result.metadata.field_metadata["x"].unit == "m"  # not "ft" from df2
+
+        # Lineage: merged from all three
+        slugs = {s.slug for s in result.metadata.lineage.sources}
+        assert slugs == {"source-1", "source-2", "source-3"}
+
+        # Data: all rows present
+        assert len(result) == 5
+
+
 class TestBuildFieldSchema:
     """Tests for write-time field schema merge."""
 
