@@ -47,7 +47,10 @@ from .lineage import (
 )
 
 # Plugin system
-from .plugins import AuthProvider, FormatHandler, PluginRegistry, URLHandler
+from .plugins import AuthProvider, CLIProvider, FormatHandler, PluginRegistry, URLHandler
+
+# Environment config
+from .env import DataEnvironment, resolve_environment
 
 # Packaging (library functions for building and pushing data packages)
 from . import packaging
@@ -111,9 +114,13 @@ __all__ = [
     "DatasetRead",
     # Plugin system
     "AuthProvider",
+    "CLIProvider",
     "URLHandler",
     "FormatHandler",
     "PluginRegistry",
+    # Environment config
+    "DataEnvironment",
+    "resolve_environment",
     # Packaging
     "packaging",
     # Lineage queries
