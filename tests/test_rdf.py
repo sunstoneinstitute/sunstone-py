@@ -478,9 +478,9 @@ outputs:
 
             # Top-level si:methodology should be expanded
             methodology_key = f"{STANDARD_RDF_PREFIXES['si']}methodology"
-            assert (
-                methodology_key in datapackage
-            ), f"Expected {methodology_key} in datapackage, got keys: {list(datapackage.keys())}"
+            assert methodology_key in datapackage, (
+                f"Expected {methodology_key} in datapackage, got keys: {list(datapackage.keys())}"
+            )
 
             # Per-resource si:monitorsThreat should be expanded
             resource = datapackage["resources"][0]

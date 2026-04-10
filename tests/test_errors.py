@@ -39,9 +39,9 @@ class TestErrorsReExport:
         """Re-exported objects should be the exact same objects, not copies."""
         ss_names = _star_import_names("sunstone.errors")
         for name in ss_names:
-            assert getattr(ss_errors, name) is getattr(
-                pd_errors, name
-            ), f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
+            assert getattr(ss_errors, name) is getattr(pd_errors, name), (
+                f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
+            )
 
     def test_import_specific_error(self):
         """Commonly used errors should be directly importable."""

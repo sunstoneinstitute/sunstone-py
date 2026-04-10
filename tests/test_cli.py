@@ -826,9 +826,9 @@ class TestPackagePushCommand:
             assert result.exit_code == 0
 
             # Verify methodology file was uploaded
-            assert any(
-                "DATA_METHODOLOGY.md" in b for b in handler.uploaded_blobs
-            ), f"Methodology file not uploaded. Uploaded blobs: {handler.uploaded_blobs}"
+            assert any("DATA_METHODOLOGY.md" in b for b in handler.uploaded_blobs), (
+                f"Methodology file not uploaded. Uploaded blobs: {handler.uploaded_blobs}"
+            )
 
             # Verify datapackage.json contains expanded methodology key
             dp_path = [b for b in handler.uploaded_text if "datapackage.json" in b][0]
