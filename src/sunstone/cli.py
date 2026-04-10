@@ -503,13 +503,38 @@ def env_update(
     auth: str | None = typer.Option(None, "--auth", help="Auth method"),
 ) -> None:
     """Update fields on an existing environment in user config."""
-    from sunstone.env import _USER_CONFIG, _load_toml, _write_config
+    from sunstone.env import _SYSTEM_CONFIG, _USER_CONFIG, _find_project_config, _load_toml, _write_config
 
     user_data = _load_toml(_USER_CONFIG)
     user_envs = user_data.get("environments", {})
+    project_config = _find_project_config()
+    project_data = _load_toml(project_config) if project_config else {}
+    system_data = _load_toml(_SYSTEM_CONFIG)
 
     if name not in user_envs:
+        if name in project_data.get("environments", {}):
+            typer.echo(
+                f"Error: Environment '{name}' is defined in project config ({project_config}); "
+                "env update only modifies user config",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if name in system_data.get("environments", {}):
+            typer.echo(
+                f"Error: Environment '{name}' is defined in system config ({_SYSTEM_CONFIG}); "
+                "env update only modifies user config",
+                err=True,
+            )
+            raise typer.Exit(1)
         typer.echo(f"Error: Environment '{name}' not found in {_USER_CONFIG}", err=True)
+        raise typer.Exit(1)
+
+    if all(value is None for value in (catalog_url, s3_endpoint, s3_access_key, s3_secret_key, auth)):
+        typer.echo(
+            "Error: No fields to update. Use --catalog-url, --s3-endpoint, --s3-access-key, "
+            "--s3-secret-key, or --auth.",
+            err=True,
+        )
         raise typer.Exit(1)
 
     if catalog_url is not None:

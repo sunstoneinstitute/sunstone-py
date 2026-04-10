@@ -1985,3 +1985,55 @@ def test_env_update_modifies_environment(tmp_path):
     assert "Updated environment 'dev'" in result.output
     config_text = user_config.read_text()
     assert "http://newhost:19120/api/v1" in config_text
+
+
+def test_env_update_reports_project_scoped_environment(tmp_path):
+    """sunstone env update explains when the env exists only in project config."""
+    user_config = tmp_path / "user.toml"
+    project_config = tmp_path / ".sunstone" / "data_platform.toml"
+    project_config.parent.mkdir(parents=True)
+    project_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=project_config),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "update",
+                "dev",
+                "--catalog-url",
+                "http://newhost:19120/api/v1",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "defined in project config" in result.output
+
+
+def test_env_update_requires_at_least_one_field(tmp_path):
+    """sunstone env update refuses no-op invocations without rewriting the file."""
+    user_config = tmp_path / "user.toml"
+    original = (
+        "# keep me\n"
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+    )
+    user_config.write_text(original)
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev"])
+    assert result.exit_code == 1
+    assert "No fields to update" in result.output
+    assert user_config.read_text() == original
