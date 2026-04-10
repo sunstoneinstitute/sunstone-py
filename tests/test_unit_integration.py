@@ -85,6 +85,24 @@ class TestSetFieldMetadataValidation:
         df.set_field_metadata("x", unit="kWh")
         assert df.metadata.field_metadata["x"].unit == "kWh"
 
+    def test_qudt_uri_accepted_in_strict_mode(self):
+        """QUDT URIs should be validated via parse_unit_string, not parse_unit."""
+        import unittest.mock
+
+        mock_ontopint = unittest.mock.MagicMock()
+        mock_ontopint.get_ucum_code_from_unit_iri.return_value = "kW.h"
+        mock_ontopint.ureg.Unit.return_value = unittest.mock.MagicMock()
+
+        df = DataFrame(data=pd.DataFrame({"x": [1]}))
+        original = get_unit_mode()
+        set_unit_mode("strict")
+        try:
+            with unittest.mock.patch.dict("sys.modules", {"ontopint": mock_ontopint}):
+                df.set_field_metadata("x", unit="http://qudt.org/vocab/unit/KiloW-HR")
+            assert df.metadata.field_metadata["x"].unit == "http://qudt.org/vocab/unit/KiloW-HR"
+        finally:
+            set_unit_mode(original)
+
 
 class TestUnitDisplayProperty:
     def test_default_is_transparent(self):

@@ -171,10 +171,10 @@ class DataFrame:
             self, for method chaining.
         """
         if unit is not None:
-            from .units import get_unit_mode, parse_unit
+            from .units import get_unit_mode, parse_unit_string
 
             if get_unit_mode() != "relaxed":
-                parse_unit(unit)  # raises UnitError if invalid in strict/auto mode
+                parse_unit_string(unit)  # raises UnitError if invalid in strict/auto mode
 
         existing = self.metadata.field_metadata.get(column)
         if existing:
