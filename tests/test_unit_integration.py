@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import pytest
 
@@ -93,3 +95,95 @@ class TestUnitDisplayProperty:
         df = DataFrame(data=pd.DataFrame({"x": [1]}))
         df.unit_display = "explicit"
         assert df.unit_display == "explicit"
+
+
+class TestConcatUnits:
+    def setup_method(self):
+        self._original = get_unit_mode()
+
+    def teardown_method(self):
+        set_unit_mode(self._original)
+
+    def test_concat_same_units(self):
+        set_unit_mode("auto")
+        df1 = DataFrame(data=pd.DataFrame({"energy": [1.0, 2.0]}))
+        df1.set_field_metadata("energy", unit="kWh")
+        df2 = DataFrame(data=pd.DataFrame({"energy": [3.0, 4.0]}))
+        df2.set_field_metadata("energy", unit="kWh")
+        result = df1.concat([df2], ignore_index=True)
+        assert result.metadata.field_metadata["energy"].unit == "kWh"
+        assert list(result.data["energy"]) == [1.0, 2.0, 3.0, 4.0]
+
+    def test_concat_compatible_units_auto_converts(self):
+        set_unit_mode("auto")
+        df1 = DataFrame(data=pd.DataFrame({"dist": [1.0]}))
+        df1.set_field_metadata("dist", unit="km")
+        df2 = DataFrame(data=pd.DataFrame({"dist": [500.0]}))
+        df2.set_field_metadata("dist", unit="meter")
+        result = df1.concat([df2], ignore_index=True)
+        assert result.metadata.field_metadata["dist"].unit == "meter"
+        assert result.data["dist"].iloc[0] == pytest.approx(1000.0)
+        assert result.data["dist"].iloc[1] == pytest.approx(500.0)
+
+    def test_concat_incompatible_units_auto_raises(self):
+        set_unit_mode("auto")
+        df1 = DataFrame(data=pd.DataFrame({"x": [1.0]}))
+        df1.set_field_metadata("x", unit="meter")
+        df2 = DataFrame(data=pd.DataFrame({"x": [1.0]}))
+        df2.set_field_metadata("x", unit="second")
+        with pytest.raises(UnitError, match="incompatible dimensions"):
+            df1.concat([df2])
+
+    def test_concat_relaxed_warns(self):
+        set_unit_mode("relaxed")
+        df1 = DataFrame(data=pd.DataFrame({"x": [1.0]}))
+        df1.set_field_metadata("x", unit="meter")
+        df2 = DataFrame(data=pd.DataFrame({"x": [1.0]}))
+        df2.set_field_metadata("x", unit="second")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            df1.concat([df2], ignore_index=True)
+            assert len(w) >= 1
+
+    def test_concat_no_units_passthrough(self):
+        df1 = DataFrame(data=pd.DataFrame({"x": [1.0]}))
+        df2 = DataFrame(data=pd.DataFrame({"x": [2.0]}))
+        result = df1.concat([df2], ignore_index=True)
+        assert list(result.data["x"]) == [1.0, 2.0]
+
+
+class TestMergeUnits:
+    def setup_method(self):
+        self._original = get_unit_mode()
+        set_unit_mode("auto")
+
+    def teardown_method(self):
+        set_unit_mode(self._original)
+
+    def test_merge_preserves_both_side_units(self):
+        df1 = DataFrame(data=pd.DataFrame({"id": [1], "val": [1.0]}))
+        df1.set_field_metadata("val", unit="km")
+        df2 = DataFrame(data=pd.DataFrame({"id": [1], "val2": [500.0]}))
+        df2.set_field_metadata("val2", unit="meter")
+        result = df1.merge(df2, on="id")
+        assert "val" in result.data.columns
+        assert "val2" in result.data.columns
+        assert result.metadata.field_metadata.get("val2") is not None
+
+
+class TestJoinUnits:
+    def setup_method(self):
+        self._original = get_unit_mode()
+        set_unit_mode("auto")
+
+    def teardown_method(self):
+        set_unit_mode(self._original)
+
+    def test_join_preserves_units(self):
+        df1 = DataFrame(data=pd.DataFrame({"a": [1.0]}, index=[0]))
+        df1.set_field_metadata("a", unit="kW")
+        df2 = DataFrame(data=pd.DataFrame({"b": [2.0]}, index=[0]))
+        df2.set_field_metadata("b", unit="hour")
+        result = df1.join(df2)
+        assert result.metadata.field_metadata.get("a") is not None
+        assert result.metadata.field_metadata.get("b") is not None
