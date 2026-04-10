@@ -229,23 +229,29 @@ def list_environments(
     *,
     system_config: Path | None = None,
     user_config: Path | None = None,
+    project_config: Path | None = None,
 ) -> dict[str, dict]:
     """Return all merged environment definitions.
 
     Args:
         system_config: Override path for system config.
         user_config: Override path for user config.
+        project_config: Override path for project config (default: auto-discovered).
 
     Returns:
         Dict mapping environment names to their config dicts.
     """
     sys_path = system_config or _SYSTEM_CONFIG
     usr_path = user_config or _USER_CONFIG
+    prj_path = project_config or _find_project_config()
 
     system_data = _load_toml(sys_path)
     user_data = _load_toml(usr_path)
+    project_data = _load_toml(prj_path) if prj_path else {}
 
-    return _merge_environments(system_data, user_data)
+    merged = _merge_environments(system_data, user_data)
+    merged.update(project_data.get("environments", {}))
+    return merged
 
 
 def environment_source(
@@ -253,6 +259,7 @@ def environment_source(
     *,
     system_config: Path | None = None,
     user_config: Path | None = None,
+    project_config: Path | None = None,
 ) -> str:
     """Return which config file defines an environment.
 
@@ -260,6 +267,7 @@ def environment_source(
         name: Environment name to look up.
         system_config: Override path for system config.
         user_config: Override path for user config.
+        project_config: Override path for project config (default: auto-discovered).
 
     Returns:
         The file path string where the environment is defined.
@@ -269,6 +277,12 @@ def environment_source(
     """
     sys_path = system_config or _SYSTEM_CONFIG
     usr_path = user_config or _USER_CONFIG
+    prj_path = project_config or _find_project_config()
+
+    if prj_path:
+        project_data = _load_toml(prj_path)
+        if name in project_data.get("environments", {}):
+            return str(prj_path)
 
     user_data = _load_toml(usr_path)
     if name in user_data.get("environments", {}):
@@ -407,6 +421,8 @@ def remove_environment(
         raise ValueError(f"Environment '{name}' not found in user config")
 
     del user_data["environments"][name]
+    if user_data.get("active") == name:
+        del user_data["active"]
     _write_config(usr_path, user_data)
     return usr_path
 

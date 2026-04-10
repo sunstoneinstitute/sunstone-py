@@ -19,6 +19,8 @@ from sunstone.env import (
     _resolve_op_reference,
     _write_config,
     add_environment,
+    environment_source,
+    list_environments,
     remove_environment,
     resolve_environment,
     set_active,
@@ -270,7 +272,7 @@ class TestResolveEnvironment:
     def test_full_cascade(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
-            "[environments.prod]\n" 'catalog_url = "http://sys-prod"\n' 's3_endpoint = "http://sys-s3"\n',
+            '[environments.prod]\ncatalog_url = "http://sys-prod"\ns3_endpoint = "http://sys-s3"\n',
         )
         user = _write_toml(
             tmp_path / "user.toml",
@@ -292,10 +294,7 @@ class TestResolveEnvironment:
     def test_env_var_field_overrides(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
-            'active = "dev"\n'
-            "[environments.dev]\n"
-            'catalog_url = "http://original"\n'
-            's3_endpoint = "http://original-s3"\n',
+            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\n',
         )
 
         overrides = {
@@ -342,7 +341,7 @@ class TestResolveEnvironment:
     def test_env_var_selects_environment(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
-            "[environments.staging]\n" 'catalog_url = "http://staging"\n' 's3_endpoint = "http://staging-s3"\n',
+            '[environments.staging]\ncatalog_url = "http://staging"\ns3_endpoint = "http://staging-s3"\n',
         )
 
         with patch.dict("os.environ", {"SUNSTONE_DATA_ENV": "staging"}, clear=True):
@@ -410,7 +409,7 @@ class TestSetActive:
         monkeypatch.chdir(tmp_path)
         user = _write_toml(
             tmp_path / "user.toml",
-            "[environments.dev]\n" 'catalog_url = "http://dev"\n' 's3_endpoint = "http://dev-s3"\n',
+            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
         )
 
         result = set_active(
@@ -426,7 +425,7 @@ class TestSetActive:
     def test_writes_user_config(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
-            "[environments.staging]\n" 'catalog_url = "http://staging"\n' 's3_endpoint = "http://staging-s3"\n',
+            '[environments.staging]\ncatalog_url = "http://staging"\ns3_endpoint = "http://staging-s3"\n',
         )
 
         result = set_active(
@@ -477,7 +476,7 @@ class TestAddEnvironment:
     def test_rejects_duplicates(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
-            "[environments.dev]\n" 'catalog_url = "http://dev"\n' 's3_endpoint = "http://dev-s3"\n',
+            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
         )
 
         with pytest.raises(ValueError, match="already exists"):
@@ -498,7 +497,7 @@ class TestRemoveEnvironment:
     def test_removes_from_user_config(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
-            "[environments.dev]\n" 'catalog_url = "http://dev"\n' 's3_endpoint = "http://dev-s3"\n',
+            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
         )
 
         result = remove_environment(
@@ -514,7 +513,7 @@ class TestRemoveEnvironment:
     def test_refuses_system_only(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
-            "[environments.prod]\n" 'catalog_url = "http://prod"\n' 's3_endpoint = "http://prod-s3"\n',
+            '[environments.prod]\ncatalog_url = "http://prod"\ns3_endpoint = "http://prod-s3"\n',
         )
 
         with pytest.raises(ValueError, match="system config"):
@@ -531,6 +530,128 @@ class TestRemoveEnvironment:
                 user_config=tmp_path / "no.toml",
                 system_config=tmp_path / "no2.toml",
             )
+
+    def test_clears_active_when_removing_active_env(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            'active = "dev"\n[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
+        )
+
+        remove_environment(
+            "dev",
+            user_config=user,
+            system_config=tmp_path / "no.toml",
+        )
+
+        data = _load_toml(user)
+        assert "active" not in data
+
+    def test_preserves_active_when_removing_other_env(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            'active = "prod"\n'
+            "[environments.dev]\n"
+            'catalog_url = "http://dev"\n'
+            's3_endpoint = "http://dev-s3"\n'
+            "[environments.prod]\n"
+            'catalog_url = "http://prod"\n'
+            's3_endpoint = "http://prod-s3"\n',
+        )
+
+        remove_environment(
+            "dev",
+            user_config=user,
+            system_config=tmp_path / "no.toml",
+        )
+
+        data = _load_toml(user)
+        assert data["active"] == "prod"
+
+
+# ---------------------------------------------------------------------------
+# list_environments — project config inclusion
+# ---------------------------------------------------------------------------
+
+
+class TestListEnvironmentsProjectConfig:
+    def test_includes_project_environments(self, tmp_path: Path):
+        project = _write_toml(
+            tmp_path / "project.toml",
+            '[environments.local]\ncatalog_url = "http://localhost:19120"\ns3_endpoint = "http://localhost:9000"\n',
+        )
+
+        envs = list_environments(
+            system_config=tmp_path / "no.toml",
+            user_config=tmp_path / "no2.toml",
+            project_config=project,
+        )
+
+        assert "local" in envs
+        assert envs["local"]["catalog_url"] == "http://localhost:19120"
+
+    def test_project_shadows_user(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://user-s3"\n',
+        )
+        project = _write_toml(
+            tmp_path / "project.toml",
+            '[environments.dev]\ncatalog_url = "http://project-dev"\ns3_endpoint = "http://project-s3"\n',
+        )
+
+        envs = list_environments(
+            system_config=tmp_path / "no.toml",
+            user_config=user,
+            project_config=project,
+        )
+
+        assert envs["dev"]["catalog_url"] == "http://project-dev"
+
+
+# ---------------------------------------------------------------------------
+# environment_source — project config inclusion
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironmentSourceProjectConfig:
+    def test_returns_project_config_path(self, tmp_path: Path):
+        project = _write_toml(
+            tmp_path / "project.toml",
+            '[environments.local]\ncatalog_url = "http://localhost:19120"\ns3_endpoint = "http://localhost:9000"\n',
+        )
+
+        source = environment_source(
+            "local",
+            system_config=tmp_path / "no.toml",
+            user_config=tmp_path / "no2.toml",
+            project_config=project,
+        )
+
+        assert source == str(project)
+
+
+# ---------------------------------------------------------------------------
+# set_active — project-defined environments
+# ---------------------------------------------------------------------------
+
+
+class TestSetActiveProjectConfig:
+    def test_accepts_project_defined_env(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        project = _write_toml(
+            tmp_path / ".sunstone" / "data_platform.toml",
+            '[environments.local]\ncatalog_url = "http://localhost:19120"\ns3_endpoint = "http://localhost:9000"\n',
+        )
+
+        result = set_active(
+            "local",
+            system_config=tmp_path / "no.toml",
+            user_config=tmp_path / "no2.toml",
+        )
+
+        assert result == project
+        data = _load_toml(result)
+        assert data["active"] == "local"
 
 
 # ---------------------------------------------------------------------------
