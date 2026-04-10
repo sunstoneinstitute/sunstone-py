@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -59,6 +60,22 @@ class TestDataEnvironment:
         assert env.name == "prod"
         assert env.auth == "gcloud-adc"
         assert env.s3_access_key is None
+
+
+def test_import_env_tolerates_missing_home(monkeypatch):
+    """Reloading sunstone.env should not fail when Path.home() is unavailable."""
+    import sunstone.env as env_mod
+
+    def fail_home() -> Path:
+        raise RuntimeError("Failed to get home directory")
+
+    monkeypatch.setattr("pathlib.Path.home", fail_home)
+    try:
+        reloaded = importlib.reload(env_mod)
+        assert reloaded._USER_CONFIG is None
+    finally:
+        monkeypatch.undo()
+        importlib.reload(env_mod)
 
 
 # ---------------------------------------------------------------------------
@@ -622,6 +639,20 @@ class TestRemoveEnvironment:
 
         data = _load_toml(project)
         assert "active" not in data
+
+    def test_reports_project_scoped_environment(self, tmp_path: Path):
+        project = _write_toml(
+            tmp_path / ".sunstone" / "data_platform.toml",
+            '[environments.local]\ncatalog_url = "http://local"\ns3_endpoint = "http://local-s3"\n',
+        )
+
+        with pytest.raises(ValueError, match="defined in project config"):
+            remove_environment(
+                "local",
+                user_config=tmp_path / "user.toml",
+                system_config=tmp_path / "no.toml",
+                project_config=project,
+            )
 
 
 # ---------------------------------------------------------------------------

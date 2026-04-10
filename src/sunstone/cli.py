@@ -414,25 +414,25 @@ def env_show(ctx: typer.Context) -> None:
     try:
         env = resolve_environment()
         all_envs = list_environments()
-    except (FileNotFoundError, RuntimeError, ValueError) as e:
-        typer.echo(f"Error: {e}", err=True)
+        if not all_envs and env is None:
+            typer.echo("No environment configured.")
+            typer.echo("Run 'sunstone env add <name>' to create one.")
+            return
+
+        if env:
+            typer.echo(f"Active: {env.name} (from {env.source})")
+        else:
+            typer.echo("Active: none")
+        typer.echo()
+
+        for name, defn in sorted(all_envs.items()):
+            marker = "* " if env and name == env.name else "  "
+            source = environment_source(name)
+            typer.echo(f"{marker}{name:<12} {defn.get('catalog_url', ''):<45} ({source})")
+    except (FileNotFoundError, KeyError, RuntimeError, ValueError) as e:
+        message = e.args[0] if isinstance(e, KeyError) else str(e)
+        typer.echo(f"Error: {message}", err=True)
         raise typer.Exit(1)
-
-    if not all_envs and env is None:
-        typer.echo("No environment configured.")
-        typer.echo("Run 'sunstone env add <name>' to create one.")
-        return
-
-    if env:
-        typer.echo(f"Active: {env.name} (from {env.source})")
-    else:
-        typer.echo("Active: none")
-    typer.echo()
-
-    for name, defn in sorted(all_envs.items()):
-        marker = "* " if env and name == env.name else "  "
-        source = environment_source(name)
-        typer.echo(f"{marker}{name:<12} {defn.get('catalog_url', ''):<45} ({source})")
 
 
 @env_app.command("use")
@@ -446,7 +446,7 @@ def env_use(
     try:
         path = set_active(name, user=user)
         typer.echo(f"Active environment set to '{name}' in {path}")
-    except ValueError as e:
+    except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -473,7 +473,7 @@ def env_add(
             auth=auth,
         )
         typer.echo(f"Added environment '{name}' to {path}")
-    except ValueError as e:
+    except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -488,7 +488,7 @@ def env_remove(
     try:
         path = remove_environment(name)
         typer.echo(f"Removed environment '{name}' from {path}")
-    except ValueError as e:
+    except (RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -503,9 +503,21 @@ def env_update(
     auth: str | None = typer.Option(None, "--auth", help="Auth method"),
 ) -> None:
     """Update fields on an existing environment in user config."""
-    from sunstone.env import _SYSTEM_CONFIG, _USER_CONFIG, _find_project_config, _load_toml, _write_config
+    from sunstone.env import (
+        _SYSTEM_CONFIG,
+        _find_project_config,
+        _get_user_config_path,
+        _load_toml,
+        _write_config,
+    )
 
-    user_data = _load_toml(_USER_CONFIG)
+    try:
+        user_config = _get_user_config_path(required=True)
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+
+    user_data = _load_toml(user_config)
     user_envs = user_data.get("environments", {})
     project_config = _find_project_config()
     project_data = _load_toml(project_config) if project_config else {}
@@ -526,7 +538,7 @@ def env_update(
                 err=True,
             )
             raise typer.Exit(1)
-        typer.echo(f"Error: Environment '{name}' not found in {_USER_CONFIG}", err=True)
+        typer.echo(f"Error: Environment '{name}' not found in {user_config}", err=True)
         raise typer.Exit(1)
 
     if all(value is None for value in (catalog_url, s3_endpoint, s3_access_key, s3_secret_key, auth)):
@@ -549,8 +561,8 @@ def env_update(
         user_envs[name]["auth"] = auth
 
     user_data["environments"] = user_envs
-    _write_config(_USER_CONFIG, user_data)
-    typer.echo(f"Updated environment '{name}' in {_USER_CONFIG}")
+    _write_config(user_config, user_data)
+    typer.echo(f"Updated environment '{name}' in {user_config}")
 
 
 # =============================================================================

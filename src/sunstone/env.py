@@ -18,12 +18,49 @@ import subprocess
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, overload
 
 import tomli_w
 
 _SYSTEM_CONFIG = Path("/etc/sunstone/data_platform.toml")
-_USER_CONFIG = Path.home() / ".config" / "sunstone" / "data_platform.toml"
 _PROJECT_CONFIG_NAME = ".sunstone/data_platform.toml"
+
+
+def _default_user_config() -> Path | None:
+    """Return the default user config path, or None when home is unavailable."""
+    try:
+        return Path.home() / ".config" / "sunstone" / "data_platform.toml"
+    except RuntimeError:
+        return None
+
+
+_USER_CONFIG = _default_user_config()
+
+
+@overload
+def _get_user_config_path(user_config: Path, *, required: bool = False) -> Path: ...
+
+
+@overload
+def _get_user_config_path(user_config: None = None, *, required: Literal[True]) -> Path: ...
+
+
+@overload
+def _get_user_config_path(user_config: None = None, *, required: Literal[False] = False) -> Path | None: ...
+
+
+def _get_user_config_path(user_config: Path | None = None, *, required: bool = False) -> Path | None:
+    """Resolve the user config path, optionally requiring that it is available."""
+    if user_config is not None:
+        return user_config
+    if _USER_CONFIG is not None:
+        return _USER_CONFIG
+    if required:
+        raise RuntimeError(
+            "User config path is unavailable because the home directory could not be determined. "
+            "Set HOME or pass an explicit user_config path."
+        )
+    return None
 
 
 @dataclass(frozen=True)
@@ -163,11 +200,11 @@ def resolve_environment(
         ValueError: If the active environment name doesn't match any defined environment.
     """
     sys_path = system_config or _SYSTEM_CONFIG
-    usr_path = user_config or _USER_CONFIG
+    usr_path = _get_user_config_path(user_config)
     prj_path = project_config or _find_project_config()
 
     system_data = _load_toml(sys_path)
-    user_data = _load_toml(usr_path)
+    user_data = _load_toml(usr_path) if usr_path else {}
     project_data = _load_toml(prj_path) if prj_path else {}
 
     active_name, source_label = _resolve_active_name(project_data, user_data, system_data)
@@ -222,11 +259,6 @@ def resolve_environment(
     )
 
 
-def _get_project_config_dir() -> Path:
-    """Return the project config directory (cwd / .sunstone)."""
-    return Path.cwd() / ".sunstone"
-
-
 def list_environments(
     *,
     system_config: Path | None = None,
@@ -244,11 +276,11 @@ def list_environments(
         Dict mapping environment names to their config dicts.
     """
     sys_path = system_config or _SYSTEM_CONFIG
-    usr_path = user_config or _USER_CONFIG
+    usr_path = _get_user_config_path(user_config)
     prj_path = project_config or _find_project_config()
 
     system_data = _load_toml(sys_path)
-    user_data = _load_toml(usr_path)
+    user_data = _load_toml(usr_path) if usr_path else {}
     project_data = _load_toml(prj_path) if prj_path else {}
 
     merged = _merge_environments(system_data, user_data)
@@ -278,7 +310,7 @@ def environment_source(
         KeyError: If the environment is not found in any config.
     """
     sys_path = system_config or _SYSTEM_CONFIG
-    usr_path = user_config or _USER_CONFIG
+    usr_path = _get_user_config_path(user_config)
     prj_path = project_config or _find_project_config()
 
     if prj_path:
@@ -286,9 +318,10 @@ def environment_source(
         if name in project_data.get("environments", {}):
             return str(prj_path)
 
-    user_data = _load_toml(usr_path)
-    if name in user_data.get("environments", {}):
-        return str(usr_path)
+    if usr_path:
+        user_data = _load_toml(usr_path)
+        if name in user_data.get("environments", {}):
+            return str(usr_path)
 
     system_data = _load_toml(sys_path)
     if name in system_data.get("environments", {}):
@@ -319,7 +352,11 @@ def set_active(
         ValueError: If the environment doesn't exist.
     """
     sys_path = system_config or _SYSTEM_CONFIG
-    usr_path = user_config or _USER_CONFIG
+    usr_path: Path | None
+    if user:
+        usr_path = _get_user_config_path(user_config, required=True)
+    else:
+        usr_path = _get_user_config_path(user_config)
     prj_path = _find_project_config()
 
     all_envs = list_environments(system_config=sys_path, user_config=usr_path, project_config=prj_path)
@@ -327,6 +364,7 @@ def set_active(
         raise ValueError(f"Environment '{name}' does not exist")
 
     if user:
+        assert usr_path is not None
         target = usr_path
     else:
         target = prj_path or (Path.cwd() / _PROJECT_CONFIG_NAME)
@@ -364,7 +402,7 @@ def add_environment(
     Raises:
         ValueError: If the environment already exists.
     """
-    usr_path = user_config or _USER_CONFIG
+    usr_path = _get_user_config_path(user_config, required=True)
     data = _load_toml(usr_path)
 
     if "environments" not in data:
@@ -410,7 +448,7 @@ def remove_environment(
     Raises:
         ValueError: If the environment is only in system config or doesn't exist.
     """
-    usr_path = user_config or _USER_CONFIG
+    usr_path = _get_user_config_path(user_config, required=True)
     sys_path = system_config or _SYSTEM_CONFIG
     prj_path = project_config or _find_project_config()
 
@@ -424,6 +462,12 @@ def remove_environment(
             raise ValueError(
                 f"Environment '{name}' is defined in system config ({sys_path}), cannot remove from user config"
             )
+        if prj_path:
+            project_data = _load_toml(prj_path)
+            if name in project_data.get("environments", {}):
+                raise ValueError(
+                    f"Environment '{name}' is defined in project config ({prj_path}), cannot remove from user config"
+                )
         raise ValueError(f"Environment '{name}' not found in user config")
 
     del user_data["environments"][name]
