@@ -332,23 +332,46 @@ class UnitSeries:
     # Comparison operators — return plain Series (boolean masks)
     # ------------------------------------------------------------------
 
+    def _compare(self, other: Any, op: str) -> pd.Series:
+        """Core comparison handler with unit checking."""
+        if not isinstance(other, type(self)):
+            result: pd.Series = getattr(self._series, op)(other)
+            return result
+
+        # Both are UnitSeries — resolve units like addition
+        resolved = resolve_units(self._unit, other._unit, "add")
+
+        if resolved.warning:
+            warnings.warn(resolved.warning, stacklevel=3)
+
+        self_values = self._series
+        other_values = other._series
+
+        if resolved.convert_a is not None:
+            self_values = self_values * resolved.convert_a
+        if resolved.convert_b is not None:
+            other_values = other_values * resolved.convert_b
+
+        result = getattr(self_values, op)(other_values)
+        return result  # type: ignore[no-any-return]
+
     def __gt__(self, other: Any) -> pd.Series:
-        return self._series > (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__gt__")
 
     def __ge__(self, other: Any) -> pd.Series:
-        return self._series >= (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__ge__")
 
     def __lt__(self, other: Any) -> pd.Series:
-        return self._series < (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__lt__")
 
     def __le__(self, other: Any) -> pd.Series:
-        return self._series <= (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__le__")
 
     def __eq__(self, other: Any) -> pd.Series:  # type: ignore[override]
-        return self._series == (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__eq__")
 
     def __ne__(self, other: Any) -> pd.Series:  # type: ignore[override]
-        return self._series != (other._series if isinstance(other, type(self)) else other)
+        return self._compare(other, "__ne__")
 
     # Pandas-internal attributes that should NOT be delegated — if pandas
     # finds these, it treats UnitSeries as a Series subtype and bypasses __radd__.

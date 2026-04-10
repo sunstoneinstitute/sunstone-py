@@ -426,3 +426,50 @@ class TestUnitSeriesRelaxed:
             assert len(w) == 1
             assert "different scale" in str(w[0].message)
         assert isinstance(result, UnitSeries)
+
+
+class TestUnitSeriesComparison:
+    def setup_method(self):
+        self._original = get_unit_mode()
+
+    def teardown_method(self):
+        set_unit_mode(self._original)
+
+    def test_gt_same_unit(self):
+        a = UnitSeries(pd.Series([1, 2, 3]), parse_unit("kW"))
+        b = UnitSeries(pd.Series([2, 1, 2]), parse_unit("kW"))
+        result = a > b
+        assert isinstance(result, pd.Series)
+        assert list(result) == [False, True, True]
+
+    def test_gt_compatible_auto_converts(self):
+        set_unit_mode("auto")
+        a = UnitSeries(pd.Series([1.0]), parse_unit("km"))
+        b = UnitSeries(pd.Series([500.0]), parse_unit("meter"))
+        result = a > b
+        assert isinstance(result, pd.Series)
+        assert list(result) == [True]
+
+    def test_gt_incompatible_strict_raises(self):
+        set_unit_mode("strict")
+        a = UnitSeries(pd.Series([1.0]), parse_unit("meter"))
+        b = UnitSeries(pd.Series([1.0]), parse_unit("second"))
+        with pytest.raises(UnitError, match="incompatible dimensions"):
+            a > b
+
+    def test_gt_incompatible_relaxed_warns(self):
+        set_unit_mode("relaxed")
+        a = UnitSeries(pd.Series([1.0]), parse_unit("meter"))
+        b = UnitSeries(pd.Series([1.0]), parse_unit("second"))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = a > b
+            assert len(w) >= 1
+            assert "incompatible dimensions" in str(w[0].message)
+        assert isinstance(result, pd.Series)
+
+    def test_gt_scalar(self):
+        a = UnitSeries(pd.Series([1, 2, 3]), parse_unit("kW"))
+        result = a > 1.5
+        assert isinstance(result, pd.Series)
+        assert list(result) == [False, True, True]
