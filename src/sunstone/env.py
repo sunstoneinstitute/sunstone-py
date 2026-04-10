@@ -128,7 +128,7 @@ def _resolve_op_reference(ref: str) -> str:
         )
     except FileNotFoundError:
         raise FileNotFoundError(
-            "1Password CLI (op) is not installed. " "Install it from https://1password.com/downloads/command-line/"
+            "1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/"
         )
 
     if result.returncode != 0:
@@ -402,7 +402,7 @@ def remove_environment(
         system_envs = system_data.get("environments", {})
         if name in system_envs:
             raise ValueError(
-                f"Environment '{name}' is defined in system config ({sys_path}), " "cannot remove from user config"
+                f"Environment '{name}' is defined in system config ({sys_path}), cannot remove from user config"
             )
         raise ValueError(f"Environment '{name}' not found in user config")
 
