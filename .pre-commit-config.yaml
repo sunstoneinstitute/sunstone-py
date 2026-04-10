@@ -11,8 +11,8 @@ repos:
 
 - repo: local
   hooks:
-  - id: check-ruff-version
-    name: check ruff version consistency
+  - id: check-tool-versions
+    name: check tool version consistency
     entry: scripts/check-ruff-version.sh
     language: script
     files: (uv\.lock|\.pre-commit-config\.yaml)$
@@ -26,7 +26,7 @@ repos:
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.13.0
+  rev: v1.19.1
   hooks:
   - id: mypy
     additional_dependencies: [pandas-stubs, types-PyYAML, types-requests]

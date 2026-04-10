@@ -18,7 +18,7 @@ from .exceptions import UnitError
 UnitMode = Literal["relaxed", "strict", "auto"]
 
 # Shared registry — all Pint units in Sunstone must come from this instance.
-ureg = pint.UnitRegistry()
+ureg: pint.UnitRegistry = pint.UnitRegistry()
 Q_ = ureg.Quantity
 
 # Global mode setting
@@ -155,7 +155,8 @@ def resolve_units(
             return ResolvedUnits(result_unit=unit_a * unit_b)
         if operation == "div":
             if unit_a is None:
-                return ResolvedUnits(result_unit=1 / unit_b)  # type: ignore[operator]
+                result = 1 / unit_b  # type: ignore[operator]
+                return ResolvedUnits(result_unit=result)  # type: ignore[arg-type]
             if unit_b is None:
                 return ResolvedUnits(result_unit=unit_a)
             return ResolvedUnits(result_unit=unit_a / unit_b)
@@ -331,6 +332,7 @@ class UnitSeries:
         # Perform the pandas operation
         result_values = getattr(self_values, op)(other_values)
 
+        assert resolved.result_unit is not None
         return type(self)(result_values, resolved.result_unit, self._unit_display)
 
     # ------------------------------------------------------------------

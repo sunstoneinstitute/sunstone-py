@@ -1562,8 +1562,8 @@ class TestParquetResourceSupport:
 
         # Create a minimal valid Parquet file
         try:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
+            import pyarrow as pa  # type: ignore[import-untyped]
+            import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
             table = pa.table(
                 {
