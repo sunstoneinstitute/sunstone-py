@@ -74,6 +74,9 @@ class FieldSchema:
     source: Optional[str] = None
     """Slug of the input dataset this field's data comes from."""
 
+    unit_source: Optional[str] = None
+    """Original unit string format for round-tripping (e.g. QUDT URI). None means Pint string."""
+
 
 @dataclass
 class Contributor:

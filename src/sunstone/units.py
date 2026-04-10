@@ -198,6 +198,40 @@ _OP_NAME = {
 }
 
 
+def is_qudt_uri(unit_str: str) -> bool:
+    """Check if a unit string looks like a QUDT URI or prefixed name."""
+    return (
+        unit_str.startswith("http://qudt.org/")
+        or unit_str.startswith("https://qudt.org/")
+        or unit_str.startswith("qudt:")
+    )
+
+
+def parse_unit_string(unit_str: str) -> tuple[pint.Unit, str | None]:
+    """Parse a unit string that may be a Pint string or QUDT URI.
+
+    Returns:
+        Tuple of (pint.Unit, unit_source). unit_source is the QUDT URI
+        if the input was a URI, or None if it was a plain Pint string.
+
+    Raises:
+        UnitError: If the unit cannot be parsed or QUDT resolution fails.
+    """
+    if is_qudt_uri(unit_str):
+        try:
+            import ontopint
+        except ImportError:
+            raise UnitError(f"Unit '{unit_str}' is a QUDT URI. " f"Install sunstone-py[qudt] to resolve QUDT units.")
+        try:
+            ucum_code = ontopint.get_ucum_code_from_unit_iri(unit_str)
+            unit = ontopint.ureg.Unit(ucum_code)
+            return unit, unit_str
+        except Exception as e:
+            raise UnitError(f"Cannot resolve QUDT unit '{unit_str}': {e}") from e
+
+    return parse_unit(unit_str), None
+
+
 class UnitSeries:
     """A pandas Series proxy that carries a Pint unit."""
 

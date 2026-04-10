@@ -473,3 +473,55 @@ class TestUnitSeriesComparison:
         result = a > 1.5
         assert isinstance(result, pd.Series)
         assert list(result) == [False, True, True]
+
+
+class TestQUDTDetection:
+    def test_is_qudt_uri_http(self):
+        from sunstone.units import is_qudt_uri
+
+        assert is_qudt_uri("http://qudt.org/vocab/unit/KiloW-HR") is True
+
+    def test_is_qudt_uri_https(self):
+        from sunstone.units import is_qudt_uri
+
+        assert is_qudt_uri("https://qudt.org/vocab/unit/M") is True
+
+    def test_is_qudt_uri_prefix(self):
+        from sunstone.units import is_qudt_uri
+
+        assert is_qudt_uri("qudt:KiloW-HR") is True
+
+    def test_is_not_qudt_uri(self):
+        from sunstone.units import is_qudt_uri
+
+        assert is_qudt_uri("kWh") is False
+        assert is_qudt_uri("meter / second") is False
+
+    def test_parse_unit_string_pint(self):
+        from sunstone.units import parse_unit_string
+
+        unit, source = parse_unit_string("kWh")
+        assert str(unit) == "kilowatt_hour"
+        assert source is None
+
+    def test_parse_unit_string_qudt_without_ontopint_raises(self):
+        from sunstone.units import parse_unit_string
+        import unittest.mock
+
+        with unittest.mock.patch.dict("sys.modules", {"ontopint": None}):
+            with pytest.raises(UnitError, match="QUDT URI.*Install sunstone-py\\[qudt\\]"):
+                parse_unit_string("http://qudt.org/vocab/unit/KiloW-HR")
+
+
+class TestFieldSchemaUnitSource:
+    def test_unit_source_default_none(self):
+        from sunstone.lineage import FieldSchema
+
+        f = FieldSchema(name="x", unit="kWh")
+        assert f.unit_source is None
+
+    def test_unit_source_set(self):
+        from sunstone.lineage import FieldSchema
+
+        f = FieldSchema(name="x", unit="kWh", unit_source="http://qudt.org/vocab/unit/KiloW-HR")
+        assert f.unit_source == "http://qudt.org/vocab/unit/KiloW-HR"
