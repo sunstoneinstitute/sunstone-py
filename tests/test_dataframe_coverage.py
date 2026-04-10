@@ -27,13 +27,13 @@ from sunstone.exceptions import DatasetNotFoundError
 def _has_parquet_engine() -> bool:
     """Check if a parquet engine (pyarrow or fastparquet) is available."""
     try:
-        import pyarrow  # noqa: F401
+        import pyarrow  # type: ignore[import-untyped]  # noqa: F401
 
         return True
     except ImportError:
         pass
     try:
-        import fastparquet  # noqa: F401
+        import fastparquet  # type: ignore[import-not-found]  # noqa: F401
 
         return True
     except ImportError:

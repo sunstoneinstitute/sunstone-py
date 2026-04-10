@@ -33,6 +33,7 @@ from .exceptions import (
     LineageError,
     StrictModeError,
     SunstoneError,
+    UnitError,
 )
 from .lineage import (
     Contributor,
@@ -100,6 +101,7 @@ __all__ = [
     "DatasetValidationError",
     "StrictModeError",
     "LineageError",
+    "UnitError",
     # Context and session
     "ExecutionContext",
     "detect_execution_context",

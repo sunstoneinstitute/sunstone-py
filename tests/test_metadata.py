@@ -150,11 +150,11 @@ class TestSetFieldMetadata:
     def test_set_field_metadata_creates_entry(self):
         """Setting metadata for a new column creates a FieldSchema."""
         df = sunstone.DataFrame({"enrollment": [100, 200]})
-        df.set_field_metadata("enrollment", description="Total students", unit="students")
+        df.set_field_metadata("enrollment", description="Total students", unit="count")
         fm = df.metadata.field_metadata["enrollment"]
         assert fm.name == "enrollment"
         assert fm.description == "Total students"
-        assert fm.unit == "students"
+        assert fm.unit == "count"
         assert fm.type is None  # not set, will be inferred at write time
 
     def test_set_field_metadata_updates_existing(self):
@@ -241,7 +241,7 @@ class TestMetadataPropagation:
         result = left.merge(right, on="key")
         assert result.metadata.description == "left data"
         assert result.metadata.field_metadata["val_l"].unit == "m"
-        assert "val_r" not in result.metadata.field_metadata
+        assert result.metadata.field_metadata["val_r"].unit == "kg"
 
     def test_concat_uses_first_metadata(self):
         df1 = sunstone.DataFrame({"a": [1]})
@@ -316,13 +316,13 @@ class TestConflictingMetadata:
         slugs = {s.slug for s in result.metadata.lineage.sources}
         assert slugs == {"source-a", "source-b"}
 
-        # Field metadata: left's fields survive, right's do not
+        # Field metadata: left's fields survive, right's brought in for new columns
         assert "key" in result.metadata.field_metadata
         assert result.metadata.field_metadata["key"].description == "Join key"
         assert result.metadata.field_metadata["key"].type == "integer"  # not "string" from right
         assert "value" in result.metadata.field_metadata
         assert result.metadata.field_metadata["value"].unit == "meters"
-        assert "score" not in result.metadata.field_metadata  # right's field metadata lost
+        assert result.metadata.field_metadata["score"].unit == "ratio"  # right's field metadata brought in
 
     def test_join_conflicting_metadata(self):
         """Join: left wins for dataset-level, lineage combined."""
@@ -348,9 +348,9 @@ class TestConflictingMetadata:
         slugs = {s.slug for s in result.metadata.lineage.sources}
         assert slugs == {"source-a", "source-b"}
 
-        # Field metadata: left's survives, right's lost
+        # Field metadata: left's survives, right's brought in
         assert result.metadata.field_metadata["val_l"].unit == "kg"
-        assert "val_r" not in result.metadata.field_metadata
+        assert result.metadata.field_metadata["val_r"].unit == "lbs"
 
     def test_concat_conflicting_metadata(self):
         """Concat: first DataFrame wins for dataset-level, lineage combined."""

@@ -42,7 +42,7 @@ def _field_schema_to_dict(field: FieldSchema) -> dict:
     if field.description:
         d["description"] = field.description
     if field.unit:
-        d["unit"] = field.unit
+        d["unit"] = field.unit_source if field.unit_source else field.unit
     if field.source:
         d["source"] = field.source
     return d
@@ -119,17 +119,34 @@ class DatasetsManager:
 
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
         """Parse field schema data from YAML."""
-        return [
-            FieldSchema(
-                name=field["name"],
-                type=field["type"],
-                constraints=field.get("constraints"),
-                description=field.get("description"),
-                unit=field.get("unit"),
-                source=field.get("source"),
+        from .units import is_qudt_uri, parse_unit_string
+
+        result = []
+        for field in fields_data:
+            unit_str = field.get("unit")
+            unit_value = unit_str
+            unit_source = None
+
+            if unit_str and is_qudt_uri(unit_str):
+                try:
+                    pint_unit, unit_source = parse_unit_string(unit_str)
+                    unit_value = str(pint_unit)
+                except Exception:
+                    unit_value = unit_str
+                    unit_source = unit_str
+
+            result.append(
+                FieldSchema(
+                    name=field["name"],
+                    type=field["type"],
+                    constraints=field.get("constraints"),
+                    description=field.get("description"),
+                    unit=unit_value,
+                    source=field.get("source"),
+                    unit_source=unit_source,
+                )
             )
-            for field in fields_data
-        ]
+        return result
 
     def _parse_publish(self, publish_data: Any) -> Optional[PublishConfig]:
         """

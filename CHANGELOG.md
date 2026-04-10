@@ -3,6 +3,12 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: Unit-aware arithmetic with Pint integration (`sunstone.units`)
+- Added: `UnitSeries` proxy for column-level unit tracking
+- Added: Unit handling modes — relaxed (default), strict, auto (`set_unit_mode()` / `SUNSTONE_UNIT_MODE`)
+- Added: QUDT URI detection and round-tripping via ontopint (`sunstone-py[qudt]`)
+- Added: Unit validation in `set_field_metadata(unit=...)`
+- Added: Unit resolution in `concat()`, `merge()`, `join()`
 - Added: Metadata container for DataFrame with description, RDF prefixes, custom properties, and field-level metadata
 - Added: `set_field_metadata()` method for annotating DataFrame columns with description, unit, source
 - Added: `read_json()` to sunstone.pandas module
