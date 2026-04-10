@@ -255,6 +255,17 @@ class TestResolveOpReference:
             with pytest.raises(FileNotFoundError, match="1Password CLI"):
                 _resolve_op_reference("op://vault/item/field")
 
+    def test_timeout(self):
+        with patch(
+            "sunstone.env.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(
+                cmd=["op", "read", "op://vault/item/field"],
+                timeout=10,
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="timed out after 10s"):
+                _resolve_op_reference("op://vault/item/field")
+
 
 # ---------------------------------------------------------------------------
 # resolve_environment — full integration
@@ -677,6 +688,26 @@ class TestSetActiveProjectConfig:
         assert result == project
         data = _load_toml(result)
         assert data["active"] == "local"
+
+    def test_uses_discovered_project_config_from_subdirectory(self, tmp_path: Path, monkeypatch):
+        project = _write_toml(
+            tmp_path / ".sunstone" / "data_platform.toml",
+            '[environments.local]\ncatalog_url = "http://localhost:19120"\ns3_endpoint = "http://localhost:9000"\n',
+        )
+        subdir = tmp_path / "src" / "nested"
+        subdir.mkdir(parents=True)
+        monkeypatch.chdir(subdir)
+
+        result = set_active(
+            "local",
+            system_config=tmp_path / "no.toml",
+            user_config=tmp_path / "no2.toml",
+        )
+
+        assert result == project
+        data = _load_toml(result)
+        assert data["active"] == "local"
+        assert not (subdir / ".sunstone" / "data_platform.toml").exists()
 
 
 # ---------------------------------------------------------------------------

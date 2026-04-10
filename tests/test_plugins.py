@@ -822,3 +822,17 @@ def test_multi_protocol_plugin_with_cli():
     registry._register("multi", MultiPlugin())
     assert len(registry.get_cli_groups()) == 1
     assert registry.find_url_handler("multi://test") is not None
+
+
+def test_cli_provider_exception_does_not_hide_other_groups():
+    class BrokenCLIProvider:
+        def cli_groups(self):
+            raise ImportError("optional dependency missing")
+
+    registry = PluginRegistry()
+    registry._register("broken_cli", BrokenCLIProvider())
+    registry._register("healthy_cli", FakeCLIProvider())
+
+    groups = registry.get_cli_groups()
+    assert len(groups) == 1
+    assert groups[0][0] == "test"

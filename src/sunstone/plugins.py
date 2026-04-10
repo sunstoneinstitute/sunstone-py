@@ -233,7 +233,10 @@ class PluginRegistry:
         """Return all (name, typer_app) tuples from registered CLIProviders."""
         groups: list[tuple[str, typer.Typer]] = []
         for provider in self._cli_providers:
-            groups.extend(provider.cli_groups())
+            try:
+                groups.extend(provider.cli_groups())
+            except Exception:
+                logger.exception("Failed to get CLI groups from provider %r", provider)
         return groups
 
     def find_url_handler(self, url: str) -> URLHandler | None:

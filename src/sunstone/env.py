@@ -117,7 +117,7 @@ def _resolve_op_reference(ref: str) -> str:
 
     Raises:
         FileNotFoundError: If the ``op`` CLI is not installed.
-        RuntimeError: If the ``op`` command fails.
+        RuntimeError: If the ``op`` command fails or times out.
     """
     try:
         result = subprocess.run(
@@ -126,10 +126,12 @@ def _resolve_op_reference(ref: str) -> str:
             text=True,
             timeout=10,
         )
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         raise FileNotFoundError(
             "1Password CLI (op) is not installed. Install it from https://1password.com/downloads/command-line/"
-        )
+        ) from e
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(f"1Password CLI timed out after 10s while resolving {ref}") from e
 
     if result.returncode != 0:
         raise RuntimeError(f"Failed to resolve 1Password reference {ref}: {result.stderr.strip()}")
@@ -318,15 +320,16 @@ def set_active(
     """
     sys_path = system_config or _SYSTEM_CONFIG
     usr_path = user_config or _USER_CONFIG
+    prj_path = _find_project_config()
 
-    all_envs = list_environments(system_config=sys_path, user_config=usr_path)
+    all_envs = list_environments(system_config=sys_path, user_config=usr_path, project_config=prj_path)
     if name not in all_envs:
         raise ValueError(f"Environment '{name}' does not exist")
 
     if user:
         target = usr_path
     else:
-        target = Path.cwd() / _PROJECT_CONFIG_NAME
+        target = prj_path or (Path.cwd() / _PROJECT_CONFIG_NAME)
 
     data = _load_toml(target)
     data["active"] = name

@@ -411,8 +411,12 @@ def env_show(ctx: typer.Context) -> None:
 
     from sunstone.env import environment_source, list_environments, resolve_environment
 
-    env = resolve_environment()
-    all_envs = list_environments()
+    try:
+        env = resolve_environment()
+        all_envs = list_environments()
+    except (RuntimeError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
 
     if not all_envs and env is None:
         typer.echo("No environment configured.")

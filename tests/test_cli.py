@@ -1835,6 +1835,22 @@ def test_env_show_with_active(tmp_path):
     assert "prod" in result.output
 
 
+def test_env_show_reports_resolution_error(tmp_path):
+    """sunstone env reports environment resolution errors cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text('active = "missing"\n')
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 1
+    assert "Error: Active environment 'missing' is not defined in any config file" in result.output
+
+
 def test_env_use_writes_project_config(tmp_path):
     """sunstone env use writes .sunstone/data_platform.toml."""
     system_config = tmp_path / "system.toml"
