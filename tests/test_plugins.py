@@ -442,7 +442,8 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
         patch("sunstone.handlers._is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
-        manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            manager.fetch_from_url(dataset, force=True)
         request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.get_header("Authorization") == "Bearer test-token"
 
@@ -478,7 +479,8 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
         patch("sunstone.handlers._is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
-        manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            manager.fetch_from_url(dataset, force=True)
         request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.get_header("X-auth-a") == "a"
         assert request_obj.get_header("X-auth-b") == "b"
@@ -504,7 +506,8 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
         patch("sunstone.handlers._is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
-        manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            manager.fetch_from_url(dataset, force=True)
         request_obj = mock_opener.open.call_args[0][0]
         assert request_obj.headers == {}
 
@@ -537,7 +540,8 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
         patch("sunstone.handlers._is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=opener_with_auth),
     ):
-        manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            manager.fetch_from_url(dataset, force=True)
         first_request = opener_with_auth.open.call_args[0][0]
         assert first_request.get_header("Authorization") == "Bearer test-token"
 
@@ -549,7 +553,8 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
         patch("sunstone.handlers._is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=opener_without_auth),
     ):
-        manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            manager.fetch_from_url(dataset, force=True)
         second_request = opener_without_auth.open.call_args[0][0]
         assert second_request.get_header("Authorization") is None
 
@@ -705,7 +710,8 @@ def test_fetch_from_url_uses_url_handler(dataset_with_url):
     registry._url_handlers.append(TestURLHandler())
 
     with patch.object(PluginRegistry, "get", return_value=registry):
-        result = manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            result = manager.fetch_from_url(dataset, force=True)
         assert len(fetched_urls) == 1
         assert fetched_urls[0] == "https://example.com/test.csv"
         assert result.exists()
@@ -733,7 +739,8 @@ def test_fetch_from_url_supports_custom_url_schemes(dataset_with_url):
     registry._url_handlers.append(CustomURLHandler())
 
     with patch.object(PluginRegistry, "get", return_value=registry):
-        result = manager.fetch_from_url(dataset, force=True)
+        with pytest.deprecated_call(match="fetch_from_url is deprecated"):
+            result = manager.fetch_from_url(dataset, force=True)
         assert result.exists()
         assert fetched_urls == ["custom://bucket/test.csv"]
 
