@@ -202,8 +202,8 @@ def resolve_environment(
     # Apply env var field overrides (highest precedence)
     catalog_url = os.environ.get("SUNSTONE_DATA_CATALOG_URL") or catalog_url
     s3_endpoint = os.environ.get("SUNSTONE_DATA_S3_ENDPOINT") or s3_endpoint
-    s3_access_key = os.environ.get("SUNSTONE_DATA_S3_ACCESS_KEY", s3_access_key)
-    s3_secret_key = os.environ.get("SUNSTONE_DATA_S3_SECRET_KEY", s3_secret_key)
+    s3_access_key = os.environ.get("SUNSTONE_DATA_S3_ACCESS_KEY") or s3_access_key
+    s3_secret_key = os.environ.get("SUNSTONE_DATA_S3_SECRET_KEY") or s3_secret_key
 
     # Resolve credentials
     s3_access_key = _resolve_credential(s3_access_key)

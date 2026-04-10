@@ -316,6 +316,31 @@ class TestResolveEnvironment:
         assert env.s3_access_key == "env-key"
         assert env.s3_secret_key == "env-secret"
 
+    def test_empty_env_vars_do_not_override_config(self, tmp_path: Path):
+        system = _write_toml(
+            tmp_path / "system.toml",
+            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\ns3_access_key = "configured-key"\ns3_secret_key = "configured-secret"\n',
+        )
+
+        overrides = {
+            "SUNSTONE_DATA_CATALOG_URL": "",
+            "SUNSTONE_DATA_S3_ENDPOINT": "",
+            "SUNSTONE_DATA_S3_ACCESS_KEY": "",
+            "SUNSTONE_DATA_S3_SECRET_KEY": "",
+        }
+        with patch.dict("os.environ", overrides, clear=True):
+            env = resolve_environment(
+                system_config=system,
+                user_config=tmp_path / "none.toml",
+                project_config=tmp_path / "none2.toml",
+            )
+
+        assert env is not None
+        assert env.catalog_url == "http://original"
+        assert env.s3_endpoint == "http://original-s3"
+        assert env.s3_access_key == "configured-key"
+        assert env.s3_secret_key == "configured-secret"
+
     def test_returns_none_when_nothing_configured(self, tmp_path: Path):
         with patch.dict("os.environ", {}, clear=True):
             env = resolve_environment(
