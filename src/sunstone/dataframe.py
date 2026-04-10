@@ -137,6 +137,15 @@ class DataFrame:
     def custom_properties(self, value: Optional[Dict[str, Any]]) -> None:
         self.metadata.custom_properties = value
 
+    @property
+    def unit_display(self) -> str:
+        """Unit display mode: 'transparent' (default) or 'explicit'."""
+        return getattr(self, "_unit_display", "transparent")
+
+    @unit_display.setter
+    def unit_display(self, value: str) -> None:
+        self._unit_display = value
+
     def set_field_metadata(
         self,
         column: str,
@@ -160,6 +169,12 @@ class DataFrame:
         Returns:
             self, for method chaining.
         """
+        if unit is not None:
+            from .units import get_unit_mode, parse_unit
+
+            if get_unit_mode() != "relaxed":
+                parse_unit(unit)  # raises UnitError if invalid in strict/auto mode
+
         existing = self.metadata.field_metadata.get(column)
         if existing:
             if description is not None:
@@ -815,6 +830,14 @@ class DataFrame:
             The item from the underlying DataFrame, wrapped if it's a DataFrame.
         """
         result = self.data[key]
+        if isinstance(result, pd.Series) and isinstance(key, str):
+            field = self.metadata.field_metadata.get(key)
+            if field and field.unit:
+                from .units import UnitSeries, parse_unit
+
+                unit = parse_unit(field.unit)
+                display: str = getattr(self, "_unit_display", "transparent")
+                return UnitSeries(result, unit, unit_display=display)  # type: ignore[arg-type]
         return self._wrap_result(result)
 
     def __setitem__(self, key: Any, value: Any) -> None:
@@ -825,7 +848,18 @@ class DataFrame:
             key: Index key.
             value: Value to assign.
         """
-        self.data[key] = value
+        from .units import UnitSeries
+
+        if isinstance(value, UnitSeries):
+            self.data[key] = value.series
+            unit_str = str(value.unit)
+            existing = self.metadata.field_metadata.get(key)
+            if existing:
+                existing.unit = unit_str
+            else:
+                self.metadata.field_metadata[key] = FieldSchema(name=key, unit=unit_str)
+        else:
+            self.data[key] = value
         # Don't track column assignments automatically
         # Users should use add_operation() for meaningful transformations
 

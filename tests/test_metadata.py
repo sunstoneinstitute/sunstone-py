@@ -150,11 +150,11 @@ class TestSetFieldMetadata:
     def test_set_field_metadata_creates_entry(self):
         """Setting metadata for a new column creates a FieldSchema."""
         df = sunstone.DataFrame({"enrollment": [100, 200]})
-        df.set_field_metadata("enrollment", description="Total students", unit="students")
+        df.set_field_metadata("enrollment", description="Total students", unit="count")
         fm = df.metadata.field_metadata["enrollment"]
         assert fm.name == "enrollment"
         assert fm.description == "Total students"
-        assert fm.unit == "students"
+        assert fm.unit == "count"
         assert fm.type is None  # not set, will be inferred at write time
 
     def test_set_field_metadata_updates_existing(self):

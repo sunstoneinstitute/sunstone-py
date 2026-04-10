@@ -31,3 +31,9 @@ class LineageError(SunstoneError):
     """Raised when there's an issue with lineage tracking."""
 
     pass
+
+
+class UnitError(SunstoneError):
+    """Raised when a unit operation fails (incompatible dimensions, unparseable unit, etc.)."""
+
+    pass
