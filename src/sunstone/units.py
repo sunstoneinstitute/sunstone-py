@@ -196,7 +196,7 @@ def resolve_units(
 
     if mode == "strict":
         raise UnitError(
-            f"Cannot {operation} '{unit_a}' and '{unit_b}': " f"units differ. Use auto mode for automatic conversion."
+            f"Cannot {operation} '{unit_a}' and '{unit_b}': units differ. Use auto mode for automatic conversion."
         )
 
     # Auto mode — convert to finer granularity
@@ -241,7 +241,7 @@ def parse_unit_string(unit_str: str) -> tuple[pint.Unit, str | None]:
         try:
             import ontopint
         except ImportError:
-            raise UnitError(f"Unit '{unit_str}' is a QUDT URI. " f"Install sunstone-py[qudt] to resolve QUDT units.")
+            raise UnitError(f"Unit '{unit_str}' is a QUDT URI. Install sunstone-py[qudt] to resolve QUDT units.")
         try:
             ucum_code = ontopint.get_ucum_code_from_unit_iri(unit_str)
             unit = ontopint.ureg.Unit(ucum_code)
