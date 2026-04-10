@@ -525,3 +525,26 @@ class TestFieldSchemaUnitSource:
 
         f = FieldSchema(name="x", unit="kWh", unit_source="http://qudt.org/vocab/unit/KiloW-HR")
         assert f.unit_source == "http://qudt.org/vocab/unit/KiloW-HR"
+
+
+class TestPublicAPI:
+    def test_unit_error_from_sunstone(self):
+        from sunstone import UnitError
+
+        assert UnitError is not None
+
+    def test_unit_series_from_sunstone_units(self):
+        from sunstone.units import UnitSeries
+
+        assert UnitSeries is not None
+
+    def test_set_unit_mode_from_sunstone_units(self):
+        from sunstone.units import set_unit_mode, get_unit_mode
+
+        assert callable(set_unit_mode)
+        assert callable(get_unit_mode)
+
+    def test_parse_unit_from_sunstone_units(self):
+        from sunstone.units import parse_unit
+
+        assert callable(parse_unit)
