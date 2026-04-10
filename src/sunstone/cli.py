@@ -379,10 +379,15 @@ def _mount_plugin_cli_groups() -> None:
         from sunstone.plugins import PluginRegistry
 
         registry = PluginRegistry.get()
+        seen_names: set[str] = set()
         for name, typer_app in registry.get_cli_groups():
             if name in _BUILTIN_GROUPS:
                 logger.warning("Plugin CLI group '%s' conflicts with built-in group, skipping", name)
                 continue
+            if name in seen_names:
+                logger.warning("Plugin CLI group '%s' already registered by another plugin, skipping", name)
+                continue
+            seen_names.add(name)
             app.add_typer(typer_app, name=name)
     except Exception:
         logger.debug("Failed to load plugin CLI groups", exc_info=True)
@@ -446,7 +451,7 @@ def env_use(
     try:
         path = set_active(name, user=user)
         typer.echo(f"Active environment set to '{name}' in {path}")
-    except (RuntimeError, ValueError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -473,7 +478,7 @@ def env_add(
             auth=auth,
         )
         typer.echo(f"Added environment '{name}' to {path}")
-    except (RuntimeError, ValueError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -488,7 +493,7 @@ def env_remove(
     try:
         path = remove_environment(name)
         typer.echo(f"Removed environment '{name}' from {path}")
-    except (RuntimeError, ValueError) as e:
+    except (OSError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -549,6 +554,8 @@ def env_update(
         )
         raise typer.Exit(1)
 
+    shadowed_by_project = name in project_data.get("environments", {})
+
     if catalog_url is not None:
         user_envs[name]["catalog_url"] = catalog_url
     if s3_endpoint is not None:
@@ -561,8 +568,18 @@ def env_update(
         user_envs[name]["auth"] = auth
 
     user_data["environments"] = user_envs
-    _write_config(user_config, user_data)
+    try:
+        _write_config(user_config, user_data)
+    except OSError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
     typer.echo(f"Updated environment '{name}' in {user_config}")
+    if shadowed_by_project:
+        typer.echo(
+            f"Warning: Environment '{name}' is also defined in project config ({project_config}); "
+            "project config values will shadow this update",
+            err=True,
+        )
 
 
 # =============================================================================

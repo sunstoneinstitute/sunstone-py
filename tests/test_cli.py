@@ -4,6 +4,7 @@ Tests for Sunstone CLI.
 
 import contextlib
 import io
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -1786,6 +1787,38 @@ def test_plugin_cli_builtin_collision_skipped():
             cli_mod.app = original_app
 
 
+def test_plugin_cli_duplicate_plugin_collision_skipped(caplog):
+    """Duplicate plugin CLI group names are skipped after the first registration."""
+    test_main_app = _typer.Typer()
+    first_app = _typer.Typer(help="First plugin")
+    second_app = _typer.Typer(help="Second plugin")
+
+    @first_app.command("first")
+    def first():
+        _typer.echo("first")
+
+    @second_app.command("second")
+    def second():
+        _typer.echo("second")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("analytics", first_app), ("analytics", second_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            with caplog.at_level(logging.WARNING):
+                cli_mod._mount_plugin_cli_groups()
+            group_names = [g.name for g in test_main_app.registered_groups]
+            assert group_names == ["analytics"]
+            assert "already registered by another plugin" in caplog.text
+        finally:
+            cli_mod.app = original_app
+
+
 def test_plugin_cli_failure_does_not_break_cli():
     """If plugin loading fails, CLI still works."""
     with patch("sunstone.plugins.PluginRegistry.get", side_effect=RuntimeError("crash")):
@@ -2059,3 +2092,85 @@ def test_env_update_requires_at_least_one_field(tmp_path):
     assert result.exit_code == 1
     assert "No fields to update" in result.output
     assert user_config.read_text() == original
+
+
+def test_env_update_warns_when_project_config_shadows_user(tmp_path):
+    """sunstone env update warns when project config will shadow the updated user env."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+    project_config = tmp_path / ".sunstone" / "data_platform.toml"
+    project_config.parent.mkdir(parents=True)
+    project_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://project-dev"\ns3_endpoint = "http://localhost:9001"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=project_config),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://new-user-dev"])
+    assert result.exit_code == 0
+    assert "Updated environment 'dev'" in result.output
+    assert "project config values will shadow this update" in result.output
+    assert "http://new-user-dev" in user_config.read_text()
+
+
+def test_env_use_reports_write_errors():
+    """sunstone env use reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.set_active", side_effect=PermissionError("read-only filesystem")):
+        result = runner.invoke(app, ["env", "use", "dev"])
+    assert result.exit_code == 1
+    assert "read-only filesystem" in result.output
+
+
+def test_env_add_reports_write_errors():
+    """sunstone env add reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.add_environment", side_effect=PermissionError("permission denied")):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "--catalog-url",
+                "http://localhost:19120/api/v1",
+                "--s3-endpoint",
+                "http://localhost:9000",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "permission denied" in result.output
+
+
+def test_env_remove_reports_write_errors():
+    """sunstone env remove reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.remove_environment", side_effect=PermissionError("read-only filesystem")):
+        result = runner.invoke(app, ["env", "remove", "dev"])
+    assert result.exit_code == 1
+    assert "read-only filesystem" in result.output
+
+
+def test_env_update_reports_write_errors(tmp_path):
+    """sunstone env update reports config write failures cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env._write_config", side_effect=PermissionError("permission denied")),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://newhost:19120/api/v1"])
+    assert result.exit_code == 1
+    assert "permission denied" in result.output

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -487,5 +488,15 @@ def remove_environment(
 def _write_config(path: Path, data: dict) -> None:
     """Write a config dict as TOML, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as f:
-        tomli_w.dump(data, f)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            tomli_w.dump(data, f)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise

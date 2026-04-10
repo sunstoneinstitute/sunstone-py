@@ -773,3 +773,17 @@ class TestWriteConfig:
         assert path.exists()
         data = _load_toml(path)
         assert data["active"] == "test"
+
+    def test_preserves_original_file_if_write_fails(self, tmp_path: Path):
+        path = _write_toml(
+            tmp_path / "config.toml",
+            'active = "original"\n',
+        )
+        original = path.read_text()
+
+        with patch("sunstone.env.tomli_w.dump", side_effect=OSError("disk full")):
+            with pytest.raises(OSError, match="disk full"):
+                _write_config(path, {"active": "updated"})
+
+        assert path.read_text() == original
+        assert not any(candidate.suffix == ".tmp" for candidate in tmp_path.iterdir())
