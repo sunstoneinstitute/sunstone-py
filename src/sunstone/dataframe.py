@@ -4,6 +4,7 @@ DataFrame wrapper with lineage tracking for Sunstone projects.
 
 import os
 import warnings
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -750,10 +751,10 @@ class DataFrame:
                     warnings.warn(resolved.warning, stacklevel=2)
 
         # Build field metadata: left first, then right for columns not in left
-        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in merged_data.columns}
+        new_field_meta = {k: replace(v) for k, v in self.metadata.field_metadata.items() if k in merged_data.columns}
         for k, v in right.metadata.field_metadata.items():
             if k in merged_data.columns and k not in new_field_meta:
-                new_field_meta[k] = v
+                new_field_meta[k] = replace(v)
 
         new_metadata = Metadata(
             lineage=merged_lineage,
@@ -790,10 +791,10 @@ class DataFrame:
                     warnings.warn(resolved.warning, stacklevel=2)
 
         # Build field metadata: left first, then right for columns not in left
-        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in joined_data.columns}
+        new_field_meta = {k: replace(v) for k, v in self.metadata.field_metadata.items() if k in joined_data.columns}
         for k, v in other.metadata.field_metadata.items():
             if k in joined_data.columns and k not in new_field_meta:
-                new_field_meta[k] = v
+                new_field_meta[k] = replace(v)
 
         new_metadata = Metadata(
             lineage=joined_lineage,
@@ -895,7 +896,9 @@ class DataFrame:
             combined_lineage = combined_lineage.merge(other.metadata.lineage)
 
         # Build field metadata, updating units to resolved values
-        new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in concatenated_data.columns}
+        new_field_meta = {
+            k: replace(v) for k, v in self.metadata.field_metadata.items() if k in concatenated_data.columns
+        }
         for col, unit_str in resolved_units_map.items():
             if col in new_field_meta:
                 new_field_meta[col].unit = unit_str
@@ -919,7 +922,7 @@ class DataFrame:
         Copies all metadata, dropping field_metadata for columns no longer present.
         """
         if isinstance(result, pd.DataFrame):
-            new_field_meta = {k: v for k, v in self.metadata.field_metadata.items() if k in result.columns}
+            new_field_meta = {k: replace(v) for k, v in self.metadata.field_metadata.items() if k in result.columns}
             new_metadata = Metadata(
                 lineage=LineageMetadata(
                     sources=self.metadata.lineage.sources.copy(),

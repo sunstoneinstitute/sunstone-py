@@ -187,3 +187,20 @@ class TestJoinUnits:
         result = df1.join(df2)
         assert result.metadata.field_metadata.get("a") is not None
         assert result.metadata.field_metadata.get("b") is not None
+
+
+class TestMetadataIsolation:
+    def test_concat_does_not_mutate_source_metadata(self):
+        set_unit_mode("auto")
+        try:
+            df1 = DataFrame(data=pd.DataFrame({"dist": [1.0]}))
+            df1.set_field_metadata("dist", unit="km")
+            df2 = DataFrame(data=pd.DataFrame({"dist": [500.0]}))
+            df2.set_field_metadata("dist", unit="meter")
+            result = df1.concat([df2], ignore_index=True)
+            # df1's metadata should still say "km"
+            assert df1.metadata.field_metadata["dist"].unit == "km"
+            # result should say "meter"
+            assert result.metadata.field_metadata["dist"].unit == "meter"
+        finally:
+            set_unit_mode("relaxed")
