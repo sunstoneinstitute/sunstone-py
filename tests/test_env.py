@@ -113,7 +113,7 @@ class TestLoadToml:
 
 
 class TestMergeEnvironments:
-    def test_user_shadows_system(self):
+    def test_user_overrides_system_field(self):
         system = {
             "environments": {
                 "prod": {"catalog_url": "http://system-prod"},
@@ -128,6 +128,43 @@ class TestMergeEnvironments:
         merged = _merge_environments(system, user)
         assert merged["prod"]["catalog_url"] == "http://user-prod"
         assert merged["staging"]["catalog_url"] == "http://system-staging"
+
+    def test_field_level_merge_preserves_lower_layer_fields(self):
+        system = {
+            "environments": {
+                "dev": {"catalog_url": "http://sys", "s3_endpoint": "http://sys-s3", "auth": "basic"},
+            }
+        }
+        user = {
+            "environments": {
+                "dev": {"catalog_url": "http://user"},
+            }
+        }
+        merged = _merge_environments(system, user)
+        assert merged["dev"]["catalog_url"] == "http://user"
+        assert merged["dev"]["s3_endpoint"] == "http://sys-s3"
+        assert merged["dev"]["auth"] == "basic"
+
+    def test_three_layer_field_merge(self):
+        system = {
+            "environments": {
+                "dev": {"catalog_url": "http://sys", "s3_endpoint": "http://sys-s3", "auth": "basic"},
+            }
+        }
+        user = {
+            "environments": {
+                "dev": {"s3_endpoint": "http://user-s3"},
+            }
+        }
+        project = {
+            "environments": {
+                "dev": {"catalog_url": "http://project"},
+            }
+        }
+        merged = _merge_environments(system, user, project)
+        assert merged["dev"]["catalog_url"] == "http://project"
+        assert merged["dev"]["s3_endpoint"] == "http://user-s3"
+        assert merged["dev"]["auth"] == "basic"
 
     def test_system_only(self):
         system = {"environments": {"prod": {"catalog_url": "http://sys"}}}
@@ -428,6 +465,34 @@ class TestResolveEnvironment:
         assert env.name == "local"
         assert env.catalog_url == "http://localhost:19120"
 
+    def test_field_level_merge_across_layers(self, tmp_path: Path):
+        system = _write_toml(
+            tmp_path / "system.toml",
+            '[environments.dev]\nauth = "basic"\ns3_endpoint = "http://sys-s3"\n',
+        )
+        user = _write_toml(
+            tmp_path / "user.toml",
+            'active = "dev"\n[environments.dev]\ns3_access_key = "user-key"\n',
+        )
+        project = _write_toml(
+            tmp_path / "project.toml",
+            '[environments.dev]\ncatalog_url = "http://project-dev"\n',
+        )
+
+        with patch.dict("os.environ", {}, clear=True):
+            env = resolve_environment(
+                system_config=system,
+                user_config=user,
+                project_config=project,
+            )
+
+        assert env is not None
+        assert env.name == "dev"
+        assert env.catalog_url == "http://project-dev"
+        assert env.s3_endpoint == "http://sys-s3"
+        assert env.s3_access_key == "user-key"
+        assert env.auth == "basic"
+
     def test_credential_resolution(self, tmp_path: Path):
         config = _write_toml(
             tmp_path / "config.toml",
@@ -676,7 +741,7 @@ class TestListEnvironmentsProjectConfig:
         assert "local" in envs
         assert envs["local"]["catalog_url"] == "http://localhost:19120"
 
-    def test_project_shadows_user(self, tmp_path: Path):
+    def test_project_overrides_user_field(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
             '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://user-s3"\n',
@@ -693,6 +758,31 @@ class TestListEnvironmentsProjectConfig:
         )
 
         assert envs["dev"]["catalog_url"] == "http://project-dev"
+
+    def test_field_level_merge_across_layers(self, tmp_path: Path):
+        system = _write_toml(
+            tmp_path / "system.toml",
+            '[environments.dev]\nauth = "basic"\n',
+        )
+        user = _write_toml(
+            tmp_path / "user.toml",
+            '[environments.dev]\ns3_endpoint = "http://user-s3"\ns3_access_key = "user-key"\n',
+        )
+        project = _write_toml(
+            tmp_path / "project.toml",
+            '[environments.dev]\ncatalog_url = "http://project-dev"\n',
+        )
+
+        envs = list_environments(
+            system_config=system,
+            user_config=user,
+            project_config=project,
+        )
+
+        assert envs["dev"]["catalog_url"] == "http://project-dev"
+        assert envs["dev"]["s3_endpoint"] == "http://user-s3"
+        assert envs["dev"]["s3_access_key"] == "user-key"
+        assert envs["dev"]["auth"] == "basic"
 
 
 # ---------------------------------------------------------------------------

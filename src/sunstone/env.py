@@ -86,11 +86,21 @@ def _load_toml(path: Path) -> dict:
         return {}
 
 
-def _merge_environments(system: dict, user: dict) -> dict:
-    """Merge environment definitions; user shadows system by name."""
-    merged = {}
-    merged.update(system.get("environments", {}))
-    merged.update(user.get("environments", {}))
+def _merge_environments(*configs: dict) -> dict:
+    """Merge environment definitions with field-level precedence.
+
+    Later configs take precedence at the field level within each
+    environment.  For example, if system defines ``catalog_url`` and
+    ``s3_endpoint`` for *dev* and user only overrides ``catalog_url``,
+    the merged result keeps the system ``s3_endpoint``.
+    """
+    merged: dict[str, dict] = {}
+    for config in configs:
+        for name, env_def in config.get("environments", {}).items():
+            if name in merged:
+                merged[name] = {**merged[name], **env_def}
+            else:
+                merged[name] = dict(env_def)
     return merged
 
 
@@ -213,9 +223,7 @@ def resolve_environment(
     if active_name is None:
         return None
 
-    all_envs = _merge_environments(system_data, user_data)
-    # Also merge project environments
-    all_envs.update(project_data.get("environments", {}))
+    all_envs = _merge_environments(system_data, user_data, project_data)
 
     if active_name not in all_envs:
         raise ValueError(f"Active environment '{active_name}' is not defined in any config file")
@@ -284,9 +292,7 @@ def list_environments(
     user_data = _load_toml(usr_path) if usr_path else {}
     project_data = _load_toml(prj_path) if prj_path else {}
 
-    merged = _merge_environments(system_data, user_data)
-    merged.update(project_data.get("environments", {}))
-    return merged
+    return _merge_environments(system_data, user_data, project_data)
 
 
 def environment_source(
