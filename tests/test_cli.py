@@ -1851,6 +1851,29 @@ def test_env_show_reports_resolution_error(tmp_path):
     assert "Error: Active environment 'missing' is not defined in any config file" in result.output
 
 
+def test_env_show_reports_missing_op_cli(tmp_path):
+    """sunstone env reports missing 1Password CLI cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        'active = "dev"\n'
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+        's3_access_key = "op://vault/item/key"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env.subprocess.run", side_effect=FileNotFoundError("op not found")),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 1
+    assert "Error: 1Password CLI (op) is not installed." in result.output
+
+
 def test_env_use_writes_project_config(tmp_path):
     """sunstone env use writes .sunstone/data_platform.toml."""
     system_config = tmp_path / "system.toml"
@@ -1921,9 +1944,7 @@ def test_env_remove_deletes_environment(tmp_path):
     """sunstone env remove deletes an environment from user config."""
     user_config = tmp_path / "user.toml"
     user_config.write_text(
-        "[environments.dev]\n"
-        'catalog_url = "http://localhost:19120/api/v1"\n'
-        's3_endpoint = "http://localhost:9000"\n'
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
     )
 
     runner = CliRunner()
@@ -1941,9 +1962,7 @@ def test_env_update_modifies_environment(tmp_path):
     """sunstone env update modifies an existing environment."""
     user_config = tmp_path / "user.toml"
     user_config.write_text(
-        "[environments.dev]\n"
-        'catalog_url = "http://localhost:19120/api/v1"\n'
-        's3_endpoint = "http://localhost:9000"\n'
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
     )
 
     runner = CliRunner()

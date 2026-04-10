@@ -414,7 +414,7 @@ def env_show(ctx: typer.Context) -> None:
     try:
         env = resolve_environment()
         all_envs = list_environments()
-    except (RuntimeError, ValueError) as e:
+    except (FileNotFoundError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 

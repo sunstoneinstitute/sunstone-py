@@ -603,6 +603,26 @@ class TestRemoveEnvironment:
         data = _load_toml(user)
         assert data["active"] == "prod"
 
+    def test_clears_project_active_when_removing_active_env(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
+        )
+        project = _write_toml(
+            tmp_path / ".sunstone" / "data_platform.toml",
+            'active = "dev"\n',
+        )
+
+        remove_environment(
+            "dev",
+            user_config=user,
+            system_config=tmp_path / "no.toml",
+            project_config=project,
+        )
+
+        data = _load_toml(project)
+        assert "active" not in data
+
 
 # ---------------------------------------------------------------------------
 # list_environments — project config inclusion

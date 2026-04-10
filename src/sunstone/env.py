@@ -394,6 +394,7 @@ def remove_environment(
     *,
     user_config: Path | None = None,
     system_config: Path | None = None,
+    project_config: Path | None = None,
 ) -> Path:
     """Remove an environment from user config.
 
@@ -401,6 +402,7 @@ def remove_environment(
         name: Environment name to remove.
         user_config: Override path for user config.
         system_config: Override path for system config.
+        project_config: Override path for project config (default: auto-discovered).
 
     Returns:
         Path to the config file that was modified.
@@ -410,6 +412,7 @@ def remove_environment(
     """
     usr_path = user_config or _USER_CONFIG
     sys_path = system_config or _SYSTEM_CONFIG
+    prj_path = project_config or _find_project_config()
 
     user_data = _load_toml(usr_path)
     user_envs = user_data.get("environments", {})
@@ -427,6 +430,13 @@ def remove_environment(
     if user_data.get("active") == name:
         del user_data["active"]
     _write_config(usr_path, user_data)
+
+    if prj_path:
+        project_data = _load_toml(prj_path)
+        if project_data.get("active") == name:
+            del project_data["active"]
+            _write_config(prj_path, project_data)
+
     return usr_path
 
 
