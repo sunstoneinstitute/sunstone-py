@@ -68,6 +68,26 @@ def parse_unit(unit_str: str) -> pint.Unit:
         raise UnitError(f"Cannot parse unit '{unit_str}': {e}") from e
 
 
+def try_parse_unit(unit_str: str) -> pint.Unit | None:
+    """Try to parse a unit string, returning None if it fails.
+
+    Uses parse_unit_string so QUDT URIs are also handled. Domain-specific
+    units (e.g. 'people', 'students') that are valid in relaxed mode but
+    not parseable by Pint will return None instead of raising.
+
+    Args:
+        unit_str: A unit string (Pint, QUDT URI, or domain-specific).
+
+    Returns:
+        A pint.Unit if parseable, None otherwise.
+    """
+    try:
+        unit, _ = parse_unit_string(unit_str)
+        return unit
+    except (UnitError, Exception):
+        return None
+
+
 @dataclass
 class ResolvedUnits:
     """Result of unit resolution for an arithmetic operation."""

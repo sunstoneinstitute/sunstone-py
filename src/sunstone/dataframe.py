@@ -719,7 +719,7 @@ class DataFrame:
         Validates unit compatibility on overlapping value columns (not join keys)
         and brings in right-side field metadata for columns not already in left.
         """
-        from .units import parse_unit, resolve_units
+        from .units import resolve_units, try_parse_unit
 
         merged_data = pd.merge(self.data, right.data, **kwargs)
         merged_lineage = self.metadata.lineage.merge(right.metadata.lineage)
@@ -744,8 +744,10 @@ class DataFrame:
             left_field = self.metadata.field_metadata.get(col)
             right_field = right.metadata.field_metadata.get(col)
             if left_field and left_field.unit and right_field and right_field.unit:
-                left_unit = parse_unit(left_field.unit)
-                right_unit = parse_unit(right_field.unit)
+                left_unit = try_parse_unit(left_field.unit)
+                right_unit = try_parse_unit(right_field.unit)
+                if left_unit is None or right_unit is None:
+                    continue
                 resolved = resolve_units(left_unit, right_unit, "add")
                 if resolved.warning:
                     warnings.warn(resolved.warning, stacklevel=2)
@@ -773,7 +775,7 @@ class DataFrame:
         Validates unit compatibility on overlapping columns and brings in
         right-side field metadata for columns not already in left.
         """
-        from .units import parse_unit, resolve_units
+        from .units import resolve_units, try_parse_unit
 
         joined_data = self.data.join(other.data, **kwargs)
         joined_lineage = self.metadata.lineage.merge(other.metadata.lineage)
@@ -784,8 +786,10 @@ class DataFrame:
             left_field = self.metadata.field_metadata.get(col)
             right_field = other.metadata.field_metadata.get(col)
             if left_field and left_field.unit and right_field and right_field.unit:
-                left_unit = parse_unit(left_field.unit)
-                right_unit = parse_unit(right_field.unit)
+                left_unit = try_parse_unit(left_field.unit)
+                right_unit = try_parse_unit(right_field.unit)
+                if left_unit is None or right_unit is None:
+                    continue
                 resolved = resolve_units(left_unit, right_unit, "add")
                 if resolved.warning:
                     warnings.warn(resolved.warning, stacklevel=2)
@@ -814,7 +818,7 @@ class DataFrame:
         with units in multiple DataFrames, calls resolve_units to check
         compatibility and apply conversions in auto mode.
         """
-        from .units import parse_unit, resolve_units
+        from .units import resolve_units, try_parse_unit
 
         all_frames = [self] + others
 
@@ -829,7 +833,7 @@ class DataFrame:
         resolved_units_map: dict[str, str] = {}  # col -> winning unit string
 
         for col in all_columns:
-            # Find the first frame with a unit for this column
+            # Find the first frame with a parseable unit for this column
             ref_unit = None
             ref_unit_str: str | None = None
             ref_idx = None
@@ -837,10 +841,12 @@ class DataFrame:
                 if col in frame.data.columns:
                     field = frame.metadata.field_metadata.get(col)
                     if field and field.unit:
-                        ref_unit = parse_unit(field.unit)
-                        ref_unit_str = field.unit
-                        ref_idx = i
-                        break
+                        parsed = try_parse_unit(field.unit)
+                        if parsed is not None:
+                            ref_unit = parsed
+                            ref_unit_str = field.unit
+                            ref_idx = i
+                            break
 
             if ref_unit is None:
                 continue
@@ -856,7 +862,9 @@ class DataFrame:
                 if not (field and field.unit):
                     continue
 
-                other_unit = parse_unit(field.unit)
+                other_unit = try_parse_unit(field.unit)
+                if other_unit is None:
+                    continue
                 resolved = resolve_units(winner_unit, other_unit, "concat")
 
                 if resolved.warning:
@@ -902,6 +910,7 @@ class DataFrame:
         for col, unit_str in resolved_units_map.items():
             if col in new_field_meta:
                 new_field_meta[col].unit = unit_str
+                new_field_meta[col].unit_source = None  # clear stale QUDT URI
             elif col in concatenated_data.columns:
                 new_field_meta[col] = FieldSchema(name=col, unit=unit_str)
 
@@ -982,11 +991,12 @@ class DataFrame:
         if isinstance(result, pd.Series) and isinstance(key, str):
             field = self.metadata.field_metadata.get(key)
             if field and field.unit:
-                from .units import UnitSeries, parse_unit
+                from .units import UnitSeries, try_parse_unit
 
-                unit = parse_unit(field.unit)
-                display: str = getattr(self, "_unit_display", "transparent")
-                return UnitSeries(result, unit, unit_display=display)  # type: ignore[arg-type]
+                unit = try_parse_unit(field.unit)
+                if unit is not None:
+                    display: str = getattr(self, "_unit_display", "transparent")
+                    return UnitSeries(result, unit, unit_display=display)  # type: ignore[arg-type]
         return self._wrap_result(result)
 
     def __setitem__(self, key: Any, value: Any) -> None:
@@ -1005,6 +1015,7 @@ class DataFrame:
             existing = self.metadata.field_metadata.get(key)
             if existing:
                 existing.unit = unit_str
+                existing.unit_source = None  # clear stale QUDT URI
             else:
                 self.metadata.field_metadata[key] = FieldSchema(name=key, unit=unit_str)
         else:

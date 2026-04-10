@@ -5,6 +5,7 @@ import pytest
 
 from sunstone.dataframe import DataFrame
 from sunstone.exceptions import UnitError
+from sunstone.lineage import FieldSchema
 from sunstone.units import UnitSeries, parse_unit, set_unit_mode, get_unit_mode
 
 
@@ -220,5 +221,78 @@ class TestMetadataIsolation:
             assert df1.metadata.field_metadata["dist"].unit == "km"
             # result should say "meter"
             assert result.metadata.field_metadata["dist"].unit == "meter"
+        finally:
+            set_unit_mode("relaxed")
+
+
+class TestRelaxedDomainUnits:
+    """Domain-specific units (e.g. 'people') must not cause hard failures."""
+
+    def setup_method(self):
+        self._original = get_unit_mode()
+        set_unit_mode("relaxed")
+
+    def teardown_method(self):
+        set_unit_mode(self._original)
+
+    def test_getitem_with_domain_unit_returns_plain_series(self):
+        df = DataFrame(data=pd.DataFrame({"x": [1, 2, 3]}))
+        df.set_field_metadata("x", unit="people")
+        result = df["x"]
+        assert isinstance(result, pd.Series)
+        assert not isinstance(result, UnitSeries)
+
+    def test_concat_with_domain_units_preserves_metadata(self):
+        df1 = DataFrame(data=pd.DataFrame({"x": [1]}))
+        df1.set_field_metadata("x", unit="students")
+        df2 = DataFrame(data=pd.DataFrame({"x": [2]}))
+        df2.set_field_metadata("x", unit="students")
+        result = df1.concat([df2], ignore_index=True)
+        assert result.metadata.field_metadata["x"].unit == "students"
+
+    def test_merge_with_domain_units_does_not_raise(self):
+        df1 = DataFrame(data=pd.DataFrame({"id": [1], "x": [1.0]}))
+        df1.set_field_metadata("x", unit="people")
+        df2 = DataFrame(data=pd.DataFrame({"id": [1], "x": [2.0]}))
+        df2.set_field_metadata("x", unit="people")
+        result = df1.merge(df2, on="id", suffixes=("_l", "_r"))
+        assert result is not None
+
+    def test_join_with_domain_units_does_not_raise(self):
+        df1 = DataFrame(data=pd.DataFrame({"a": [1.0]}, index=[0]))
+        df1.set_field_metadata("a", unit="people")
+        df2 = DataFrame(data=pd.DataFrame({"a": [2.0]}, index=[0]))
+        df2.set_field_metadata("a", unit="people")
+        result = df1.join(df2, lsuffix="_l", rsuffix="_r")
+        assert result is not None
+
+
+class TestUnitSourceStaleness:
+    """unit_source must be cleared when unit changes to prevent stale QUDT URIs."""
+
+    def test_setitem_clears_unit_source(self):
+        df = DataFrame(data=pd.DataFrame({"power": [1.0, 2.0]}))
+        df.metadata.field_metadata["power"] = FieldSchema(
+            name="power", unit="kW", unit_source="http://qudt.org/vocab/unit/KiloW"
+        )
+        us = UnitSeries(pd.Series([10.0, 20.0]), parse_unit("watt"))
+        df["power"] = us
+        field = df.metadata.field_metadata["power"]
+        assert field.unit == "watt"
+        assert field.unit_source is None
+
+    def test_concat_clears_unit_source_on_conversion(self):
+        set_unit_mode("auto")
+        try:
+            df1 = DataFrame(data=pd.DataFrame({"dist": [1.0]}))
+            df1.metadata.field_metadata["dist"] = FieldSchema(
+                name="dist", unit="km", unit_source="http://qudt.org/vocab/unit/KiloM"
+            )
+            df2 = DataFrame(data=pd.DataFrame({"dist": [500.0]}))
+            df2.set_field_metadata("dist", unit="meter")
+            result = df1.concat([df2], ignore_index=True)
+            field = result.metadata.field_metadata["dist"]
+            assert field.unit == "meter"
+            assert field.unit_source is None
         finally:
             set_unit_mode("relaxed")
