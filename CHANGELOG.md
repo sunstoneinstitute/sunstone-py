@@ -3,6 +3,8 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.4.0] - 2026-04-11
 - Added: Unit-aware arithmetic with Pint integration, column-level unit tracking, and QUDT round-tripping
 - Added: DataFrame metadata container with `set_field_metadata()` for description, unit, and source annotations
 - Added: Stream-based plugin IO with URL handlers for local, GCS (`[gcs]`), and S3/R2 (`[s3]`) storage
