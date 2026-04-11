@@ -546,3 +546,111 @@ class TestContentHashLineage:
         assert output2 is not None
         assert "sources" in output2["lineage"]
         assert len(output2["lineage"]["sources"]) == 1
+
+
+class TestToParquetTrackParameter:
+    """Tests for the track parameter on to_parquet()."""
+
+    def test_track_false_writes_parquet_without_registration(self, tmp_path: Path) -> None:
+        """Test that track=False writes the file without requiring datasets.yaml."""
+        df = sunstone.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+        output_path = tmp_path / "output.parquet"
+
+        df.to_parquet(output_path, track=False)
+
+        assert output_path.exists()
+        import pandas as pd
+
+        result = pd.read_parquet(output_path)
+        assert list(result.columns) == ["a", "b"]
+        assert len(result) == 3
+
+    def test_track_false_creates_parent_directories(self, tmp_path: Path) -> None:
+        """Test that track=False creates parent directories as needed."""
+        df = sunstone.DataFrame({"x": [1]})
+        output_path = tmp_path / "nested" / "dir" / "output.parquet"
+
+        df.to_parquet(output_path, track=False)
+
+        assert output_path.exists()
+
+    def test_track_false_bypasses_strict_mode(self, tmp_path: Path) -> None:
+        """Test that track=False works even in strict mode."""
+        df = sunstone.DataFrame({"a": [1]}, strict=True)
+        output_path = tmp_path / "strict_output.parquet"
+
+        df.to_parquet(output_path, track=False)
+
+        assert output_path.exists()
+
+    def test_track_defaults_to_true(self, tmp_path: Path, project_path: Path, monkeypatch: Any) -> None:
+        """Test that track defaults to True (strict mode raises for unregistered)."""
+        monkeypatch.setenv("SUNSTONE_DATAFRAME_STRICT", "1")
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=project_path,
+        )
+
+        with pytest.raises(sunstone.StrictModeError):
+            df.to_parquet(tmp_path / "test_unregistered.parquet")
+
+    def test_track_false_passes_kwargs_to_pandas(self, tmp_path: Path) -> None:
+        """Test that pandas kwargs are forwarded when track=False."""
+        df = sunstone.DataFrame({"a": [1, 2], "b": [3, 4]})
+        output_path = tmp_path / "output.parquet"
+
+        df.to_parquet(output_path, track=False, compression="gzip")
+
+        assert output_path.exists()
+        import pandas as pd
+
+        result = pd.read_parquet(output_path)
+        assert list(result.columns) == ["a", "b"]
+
+
+class TestToParquetLineage:
+    """Tests for to_parquet() lineage tracking."""
+
+    def test_content_hash_computed_on_parquet_save(self, project_copy: Path) -> None:
+        """Test that content hash is computed and saved when writing Parquet output."""
+        from ruamel.yaml import YAML
+
+        df = sunstone.DataFrame.read_csv(
+            "inputs/official_un_member_states_raw.csv",
+            project_path=project_copy,
+            strict=False,
+        )
+
+        output_path = "outputs/test_output.parquet"
+        df.to_parquet(output_path, slug="test-parquet-output", name="Test Parquet Output")
+
+        yaml = YAML()
+        with open(project_copy / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-parquet-output"), None)
+        assert output is not None
+        assert "lineage" in output
+        assert "content_hash" in output["lineage"]
+        assert len(output["lineage"]["content_hash"]) == 64
+
+    def test_parquet_auto_registers_fields(self, project_copy: Path) -> None:
+        """Test that field schema is auto-registered in datasets.yaml."""
+        from ruamel.yaml import YAML
+
+        df = sunstone.DataFrame({"name": ["A", "B"], "value": [1.0, 2.0]})
+        df.metadata.lineage.project_path = str(project_copy)
+
+        output_path = "outputs/test_fields.parquet"
+        df.to_parquet(output_path, slug="test-fields-parquet", name="Test Fields")
+
+        yaml = YAML()
+        with open(project_copy / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-fields-parquet"), None)
+        assert output is not None
+        assert "fields" in output
+        field_names = [f["name"] for f in output["fields"]]
+        assert "name" in field_names
+        assert "value" in field_names

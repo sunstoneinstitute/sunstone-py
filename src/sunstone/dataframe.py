@@ -676,6 +676,132 @@ class DataFrame:
             transformation_params=lineage_data.get("transformation_params"),
         )
 
+    def to_parquet(
+        self,
+        path_or_buf: Union[str, Path],
+        slug: Optional[str] = None,
+        name: Optional[str] = None,
+        publish: bool = False,
+        transformation_params: Optional[dict] = None,
+        track: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Write DataFrame to Parquet file.
+
+        In strict mode, the output must already be registered in datasets.yaml.
+        In relaxed mode, it will be registered automatically if not present.
+
+        Args:
+            path_or_buf: File path for the output Parquet file.
+            slug: Dataset slug (required in relaxed mode if not registered).
+            name: Dataset name (required in relaxed mode if not registered).
+            publish: Reserved for future use (publishing to data catalog).
+            track: If False, write the Parquet directly without lineage tracking
+                or dataset registration. Useful for tests and exploratory work.
+            **kwargs: Additional arguments passed to pandas.to_parquet.
+
+        Raises:
+            StrictModeError: In strict mode, if dataset not registered.
+            ValueError: In relaxed mode, if slug/name not provided for new dataset.
+        """
+        # Filter out any Sunstone-specific kwargs that might have slipped through
+        pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
+
+        if not track:
+            from .plugins import PluginRegistry
+
+            registry = PluginRegistry.get(
+                Path(self.metadata.lineage.project_path) if self.metadata.lineage.project_path is not None else None
+            )
+            location = str(path_or_buf)
+
+            url_handler = registry.find_url_handler(location)
+            if url_handler:
+                with url_handler.open(location, "wb") as stream:
+                    self.data.to_parquet(stream, **pandas_kwargs)
+            else:
+                path = Path(path_or_buf)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self.data.to_parquet(path, **pandas_kwargs)
+            return
+
+        manager = self._get_datasets_manager()
+        location = str(path_or_buf)
+
+        # Try to find existing dataset
+        dataset = manager.find_dataset_by_location(location, "output")
+
+        if dataset is None:
+            if self.strict_mode:
+                raise StrictModeError(
+                    f"Output dataset at '{location}' not registered in datasets.yaml. "
+                    f"In strict mode, outputs must be pre-registered."
+                )
+            else:
+                # Relaxed mode: auto-register
+                effective_slug = slug or self.metadata.slug
+                effective_name = name or self.metadata.name
+                if effective_slug is None or effective_name is None:
+                    raise ValueError(
+                        "In relaxed mode, 'slug' and 'name' are required "
+                        "when writing to an unregistered output location. "
+                        "Set them via to_parquet() parameters or df.metadata.slug/name."
+                    )
+
+                # Build field schema merging explicit metadata with inferred dtypes
+                fields = self._build_field_schema()
+
+                # Register the new output with full metadata
+                dataset = manager.add_output_dataset(
+                    name=effective_name,
+                    slug=effective_slug,
+                    location=location,
+                    fields=fields,
+                    description=self.metadata.description,
+                    rdf_prefixes=self.metadata.rdf_prefixes,
+                    custom_properties=self.metadata.custom_properties,
+                )
+
+        # Write the data
+        absolute_path = manager.get_absolute_path(dataset.location)
+
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+        location = str(absolute_path)
+
+        url_handler = registry.find_url_handler(location)
+        format_writer = registry.find_format_writer(location, None)
+
+        if url_handler and format_writer:
+            with url_handler.open(location, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+        elif format_writer:
+            with open(absolute_path, "wb") as stream:
+                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+        else:
+            self.data.to_parquet(absolute_path, **pandas_kwargs)
+
+        # Compute content hash for change detection
+        content_hash = compute_dataframe_hash(self.data)
+
+        # Flush session lineage with execution context
+        from .session import get_session
+
+        session = get_session()
+        lineage_data = session.flush_to_output(transformation_params=transformation_params)
+
+        # Persist lineage metadata to datasets.yaml
+        manager.update_output_lineage(
+            slug=dataset.slug,
+            lineage=self.metadata.lineage,
+            content_hash=content_hash,
+            strict=self.strict_mode,
+            context=lineage_data.get("context"),
+            transformation_params=lineage_data.get("transformation_params"),
+        )
+
     def _infer_dtype(self, col: str) -> str:
         """Infer the dataset type string for a column from its pandas dtype."""
         dtype = self.data[col].dtype
