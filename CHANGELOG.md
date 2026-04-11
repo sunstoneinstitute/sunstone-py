@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-04-11
+- Added: `to_parquet()`
+
 ## [1.4.0] - 2026-04-11
 - Added: Unit-aware arithmetic with Pint integration, column-level unit tracking, and QUDT round-tripping
 - Added: DataFrame metadata container with `set_field_metadata()` for description, unit, and source annotations
