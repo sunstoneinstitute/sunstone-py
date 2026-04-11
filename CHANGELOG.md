@@ -3,30 +3,14 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added: Unit-aware arithmetic with Pint integration (`sunstone.units`)
-- Added: `UnitSeries` proxy for column-level unit tracking
-- Added: Unit handling modes — relaxed (default), strict, auto (`set_unit_mode()` / `SUNSTONE_UNIT_MODE`)
-- Added: QUDT URI detection and round-tripping via ontopint (`sunstone-py[qudt]`)
-- Added: Unit validation in `set_field_metadata(unit=...)`
-- Added: Unit resolution in `concat()`, `merge()`, `join()`
-- Added: Metadata container for DataFrame with description, RDF prefixes, custom properties, and field-level metadata
-- Added: `set_field_metadata()` method for annotating DataFrame columns with description, unit, source
+- Added: Unit-aware arithmetic with Pint integration, column-level unit tracking, and QUDT round-tripping
+- Added: DataFrame metadata container with `set_field_metadata()` for description, unit, and source annotations
+- Added: Stream-based plugin IO with URL handlers for local, GCS (`[gcs]`), and S3/R2 (`[s3]`) storage
+- Added: Plugin discovery via entry points with cascading config (pyproject.toml → datasets.yaml → env vars)
 - Added: `read_json()` to sunstone.pandas module
-- Changed: `FieldSchema.type` is now optional (None means infer at write time)
-- Deprecated: `DataFrame.lineage` property — use `DataFrame.metadata.lineage` instead
-- Added: Stream-based plugin IO — URLHandler.open(url, mode) returns file-like objects instead of downloading to temp files
-- Added: FormatHandler protocol now uses BinaryIO streams for read/write
-- Added: LocalFileHandler for local paths and file:// URLs
-- Added: GcsURLHandler for gs:// URLs (install with `sunstone-py[gcs]`)
-- Added: S3URLHandler for s3:// and r2:// URLs (install with `sunstone-py[s3]`)
-- Added: `sunstone.packaging` module for programmatic data package builds and uploads
-- Added: Plugin discovery via Python entry points (`sunstone.plugins` group)
-- Added: Cascading plugin config from pyproject.toml, datasets.yaml, and environment variables
-- Changed: All data reads/writes route through URLHandler.open() → FormatHandler stream pipeline
-- Changed: HTTP fetching uses stdlib urllib.request instead of requests
-- Changed: `package push` uses URLHandler plugins instead of hardcoded google-cloud-storage
-- Changed: `google-cloud-storage` moved to optional `[gcs]` extra
-- Removed: `requests` dependency (replaced by urllib.request)
+- Changed: All IO routes through URLHandler/FormatHandler stream pipeline; `requests` replaced by urllib
+- Changed: `FieldSchema.type` is now optional (inferred at write time)
+- Deprecated: `DataFrame.lineage` — use `DataFrame.metadata.lineage` instead
 - Deprecated: `DatasetsManager.fetch_from_url()` — use `PluginRegistry.get().fetch()` instead
 
 ## [1.3.1] - 2026-03-26
