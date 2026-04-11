@@ -40,6 +40,7 @@ _READER_MAP: dict[str, Callable[..., pd.DataFrame]] = {
 # Format string -> pandas writer method name on DataFrame
 _WRITER_MAP: dict[str, str] = {
     "csv": "to_csv",
+    "parquet": "to_parquet",
 }
 
 

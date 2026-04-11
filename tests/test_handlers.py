@@ -115,6 +115,30 @@ class TestBuiltinFormatHandlerWrite:
         assert len(result) == 2
 
 
+class TestBuiltinFormatHandlerParquetWrite:
+    """Tests for Parquet write support in BuiltinFormatHandler."""
+
+    def test_can_write_parquet(self) -> None:
+        handler = BuiltinFormatHandler()
+        assert handler.can_write("output.parquet", None) is True
+
+    def test_can_write_parquet_explicit_format(self) -> None:
+        handler = BuiltinFormatHandler()
+        assert handler.can_write("output.dat", "parquet") is True
+
+    def test_write_parquet(self, tmp_path) -> None:
+        import pandas as pd
+
+        handler = BuiltinFormatHandler()
+        df = pd.DataFrame({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
+        out = tmp_path / "test.parquet"
+        with open(out, "wb") as f:
+            handler.write(df, f, format="parquet", path=str(out))
+        result = pd.read_parquet(out)
+        assert list(result.columns) == ["a", "b"]
+        assert len(result) == 3
+
+
 @pytest.fixture
 def http_handler():
     return HttpURLHandler()
