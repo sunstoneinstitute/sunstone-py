@@ -2,20 +2,20 @@
 Tests for Sunstone CLI.
 """
 
+import contextlib
+import io
+import logging
 import os
 import shutil
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer as _typer
 from typer.testing import CliRunner
 
 from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
 from sunstone.lineage import Contributor, PackageMetadata
-
-
-import contextlib
-import io
 
 
 class _MockURLHandler:
@@ -1727,3 +1727,450 @@ class TestParquetResourceSupport:
         assert result is not None
         assert result["path"].startswith("https://cdn.example.com/test-project/")
         assert result["path"].endswith("population.parquet")
+
+
+# =============================================================================
+# Plugin CLI group mounting tests
+# =============================================================================
+
+
+def test_plugin_cli_group_mounted():
+    """Plugin CLI groups appear as subcommands."""
+    test_main_app = _typer.Typer()
+    plugin_app = _typer.Typer(help="Test plugin")
+
+    @plugin_app.command("ping")
+    def ping():
+        _typer.echo("pong")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("testplug", plugin_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            cli_mod._mount_plugin_cli_groups()
+            runner = CliRunner()
+            result = runner.invoke(test_main_app, ["testplug", "ping"])
+            assert result.exit_code == 0
+            assert "pong" in result.output
+        finally:
+            cli_mod.app = original_app
+
+
+def test_plugin_cli_builtin_collision_skipped():
+    """Plugin group names that collide with builtins are skipped."""
+    test_main_app = _typer.Typer()
+    colliding_app = _typer.Typer(help="Collides")
+
+    @colliding_app.command("evil")
+    def evil():
+        _typer.echo("should not mount")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("dataset", colliding_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            cli_mod._mount_plugin_cli_groups()
+            # The colliding group must not have been added
+            group_names = [g.name for g in test_main_app.registered_groups]
+            assert "dataset" not in group_names
+        finally:
+            cli_mod.app = original_app
+
+
+def test_plugin_cli_duplicate_plugin_collision_skipped(caplog):
+    """Duplicate plugin CLI group names are skipped after the first registration."""
+    test_main_app = _typer.Typer()
+    first_app = _typer.Typer(help="First plugin")
+    second_app = _typer.Typer(help="Second plugin")
+
+    @first_app.command("first")
+    def first():
+        _typer.echo("first")
+
+    @second_app.command("second")
+    def second():
+        _typer.echo("second")
+
+    mock_registry = MagicMock()
+    mock_registry.get_cli_groups.return_value = [("analytics", first_app), ("analytics", second_app)]
+
+    with patch("sunstone.plugins.PluginRegistry.get", return_value=mock_registry):
+        import sunstone.cli as cli_mod
+
+        original_app = cli_mod.app
+        cli_mod.app = test_main_app
+        try:
+            with caplog.at_level(logging.WARNING):
+                cli_mod._mount_plugin_cli_groups()
+            group_names = [g.name for g in test_main_app.registered_groups]
+            assert group_names == ["analytics"]
+            assert "already registered by another plugin" in caplog.text
+        finally:
+            cli_mod.app = original_app
+
+
+def test_plugin_cli_failure_does_not_break_cli():
+    """If plugin loading fails, CLI still works."""
+    with patch("sunstone.plugins.PluginRegistry.get", side_effect=RuntimeError("crash")):
+        import sunstone.cli as cli_mod
+
+        # Should not raise
+        cli_mod._mount_plugin_cli_groups()
+
+
+# =============================================================================
+# Environment commands
+# =============================================================================
+
+
+def test_env_show_no_config(tmp_path):
+    """sunstone env with no config shows helpful message."""
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 0
+    assert "No environment configured" in result.output
+
+
+def test_env_show_with_active(tmp_path):
+    """sunstone env shows active environment."""
+    system_config = tmp_path / "system.toml"
+    system_config.write_text(
+        "[environments.prod]\n"
+        'catalog_url = "https://nessie.prod.example.com"\n'
+        's3_endpoint = "https://s3.prod.example.com"\n'
+    )
+    user_config = tmp_path / "user.toml"
+    user_config.write_text('active = "prod"\n')
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", system_config),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 0
+    assert "prod" in result.output
+
+
+def test_env_show_reports_resolution_error(tmp_path):
+    """sunstone env reports environment resolution errors cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text('active = "missing"\n')
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 1
+    assert "Error: Active environment 'missing' is not defined in any config file" in result.output
+
+
+def test_env_show_reports_missing_op_cli(tmp_path):
+    """sunstone env reports missing 1Password CLI cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        'active = "dev"\n'
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+        's3_access_key = "op://vault/item/key"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env.subprocess.run", side_effect=FileNotFoundError("op not found")),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 1
+    assert "Error: 1Password CLI (op) is not installed." in result.output
+
+
+def test_env_show_reports_environment_source_error(tmp_path):
+    """sunstone env reports display-time environment lookup errors cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch(
+            "sunstone.env.environment_source",
+            side_effect=KeyError("Environment 'dev' not found in any config file"),
+        ),
+    ):
+        result = runner.invoke(app, ["env"])
+    assert result.exit_code == 1
+    assert "Error: Environment 'dev' not found in any config file" in result.output
+
+
+def test_env_use_writes_project_config(tmp_path):
+    """sunstone env use writes .sunstone/data_platform.toml."""
+    system_config = tmp_path / "system.toml"
+    system_config.write_text(
+        "[environments.prod]\n"
+        'catalog_url = "https://nessie.prod.example.com"\n'
+        's3_endpoint = "https://s3.prod.example.com"\n'
+    )
+
+    project_sunstone = tmp_path / ".sunstone"
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", system_config),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env._PROJECT_CONFIG_NAME", ".sunstone/data_platform.toml"),
+        patch("pathlib.Path.cwd", return_value=tmp_path),
+    ):
+        result = runner.invoke(app, ["env", "use", "prod"])
+    assert result.exit_code == 0
+    config_text = (project_sunstone / "data_platform.toml").read_text()
+    assert "prod" in config_text
+
+
+def test_env_use_rejects_unknown(tmp_path):
+    """sunstone env use rejects unknown environment."""
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", tmp_path / "user.toml"),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "use", "nonexistent"])
+    assert result.exit_code != 0
+
+
+def test_env_add_creates_environment(tmp_path):
+    """sunstone env add creates a new environment in user config."""
+    user_config = tmp_path / "user.toml"
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "--catalog-url",
+                "http://localhost:19120/api/v1",
+                "--s3-endpoint",
+                "http://localhost:9000",
+            ],
+        )
+    assert result.exit_code == 0
+    assert "Added environment 'dev'" in result.output
+    config_text = user_config.read_text()
+    assert "dev" in config_text
+    assert "http://localhost:19120/api/v1" in config_text
+
+
+def test_env_remove_deletes_environment(tmp_path):
+    """sunstone env remove deletes an environment from user config."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "remove", "dev"])
+    assert result.exit_code == 0
+    assert "Removed environment 'dev'" in result.output
+
+
+def test_env_update_modifies_environment(tmp_path):
+    """sunstone env update modifies an existing environment."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "update",
+                "dev",
+                "--catalog-url",
+                "http://newhost:19120/api/v1",
+            ],
+        )
+    assert result.exit_code == 0
+    assert "Updated environment 'dev'" in result.output
+    config_text = user_config.read_text()
+    assert "http://newhost:19120/api/v1" in config_text
+
+
+def test_env_update_reports_project_scoped_environment(tmp_path):
+    """sunstone env update explains when the env exists only in project config."""
+    user_config = tmp_path / "user.toml"
+    project_config = tmp_path / ".sunstone" / "data_platform.toml"
+    project_config.parent.mkdir(parents=True)
+    project_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=project_config),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "update",
+                "dev",
+                "--catalog-url",
+                "http://newhost:19120/api/v1",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "defined in project config" in result.output
+
+
+def test_env_update_requires_at_least_one_field(tmp_path):
+    """sunstone env update refuses no-op invocations without rewriting the file."""
+    user_config = tmp_path / "user.toml"
+    original = (
+        "# keep me\n"
+        "[environments.dev]\n"
+        'catalog_url = "http://localhost:19120/api/v1"\n'
+        's3_endpoint = "http://localhost:9000"\n'
+    )
+    user_config.write_text(original)
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev"])
+    assert result.exit_code == 1
+    assert "No fields to update" in result.output
+    assert user_config.read_text() == original
+
+
+def test_env_update_warns_when_project_config_shadows_user(tmp_path):
+    """sunstone env update warns when project config will shadow the updated user env."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+    project_config = tmp_path / ".sunstone" / "data_platform.toml"
+    project_config.parent.mkdir(parents=True)
+    project_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://project-dev"\ns3_endpoint = "http://localhost:9001"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=project_config),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://new-user-dev"])
+    assert result.exit_code == 0
+    assert "Updated environment 'dev'" in result.output
+    assert "project config values will shadow this update" in result.output
+    assert "http://new-user-dev" in user_config.read_text()
+
+
+def test_env_use_reports_write_errors():
+    """sunstone env use reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.set_active", side_effect=PermissionError("read-only filesystem")):
+        result = runner.invoke(app, ["env", "use", "dev"])
+    assert result.exit_code == 1
+    assert "read-only filesystem" in result.output
+
+
+def test_env_add_reports_write_errors():
+    """sunstone env add reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.add_environment", side_effect=PermissionError("permission denied")):
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "--catalog-url",
+                "http://localhost:19120/api/v1",
+                "--s3-endpoint",
+                "http://localhost:9000",
+            ],
+        )
+    assert result.exit_code == 1
+    assert "permission denied" in result.output
+
+
+def test_env_remove_reports_write_errors():
+    """sunstone env remove reports config write failures cleanly."""
+    runner = CliRunner()
+    with patch("sunstone.env.remove_environment", side_effect=PermissionError("read-only filesystem")):
+        result = runner.invoke(app, ["env", "remove", "dev"])
+    assert result.exit_code == 1
+    assert "read-only filesystem" in result.output
+
+
+def test_env_update_reports_write_errors(tmp_path):
+    """sunstone env update reports config write failures cleanly."""
+    user_config = tmp_path / "user.toml"
+    user_config.write_text(
+        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
+    )
+
+    runner = CliRunner()
+    with (
+        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
+        patch("sunstone.env._USER_CONFIG", user_config),
+        patch("sunstone.env._find_project_config", return_value=None),
+        patch("sunstone.env._write_config", side_effect=PermissionError("permission denied")),
+    ):
+        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://newhost:19120/api/v1"])
+    assert result.exit_code == 1
+    assert "permission denied" in result.output
