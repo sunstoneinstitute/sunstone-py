@@ -1,460 +1,149 @@
 #!/usr/bin/env python3
-"""Release script for sunstone-py.
+"""Release automation for sunstone-py.
 
-Handles version bumping, CHANGELOG updates, git tagging, and pushing.
+Reads a changelog entry from stdin, bumps the version in pyproject.toml,
+prepends the entry to CHANGELOG.md, syncs uv.lock, commits, and tags.
+
+Usage:
+    echo "changelog text" | uv run python scripts/release.py --bump minor
 """
 
+from __future__ import annotations
+
 import argparse
-import json
-import os
 import re
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib  # type: ignore[import-not-found,no-redef]
-
-try:
-    import tomli_w
-except ModuleNotFoundError:
-    print("Error: tomli_w not found. Install with: uv add --dev tomli-w", file=sys.stderr)
-    sys.exit(1)
+ROOT = Path(__file__).resolve().parent.parent
+PYPROJECT = ROOT / "pyproject.toml"
+CHANGELOG = ROOT / "CHANGELOG.md"
 
 
-def get_root_dir() -> Path:
-    """Get the root directory (where pyproject.toml lives)."""
-    # Navigate from scripts/release.py up to root/
-    return Path(__file__).parent.parent
-
-
-def run_git(*args: str, capture: bool = True) -> subprocess.CompletedProcess[str]:
-    """Run a git command and return the result."""
-    result = subprocess.run(
-        ["git", *args],
-        capture_output=capture,
-        text=True,
-        cwd=get_root_dir(),
-    )
-    return result
-
-
-def check_git_clean() -> None:
-    """Fail if the git workspace is not clean."""
-    result = run_git("status", "--porcelain")
-    if result.returncode != 0:
-        print("Error: Failed to check git status", file=sys.stderr)
-        sys.exit(1)
-    if result.stdout.strip():
-        print("Error: Git workspace is not clean. Commit or stash changes first.", file=sys.stderr)
-        print(result.stdout, file=sys.stderr)
-        sys.exit(1)
-
-
-def check_on_main_branch() -> None:
-    """Fail if HEAD is not on the main branch."""
-    result = run_git("rev-parse", "--abbrev-ref", "HEAD")
-    if result.returncode != 0:
-        print("Error: Failed to get current branch", file=sys.stderr)
-        sys.exit(1)
-    branch = result.stdout.strip()
-    if branch != "main":
-        print(f"Error: Not on main branch (currently on '{branch}')", file=sys.stderr)
-        sys.exit(1)
-
-
-def run_gh(*args: str, capture: bool = True) -> subprocess.CompletedProcess[str]:
-    """Run a gh command and return the result."""
-    result = subprocess.run(
-        ["gh", *args],
-        capture_output=capture,
-        text=True,
-        cwd=get_root_dir(),
-    )
-    return result
-
-
-def check_ci_passed() -> None:
-    """Fail if CI checks have not passed for the current commit."""
-    print("Checking CI status...")
-
-    # Get the status of checks for HEAD
-    result = run_gh("run", "list", "--branch=main", "--limit=1", "--json=status,conclusion,databaseId")
-    if result.returncode != 0:
-        print("Error: Failed to check CI status", file=sys.stderr)
-        print(result.stderr, file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        runs = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        print("Error: Failed to parse CI status response", file=sys.stderr)
-        sys.exit(1)
-
-    if not runs:
-        print("Warning: No CI runs found for main branch", file=sys.stderr)
-        return
-
-    run_info = runs[0]
-    status = run_info.get("status")
-    conclusion = run_info.get("conclusion")
-    run_id = run_info.get("databaseId")
-
-    if status == "in_progress" or status == "queued":
-        print(f"CI is still running (status: {status}). Watching for completion...")
-        # Watch the run - this will stream output and wait for completion
-        watch_result = run_gh("run", "watch", str(run_id), capture=False)
-        if watch_result.returncode != 0:
-            print("Error: CI run failed or watch was interrupted", file=sys.stderr)
-            sys.exit(1)
-
-        # Re-check the conclusion after watching
-        result = run_gh("run", "view", str(run_id), "--json=conclusion")
-        if result.returncode != 0:
-            print("Error: Failed to get CI run conclusion", file=sys.stderr)
-            sys.exit(1)
-
-        run_info = json.loads(result.stdout)
-        conclusion = run_info.get("conclusion")
-
-    if conclusion != "success":
-        print(f"Error: CI checks have not passed (conclusion: {conclusion})", file=sys.stderr)
-        print("Fix CI issues before releasing.", file=sys.stderr)
-        sys.exit(1)
-
-    print("CI checks passed.")
-
-
-def check_up_to_date_with_origin() -> None:
-    """Fail if main is not up to date with origin/main."""
-    # Fetch latest from origin
-    result = run_git("fetch", "origin", "main")
-    if result.returncode != 0:
-        print("Error: Failed to fetch from origin", file=sys.stderr)
-        sys.exit(1)
-
-    # Get local and remote commit hashes
-    local = run_git("rev-parse", "HEAD")
-    remote = run_git("rev-parse", "origin/main")
-
-    if local.returncode != 0 or remote.returncode != 0:
-        print("Error: Failed to get commit hashes", file=sys.stderr)
-        sys.exit(1)
-
-    local_hash = local.stdout.strip()
-    remote_hash = remote.stdout.strip()
-
-    if local_hash != remote_hash:
-        # Check if local is behind
-        merge_base = run_git("merge-base", "HEAD", "origin/main")
-        if merge_base.returncode != 0:
-            print("Error: Failed to find merge base", file=sys.stderr)
-            sys.exit(1)
-
-        base_hash = merge_base.stdout.strip()
-        if base_hash == local_hash:
-            print("Error: Local main is behind origin/main. Pull first.", file=sys.stderr)
-        elif base_hash == remote_hash:
-            print("Error: Local main is ahead of origin/main. Push first.", file=sys.stderr)
-        else:
-            print("Error: Local main has diverged from origin/main.", file=sys.stderr)
-        sys.exit(1)
-
-
-def get_last_tag() -> str | None:
-    """Get the most recent git tag, or None if no tags exist."""
-    result = run_git("describe", "--tags", "--abbrev=0")
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip()
-
-
-def generate_changelog_from_git() -> str:
-    """Generate changelog entries from git commits since last tag using Claude."""
-    last_tag = get_last_tag()
-    if last_tag is None:
-        last_tag = "HEAD~1"
-
-    print("Generating changelog entries with Claude...")
-    claude_result = subprocess.run(
-        ["claude", "-p", f"/generate-changelog {last_tag}"],
-        capture_output=True,
-        text=True,
-        cwd=get_root_dir(),
-    )
-
-    if claude_result.returncode != 0:
-        print("Warning: Claude changelog generation failed", file=sys.stderr)
-        return ""
-
-    return claude_result.stdout.strip()
-
-
-def populate_unreleased(content: str) -> None:
-    """Insert generated changelog content into Unreleased section."""
-    if not content:
-        return
-
-    changelog_path = get_root_dir() / "CHANGELOG.md"
-    existing = changelog_path.read_text()
-
-    new_content = existing.replace(
-        "## [Unreleased]\n",
-        f"## [Unreleased]\n\n{content}\n",
-    )
-    changelog_path.write_text(new_content)
-
-
-def open_in_editor(file_path: Path) -> None:
-    """Open a file in the user's preferred editor."""
-    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
-    subprocess.run([editor, str(file_path)], cwd=get_root_dir())
-
-
-def confirm_release(new_version: str) -> bool:
-    """Ask user to confirm the release."""
-    try:
-        response = input(f"\nProceed with release v{new_version}? [y/N] ").strip().lower()
-        return response in ("y", "yes")
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return False
-
-
-def get_current_version() -> str:
-    """Get the current version from pyproject.toml."""
-    pyproject_path = get_root_dir() / "pyproject.toml"
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
-    version = data.get("project", {}).get("version")
-    if not version:
-        print("Error: Could not find version in pyproject.toml", file=sys.stderr)
-        sys.exit(1)
-    return str(version)
+def current_version() -> str:
+    text = PYPROJECT.read_text()
+    m = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    if not m:
+        sys.exit("Could not find version in pyproject.toml")
+    return m.group(1)
 
 
 def bump_version(version: str, bump: str) -> str:
-    """Bump the version according to semver."""
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)$", version)
-    if not match:
-        print(f"Error: Invalid version format: {version}", file=sys.stderr)
-        sys.exit(1)
-
-    major, minor, patch = int(match.group(1)), int(match.group(2)), int(match.group(3))
-
+    parts = [int(p) for p in version.split(".")]
+    if len(parts) != 3:
+        sys.exit(f"Expected semver x.y.z, got {version}")
+    major, minor, patch = parts
     if bump == "major":
         return f"{major + 1}.0.0"
     elif bump == "minor":
         return f"{major}.{minor + 1}.0"
-    else:  # patch
+    else:
         return f"{major}.{minor}.{patch + 1}"
 
 
-def update_pyproject_version(new_version: str) -> None:
-    """Update the version in pyproject.toml."""
-    pyproject_path = get_root_dir() / "pyproject.toml"
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
-
-    data["project"]["version"] = new_version
-
-    with open(pyproject_path, "wb") as f:
-        tomli_w.dump(data, f)
+def update_pyproject(old: str, new: str) -> None:
+    text = PYPROJECT.read_text()
+    text = text.replace(f'version = "{old}"', f'version = "{new}"', 1)
+    PYPROJECT.write_text(text)
 
 
-def update_changelog(new_version: str) -> None:
-    """Update CHANGELOG.md to move Unreleased to the new version."""
-    changelog_path = get_root_dir() / "CHANGELOG.md"
-    content = changelog_path.read_text()
-
+def update_changelog(new_version: str, entry: str) -> None:
     today = date.today().isoformat()
+    header = f"## [{new_version}] - {today}"
 
-    # Replace [Unreleased] section header with new version
-    # Keep [Unreleased] but add new version section after it
-    new_unreleased = "## [Unreleased]\n"
-    version_header = f"## [{new_version}] - {today}\n"
-
-    # Find the Unreleased section and the content until next version
-    pattern = r"(## \[Unreleased\]\n)(.*?)(## \[\d)"
-    match = re.search(pattern, content, re.DOTALL)
-
-    if match:
-        unreleased_content = match.group(2)
-        if unreleased_content.strip():
-            # There's content in Unreleased, move it to new version
-            new_content = content.replace(
-                match.group(0),
-                f"{new_unreleased}\n{version_header}{unreleased_content}{match.group(3)}",
+    if CHANGELOG.exists():
+        text = CHANGELOG.read_text()
+        # Insert after ## [Unreleased] if present, otherwise after the title
+        unreleased_pattern = r"(## \[Unreleased\]\n)"
+        if re.search(unreleased_pattern, text):
+            text = re.sub(
+                unreleased_pattern,
+                f"\\1\n{header}\n\n{entry.strip()}\n\n",
+                text,
+                count=1,
             )
         else:
-            # No content in Unreleased, just add version header
-            new_content = content.replace(
-                match.group(0),
-                f"{new_unreleased}\n{version_header}\n{match.group(3)}",
+            # Insert after the first heading
+            text = re.sub(
+                r"(# Changelog\n)",
+                f"\\1\n{header}\n\n{entry.strip()}\n\n",
+                text,
+                count=1,
             )
     else:
-        # Unreleased is at the end or there's no previous version
-        pattern = r"(## \[Unreleased\]\n)(.*?)$"
-        match = re.search(pattern, content, re.DOTALL)
-        if match:
-            unreleased_content = match.group(2)
-            new_content = content.replace(
-                match.group(0),
-                f"{new_unreleased}\n{version_header}{unreleased_content}",
-            )
-        else:
-            print("Error: Could not find [Unreleased] section in CHANGELOG.md", file=sys.stderr)
-            sys.exit(1)
-
-    changelog_path.write_text(new_content)
+        text = (
+            "# Changelog\n\n"
+            "All notable changes to this project will be documented in this file.\n\n"
+            "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),\n"
+            "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n"
+            "## [Unreleased]\n\n"
+            f"{header}\n\n{entry.strip()}\n"
+        )
+    CHANGELOG.write_text(text)
 
 
-def git_commit_and_tag(new_version: str) -> None:
-    """Commit changes and create version tag."""
-    root_dir = get_root_dir()
+def sync_uv_lock() -> None:
+    result = subprocess.run(["uv", "sync"], cwd=ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Error: uv sync failed\n{result.stderr}", file=sys.stderr)
+        sys.exit(1)
 
-    # Stage changed files
-    result = run_git(
-        "add",
-        str(root_dir / "pyproject.toml"),
-        str(root_dir / "CHANGELOG.md"),
-        str(root_dir / "uv.lock"),
+
+def git_commit_and_tag(version: str) -> None:
+    tag = f"v{version}"
+    subprocess.run(
+        ["git", "add", "pyproject.toml", "CHANGELOG.md", "uv.lock"],
+        cwd=ROOT,
+        check=True,
     )
-    if result.returncode != 0:
-        print("Error: Failed to stage files", file=sys.stderr)
-        sys.exit(1)
-
-    # Commit
-    commit_msg = f"Release v{new_version}"
-    result = run_git("commit", "-m", commit_msg)
-    if result.returncode != 0:
-        print("Error: Failed to commit", file=sys.stderr)
-        sys.exit(1)
-
-    # Tag
-    tag = f"v{new_version}"
-    result = run_git("tag", "-a", tag, "-m", f"Release {tag}")
-    if result.returncode != 0:
-        print("Error: Failed to create tag", file=sys.stderr)
-        sys.exit(1)
-
+    subprocess.run(
+        ["git", "commit", "-m", f"release: {tag}"],
+        cwd=ROOT,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "tag", "-a", tag, "-m", f"Release {tag}"],
+        cwd=ROOT,
+        check=True,
+    )
     print(f"Created commit and tag {tag}")
 
 
-def git_push() -> None:
-    """Push commits and tags to origin."""
-    result = run_git("push", "origin", "main", "--follow-tags", capture=False)
-    if result.returncode != 0:
-        print("Error: Failed to push to origin", file=sys.stderr)
-        sys.exit(1)
-
-
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Release a new version of sunstone-py",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  uv run release              # Bump patch version (0.1.0 -> 0.1.1)
-  uv run release --bump=patch # Bump patch version (0.1.0 -> 0.1.1)
-  uv run release --bump=minor # Bump minor version (0.1.0 -> 0.2.0)
-  uv run release --bump-minor # Bump minor version (0.1.0 -> 0.2.0)
-  uv run release --bump=major # Bump major version (0.1.0 -> 1.0.0)
-  uv run release --bump-major # Bump major version (0.1.0 -> 1.0.0)
-""",
-    )
+    parser = argparse.ArgumentParser(description="Release sunstone-py")
     parser.add_argument(
         "--bump",
-        choices=["patch", "minor", "major"],
-        default=None,
-        help="Version component to bump (default: patch)",
-    )
-    parser.add_argument(
-        "--bump-minor",
-        action="store_true",
-        help="Bump minor version (shorthand for --bump=minor)",
-    )
-    parser.add_argument(
-        "--bump-major",
-        action="store_true",
-        help="Bump major version (shorthand for --bump=major)",
+        choices=["major", "minor", "patch"],
+        required=True,
+        help="Version bump type",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show what would be done without making changes",
+        help="Show what would happen without making changes",
     )
     args = parser.parse_args()
 
-    # Resolve bump level from flags
-    if args.bump_major:
-        bump = "major"
-    elif args.bump_minor:
-        bump = "minor"
-    elif args.bump:
-        bump = args.bump
-    else:
-        bump = "patch"
+    changelog_entry = sys.stdin.read().strip()
+    if not changelog_entry:
+        sys.exit("No changelog entry provided on stdin")
 
-    print("Checking git status...")
-    check_git_clean()
-    check_on_main_branch()
-    check_up_to_date_with_origin()
-    check_ci_passed()
-    print("All checks passed.")
+    old = current_version()
+    new = bump_version(old, args.bump)
 
-    current_version = get_current_version()
-    new_version = bump_version(current_version, bump)
-
-    print(f"Version: {current_version} -> {new_version}")
+    print(f"Version: {old} -> {new}")
+    print(f"Changelog:\n{changelog_entry}\n")
 
     if args.dry_run:
-        print("Dry run - no changes made.")
+        print("(dry run — no changes made)")
         return
 
-    # Generate and populate changelog entries
-    changelog_content = generate_changelog_from_git()
-    if changelog_content:
-        populate_unreleased(changelog_content)
-        print("Generated changelog entries from git commits.")
-    else:
-        print("No new commits to generate changelog from.")
-
-    print("Updating pyproject.toml...")
-    update_pyproject_version(new_version)
-
-    print("Syncing uv.lock...")
-    uv_result = subprocess.run(["uv", "sync"], cwd=get_root_dir(), capture_output=True, text=True)
-    if uv_result.returncode != 0:
-        print("Error: uv sync failed", file=sys.stderr)
-        print(uv_result.stderr, file=sys.stderr)
-        sys.exit(1)
-
-    print("Updating CHANGELOG.md...")
-    update_changelog(new_version)
-
-    # Open in editor for review
-    changelog_path = get_root_dir() / "CHANGELOG.md"
-    print(f"\nOpening {changelog_path} for review...")
-    open_in_editor(changelog_path)
-
-    # Confirm before proceeding
-    if not confirm_release(new_version):
-        # Revert changes
-        print("Release cancelled. Reverting changes...")
-        run_git("checkout", "pyproject.toml", "CHANGELOG.md", "uv.lock")
-        sys.exit(0)
-
-    print("Committing and tagging...")
-    git_commit_and_tag(new_version)
-
-    print("Pushing to origin...")
-    git_push()
-
-    print(f"\nSuccessfully released v{new_version}!")
+    update_pyproject(old, new)
+    sync_uv_lock()
+    update_changelog(new, changelog_entry)
+    git_commit_and_tag(new)
 
 
 if __name__ == "__main__":

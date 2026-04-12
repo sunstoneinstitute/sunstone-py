@@ -172,12 +172,7 @@ if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
 
 #### Make a Release
 
-To make a new release, run `uv run python scripts/release.py` from the main branch.
-This will commit a CHANGELOG.md update, add a new version tag, and
-push. The `uv run python scripts/release.py` command does a patchlevel upgrade by
-default, to do a minor or major version upgrade, use the
-`--bump` option, for example:
+Use the `/release` command. It auto-detects the bump level from commit history,
+generates a changelog entry, confirms with you, then runs the release script.
 
- * `uv run python scripts/release.py --bump=patch` - bump patchlevel (v0.8.1 -> v0.8.2)
- * `uv run python scripts/release.py --bump-minor` - bump minor version (v0.8.1 -> v0.9.0)
- * `uv run python scripts/release.py --bump-major` - bump major version (v0.8.1 -> v1.0.0)
+You can override the bump level: `/release --bump minor`

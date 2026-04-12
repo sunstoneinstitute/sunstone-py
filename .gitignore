@@ -49,3 +49,5 @@ build/
 .DS_Store
 worktrees
 .worktrees
+.claude/*.local.*
+.claude/worktrees
