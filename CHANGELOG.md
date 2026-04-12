@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Security: Pin all third-party GitHub Actions to full commit SHAs in CI workflows
 
 ## [1.4.1] - 2026-04-11
 - Added: `to_parquet()`
