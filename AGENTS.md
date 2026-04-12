@@ -22,7 +22,6 @@ The `sunstone-py` package provides:
 ├── src
 │   └── sunstone
 │       ├── __init__.py
-│       ├── _release.py
 │       ├── cli.py
 │       ├── context.py
 │       ├── dataframe.py
@@ -173,12 +172,12 @@ if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
 
 #### Make a Release
 
-To make a new release, run `uv run release` from the main branch.
+To make a new release, run `uv run python scripts/release.py` from the main branch.
 This will commit a CHANGELOG.md update, add a new version tag, and
-push. The `uv run release` command does a patchlevel upgrade by
+push. The `uv run python scripts/release.py` command does a patchlevel upgrade by
 default, to do a minor or major version upgrade, use the
 `--bump` option, for example:
 
- * `uv run release --bump=patch` - bump patchlevel (v0.8.1 -> v0.8.2)
- * `uv run release --bump-minor` - bump minor version (v0.8.1 -> v0.9.0)
- * `uv run release --bump-major` - bump major version (v0.8.1 -> v1.0.0)
+ * `uv run python scripts/release.py --bump=patch` - bump patchlevel (v0.8.1 -> v0.8.2)
+ * `uv run python scripts/release.py --bump-minor` - bump minor version (v0.8.1 -> v0.9.0)
+ * `uv run python scripts/release.py --bump-major` - bump major version (v0.8.1 -> v1.0.0)

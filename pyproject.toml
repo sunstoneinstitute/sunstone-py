@@ -56,7 +56,6 @@ Documentation = "https://sunstoneinstitute.github.io/sunstone-py/"
 Repository = "https://github.com/sunstoneinstitute/sunstone-py"
 
 [project.scripts]
-release = "sunstone._release:main"
 sunstone = "sunstone.cli:app"
 
 [tool.setuptools.packages.find]
@@ -99,7 +98,7 @@ norecursedirs = [
 
 [tool.coverage.run]
 omit = [
-    "src/sunstone/_release.py",
+    "scripts/release.py",
 ]
 
 [dependency-groups]

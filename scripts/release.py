@@ -27,8 +27,8 @@ except ModuleNotFoundError:
 
 def get_root_dir() -> Path:
     """Get the root directory (where pyproject.toml lives)."""
-    # Navigate from src/sunstone/_release.py up to root/
-    return Path(__file__).parent.parent.parent
+    # Navigate from scripts/release.py up to root/
+    return Path(__file__).parent.parent
 
 
 def run_git(*args: str, capture: bool = True) -> subprocess.CompletedProcess[str]:
