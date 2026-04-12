@@ -56,21 +56,31 @@ class DatasetsManager:
     from datasets.yaml files in Sunstone projects.
     """
 
-    def __init__(self, project_path: Union[str, Path]):
+    def __init__(
+        self,
+        project_path: Union[str, Path],
+        datasets_file: Optional[Union[str, Path]] = None,
+    ):
         """
         Initialize the datasets manager.
 
         Args:
             project_path: Path to the project directory containing datasets.yaml.
+            datasets_file: Path to a specific datasets YAML file. If relative,
+                resolved against project_path. Defaults to "datasets.yaml".
 
         Raises:
-            FileNotFoundError: If datasets.yaml doesn't exist in the project path.
+            FileNotFoundError: If the datasets file doesn't exist.
         """
         self.project_path = Path(project_path).resolve()
-        self.datasets_file = self.project_path / "datasets.yaml"
+        if datasets_file is not None:
+            df_path = Path(datasets_file)
+            self.datasets_file = df_path if df_path.is_absolute() else self.project_path / df_path
+        else:
+            self.datasets_file = self.project_path / "datasets.yaml"
 
         if not self.datasets_file.exists():
-            raise FileNotFoundError(f"datasets.yaml not found in {self.project_path}")
+            raise FileNotFoundError(f"{self.datasets_file} not found")
 
         self._data: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}

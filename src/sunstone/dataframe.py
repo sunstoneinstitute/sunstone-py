@@ -39,6 +39,7 @@ class DataFrame:
         metadata: Optional[Metadata] = None,
         strict: Optional[bool] = None,
         project_path: Optional[Union[str, Path]] = None,
+        datasets_file: Optional[Union[str, Path]] = None,
         **kwargs: Any,
     ):
         """
@@ -52,6 +53,8 @@ class DataFrame:
             strict: Whether to operate in strict mode. If None, reads from
                    SUNSTONE_DATAFRAME_STRICT environment variable.
             project_path: Path to the project directory. If None, uses current directory.
+            datasets_file: Path to a specific datasets YAML file (relative to
+                project_path or absolute). Defaults to "datasets.yaml".
             **kwargs: Additional arguments passed to pandas.DataFrame constructor.
 
         Note:
@@ -90,6 +93,9 @@ class DataFrame:
             self.metadata.lineage.project_path = str(Path(project_path).resolve())
         elif self.metadata.lineage.project_path is None:
             self.metadata.lineage.project_path = str(Path.cwd())
+
+        # Store datasets file override
+        self._datasets_file = datasets_file
 
     @property
     def lineage(self) -> LineageMetadata:
@@ -203,7 +209,10 @@ class DataFrame:
         """Get a DatasetsManager for the current project."""
         if self.metadata.lineage.project_path is None:
             raise ValueError("Project path not set")
-        return DatasetsManager(self.metadata.lineage.project_path)
+        return DatasetsManager(
+            self.metadata.lineage.project_path,
+            datasets_file=self._datasets_file,
+        )
 
     @classmethod
     def read_dataset(
