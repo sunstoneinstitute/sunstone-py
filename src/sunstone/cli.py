@@ -203,14 +203,18 @@ def collect_methodology_files(
     seen: dict[Path, str] = {}
 
     def _consider(value: str) -> None:
+        from .packaging import validate_path_containment
+
         if is_uri(value):
             # If the URI starts with our base_url, it's a project file we should upload
             if base_url and value.startswith(base_url.rstrip("/") + "/"):
                 rel_path = value[len(base_url.rstrip("/") + "/") :]
+                validate_path_containment(rel_path, manager.project_path, label="methodology file")
                 candidate = manager.get_absolute_path(rel_path)
                 if candidate.exists() and candidate not in seen:
                     seen[candidate] = value
             return
+        validate_path_containment(value, manager.project_path, label="methodology file")
         candidate = manager.get_absolute_path(value)
         if candidate.exists() and candidate not in seen:
             resolved = resolve_methodology_value(value, base_url)

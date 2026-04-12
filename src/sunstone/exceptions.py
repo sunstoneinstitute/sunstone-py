@@ -37,3 +37,9 @@ class UnitError(SunstoneError):
     """Raised when a unit operation fails (incompatible dimensions, unparseable unit, etc.)."""
 
     pass
+
+
+class PathContainmentError(SunstoneError):
+    """Raised when a path escapes the project root during package build/push."""
+
+    pass

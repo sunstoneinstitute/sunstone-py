@@ -14,7 +14,15 @@ import pytest
 import typer as _typer
 from typer.testing import CliRunner
 
-from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
+from sunstone.cli import (
+    _contributor_to_dict,
+    _package_metadata_to_dict,
+    app,
+    collect_methodology_files,
+    expand_env_vars,
+    is_lfs_pointer,
+)
+from sunstone.exceptions import PathContainmentError
 from sunstone.lineage import Contributor, PackageMetadata
 
 
@@ -912,6 +920,72 @@ class TestPackagePushCommand:
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/DATA_METHODOLOGY.md"
+
+
+class TestMethodologyPathContainment:
+    """Tests that methodology files with escaping paths are rejected."""
+
+    def test_absolute_methodology_path_rejected(self, tmp_path: Path) -> None:
+        """Methodology value pointing to an absolute path is rejected."""
+        manager = MagicMock()
+        manager.project_path = tmp_path
+        manager.get_absolute_path.side_effect = lambda v: (tmp_path / v).resolve()
+
+        top_level_props = {
+            "https://sunstone.institute/rdf/vocab#methodology": "/etc/passwd",
+        }
+
+        with pytest.raises(PathContainmentError, match="absolute path"):
+            collect_methodology_files(
+                datasets=[],
+                top_level_props=top_level_props,
+                rdf_prefixes={},
+                manager=manager,
+            )
+
+    def test_dotdot_methodology_path_rejected(self, tmp_path: Path) -> None:
+        """Methodology value with .. escape is rejected."""
+        # Create the file so the _consider function would find it
+        outside_file = tmp_path.parent / "secret.md"
+        outside_file.write_text("secret")
+
+        manager = MagicMock()
+        manager.project_path = tmp_path
+        manager.get_absolute_path.side_effect = lambda v: (tmp_path / v).resolve()
+
+        top_level_props = {
+            "https://sunstone.institute/rdf/vocab#methodology": "../secret.md",
+        }
+
+        with pytest.raises(PathContainmentError, match="escapes the project root"):
+            collect_methodology_files(
+                datasets=[],
+                top_level_props=top_level_props,
+                rdf_prefixes={},
+                manager=manager,
+            )
+
+    def test_normal_methodology_path_allowed(self, tmp_path: Path) -> None:
+        """Normal in-project methodology paths work fine."""
+        meth_file = tmp_path / "report" / "methodology.md"
+        meth_file.parent.mkdir()
+        meth_file.write_text("# Methodology")
+
+        manager = MagicMock()
+        manager.project_path = tmp_path
+        manager.get_absolute_path.side_effect = lambda v: (tmp_path / v).resolve()
+
+        top_level_props = {
+            "https://sunstone.institute/rdf/vocab#methodology": "report/methodology.md",
+        }
+
+        result = collect_methodology_files(
+            datasets=[],
+            top_level_props=top_level_props,
+            rdf_prefixes={},
+            manager=manager,
+        )
+        assert len(result) == 1
 
 
 class TestIsLfsPointer:

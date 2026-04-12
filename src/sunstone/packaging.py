@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
 from .datasets import DatasetsManager
+from .exceptions import PathContainmentError
 from .lineage import DatasetMetadata, PublishConfig
 from .plugins import PluginRegistry
 
@@ -39,6 +40,42 @@ def is_lfs_pointer(file_path: Path) -> bool:
         return content.startswith("version https://git-lfs.github.com/spec/v1\n")
     except (OSError, UnicodeDecodeError):
         return False
+
+
+def validate_path_containment(
+    location: str,
+    project_path: Path,
+    label: str = "dataset",
+) -> None:
+    """Verify that a location resolves to a path inside the project root.
+
+    This prevents untrusted ``datasets.yaml`` entries from reading files
+    outside the project directory during ``package push``.
+
+    Args:
+        location: The raw location string from datasets.yaml.
+        project_path: Resolved project root directory.
+        label: Human-readable label for error messages (e.g. "dataset", "methodology file").
+
+    Raises:
+        PathContainmentError: If the path is absolute or escapes the project root.
+    """
+    loc = Path(location)
+
+    if loc.is_absolute():
+        raise PathContainmentError(
+            f"Refusing to package {label} with absolute path. "
+            f"All {label} locations must be relative to the project root."
+        )
+
+    resolved = (project_path / loc).resolve()
+    try:
+        resolved.relative_to(project_path)
+    except ValueError:
+        raise PathContainmentError(
+            f"Refusing to package {label} whose path escapes the project root. "
+            f"All {label} locations must resolve to a path inside the project directory."
+        )
 
 
 def push_group(
@@ -106,6 +143,9 @@ def push_group(
         if not resource_dict:
             continue
 
+        # Guard: reject paths that escape the project root
+        validate_path_containment(ds.location, manager.project_path, label="dataset")
+
         data_path = manager.get_absolute_path(ds.location)
         if publish_config.flatten:
             remote_path = base_dir + data_path.name
@@ -171,6 +211,14 @@ def push_group(
 
     # Upload methodology files
     for abs_path, _resolved_uri in methodology_files:
+        # Guard: reject methodology files that escape the project root
+        try:
+            abs_path.resolve().relative_to(manager.project_path)
+        except ValueError:
+            raise PathContainmentError(
+                "Refusing to package methodology file whose path escapes the project root. "
+                "All methodology file locations must resolve to a path inside the project directory."
+            )
         if publish_config.flatten:
             methodology_remote = base_dir + abs_path.name
         else:

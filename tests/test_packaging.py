@@ -10,8 +10,9 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
+from sunstone.exceptions import PathContainmentError
 from sunstone.lineage import DatasetMetadata, PublishConfig
-from sunstone.packaging import is_lfs_pointer, push_group
+from sunstone.packaging import is_lfs_pointer, push_group, validate_path_containment
 
 
 @pytest.fixture
@@ -338,3 +339,147 @@ def test_push_group_flatten_mode(tmp_path: Path) -> None:
 
     # With flatten, the data file name (not full path) is the resource path
     assert uploaded[1] == "result.csv"
+
+
+# ---------------------------------------------------------------------------
+# Path containment checks
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePathContainment:
+    """Tests for validate_path_containment."""
+
+    def test_absolute_path_rejected(self, tmp_path: Path) -> None:
+        with pytest.raises(PathContainmentError, match="absolute path"):
+            validate_path_containment("/etc/passwd", tmp_path, label="dataset")
+
+    def test_dotdot_escape_rejected(self, tmp_path: Path) -> None:
+        with pytest.raises(PathContainmentError, match="escapes the project root"):
+            validate_path_containment("../secret.csv", tmp_path, label="dataset")
+
+    def test_nested_dotdot_escape_rejected(self, tmp_path: Path) -> None:
+        with pytest.raises(PathContainmentError, match="escapes the project root"):
+            validate_path_containment("outputs/../../secret.csv", tmp_path, label="dataset")
+
+    def test_normal_relative_path_allowed(self, tmp_path: Path) -> None:
+        # Should not raise
+        validate_path_containment("outputs/data.csv", tmp_path, label="dataset")
+
+    def test_simple_filename_allowed(self, tmp_path: Path) -> None:
+        # Should not raise
+        validate_path_containment("data.csv", tmp_path, label="dataset")
+
+
+class TestPushGroupPathContainment:
+    """Integration tests: push_group rejects escaping paths."""
+
+    def test_absolute_dataset_location_rejected(self, tmp_path: Path) -> None:
+        ds = DatasetMetadata(slug="evil", name="Evil", location="/etc/passwd", dataset_type="output")
+        manager = MagicMock()
+        manager.project_path = tmp_path
+
+        with pytest.raises(PathContainmentError, match="absolute path"):
+            push_group(
+                dest_url="gs://bucket/pkg/",
+                datasets=[ds],
+                manager=manager,
+                project_slug="p",
+                publish_config=PublishConfig(enabled=True, to="gs://bucket/pkg/", flatten=False),
+                build_resource_dict_fn=lambda d, m, pc: {"path": d.location},
+                package_metadata_fn=lambda: None,
+                rdf_prefixes={},
+                top_level_props={},
+                methodology_files=[],
+            )
+
+    def test_dotdot_dataset_location_rejected(self, tmp_path: Path) -> None:
+        ds = DatasetMetadata(slug="evil", name="Evil", location="../secret.csv", dataset_type="output")
+        manager = MagicMock()
+        manager.project_path = tmp_path
+
+        with pytest.raises(PathContainmentError, match="escapes the project root"):
+            push_group(
+                dest_url="gs://bucket/pkg/",
+                datasets=[ds],
+                manager=manager,
+                project_slug="p",
+                publish_config=PublishConfig(enabled=True, to="gs://bucket/pkg/", flatten=False),
+                build_resource_dict_fn=lambda d, m, pc: {"path": d.location},
+                package_metadata_fn=lambda: None,
+                rdf_prefixes={},
+                top_level_props={},
+                methodology_files=[],
+            )
+
+    def test_methodology_outside_project_rejected(self, tmp_path: Path) -> None:
+        """Methodology files with paths outside the project are rejected."""
+        data_file = tmp_path / "data.csv"
+        data_file.write_text("a\n1\n")
+
+        ds = DatasetMetadata(slug="d", name="D", location="data.csv", dataset_type="output")
+        manager = MagicMock()
+        manager.get_absolute_path.return_value = data_file
+        manager.project_path = tmp_path
+
+        # A methodology file that is outside the project root
+        outside_path = tmp_path.parent / "outside_methodology.pdf"
+
+        streams: dict[str, io.IOBase] = {}
+        mock_handler = _make_handler(streams)
+        mock_registry = MagicMock()
+        mock_registry.find_url_handler.return_value = mock_handler
+
+        with patch("sunstone.packaging.PluginRegistry") as MockPluginRegistry:
+            MockPluginRegistry.get.return_value = mock_registry
+
+            with pytest.raises(PathContainmentError, match="methodology file"):
+                push_group(
+                    dest_url="gs://bucket/pkg/",
+                    datasets=[ds],
+                    manager=manager,
+                    project_slug="p",
+                    publish_config=PublishConfig(enabled=True, to="gs://bucket/pkg/", flatten=False),
+                    build_resource_dict_fn=lambda d, m, pc: {"path": d.location},
+                    package_metadata_fn=lambda: None,
+                    rdf_prefixes={},
+                    top_level_props={},
+                    methodology_files=[(outside_path, "https://example.com/methodology.pdf")],
+                )
+
+    def test_normal_paths_still_work(self, tmp_path: Path) -> None:
+        """Normal in-project paths should still build and push fine."""
+        data_dir = tmp_path / "outputs"
+        data_dir.mkdir()
+        data_file = data_dir / "result.csv"
+        data_file.write_bytes(b"x,y\n3,4\n")
+
+        meth_file = tmp_path / "methodology.pdf"
+        meth_file.write_bytes(b"PDF content")
+
+        ds = DatasetMetadata(slug="result", name="Result", location="outputs/result.csv", dataset_type="output")
+        manager = MagicMock()
+        manager.get_absolute_path.return_value = data_file
+        manager.project_path = tmp_path
+
+        streams: dict[str, io.IOBase] = {}
+        mock_handler = _make_handler(streams)
+        mock_registry = MagicMock()
+        mock_registry.find_url_handler.return_value = mock_handler
+
+        with patch("sunstone.packaging.PluginRegistry") as MockPluginRegistry:
+            MockPluginRegistry.get.return_value = mock_registry
+
+            uploaded = push_group(
+                dest_url="gs://bucket/pkg/",
+                datasets=[ds],
+                manager=manager,
+                project_slug="test-project",
+                publish_config=PublishConfig(enabled=True, to="gs://bucket/pkg/", flatten=False),
+                build_resource_dict_fn=lambda d, m, pc: {"path": d.location, "name": d.slug},
+                package_metadata_fn=lambda: None,
+                rdf_prefixes={},
+                top_level_props={},
+                methodology_files=[(meth_file, "https://example.com/methodology.pdf")],
+            )
+
+        assert len(uploaded) == 3

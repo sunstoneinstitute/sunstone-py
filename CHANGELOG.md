@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Security: Reject dataset and methodology paths that escape the project root during package push
 
 ## [1.4.1] - 2026-04-11
 - Added: `to_parquet()`
