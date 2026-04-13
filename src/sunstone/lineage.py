@@ -420,6 +420,19 @@ class LineageMetadata:
         if dataset not in self.sources:
             self.sources.append(dataset)
 
+    def populate_field_derivations(self, columns: List[str], slug: str) -> None:
+        """Auto-populate field derivations for columns read from a source dataset.
+
+        Creates a FieldDerivation(output_field=col, source_entity=slug,
+        source_field=col) for each column, so that field-level provenance
+        is tracked automatically from read through to write.
+        """
+        derivations = [FieldDerivation(output_field=col, source_entity=slug, source_field=col) for col in columns]
+        if self.field_derivations is None:
+            self.field_derivations = derivations
+        else:
+            self.field_derivations.extend(derivations)
+
     def merge(self, other: "LineageMetadata") -> "LineageMetadata":
         """
         Merge lineage from another DataFrame.

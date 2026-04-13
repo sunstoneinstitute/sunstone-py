@@ -298,3 +298,41 @@ class TestFlushAndPersist:
         output = next(d for d in data["outputs"] if d["slug"] == "absolute-test")
         context = output["lineage"]["context"]
         assert context["script_path"] == "/some/other/place/process.py"
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_field_derivations_auto_populated_and_persisted(self, mock_ctx: Any, flow_project: Path) -> None:
+        """Read two datasets, merge, write -> field_derivations appear in datasets.yaml."""
+        df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+        df2 = sunstone.DataFrame.read_dataset("beta-data", project_path=flow_project)
+
+        merged = df1.merge(df2, on="id")
+        merged.to_csv(
+            "outputs/merged.csv",
+            slug="merged-output",
+            name="Merged Output",
+            index=False,
+        )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        output = next(d for d in data["outputs"] if d["slug"] == "merged-output")
+        lineage = output["lineage"]
+
+        assert "field_derivations" in lineage
+        fd = lineage["field_derivations"]
+        fd_by_field = {d["output_field"]: d for d in fd}
+
+        # Columns from alpha-data
+        assert fd_by_field["name"]["source_entity"] == "alpha-data"
+        assert fd_by_field["name"]["source_field"] == "name"
+        assert fd_by_field["value"]["source_entity"] == "alpha-data"
+        assert fd_by_field["value"]["source_field"] == "value"
+
+        # Column from beta-data
+        assert fd_by_field["score"]["source_entity"] == "beta-data"
+        assert fd_by_field["score"]["source_field"] == "score"
+
+        # 'id' exists in both — should have derivation from at least one source
+        assert "id" in fd_by_field

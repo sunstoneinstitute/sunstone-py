@@ -443,9 +443,14 @@ class TestDatasetsYamlRoundTrip:
 
         assert "field_derivations" in lineage
         fd = lineage["field_derivations"]
-        assert len(fd) == 1
-        assert fd[0]["output_field"] == "name"
-        assert fd[0]["source_entity"] == "input-data"
+        fd_by_field = {d["output_field"]: d for d in fd}
+
+        # Auto-populated derivation for 'id'
+        assert fd_by_field["id"]["source_entity"] == "input-data"
+        assert fd_by_field["id"]["source_field"] == "id"
+
+        # Explicitly set derivation for 'name' (replaces auto-populated one)
+        assert fd_by_field["name"]["source_entity"] == "input-data"
 
     def test_activity_parsed_from_yaml(self, tmp_path: Path) -> None:
         """Activity section in datasets.yaml should be parseable."""
