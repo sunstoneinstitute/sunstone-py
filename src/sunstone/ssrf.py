@@ -28,7 +28,7 @@ import logging
 import socket
 from urllib.parse import urlparse
 
-__all__ = ["is_public_url", "BLOCKED_NETWORKS", "CLOUD_METADATA_IPS"]
+__all__ = ["is_public_url", "BLOCKED_NETWORKS", "CLOUD_METADATA_IPS", "CLOUD_METADATA_HOSTNAMES"]
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,16 @@ CLOUD_METADATA_IPS: frozenset[str] = frozenset(
         "169.254.169.254",  # AWS, GCP, Azure metadata
         "fd00:ec2::254",  # AWS EC2 IPv6 metadata
         "100.100.100.200",  # Alibaba Cloud metadata
+    }
+)
+
+# Cloud metadata hostnames — blocked before DNS resolution to prevent
+# DNS rebinding from bypassing IP-based checks.
+CLOUD_METADATA_HOSTNAMES: frozenset[str] = frozenset(
+    {
+        "metadata.google.internal",
+        "metadata.goog",
+        "169.254.169.254",
     }
 )
 
@@ -121,6 +131,15 @@ def is_public_url(url: str) -> bool:
         return False
 
     hostname = parsed.hostname
+
+    # Block known cloud metadata hostnames before DNS resolution.
+    if hostname.lower() in CLOUD_METADATA_HOSTNAMES:
+        logger.warning(
+            "URL hostname '%s' is a blocked cloud metadata endpoint",
+            hostname,
+        )
+        return False
+
     try:
         addrinfos = socket.getaddrinfo(hostname, None)
         for addrinfo in addrinfos:

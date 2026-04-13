@@ -2,6 +2,7 @@
 Tests for Sunstone DatasetsManager functionality.
 """
 
+import io
 import socket
 import unittest.mock
 from pathlib import Path
@@ -15,13 +16,23 @@ from sunstone.ssrf import is_public_url
 
 
 def _make_response(status: int, location: str | None = None, content: bytes = b"test data") -> MagicMock:
-    """Create a mock urllib response object."""
+    """Create a mock urllib response object.
+
+    For non-redirect responses, read() behaves as a stream (returns data once,
+    then empty bytes) to work correctly with streaming size-limited reads.
+    """
     mock_resp = MagicMock()
     mock_resp.status = status
     mock_resp.headers = {}
     if location is not None:
         mock_resp.headers["Location"] = location
-    mock_resp.read.return_value = content
+    # Use stream-based read for non-redirect statuses to avoid infinite loops
+    # with _read_response_with_limit's chunked reading.
+    if status not in (301, 302, 303, 307, 308):
+        stream = io.BytesIO(content)
+        mock_resp.read = stream.read
+    else:
+        mock_resp.read.return_value = content
     return mock_resp
 
 
@@ -607,7 +618,10 @@ class TestRedirectSSRFProtection:
                         result = manager.fetch_from_url(dataset, force=True)
                         assert result is not None
                         # Verify the relative URL was resolved to the correct absolute URL
-                        # The second call should be to the resolved URL: https://example.com/new/data.csv
+                        # The second call should be to the resolved URL with the IP
+                        # (DNS rebinding protection rewrites hostname to resolved IP)
                         assert mock_opener.open.call_count == 2
                         second_call_request = mock_opener.open.call_args_list[1][0][0]
-                        assert second_call_request.full_url == "https://example.com/new/data.csv"
+                        # URL is rewritten to use resolved IP; check path is correct
+                        assert "/new/data.csv" in second_call_request.full_url
+                        assert "93.184.216.34" in second_call_request.full_url
