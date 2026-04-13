@@ -17,6 +17,7 @@ import typer
 from ruamel.yaml import YAML
 
 from .datasets import DatasetsManager
+from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
 from .lineage import Contributor, DatasetMetadata, PackageMetadata, PublishConfig
 
@@ -1175,6 +1176,8 @@ def push_group_to_gcs(
     manager: DatasetsManager,
     project_slug: str,
     publish_config: PublishConfig,
+    *,
+    allow_outside_project: bool = False,
 ) -> None:
     """
     Push a group of datasets to a remote destination.
@@ -1224,8 +1227,9 @@ def push_group_to_gcs(
             rdf_prefixes=rdf_prefixes,
             top_level_props=top_level_props or {},
             methodology_files=methodology_files,
+            allow_outside_project=allow_outside_project,
         )
-    except ValueError as e:
+    except (ValueError, PathTraversalError) as e:
         typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1254,6 +1258,11 @@ def package_push(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
     destination: Optional[str] = typer.Option(
         None, "--destination", "-d", help="Override destination gs:// URL for all datasets"
+    ),
+    allow_outside_project: bool = typer.Option(
+        False,
+        "--allow-outside-project",
+        help="Allow publishing files outside the project root (use with caution)",
     ),
 ) -> None:
     """Push data packages to Google Cloud Storage.
@@ -1308,7 +1317,14 @@ def package_push(
 
         dest_url = expand_env_vars(destination)
         try:
-            push_group_to_gcs(dest_url, publishable, manager, project_slug, override_config)
+            push_group_to_gcs(
+                dest_url,
+                publishable,
+                manager,
+                project_slug,
+                override_config,
+                allow_outside_project=allow_outside_project,
+            )
         except ImportError:
             typer.echo("Error: google-cloud-storage is required for push", err=True)
             typer.echo("Install with: pip install google-cloud-storage", err=True)
@@ -1325,7 +1341,9 @@ def package_push(
 
         try:
             for dest_url, (pub_config, datasets) in groups.items():
-                push_group_to_gcs(dest_url, datasets, manager, project_slug, pub_config)
+                push_group_to_gcs(
+                    dest_url, datasets, manager, project_slug, pub_config, allow_outside_project=allow_outside_project
+                )
                 typer.echo()
 
             typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
