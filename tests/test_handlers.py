@@ -176,7 +176,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/data.csv", "rb")
@@ -190,7 +190,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/data.csv", "r")
@@ -201,7 +201,7 @@ class TestHttpURLHandlerOpen:
             http_handler.open("https://example.com/data.csv", "wb")
 
     def test_rejects_private_url(self, http_handler):
-        with patch("sunstone.handlers._is_public_url", return_value=False):
+        with patch("sunstone.handlers.is_public_url", return_value=False):
             with pytest.raises(ValueError, match="not allowed"):
                 http_handler.open("http://192.168.1.1/data.csv", "rb")
 
@@ -216,7 +216,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             stream = http_handler.open("https://example.com/redirect", "rb")
@@ -233,7 +233,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             http_handler.open("https://example.com/data.csv", "rb", headers={"Authorization": "Bearer secret"})
@@ -253,7 +253,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = redirect_responses
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch("sunstone.handlers.build_opener", return_value=mock_opener),
         ):
             with pytest.raises(ValueError, match="Too many redirects"):
@@ -374,7 +374,7 @@ def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         manager.fetch_from_url(dataset, force=True)

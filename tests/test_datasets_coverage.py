@@ -15,7 +15,7 @@ import pytest
 from ruamel.yaml import YAML
 
 from sunstone.datasets import DatasetsManager
-from sunstone.handlers import _is_public_url
+from sunstone.ssrf import is_public_url
 from sunstone.exceptions import DatasetNotFoundError, DatasetValidationError
 from sunstone.lineage import (
     DatasetMetadata,
@@ -48,25 +48,25 @@ class TestIsPublicUrlErrorPaths:
     """Tests for _is_public_url error handling (lines 102-110)."""
 
     def test_gaierror_returns_false(self) -> None:
-        with patch("sunstone.handlers.socket.getaddrinfo", side_effect=socket.gaierror("DNS failure")):
-            assert _is_public_url("https://nonexistent.invalid/data.csv") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=socket.gaierror("DNS failure")):
+            assert is_public_url("https://nonexistent.invalid/data.csv") is False
 
     def test_value_error_returns_false(self) -> None:
         # Trigger ValueError by making ip_address raise on a bad address
         with patch(
-            "sunstone.handlers.socket.getaddrinfo",
+            "sunstone.ssrf.socket.getaddrinfo",
             return_value=[(None, None, None, None, ("not-an-ip",))],
         ):
-            with patch("sunstone.handlers.ipaddress.ip_address", side_effect=ValueError("bad IP")):
-                assert _is_public_url("https://example.com/data.csv") is False
+            with patch("sunstone.ssrf.ipaddress.ip_address", side_effect=ValueError("bad IP")):
+                assert is_public_url("https://example.com/data.csv") is False
 
     def test_unexpected_exception_is_reraised(self) -> None:
         with patch(
-            "sunstone.handlers.socket.getaddrinfo",
+            "sunstone.ssrf.socket.getaddrinfo",
             side_effect=RuntimeError("unexpected"),
         ):
             with pytest.raises(RuntimeError, match="unexpected"):
-                _is_public_url("https://example.com/data.csv")
+                is_public_url("https://example.com/data.csv")
 
 
 class TestDatasetsManagerInit:

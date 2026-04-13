@@ -439,7 +439,7 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -476,7 +476,7 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -503,7 +503,7 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -537,7 +537,7 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
     registry._auth_providers.append(TestAuth())
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=opener_with_auth),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -550,7 +550,7 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
     opener_without_auth.open.return_value = plain_response
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers.build_opener", return_value=opener_without_auth),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):

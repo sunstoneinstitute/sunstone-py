@@ -5,14 +5,14 @@ Internal plugin implementations for built-in formats and HTTP fetching.
 from __future__ import annotations
 
 import io
-import ipaddress
 import logging
-import socket
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Callable, Literal, TextIO, overload
 from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
+
+from sunstone.ssrf import is_public_url
 
 import pandas as pd
 
@@ -102,45 +102,6 @@ class _NoRedirectHandler(HTTPRedirectHandler):
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 
 
-def _is_public_url(url: str) -> bool:
-    """
-    Validate that a URL points to a public (non-private) resource.
-
-    Prevents SSRF attacks by blocking non-HTTP(S) schemes, private IPs,
-    localhost, loopback, and link-local addresses.
-    """
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            logger.warning("URL scheme '%s' not allowed (only http/https permitted)", parsed.scheme)
-            return False
-        if not parsed.hostname:
-            logger.warning("URL has no hostname")
-            return False
-        addrinfos = socket.getaddrinfo(parsed.hostname, None)
-        for addrinfo in addrinfos:
-            sockaddr = addrinfo[4]
-            ip = sockaddr[0]
-            ip_obj = ipaddress.ip_address(ip)
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
-                logger.warning(
-                    "URL hostname '%s' resolves to restricted IP address: %s",
-                    parsed.hostname,
-                    ip,
-                )
-                return False
-        return True
-    except socket.gaierror:
-        logger.warning("Unable to resolve hostname: %s", parsed.hostname)
-        return False
-    except ValueError as e:
-        logger.warning("Error validating URL '%s': %s", url, e)
-        return False
-    except Exception as e:
-        logger.exception("Unexpected error validating URL '%s': %s", url, e)
-        raise
-
-
 class HttpURLHandler:
     """Fetches datasets from HTTP/HTTPS URLs with SSRF protection."""
 
@@ -166,7 +127,7 @@ class HttpURLHandler:
                 "HTTP write is not supported. Use a cloud storage handler (gs://, s3://) for uploads."
             )
 
-        if not _is_public_url(url):
+        if not is_public_url(url):
             raise ValueError(
                 f"URL '{url}' is not allowed. Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
             )
@@ -196,7 +157,7 @@ class HttpURLHandler:
 
             redirect_url = urljoin(current_url, redirect_url)
 
-            if not _is_public_url(redirect_url):
+            if not is_public_url(redirect_url):
                 raise ValueError(f"Redirect URL '{redirect_url}' is not allowed.")
 
             redirect_parsed = urlparse(redirect_url)

@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added: `sunstone.ssrf` module with comprehensive SSRF protection (CGNAT, cloud metadata, IPv4-mapped IPv6, multicast, reserved ranges)
 
 ## [1.4.1] - 2026-04-11
 - Added: `to_parquet()`

@@ -9,6 +9,7 @@ The `sunstone-py` package provides:
 - **DataFrame wrapper**: Pandas-compatible DataFrame with automatic lineage tracking
 - **Dataset management**: Integration with `datasets.yaml` for all I/O operations
 - **Plugin system**: Extensible auth, URL handling, and format support via entry points
+- **SSRF protection**: Reusable URL validation to prevent server-side request forgery
 - **Validation tools**: Check notebooks and scripts for correct import usage
 - **Metadata system**: Unified container for dataset-level and field-level metadata that flows through operations to write time
 - **Pandas-like API**: Familiar interface for data scientists via `from sunstone import pandas as pd`
@@ -38,6 +39,7 @@ The `sunstone-py` package provides:
 │       ├── py.typed
 │       ├── queries.py
 │       ├── session.py
+│       ├── ssrf.py
 │       └── validation.py
 ├── templates
 │   ├── analysis_notebook.ipynb
@@ -65,6 +67,7 @@ The `sunstone-py` package provides:
     ├── test_rdf.py
     ├── test_remaining_coverage.py
     ├── test_session.py
+    ├── test_ssrf.py
     ├── test_validation.py
     └── testdata
         └── UNMembersProject

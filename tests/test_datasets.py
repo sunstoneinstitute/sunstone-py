@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 import sunstone
-from sunstone.handlers import _is_public_url
+from sunstone.ssrf import is_public_url
 
 
 def _make_response(status: int, location: str | None = None, content: bytes = b"test data") -> MagicMock:
@@ -246,100 +246,100 @@ class TestURLSafety:
 
     def test_valid_https_url(self) -> None:
         """Test that valid HTTPS URLs to public addresses are allowed."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
-            assert _is_public_url("https://example.com/data.csv") is True
-            assert _is_public_url("https://www.google.com/file.json") is True
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
+            assert is_public_url("https://example.com/data.csv") is True
+            assert is_public_url("https://www.google.com/file.json") is True
 
     def test_valid_http_url(self) -> None:
         """Test that valid HTTP URLs to public addresses are allowed."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
-            assert _is_public_url("http://example.com/data.csv") is True
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("93.184.216.34")):
+            assert is_public_url("http://example.com/data.csv") is True
 
     def test_file_scheme_blocked(self) -> None:
         """Test that file:// URLs are blocked."""
-        assert _is_public_url("file:///etc/passwd") is False
-        assert _is_public_url("file:///tmp/data.csv") is False
+        assert is_public_url("file:///etc/passwd") is False
+        assert is_public_url("file:///tmp/data.csv") is False
 
     def test_ftp_scheme_blocked(self) -> None:
         """Test that FTP URLs are blocked."""
-        assert _is_public_url("ftp://example.com/data.csv") is False
+        assert is_public_url("ftp://example.com/data.csv") is False
 
     def test_localhost_blocked(self) -> None:
         """Test that localhost URLs are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
-            assert _is_public_url("http://localhost/api") is False
-            assert _is_public_url("http://localhost:8080/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert is_public_url("http://localhost/api") is False
+            assert is_public_url("http://localhost:8080/data") is False
 
     def test_loopback_ip_blocked(self) -> None:
         """Test that loopback IP addresses are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
-            assert _is_public_url("http://127.0.0.1/api") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.2")):
-            assert _is_public_url("http://127.0.0.2:8080/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert is_public_url("http://127.0.0.1/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.2")):
+            assert is_public_url("http://127.0.0.2:8080/data") is False
 
     def test_private_ip_10_blocked(self) -> None:
         """Test that private IP addresses (10.x.x.x) are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("10.0.0.1")):
-            assert _is_public_url("http://internal.example.com/api") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("10.255.255.254")):
-            assert _is_public_url("http://10.255.255.254/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("10.0.0.1")):
+            assert is_public_url("http://internal.example.com/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("10.255.255.254")):
+            assert is_public_url("http://10.255.255.254/data") is False
 
     def test_private_ip_192_168_blocked(self) -> None:
         """Test that private IP addresses (192.168.x.x) are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
-            assert _is_public_url("http://router.local/config") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.100.50")):
-            assert _is_public_url("http://192.168.100.50/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
+            assert is_public_url("http://router.local/config") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.100.50")):
+            assert is_public_url("http://192.168.100.50/api") is False
 
     def test_private_ip_172_16_blocked(self) -> None:
         """Test that private IP addresses (172.16-31.x.x) are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("172.16.0.1")):
-            assert _is_public_url("http://internal-app.local/data") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("172.31.255.255")):
-            assert _is_public_url("http://172.31.255.255/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("172.16.0.1")):
+            assert is_public_url("http://internal-app.local/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("172.31.255.255")):
+            assert is_public_url("http://172.31.255.255/api") is False
 
     def test_link_local_blocked(self) -> None:
         """Test that link-local addresses (169.254.x.x) are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
-            assert _is_public_url("http://169.254.169.254/metadata") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert is_public_url("http://169.254.169.254/metadata") is False
 
     def test_cloud_metadata_endpoint_blocked(self) -> None:
         """Test that AWS/GCP cloud metadata endpoints are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
-            assert _is_public_url("http://169.254.169.254/latest/meta-data/") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert is_public_url("http://169.254.169.254/latest/meta-data/") is False
 
     def test_ipv6_loopback_blocked(self) -> None:
         """Test that IPv6 loopback address (::1) is blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("::1")):
-            assert _is_public_url("http://localhost/api") is False
-            assert _is_public_url("http://[::1]/api") is False
-            assert _is_public_url("http://[::1]:8080/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("::1")):
+            assert is_public_url("http://localhost/api") is False
+            assert is_public_url("http://[::1]/api") is False
+            assert is_public_url("http://[::1]:8080/data") is False
 
     def test_ipv6_link_local_blocked(self) -> None:
         """Test that IPv6 link-local addresses (fe80::) are blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1")):
-            assert _is_public_url("http://ipv6-link-local.example.com/data") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1234:5678:abcd:ef01")):
-            assert _is_public_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1")):
+            assert is_public_url("http://ipv6-link-local.example.com/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("fe80::1234:5678:abcd:ef01")):
+            assert is_public_url("http://[fe80::1234:5678:abcd:ef01]/api") is False
 
     def test_ipv6_unique_local_blocked(self) -> None:
         """Test that IPv6 unique local addresses (fc00::/7, including fd00::) are blocked."""
         # fc00:: prefix (unique local, not yet assigned)
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("fc00::1")):
-            assert _is_public_url("http://internal-ipv6.example.com/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("fc00::1")):
+            assert is_public_url("http://internal-ipv6.example.com/data") is False
         # fd00:: prefix (unique local, commonly used for private networks)
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("fd00::1")):
-            assert _is_public_url("http://private-ipv6.example.com/api") is False
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("fd12:3456:789a::1")):
-            assert _is_public_url("http://[fd12:3456:789a::1]:8080/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("fd00::1")):
+            assert is_public_url("http://private-ipv6.example.com/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("fd12:3456:789a::1")):
+            assert is_public_url("http://[fd12:3456:789a::1]:8080/data") is False
 
     def test_dns_resolution_failure(self) -> None:
         """Test that URLs with unresolvable hostnames are blocked."""
         with patch(
-            "sunstone.handlers.socket.getaddrinfo",
+            "sunstone.ssrf.socket.getaddrinfo",
             side_effect=socket.gaierror("DNS lookup failed"),
         ):
-            assert _is_public_url("http://nonexistent-domain-xyz123.com/data") is False
+            assert is_public_url("http://nonexistent-domain-xyz123.com/data") is False
 
     def test_decimal_ip_representation_blocked(self) -> None:
         """Test that decimal IP representations (e.g., 2130706433 = 127.0.0.1) are blocked.
@@ -349,16 +349,16 @@ class TestURLSafety:
         """
         # 2130706433 is the decimal representation of 127.0.0.1
         # getaddrinfo resolves this to the actual IP, which should be blocked
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
-            assert _is_public_url("http://2130706433/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert is_public_url("http://2130706433/api") is False
 
         # 3232235777 is the decimal representation of 192.168.1.1
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
-            assert _is_public_url("http://3232235777/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
+            assert is_public_url("http://3232235777/data") is False
 
         # 2851995649 is the decimal representation of 169.254.169.254 (cloud metadata)
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
-            assert _is_public_url("http://2851995649/latest/meta-data/") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert is_public_url("http://2851995649/latest/meta-data/") is False
 
     def test_hex_ip_representation_blocked(self) -> None:
         """Test that hexadecimal IP representations (e.g., 0x7f000001 = 127.0.0.1) are blocked.
@@ -367,16 +367,16 @@ class TestURLSafety:
         socket.getaddrinfo() correctly resolves these to the actual IP address.
         """
         # 0x7f000001 is the hex representation of 127.0.0.1
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
-            assert _is_public_url("http://0x7f000001/api") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert is_public_url("http://0x7f000001/api") is False
 
         # 0xc0a80101 is the hex representation of 192.168.1.1
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
-            assert _is_public_url("http://0xc0a80101/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("192.168.1.1")):
+            assert is_public_url("http://0xc0a80101/data") is False
 
         # 0xa9fea9fe is the hex representation of 169.254.169.254
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
-            assert _is_public_url("http://0xa9fea9fe/metadata") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            assert is_public_url("http://0xa9fea9fe/metadata") is False
 
     def test_mixed_notation_ip_blocked(self) -> None:
         """Test that mixed notation IPs are blocked.
@@ -385,13 +385,13 @@ class TestURLSafety:
         represented as 0x7f.0.0.1 or similar variations.
         """
         # Various representations that resolve to loopback
-        with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
-            assert _is_public_url("http://0x7f.0.0.1/api") is False
-            assert _is_public_url("http://127.0x0.0.1/data") is False
+        with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("127.0.0.1")):
+            assert is_public_url("http://0x7f.0.0.1/api") is False
+            assert is_public_url("http://127.0x0.0.1/data") is False
 
     def test_url_without_hostname(self) -> None:
         """Test that URLs without hostnames are blocked."""
-        assert _is_public_url("http:///no-host") is False
+        assert is_public_url("http:///no-host") is False
 
     def test_fetch_from_url_with_ssrf_attempt(self, project_path: Path) -> None:
         """Test that fetch_from_url raises ValueError for SSRF attempts."""
@@ -403,7 +403,7 @@ class TestURLSafety:
             dataset.source.location.data = "http://169.254.169.254/metadata"
 
             # Mock DNS resolution to return the link-local IP
-            with patch("sunstone.handlers.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
+            with patch("sunstone.ssrf.socket.getaddrinfo", return_value=mock_getaddrinfo("169.254.169.254")):
                 with pytest.raises(ValueError, match="not allowed"):
                     manager.fetch_from_url(dataset, force=True)
 
@@ -444,7 +444,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.return_value = redirect_response
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
@@ -468,7 +468,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.return_value = redirect_response
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
@@ -492,7 +492,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.return_value = redirect_response
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
@@ -514,7 +514,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.side_effect = [redirect_response, ok_response]
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     # Mock file writing to avoid modifying test input files
                     with patch("builtins.open", unittest.mock.mock_open()):
@@ -538,7 +538,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.side_effect = redirect_responses
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="Too many redirects"):
                         manager.fetch_from_url(dataset, force=True)
@@ -559,7 +559,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.return_value = redirect_response
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="Location header"):
                         manager.fetch_from_url(dataset, force=True)
@@ -579,7 +579,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.return_value = redirect_response
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     with pytest.raises(ValueError, match="not allowed"):
                         manager.fetch_from_url(dataset, force=True)
@@ -600,7 +600,7 @@ class TestRedirectSSRFProtection:
             mock_opener = MagicMock()
             mock_opener.open.side_effect = [redirect_response, ok_response]
 
-            with patch("sunstone.handlers.socket.getaddrinfo", side_effect=dns_side_effect):
+            with patch("sunstone.ssrf.socket.getaddrinfo", side_effect=dns_side_effect):
                 with patch("sunstone.handlers.build_opener", return_value=mock_opener):
                     # Mock file writing to avoid modifying test input files
                     with patch("builtins.open", unittest.mock.mock_open()):
