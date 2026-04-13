@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .datasets import DatasetsManager
+
+if TYPE_CHECKING:
+    from .lineage import Activity
 
 
 @dataclass
@@ -28,6 +31,9 @@ class LineageNode:
 
     context: Optional[dict[str, Any]] = None
     """Optional execution context dict."""
+
+    activity: Optional[Activity] = None
+    """Optional PROV-O Activity that generated this node's dataset."""
 
     sources: list[LineageNode] = field(default_factory=list)
     """Upstream source nodes."""
@@ -92,8 +98,14 @@ def _build_node(
         lineage = output_data.get("lineage", {})
         source_refs = lineage.get("sources", [])
 
+        # Parse activity if present
+        parsed_activity = None
+        activity_raw = lineage.get("activity")
+        if activity_raw:
+            parsed_activity = mgr._parse_activity(activity_raw)
+
         if not source_refs:
-            return LineageNode(slug=slug)
+            return LineageNode(slug=slug, activity=parsed_activity)
 
         # Build child nodes with per-branch visited set copy
         sources = []
@@ -104,7 +116,7 @@ def _build_node(
                 child = _build_node(src_slug, mgr, branch_visited, depth + 1, max_depth)
                 sources.append(child)
 
-        return LineageNode(slug=slug, sources=sources)
+        return LineageNode(slug=slug, sources=sources, activity=parsed_activity)
 
     # Check if it's an input (leaf node, no further lineage)
     input_dataset = mgr.find_dataset_by_slug(slug, dataset_type="input")
@@ -157,10 +169,13 @@ def lineage_to_dict(node: LineageNode) -> dict[str, Any]:
     Returns:
         Nested dictionary with slug, version, context, sources, circular keys.
     """
-    return {
+    result: dict[str, Any] = {
         "slug": node.slug,
         "version": node.version,
         "context": node.context,
         "sources": [lineage_to_dict(s) for s in node.sources],
         "circular": node.circular,
     }
+    if node.activity is not None:
+        result["activity"] = DatasetsManager._activity_to_dict(node.activity)
+    return result

@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: PROV-O aligned provenance types (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
+- Added: Activity tracking on dataset write (agents, timestamps, usage records persisted to datasets.yaml)
+- Added: Field-level derivation tracking (prov:qualifiedDerivation) propagated through DataFrame operations
+- Added: Source.agent property for backwards-compatible Agent access from string attributed_to
+
 ## [1.4.3] - 2026-04-13
 
 - Security: harden HTTP handler against DNS rebinding and large responses

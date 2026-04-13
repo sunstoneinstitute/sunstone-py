@@ -203,6 +203,20 @@ class DataFrame:
                 source=source,
                 constraints=constraints,
             )
+
+        # When source is set, also create a FieldDerivation entry
+        if source is not None:
+            from .lineage import FieldDerivation
+
+            fd = FieldDerivation(output_field=column, source_entity=source)
+            if self.metadata.lineage.field_derivations is None:
+                self.metadata.lineage.field_derivations = []
+            # Replace existing derivation for this column if present
+            self.metadata.lineage.field_derivations = [
+                d for d in self.metadata.lineage.field_derivations if d.output_field != column
+            ]
+            self.metadata.lineage.field_derivations.append(fd)
+
         return self
 
     def _get_datasets_manager(self) -> DatasetsManager:
@@ -313,6 +327,7 @@ class DataFrame:
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
+        metadata.lineage.populate_field_derivations(list(df.columns), slug)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -428,6 +443,7 @@ class DataFrame:
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
+        metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -541,6 +557,7 @@ class DataFrame:
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
+        metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -683,6 +700,7 @@ class DataFrame:
             strict=self.strict_mode,
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),
+            activity=lineage_data.get("_activity"),
         )
 
     def to_parquet(
@@ -809,6 +827,7 @@ class DataFrame:
             strict=self.strict_mode,
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),
+            activity=lineage_data.get("_activity"),
         )
 
     def _infer_dtype(self, col: str) -> str:
@@ -1063,14 +1082,25 @@ class DataFrame:
     def _wrap_result(self, result: Any) -> Any:
         """Wrap a pandas result in a Sunstone DataFrame if applicable.
 
-        Copies all metadata, dropping field_metadata for columns no longer present.
+        Copies all metadata, dropping field_metadata and field_derivations
+        for columns no longer present.
         """
         if isinstance(result, pd.DataFrame):
             new_field_meta = {k: replace(v) for k, v in self.metadata.field_metadata.items() if k in result.columns}
+
+            # Filter field_derivations to surviving columns
+            src_derivations = self.metadata.lineage.field_derivations
+            new_derivations = None
+            if src_derivations:
+                new_derivations = [fd for fd in src_derivations if fd.output_field in result.columns]
+                if not new_derivations:
+                    new_derivations = None
+
             new_metadata = Metadata(
                 lineage=LineageMetadata(
                     sources=self.metadata.lineage.sources.copy(),
                     project_path=self.metadata.lineage.project_path,
+                    field_derivations=new_derivations,
                 ),
                 description=self.metadata.description,
                 rdf_prefixes=self.metadata.rdf_prefixes,

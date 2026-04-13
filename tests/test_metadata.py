@@ -4,7 +4,7 @@ import warnings
 from pathlib import Path
 
 import sunstone
-from sunstone.lineage import FieldSchema, LineageMetadata, Metadata
+from sunstone.lineage import FieldDerivation, FieldSchema, LineageMetadata, Metadata
 
 
 class TestMetadataConstruction:
@@ -395,6 +395,79 @@ class TestConflictingMetadata:
 
         # Data: all rows present
         assert len(result) == 5
+
+
+class TestFieldDerivationMergeConflicts:
+    """Tests that field_derivations are properly combined during merge/join/concat."""
+
+    def test_merge_combines_field_derivations(self):
+        """Merge should union field_derivations from both sides."""
+        left = sunstone.DataFrame({"key": [1], "val_l": [10]})
+        left.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="val_l", source_entity="ds-left"),
+        ]
+
+        right = sunstone.DataFrame({"key": [1], "val_r": [20]})
+        right.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="val_r", source_entity="ds-right"),
+        ]
+
+        result = left.merge(right, on="key")
+        fds = result.metadata.lineage.field_derivations
+        assert fds is not None
+        assert len(fds) == 2
+        assert {d.output_field for d in fds} == {"val_l", "val_r"}
+
+    def test_join_combines_field_derivations(self):
+        """Join should union field_derivations from both sides."""
+        left = sunstone.DataFrame({"val_l": [10]})
+        left.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="val_l", source_entity="ds-left"),
+        ]
+
+        right = sunstone.DataFrame({"val_r": [20]})
+        right.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="val_r", source_entity="ds-right"),
+        ]
+
+        result = left.join(right)
+        fds = result.metadata.lineage.field_derivations
+        assert fds is not None
+        assert len(fds) == 2
+
+    def test_concat_combines_field_derivations(self):
+        """Concat should union field_derivations from all DataFrames."""
+        df1 = sunstone.DataFrame({"a": [1]})
+        df1.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="a", source_entity="ds1"),
+        ]
+
+        df2 = sunstone.DataFrame({"a": [2]})
+        df2.metadata.lineage.field_derivations = [
+            FieldDerivation(output_field="a", source_entity="ds2"),
+        ]
+
+        result = df1.concat([df2])
+        fds = result.metadata.lineage.field_derivations
+        assert fds is not None
+        # (a, ds1) and (a, ds2) are distinct derivations
+        assert len(fds) == 2
+
+    def test_merge_deduplicates_same_derivation(self):
+        """If both sides have the same derivation, it should appear only once."""
+        shared_fd = FieldDerivation(output_field="shared", source_entity="same-source")
+
+        left = sunstone.DataFrame({"key": [1], "shared": [10]})
+        left.metadata.lineage.field_derivations = [shared_fd]
+
+        right = sunstone.DataFrame({"key": [1], "other": [20]})
+        right.metadata.lineage.field_derivations = [shared_fd]
+
+        result = left.merge(right, on="key")
+        fds = result.metadata.lineage.field_derivations
+        assert fds is not None
+        shared_fds = [d for d in fds if d.output_field == "shared"]
+        assert len(shared_fds) == 1
 
 
 class TestBuildFieldSchema:
