@@ -5,6 +5,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 - Security: Prevent package push from publishing files outside the project root (GHSA-85m4-5f4j-mrr5)
 - Security: Pin all third-party GitHub Actions to full commit SHAs (GHSA-499q-3p86-jj3c)
+- Security: Harden HttpURLHandler against DNS rebinding (resolve-then-connect with Host header preservation)
+- Security: Enforce maximum response size (512 MB) via Content-Length check and streaming limit
+- Security: Block cloud metadata endpoints (169.254.169.254, metadata.google.internal, metadata.goog)
 
 ## [1.4.2] - 2026-04-13
 

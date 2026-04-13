@@ -1,5 +1,6 @@
 """Tests for the plugin infrastructure."""
 
+import io
 import pytest
 import pandas as pd
 from pathlib import Path
@@ -18,6 +19,22 @@ from sunstone.plugins import (
 from sunstone.handlers import BuiltinFormatHandler, HttpURLHandler
 from sunstone.datasets import DatasetsManager
 from sunstone.dataframe import DataFrame
+
+# Standard mock patches for HttpURLHandler tests that need DNS resolution bypass
+_RESOLVE_PATCH = patch(
+    "sunstone.handlers._resolve_and_validate",
+    return_value=[(None, None, None, None, ("93.184.216.34", 0))],
+)
+
+
+def _make_streaming_response(data: bytes, status: int = 200, headers: dict | None = None):
+    """Create a mock HTTP response with proper streaming read behavior."""
+    mock = MagicMock()
+    mock.status = status
+    stream = io.BytesIO(data)
+    mock.read = stream.read
+    mock.headers = headers or {}
+    return mock
 
 
 def _mock_execution_context():
@@ -429,9 +446,7 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
     registry = PluginRegistry()
     registry._auth_providers.append(TestAuth())
 
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_response = _make_streaming_response(b"col1,col2\na,b\n")
     mock_opener = MagicMock()
     mock_opener.open.return_value = mock_response
 
@@ -439,7 +454,8 @@ def test_fetch_from_url_injects_auth_headers(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers.is_public_url", return_value=True),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        _RESOLVE_PATCH,
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -466,9 +482,7 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
     registry._auth_providers.append(AuthA())
     registry._auth_providers.append(AuthB())
 
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_response = _make_streaming_response(b"col1,col2\na,b\n")
     mock_opener = MagicMock()
     mock_opener.open.return_value = mock_response
 
@@ -476,7 +490,8 @@ def test_fetch_from_url_stacks_auth_providers(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers.is_public_url", return_value=True),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        _RESOLVE_PATCH,
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -493,9 +508,7 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
 
     registry = PluginRegistry()  # No auth providers
 
-    mock_response = MagicMock()
-    mock_response.status = 200
-    mock_response.read.return_value = b"col1,col2\na,b\n"
+    mock_response = _make_streaming_response(b"col1,col2\na,b\n")
     mock_opener = MagicMock()
     mock_opener.open.return_value = mock_response
 
@@ -503,7 +516,8 @@ def test_fetch_from_url_no_auth_still_works(dataset_with_url):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers.is_public_url", return_value=True),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        _RESOLVE_PATCH,
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -525,19 +539,16 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
     handler = HttpURLHandler()
     registry._url_handlers.append(handler)
 
-    authed_response = MagicMock()
-    authed_response.status = 200
-    authed_response.read.return_value = b"col1,col2\na,b\n"
-    plain_response = MagicMock()
-    plain_response.status = 200
-    plain_response.read.return_value = b"col1,col2\na,b\n"
+    authed_response = _make_streaming_response(b"col1,col2\na,b\n")
+    plain_response = _make_streaming_response(b"col1,col2\na,b\n")
 
     opener_with_auth = MagicMock()
     opener_with_auth.open.return_value = authed_response
     registry._auth_providers.append(TestAuth())
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers.is_public_url", return_value=True),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        _RESOLVE_PATCH,
         patch("sunstone.handlers.build_opener", return_value=opener_with_auth),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):
@@ -550,7 +561,8 @@ def test_fetch_from_url_does_not_leak_auth_headers_between_calls(dataset_with_ur
     opener_without_auth.open.return_value = plain_response
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers.is_public_url", return_value=True),
+        patch("sunstone.handlers._is_public_url", return_value=True),
+        _RESOLVE_PATCH,
         patch("sunstone.handlers.build_opener", return_value=opener_without_auth),
     ):
         with pytest.deprecated_call(match="fetch_from_url is deprecated"):

@@ -92,6 +92,21 @@ class BuiltinFormatHandler:
 
 logger = logging.getLogger(__name__)
 
+# Maximum response size: 512 MB
+MAX_RESPONSE_SIZE = 512 * 1024 * 1024
+
+# Cloud metadata endpoints that must be blocked regardless of IP resolution.
+_BLOCKED_METADATA_HOSTNAMES = frozenset(
+    {
+        "metadata.google.internal",
+        "metadata.goog",
+        "169.254.169.254",
+    }
+)
+
+# Streaming read chunk size
+_CHUNK_SIZE = 64 * 1024
+
 
 class _NoRedirectHandler(HTTPRedirectHandler):
     """Return redirect responses to the caller so they can be validated manually."""
@@ -102,12 +117,122 @@ class _NoRedirectHandler(HTTPRedirectHandler):
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
 
 
-class HttpURLHandler:
-    """Fetches datasets from HTTP/HTTPS URLs with SSRF protection."""
+def _is_metadata_host(hostname: str) -> bool:
+    """Check if hostname is a known cloud metadata endpoint."""
+    return hostname.lower() in _BLOCKED_METADATA_HOSTNAMES
 
-    def __init__(self, timeout: int = 30, max_redirects: int = 10) -> None:
+
+def _resolve_and_validate(hostname: str) -> list[tuple[Any, ...]]:
+    """Resolve hostname to IPs and validate they are all public.
+
+    Returns the addrinfo list on success, raises ValueError on failure.
+    This reduces the DNS TOCTOU window by resolving once and reusing the result.
+    """
+    try:
+        addrinfos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror:
+        raise ValueError(f"Unable to resolve hostname: {hostname}")
+
+    for addrinfo in addrinfos:
+        sockaddr = addrinfo[4]
+        ip = sockaddr[0]
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+            raise ValueError(f"URL hostname '{hostname}' resolves to restricted IP address: {ip}")
+    return addrinfos
+
+
+def _is_public_url(url: str) -> bool:
+    """
+    Validate that a URL points to a public (non-private) resource.
+
+    Prevents SSRF attacks by blocking non-HTTP(S) schemes, private IPs,
+    localhost, loopback, link-local addresses, and cloud metadata endpoints.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            logger.warning("URL scheme '%s' not allowed (only http/https permitted)", parsed.scheme)
+            return False
+        if not parsed.hostname:
+            logger.warning("URL has no hostname")
+            return False
+
+        # Block known cloud metadata hostnames
+        if _is_metadata_host(parsed.hostname):
+            logger.warning(
+                "URL hostname '%s' is a blocked cloud metadata endpoint",
+                parsed.hostname,
+            )
+            return False
+
+        _resolve_and_validate(parsed.hostname)
+        return True
+    except ValueError as e:
+        logger.warning("Error validating URL '%s': %s", url, e)
+        return False
+    except Exception as e:
+        logger.exception("Unexpected error validating URL '%s': %s", url, e)
+        raise
+
+
+def _read_response_with_limit(response: Any, max_size: int = MAX_RESPONSE_SIZE) -> bytes:
+    """Read an HTTP response body with size enforcement.
+
+    Checks Content-Length header first (if present), then enforces the limit
+    during streaming reads to handle chunked/missing Content-Length cases.
+    """
+    # Check Content-Length if declared
+    content_length = response.headers.get("Content-Length") if hasattr(response, "headers") else None
+    if content_length is not None:
+        try:
+            declared_size = int(content_length)
+        except (ValueError, TypeError):
+            declared_size = -1
+        if declared_size > max_size:
+            raise ValueError(
+                f"Response Content-Length ({declared_size} bytes) exceeds maximum allowed size ({max_size} bytes)"
+            )
+
+    # Stream with size enforcement
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = response.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_size:
+            raise ValueError(f"Response body exceeds maximum allowed size ({max_size} bytes)")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+class HttpURLHandler:
+    """Fetches datasets from HTTP/HTTPS URLs with SSRF protection.
+
+    Security features:
+    - Blocks private/loopback/link-local IP addresses
+    - Blocks cloud metadata endpoints (169.254.169.254, metadata.google.internal)
+    - Enforces maximum response size (Content-Length check + streaming limit)
+    - Strips Authorization headers on cross-origin redirects
+    - Reduces DNS TOCTOU risk by resolving hostname once and connecting to the
+      resolved IP directly while preserving the Host header
+
+    Limitation: DNS rebinding during a long-lived connection is not fully
+    prevented at the stdlib level. For high-security environments, consider
+    a network-level control (firewall rules blocking metadata IPs).
+    """
+
+    def __init__(
+        self,
+        timeout: int = 30,
+        max_redirects: int = 10,
+        max_response_size: int = MAX_RESPONSE_SIZE,
+    ) -> None:
         self.timeout = timeout
         self.max_redirects = max_redirects
+        self.max_response_size = max_response_size
 
     def can_handle(self, url: str) -> bool:
         parsed = urlparse(url)
@@ -139,14 +264,49 @@ class HttpURLHandler:
         opener = build_opener(_NoRedirectHandler())
 
         for redirect_count in range(self.max_redirects + 1):
-            request = Request(current_url, headers=current_headers)
+            # Resolve hostname and rewrite URL to use IP directly to reduce
+            # DNS TOCTOU window. Preserve the original Host header.
+            parsed = urlparse(current_url)
+            hostname = parsed.hostname or ""
+            ip_url = current_url
+            host_header: str | None = None
+
+            if hostname and not _is_ip_literal(hostname):
+                try:
+                    addrinfos = _resolve_and_validate(hostname)
+                    resolved_ip = addrinfos[0][4][0]
+                    # Rewrite URL to use the resolved IP
+                    ip_obj = ipaddress.ip_address(resolved_ip)
+                    if ip_obj.version == 6:
+                        ip_host = f"[{resolved_ip}]"
+                    else:
+                        ip_host = resolved_ip
+                    port_part = f":{parsed.port}" if parsed.port else ""
+                    ip_url = f"{parsed.scheme}://{ip_host}{port_part}{parsed.path}"
+                    if parsed.query:
+                        ip_url += f"?{parsed.query}"
+                    if parsed.fragment:
+                        ip_url += f"#{parsed.fragment}"
+                    host_header = hostname
+                    if parsed.port:
+                        host_header += f":{parsed.port}"
+                except ValueError:
+                    raise ValueError(
+                        f"URL '{current_url}' is not allowed. "
+                        "Only HTTP/HTTPS URLs pointing to public internet addresses are permitted."
+                    )
+
+            request = Request(ip_url, headers=current_headers)
+            if host_header:
+                request.add_unredirected_header("Host", host_header)
+
             response = opener.open(request, timeout=self.timeout)  # noqa: S310
             status = getattr(response, "status", None)
             if status is None and hasattr(response, "getcode"):
                 status = response.getcode()
 
             if status not in (301, 302, 303, 307, 308):
-                data = response.read()
+                data = _read_response_with_limit(response, self.max_response_size)
                 logger.info("Fetched %d bytes from %s", len(data), current_url)
                 break
 
@@ -174,6 +334,15 @@ class HttpURLHandler:
             return io.BytesIO(data)
         else:
             return io.TextIOWrapper(io.BytesIO(data), encoding="utf-8")
+
+
+def _is_ip_literal(hostname: str) -> bool:
+    """Check if hostname is already an IP address literal."""
+    try:
+        ipaddress.ip_address(hostname)
+        return True
+    except ValueError:
+        return False
 
 
 _REMOTE_SCHEMES = {"http", "https", "gs", "s3", "r2"}
