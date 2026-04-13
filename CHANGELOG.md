@@ -3,6 +3,13 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.4.2] - 2026-04-13
+
+- Added: `datasets_file` parameter to DatasetsManager and DataFrame for custom datasets.yaml paths
+- Changed: Refactored and improved SSRF validation code
+- Changed: Moved release script to scripts/ directory and streamlined release workflow
+
 - Added: `sunstone.ssrf` module with comprehensive SSRF protection (CGNAT, cloud metadata, IPv4-mapped IPv6, multicast, reserved ranges)
 
 ## [1.4.1] - 2026-04-11
