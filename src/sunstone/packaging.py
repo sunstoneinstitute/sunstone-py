@@ -22,6 +22,52 @@ _RDF_TYPE_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 _DCAT_DATASET_URI = "http://www.w3.org/ns/dcat#Dataset"
 
 
+class PathTraversalError(ValueError):
+    """Raised when a file path escapes the project root directory."""
+
+
+def _validate_path_containment(
+    path: str,
+    project_root: Path,
+    *,
+    context: str = "file",
+) -> None:
+    """Validate that a path resolves to within the project root.
+
+    Rejects absolute paths and paths that escape the project root via ``..``
+    traversal. This prevents package build/push from accessing files outside
+    the project directory.
+
+    Args:
+        path: The relative path string to validate (e.g. dataset location).
+        project_root: The resolved project root directory.
+        context: Human-readable label for error messages (e.g. "dataset location").
+
+    Raises:
+        PathTraversalError: If the path is absolute or resolves outside the
+            project root.
+    """
+    from pathlib import PurePosixPath as _PP
+
+    # Reject absolute paths (Unix and Windows-style)
+    if _PP(path).is_absolute() or (len(path) >= 2 and path[1] == ":"):
+        raise PathTraversalError(
+            f"Refusing to publish {context} with absolute path. All paths must be relative to the project root."
+        )
+
+    resolved = (project_root / path).resolve()
+    resolved_root = project_root.resolve()
+
+    # Check that resolved path is under project root
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError:
+        raise PathTraversalError(
+            f"Refusing to publish {context} that resolves outside the project root. "
+            f"Path traversal via '..' is not allowed."
+        )
+
+
 def is_lfs_pointer(file_path: Path) -> bool:
     """Check if a file is a Git LFS pointer file instead of actual content.
 
@@ -54,6 +100,8 @@ def push_group(
     rdf_prefixes: dict[str, str],
     top_level_props: dict[str, Any],
     methodology_files: list[tuple[Path, str]],
+    *,
+    allow_outside_project: bool = False,
 ) -> list[str]:
     """Push a group of datasets to a remote destination via URLHandler plugins.
 
@@ -68,14 +116,40 @@ def push_group(
         rdf_prefixes: Merged RDF prefix dict for property expansion.
         top_level_props: Expanded top-level custom properties to merge into the datapackage.
         methodology_files: List of (absolute_path, resolved_uri) tuples to upload.
+        allow_outside_project: If True, skip path containment checks (use with
+            caution; intended for explicit CLI override only).
 
     Returns:
         List of uploaded path strings (for the caller to report).
 
     Raises:
+        PathTraversalError: If any dataset location or methodology file
+            resolves outside the project root (unless *allow_outside_project*
+            is True).
         ValueError: If any data files are Git LFS pointers, or no URL handler
             is found for the destination.
     """
+    project_root = manager.project_path.resolve()
+
+    # --- Path containment checks ---
+    if not allow_outside_project:
+        for ds in datasets:
+            _validate_path_containment(
+                ds.location,
+                project_root,
+                context=f"dataset '{ds.slug}' location",
+            )
+
+        for abs_path, _uri in methodology_files:
+            resolved_abs = abs_path.resolve()
+            try:
+                resolved_abs.relative_to(project_root)
+            except ValueError:
+                raise PathTraversalError(
+                    "Refusing to publish methodology file that resolves outside "
+                    "the project root. Path traversal is not allowed."
+                )
+
     # Resolve datapackage.json path and base directory
     if not dest_url.endswith(".json"):
         if not dest_url.endswith("/"):
