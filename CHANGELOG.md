@@ -3,6 +3,13 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.4.3] - 2026-04-13
+
+- Security: harden HTTP handler against DNS rebinding and large responses
+- Security: pin GitHub Actions to full commit SHAs
+- Security: prevent package push from publishing files outside project root
+
 - Security: Prevent package push from publishing files outside the project root (GHSA-85m4-5f4j-mrr5)
 - Security: Pin all third-party GitHub Actions to full commit SHAs (GHSA-499q-3p86-jj3c)
 - Security: Harden HttpURLHandler against DNS rebinding (resolve-then-connect with Host header preservation)
