@@ -4,6 +4,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-04-14
+
+### Added
+- Auto-populate field derivations on dataset read so field provenance flows through merge/join/concat
+
+### Changed
+- Align lineage data model with W3C PROV-O (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
+- Persist activity tracking to datasets.yaml on every write
+
+
 - Added: PROV-O aligned provenance types (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
 - Added: Activity tracking on dataset write (agents, timestamps, usage records persisted to datasets.yaml)
 - Added: Field-level derivation tracking (prov:qualifiedDerivation) propagated through DataFrame operations
