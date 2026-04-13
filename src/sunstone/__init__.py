@@ -36,14 +36,21 @@ from .exceptions import (
     UnitError,
 )
 from .lineage import (
+    Activity,
+    ActivityRef,
+    Agent,
+    AgentType,
     Contributor,
     DatasetMetadata,
+    EntityRef,
+    FieldDerivation,
     FieldSchema,
     LineageMetadata,
     Metadata,
     PackageMetadata,
     Source,
     SourceLocation,
+    UsageRecord,
 )
 
 # Plugin system
@@ -98,6 +105,14 @@ __all__ = [
     "PackageMetadata",
     "Source",
     "SourceLocation",
+    # PROV-O types
+    "Activity",
+    "ActivityRef",
+    "Agent",
+    "AgentType",
+    "EntityRef",
+    "FieldDerivation",
+    "UsageRecord",
     # Exceptions
     "SunstoneError",
     "DatasetNotFoundError",

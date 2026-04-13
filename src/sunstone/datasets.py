@@ -13,14 +13,21 @@ from ruamel.yaml import YAML
 
 from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import (
+    Activity,
+    ActivityRef,
+    Agent,
+    AgentType,
     Contributor,
     DatasetMetadata,
+    EntityRef,
+    FieldDerivation,
     FieldSchema,
     LineageMetadata,
     PackageMetadata,
     PublishConfig,
     Source,
     SourceLocation,
+    UsageRecord,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,10 +124,21 @@ class DatasetsManager:
 
     def _parse_source(self, source_data: Dict[str, Any]) -> Source:
         """Parse source attribution data from YAML."""
+        attributed_to_raw = source_data["attributedTo"]
+        if isinstance(attributed_to_raw, dict):
+            attributed_to: str | Agent = Agent(
+                id=attributed_to_raw["id"],
+                type=AgentType(attributed_to_raw.get("type", "prov:Organization")),
+                label=attributed_to_raw.get("label"),
+                version=attributed_to_raw.get("version"),
+            )
+        else:
+            attributed_to = str(attributed_to_raw)
+
         return Source(
             name=source_data["name"],
             location=self._parse_source_location(source_data["location"]),
-            attributed_to=source_data["attributedTo"],
+            attributed_to=attributed_to,
             acquired_at=source_data["acquiredAt"],
             acquisition_method=source_data["acquisitionMethod"],
             license=source_data["license"],
@@ -180,6 +198,126 @@ class DatasetsManager:
                 as_url=publish_data.get("as"),
             )
         return None
+
+    def _parse_activity(self, activity_data: Dict[str, Any]) -> Activity:
+        """Parse a PROV-O Activity from YAML lineage data."""
+        from datetime import datetime
+
+        agents = []
+        for agent_data in activity_data.get("agents", []):
+            agents.append(
+                Agent(
+                    id=agent_data["id"],
+                    type=AgentType(agent_data.get("type", "prov:Person")),
+                    label=agent_data.get("label"),
+                    version=agent_data.get("version"),
+                )
+            )
+
+        used = []
+        for usage_data in activity_data.get("used", []):
+            entity_val = usage_data.get("entity", "")
+            if isinstance(entity_val, dict):
+                entity_ref = EntityRef(slug=entity_val["slug"], namespace=entity_val.get("namespace"))
+            else:
+                entity_ref = EntityRef(slug=str(entity_val))
+            used.append(
+                UsageRecord(
+                    entity=entity_ref,
+                    columns=usage_data.get("columns"),
+                    filters=usage_data.get("filters"),
+                )
+            )
+
+        started_at = None
+        if "started_at" in activity_data:
+            started_at = datetime.fromisoformat(activity_data["started_at"])
+        ended_at = None
+        if "ended_at" in activity_data:
+            ended_at = datetime.fromisoformat(activity_data["ended_at"])
+
+        return Activity(
+            id=activity_data["id"],
+            used=used,
+            was_associated_with=agents,
+            started_at=started_at,
+            ended_at=ended_at,
+            script_path=activity_data.get("script_path"),
+            notebook_path=activity_data.get("notebook_path"),
+            git_commit=activity_data.get("git_commit"),
+            git_dirty=activity_data.get("git_dirty"),
+            transformation_params=activity_data.get("transformation_params"),
+        )
+
+    def _parse_field_derivations(self, derivations_data: List[Dict[str, Any]]) -> List[FieldDerivation]:
+        """Parse field derivation data from YAML."""
+        return [
+            FieldDerivation(
+                output_field=d["output_field"],
+                source_entity=d["source_entity"],
+                source_field=d.get("source_field"),
+            )
+            for d in derivations_data
+        ]
+
+    @staticmethod
+    def _activity_to_dict(activity: Activity) -> Dict[str, Any]:
+        """Serialize an Activity to a dict for YAML output."""
+        result: Dict[str, Any] = {"id": activity.id}
+
+        if activity.started_at:
+            result["started_at"] = activity.started_at.isoformat()
+        if activity.ended_at:
+            result["ended_at"] = activity.ended_at.isoformat()
+        if activity.script_path:
+            result["script_path"] = activity.script_path
+        if activity.notebook_path:
+            result["notebook_path"] = activity.notebook_path
+        if activity.git_commit:
+            result["git_commit"] = activity.git_commit
+        if activity.git_dirty is not None:
+            result["git_dirty"] = activity.git_dirty
+
+        if activity.was_associated_with:
+            agents_list = []
+            for agent in activity.was_associated_with:
+                agent_dict: Dict[str, Any] = {"id": agent.id, "type": agent.type.value}
+                if agent.label:
+                    agent_dict["label"] = agent.label
+                if agent.version:
+                    agent_dict["version"] = agent.version
+                agents_list.append(agent_dict)
+            result["agents"] = agents_list
+
+        if activity.used:
+            used_list = []
+            for usage in activity.used:
+                usage_dict: Dict[str, Any] = {"entity": usage.entity.slug}
+                if usage.columns:
+                    usage_dict["columns"] = usage.columns
+                if usage.filters:
+                    usage_dict["filters"] = usage.filters
+                used_list.append(usage_dict)
+            result["used"] = used_list
+
+        if activity.transformation_params:
+            result["transformation_params"] = activity.transformation_params
+
+        return result
+
+    @staticmethod
+    def _field_derivations_to_list(derivations: List[FieldDerivation]) -> List[Dict[str, Any]]:
+        """Serialize FieldDerivations to a list of dicts for YAML output."""
+        result = []
+        for d in derivations:
+            entry: Dict[str, Any] = {
+                "output_field": d.output_field,
+                "source_entity": d.source_entity,
+            }
+            if d.source_field:
+                entry["source_field"] = d.source_field
+            result.append(entry)
+        return result
 
     def _parse_contributor(self, contrib_data: Dict[str, Any]) -> Contributor:
         """Parse contributor data from YAML."""
@@ -288,6 +426,39 @@ class DatasetsManager:
 
         publish = self._parse_publish(dataset_data.get("publish"))
 
+        # Parse PROV-O fields from lineage section (outputs only)
+        lineage_raw = dataset_data.get("lineage", {})
+        was_derived_from = None
+        was_generated_by = None
+        generated_at_time = None
+        field_derivations_parsed = None
+
+        if lineage_raw:
+            from datetime import datetime as _dt
+
+            # was_derived_from from sources list
+            sources_raw = lineage_raw.get("sources", [])
+            if sources_raw:
+                was_derived_from = [EntityRef(slug=s["slug"] if isinstance(s, dict) else str(s)) for s in sources_raw]
+
+            # generated_at_time from created_at
+            created_at_raw = lineage_raw.get("created_at")
+            if created_at_raw:
+                try:
+                    generated_at_time = _dt.fromisoformat(str(created_at_raw))
+                except (ValueError, TypeError):
+                    pass
+
+            # activity → was_generated_by ref
+            activity_raw = lineage_raw.get("activity")
+            if activity_raw:
+                was_generated_by = ActivityRef(id=activity_raw["id"])
+
+            # field_derivations
+            fd_raw = lineage_raw.get("field_derivations")
+            if fd_raw:
+                field_derivations_parsed = self._parse_field_derivations(fd_raw)
+
         return DatasetMetadata(
             name=dataset_data["name"],
             slug=dataset_data["slug"],
@@ -301,6 +472,10 @@ class DatasetsManager:
             rdf_prefixes=rdf_prefixes,
             custom_properties=custom_properties,
             publish=publish,
+            was_derived_from=was_derived_from,
+            was_generated_by=was_generated_by,
+            generated_at_time=generated_at_time,
+            field_derivations=field_derivations_parsed,
         )
 
     def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
@@ -587,6 +762,7 @@ class DatasetsManager:
         strict: bool = False,
         context: Optional[dict] = None,
         transformation_params: Optional[dict] = None,
+        activity: Optional[Activity] = None,
     ) -> None:
         """
         Update lineage metadata for an output dataset.
@@ -602,6 +778,9 @@ class DatasetsManager:
             lineage: The lineage metadata to persist.
             content_hash: SHA256 hash of the DataFrame content.
             strict: If True, validate without modifying. If False, update the file.
+            context: Optional execution context dict (backwards compat).
+            transformation_params: Optional transformation parameters dict.
+            activity: Optional PROV-O Activity for this output.
 
         Raises:
             DatasetNotFoundError: If the dataset doesn't exist.
@@ -651,6 +830,26 @@ class DatasetsManager:
             lineage_data["context"] = context
         if transformation_params:
             lineage_data["transformation_params"] = transformation_params
+
+        # PROV-O Activity (new)
+        if activity is not None:
+            from dataclasses import replace as _replace
+
+            # Relativize script_path without mutating the caller's object
+            activity_to_write = activity
+            if activity.script_path:
+                try:
+                    rel = Path(activity.script_path).resolve().relative_to(self.project_path)
+                    if not str(rel).startswith(".."):
+                        activity_to_write = _replace(activity, script_path=rel.as_posix())
+                except ValueError:
+                    pass
+            lineage_data["activity"] = self._activity_to_dict(activity_to_write)
+
+        # Field derivations (new)
+        field_derivations = lineage.field_derivations
+        if field_derivations:
+            lineage_data["field_derivations"] = self._field_derivations_to_list(field_derivations)
 
         # Create a copy of the data with updated lineage
         updated_data = self._data.copy()

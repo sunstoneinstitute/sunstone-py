@@ -176,6 +176,17 @@ class TestFlushAndPersist:
         assert "context" in lineage
         assert lineage["context"]["user"] == "test-user"
 
+        # PROV-O: activity section should also be present
+        assert "activity" in lineage
+        activity = lineage["activity"]
+        assert activity["id"].startswith("exec-")
+        assert any(a["id"] == "test-user" for a in activity["agents"])
+        assert any(a["type"] == "prov:SoftwareAgent" for a in activity["agents"])
+        # Activity should record usage of both input datasets
+        used_slugs = {u["entity"] for u in activity["used"]}
+        assert "alpha-data" in used_slugs
+        assert "beta-data" in used_slugs
+
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_transformation_params_persisted(self, mock_ctx: Any, flow_project: Path) -> None:
         """to_csv(transformation_params=...) persists params in datasets.yaml."""
@@ -198,6 +209,10 @@ class TestFlushAndPersist:
 
         assert "transformation_params" in lineage
         assert lineage["transformation_params"]["threshold"] == 100
+
+        # PROV-O: activity should also carry transformation_params
+        assert "activity" in lineage
+        assert lineage["activity"]["transformation_params"]["threshold"] == 100
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_session_cleared_after_flush(self, mock_ctx: Any, flow_project: Path) -> None:
@@ -246,6 +261,10 @@ class TestFlushAndPersist:
         output = next(d for d in data["outputs"] if d["slug"] == "relative-test")
         context = output["lineage"]["context"]
         assert context["script_path"] == "scripts/process.py"
+
+        # PROV-O: activity script_path should also be relativized
+        activity = output["lineage"]["activity"]
+        assert activity["script_path"] == "scripts/process.py"
 
     def test_script_path_kept_absolute_when_outside_project(self, flow_project: Path) -> None:
         """script_path should stay absolute when outside the project."""

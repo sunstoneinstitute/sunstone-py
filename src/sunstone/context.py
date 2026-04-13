@@ -5,13 +5,18 @@ Captures information about the execution environment (git state, user,
 notebook/script path, timestamp) for inclusion in lineage metadata.
 """
 
+from __future__ import annotations
+
 import getpass
 import os
 import subprocess
 import sys
 from dataclasses import dataclass, fields
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .lineage import Agent
 
 
 @dataclass(frozen=True)
@@ -49,6 +54,36 @@ class ExecutionContext:
             Dictionary with only non-None field values.
         """
         return {f.name: getattr(self, f.name) for f in fields(self) if getattr(self, f.name) is not None}
+
+    def to_agents(self) -> list[Agent]:
+        """Return PROV-O Agent objects for this execution context.
+
+        Produces a Person agent for the user (if known) and a SoftwareAgent
+        for the sunstone-py library.
+        """
+        from .lineage import Agent, AgentType
+
+        agents: list[Agent] = []
+        if self.user:
+            agents.append(Agent(id=self.user, type=AgentType.PERSON))
+
+        # Import version at call time to avoid circular imports
+        try:
+            from importlib.metadata import version as pkg_version
+
+            sunstone_version = pkg_version("sunstone-py")
+        except Exception:
+            sunstone_version = None
+
+        agents.append(
+            Agent(
+                id="sunstone-py",
+                type=AgentType.SOFTWARE,
+                label="Sunstone Projects Library",
+                version=sunstone_version,
+            )
+        )
+        return agents
 
 
 def _detect_notebook_path() -> Optional[str]:
