@@ -11,9 +11,9 @@ from sunstone.handlers import (
     HttpURLHandler,
     LocalFileHandler,
     MAX_RESPONSE_SIZE,
-    _is_public_url,
     _read_response_with_limit,
 )
+from sunstone.ssrf import is_public_url
 
 
 @pytest.fixture
@@ -191,7 +191,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -206,7 +206,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -233,7 +233,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -251,7 +251,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = [redirect_response, final_response]
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -274,7 +274,7 @@ class TestHttpURLHandlerOpen:
         mock_opener.open.side_effect = redirect_responses
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -332,7 +332,7 @@ class TestHttpResponseSizeLimits:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -355,7 +355,7 @@ class TestHttpResponseSizeLimits:
         mock_opener.open.return_value = mock_response
 
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]
             ),
@@ -370,21 +370,21 @@ class TestMetadataEndpointBlocking:
 
     def test_blocks_metadata_ip(self):
         """169.254.169.254 is blocked even before DNS resolution."""
-        with patch("sunstone.handlers.socket.getaddrinfo") as mock_dns:
+        with patch("sunstone.ssrf.socket.getaddrinfo") as mock_dns:
             # Should not even reach DNS resolution
-            assert not _is_public_url("http://169.254.169.254/latest/meta-data/")
+            assert not is_public_url("http://169.254.169.254/latest/meta-data/")
             mock_dns.assert_not_called()
 
     def test_blocks_metadata_google_internal(self):
         """metadata.google.internal is blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo") as mock_dns:
-            assert not _is_public_url("http://metadata.google.internal/computeMetadata/v1/")
+        with patch("sunstone.ssrf.socket.getaddrinfo") as mock_dns:
+            assert not is_public_url("http://metadata.google.internal/computeMetadata/v1/")
             mock_dns.assert_not_called()
 
     def test_blocks_metadata_goog(self):
         """metadata.goog is blocked."""
-        with patch("sunstone.handlers.socket.getaddrinfo") as mock_dns:
-            assert not _is_public_url("http://metadata.goog/computeMetadata/v1/")
+        with patch("sunstone.ssrf.socket.getaddrinfo") as mock_dns:
+            assert not is_public_url("http://metadata.goog/computeMetadata/v1/")
             mock_dns.assert_not_called()
 
     def test_handler_rejects_metadata_ip(self):
@@ -418,7 +418,7 @@ class TestDnsRebindingProtection:
 
         resolved_ip = "93.184.216.34"
         with (
-            patch("sunstone.handlers._is_public_url", return_value=True),
+            patch("sunstone.handlers.is_public_url", return_value=True),
             patch(
                 "sunstone.handlers._resolve_and_validate",
                 return_value=[(None, None, None, None, (resolved_ip, 0))],
@@ -549,7 +549,7 @@ def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
 
     with (
         patch.object(PluginRegistry, "get", return_value=registry),
-        patch("sunstone.handlers._is_public_url", return_value=True),
+        patch("sunstone.handlers.is_public_url", return_value=True),
         patch("sunstone.handlers._resolve_and_validate", return_value=[(None, None, None, None, ("93.184.216.34", 0))]),
         patch("sunstone.handlers.build_opener", return_value=mock_opener),
     ):

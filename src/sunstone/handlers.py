@@ -5,7 +5,9 @@ Internal plugin implementations for built-in formats and HTTP fetching.
 from __future__ import annotations
 
 import io
+import ipaddress
 import logging
+import socket
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Callable, Literal, TextIO, overload
 from urllib.parse import urljoin, urlparse
@@ -95,15 +97,6 @@ logger = logging.getLogger(__name__)
 # Maximum response size: 512 MB
 MAX_RESPONSE_SIZE = 512 * 1024 * 1024
 
-# Cloud metadata endpoints that must be blocked regardless of IP resolution.
-_BLOCKED_METADATA_HOSTNAMES = frozenset(
-    {
-        "metadata.google.internal",
-        "metadata.goog",
-        "169.254.169.254",
-    }
-)
-
 # Streaming read chunk size
 _CHUNK_SIZE = 64 * 1024
 
@@ -115,11 +108,6 @@ class _NoRedirectHandler(HTTPRedirectHandler):
         return fp
 
     http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
-
-
-def _is_metadata_host(hostname: str) -> bool:
-    """Check if hostname is a known cloud metadata endpoint."""
-    return hostname.lower() in _BLOCKED_METADATA_HOSTNAMES
 
 
 def _resolve_and_validate(hostname: str) -> list[tuple[Any, ...]]:
@@ -140,40 +128,6 @@ def _resolve_and_validate(hostname: str) -> list[tuple[Any, ...]]:
         if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
             raise ValueError(f"URL hostname '{hostname}' resolves to restricted IP address: {ip}")
     return addrinfos
-
-
-def _is_public_url(url: str) -> bool:
-    """
-    Validate that a URL points to a public (non-private) resource.
-
-    Prevents SSRF attacks by blocking non-HTTP(S) schemes, private IPs,
-    localhost, loopback, link-local addresses, and cloud metadata endpoints.
-    """
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            logger.warning("URL scheme '%s' not allowed (only http/https permitted)", parsed.scheme)
-            return False
-        if not parsed.hostname:
-            logger.warning("URL has no hostname")
-            return False
-
-        # Block known cloud metadata hostnames
-        if _is_metadata_host(parsed.hostname):
-            logger.warning(
-                "URL hostname '%s' is a blocked cloud metadata endpoint",
-                parsed.hostname,
-            )
-            return False
-
-        _resolve_and_validate(parsed.hostname)
-        return True
-    except ValueError as e:
-        logger.warning("Error validating URL '%s': %s", url, e)
-        return False
-    except Exception as e:
-        logger.exception("Unexpected error validating URL '%s': %s", url, e)
-        raise
 
 
 def _read_response_with_limit(response: Any, max_size: int = MAX_RESPONSE_SIZE) -> bytes:
