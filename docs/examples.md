@@ -37,8 +37,8 @@ result.to_csv(
 )
 
 # Check lineage
-print(f"Sources: {[s.name for s in result.lineage.sources]}")
-print(f"Licenses: {result.lineage.get_licenses()}")
+print(f"Sources: {[s.name for s in result.metadata.lineage.sources]}")
+print(f"Licenses: {result.metadata.lineage.get_licenses()}")
 ```
 
 ## Working with Multiple Data Sources
@@ -121,7 +121,7 @@ combined.to_csv(
 
 # Lineage automatically tracks both sources
 print("Data sources:")
-for source in combined.lineage.sources:
+for source in combined.metadata.lineage.sources:
     print(f"  - {source.name} ({source.license})")
 ```
 
@@ -314,7 +314,7 @@ normalized.to_csv(
 
 # Check operations in lineage
 print("Operations performed:")
-for op in normalized.lineage.operations:
+for op in normalized.metadata.lineage.operations:
     print(f"  - {op}")
 ```
 
@@ -480,6 +480,92 @@ make push-dev
 make push-prod
 ```
 
+## Writing Parquet Files
+
+Save DataFrames in Parquet format with lineage tracking.
+
+```python
+from sunstone import pandas as pd
+from pathlib import Path
+
+PROJECT_PATH = Path.cwd()
+
+df = pd.read_csv('data/measurements.csv', project_path=PROJECT_PATH)
+
+# Filter and save as Parquet
+result = df[df['value'] > 0]
+result.to_parquet(
+    'outputs/measurements.parquet',
+    slug='filtered-measurements',
+    name='Filtered Measurements'
+)
+```
+
+## Using Field Metadata
+
+Annotate columns with descriptions, units, and source tracking.
+
+```python
+from sunstone import pandas as pd
+from pathlib import Path
+
+PROJECT_PATH = Path.cwd()
+
+pop = pd.read_csv('data/population.csv', project_path=PROJECT_PATH)
+area = pd.read_csv('data/area.csv', project_path=PROJECT_PATH)
+
+# Set field metadata with method chaining
+combined = pd.merge(pop, area, on='country')
+combined.set_field_metadata('population', description='Total population', unit='people')
+combined.set_field_metadata('area_km2', description='Land area', unit='km^2')
+
+# Compute derived column
+combined['density'] = combined['population'] / combined['area_km2']
+combined.set_field_metadata('density', description='Population density', unit='people / km^2')
+
+# Save — field metadata flows to datasets.yaml
+combined.to_csv(
+    'outputs/density.csv',
+    slug='population-density',
+    name='Population Density by Country',
+    index=False
+)
+```
+
+## Reading Datasets by Slug
+
+Use `read_dataset()` for format-agnostic reading by slug.
+
+```python
+from sunstone import pandas as pd
+
+# Auto-detects format from file extension in datasets.yaml
+df = pd.read_dataset('official-un-member-states')
+
+# Explicit format override
+df = pd.read_dataset('my-data', format='json')
+```
+
+## Checking Field-Level Provenance
+
+Inspect which columns came from which source datasets.
+
+```python
+from sunstone import pandas as pd
+from pathlib import Path
+
+PROJECT_PATH = Path.cwd()
+
+schools = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
+teachers = pd.read_csv('data/teachers.csv', project_path=PROJECT_PATH)
+
+merged = pd.merge(schools, teachers, on='school_id')
+
+# Each column knows its source
+for fd in merged.metadata.lineage.field_derivations:
+    print(f"  {fd.output_field} <- {fd.source_entity}.{fd.source_field}")
+```
+
 ## Advanced: Multi-Stage Pipeline
 
 Complex pipeline with multiple intermediate steps.
@@ -533,8 +619,8 @@ final.to_csv(
 
 # Complete lineage is preserved
 print("\nLineage chain:")
-print(f"Sources: {len(final.lineage.sources)}")
-print(f"Operations: {len(final.lineage.operations)}")
-for op in final.lineage.operations:
+print(f"Sources: {len(final.metadata.lineage.sources)}")
+print(f"Operations: {len(final.metadata.lineage.operations)}")
+for op in final.metadata.lineage.operations:
     print(f"  → {op}")
 ```

@@ -11,11 +11,14 @@ sunstone-py helps data scientists and researchers build reproducible data pipeli
 
 ## Key Features
 
-- **Automatic Lineage Tracking**: Every transformation is recorded—know exactly where your data came from and what happened to it
+- **W3C PROV-O Lineage**: Every transformation is recorded using the W3C provenance standard—know exactly where your data came from, what happened to it, and which fields derived from which sources
 - **Dataset Management**: Centralized `datasets.yaml` configuration for all data inputs and outputs
+- **DataFrame Metadata**: Unified metadata container with per-field annotations (descriptions, units, source tracking)
+- **Plugin System**: Extensible URL handlers (local, HTTP, GCS, S3/R2) and format handlers (CSV, JSON, Excel, Parquet, TSV) with entry point discovery
+- **Unit-Aware Arithmetic**: Pint integration for column-level unit tracking with automatic compatibility checks and QUDT round-tripping
 - **Semantic Metadata**: RDF triple support with automatic prefix expansion for rich dataset descriptions
 - **Command-Line Tools**: Validate, lock, and publish datasets with the `sunstone` CLI
-- **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—supports CSV, Excel (.xlsx/.xls), and JSON
+- **Pandas-Compatible**: Familiar API via `from sunstone import pandas as pd`—supports CSV, Excel, JSON, and Parquet
 - **Strict/Relaxed Modes**: Choose between automatic registration (exploratory) or enforced pre-registration (production)
 - **Data Package Publishing**: Build standards-compliant data packages and push to cloud storage
 - **Full Type Hints**: Complete type annotation support for better IDE integration and type safety
@@ -94,9 +97,8 @@ summary.to_csv(
 )
 
 # Check what went into this dataset
-print(summary.lineage.sources)      # Source datasets
-print(summary.lineage.operations)   # Operations performed
-print(summary.lineage.get_licenses())  # Source licenses
+print(summary.metadata.lineage.sources)      # Source datasets
+print(summary.metadata.lineage.get_licenses())  # Source licenses
 ```
 
 That's it! The lineage is automatically tracked and saved to `datasets.yaml`.
@@ -179,14 +181,15 @@ See the [CLI Guide](cli.md) for complete documentation.
 
 ## Key Concepts
 
-### Lineage Tracking
+### Lineage Tracking (W3C PROV-O)
 
 Every DataFrame automatically tracks:
 - **Sources**: Which datasets were read
-- **Operations**: What transformations were applied
+- **Activities**: Script/notebook executions with agents and timestamps
+- **Field Derivations**: Which output columns came from which source datasets
 - **Attribution**: Licenses and source information
 
-Lineage propagates through operations like merge, join, concat, and custom transformations.
+Lineage propagates through operations like merge, join, concat, and custom transformations. Field-level derivations are auto-populated on read.
 
 ### Strict vs Relaxed Mode
 

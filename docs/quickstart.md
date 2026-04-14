@@ -59,10 +59,27 @@ result.to_csv(
 ## 3. Check Lineage Metadata
 
 ```python
-# View lineage information
-print(result.lineage.sources)      # Source datasets
-print(result.lineage.operations)   # Operations performed
-print(result.lineage.get_licenses())  # All source licenses
+# View lineage information (via metadata container)
+print(result.metadata.lineage.sources)      # Source datasets
+print(result.metadata.lineage.get_licenses())  # All source licenses
+
+# Check field-level provenance
+for fd in result.metadata.lineage.field_derivations:
+    print(f"  {fd.output_field} <- {fd.source_entity}")
+```
+
+## 4. Annotate Columns (Optional)
+
+```python
+# Add descriptions and units to columns
+result.set_field_metadata('enrollment', description='Total enrolled students', unit='students')
+
+# Save as Parquet instead of CSV
+result.to_parquet(
+    'outputs/summary.parquet',
+    slug='school-summary',
+    name='School Enrollment Summary'
+)
 ```
 
 ## Next Steps

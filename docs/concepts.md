@@ -98,9 +98,17 @@ result.to_csv(
 )
 ```
 
-## Lineage Tracking
+## Lineage Tracking (W3C PROV-O)
 
-Lineage tracking automatically captures the provenance of your data through all operations.
+Lineage tracking automatically captures the provenance of your data through all operations. Since v1.5.0, the lineage model is aligned with [W3C PROV-O](https://www.w3.org/TR/prov-o/), the standard ontology for provenance.
+
+### PROV-O Concepts
+
+sunstone-py maps its data model to PROV-O:
+
+- **Entity**: A dataset (`DatasetMetadata`) — the thing being tracked
+- **Activity**: A script or notebook execution (`Activity`) — the process that transforms data
+- **Agent**: A user, organization, or software (`Agent`) — who is responsible
 
 ### What Gets Tracked
 
@@ -108,13 +116,19 @@ Lineage tracking automatically captures the provenance of your data through all 
 - Input datasets that were read
 - Their metadata (slug, name, location)
 - License information
-- Source attribution
+- Source attribution (as PROV-O Agents)
 
-**Operations:**
-- Transformations applied
-- Merge/join operations
-- Filtering and grouping
-- Custom operations with descriptions
+**Activities:**
+- Script/notebook executions with timestamps
+- Which entities were used (with column-level detail)
+- Which entities were generated
+- Associated agents (user, software)
+- Git commit hash and dirty state
+
+**Field Derivations:**
+- Which output columns came from which source datasets
+- Column-level provenance (prov:qualifiedDerivation)
+- Auto-populated on read so provenance flows through merge/join/concat
 
 **Metadata:**
 - Content hash (detects when data actually changes)
@@ -128,21 +142,44 @@ Lineage tracking automatically captures the provenance of your data through all 
 df = pd.read_csv('input.csv', project_path=PROJECT_PATH)
 result = df[df['value'] > 100].groupby('category').sum()
 
-# Access lineage metadata
-print(result.lineage.sources)      # List of source datasets
-print(result.lineage.operations)   # List of operations performed
-print(result.lineage.get_licenses())  # All source licenses
+# Access lineage through metadata (preferred)
+print(result.metadata.lineage.sources)
+print(result.metadata.lineage.get_licenses())
 
-# Check specific source information
-for source in result.lineage.sources:
-    print(f"{source.name}: {source.slug}")
-    if source.license:
-        print(f"  License: {source.license}")
+# Check field derivations
+if result.metadata.lineage.field_derivations:
+    for fd in result.metadata.lineage.field_derivations:
+        print(f"  {fd.output_field} <- {fd.source_entity}.{fd.source_field}")
+
+# Check activity details
+if result.metadata.lineage.activity:
+    activity = result.metadata.lineage.activity
+    print(f"Activity: {activity.id}")
+    print(f"Started: {activity.started_at}")
+    for agent in activity.was_associated_with:
+        print(f"Agent: {agent.label} ({agent.type.value})")
+```
+
+### Field-Level Derivations
+
+When you read a dataset, sunstone automatically records which columns came from which source. This propagates through operations:
+
+```python
+# Read: each column gets a derivation record
+schools = pd.read_csv('schools.csv', project_path=PROJECT_PATH)
+# schools.metadata.lineage.field_derivations contains:
+#   FieldDerivation(output_field='name', source_entity='school-data', source_field='name')
+#   FieldDerivation(output_field='enrollment', source_entity='school-data', source_field='enrollment')
+#   ...
+
+# Merge: derivations from both sources are combined
+merged = pd.merge(schools, teachers, on='school_id')
+# merged has derivations from both 'school-data' and 'teacher-data'
 ```
 
 ### Lineage Persistence
 
-When you save a DataFrame, lineage is automatically written to `datasets.yaml`:
+When you save a DataFrame, lineage is automatically written to `datasets.yaml`, including PROV-O activity tracking:
 
 ```python
 result.to_csv(
@@ -170,6 +207,25 @@ outputs:
       created_at: '2026-02-04T10:30:00'
       sources:
         - slug: input-data
+      activity:
+        id: exec-20260204T103000-abc123
+        agents:
+          - id: stig
+            type: prov:Person
+          - id: sunstone-py
+            type: prov:SoftwareAgent
+            version: '1.5.0'
+        used:
+          - entity: input-data
+        started_at: '2026-02-04T10:29:55'
+        ended_at: '2026-02-04T10:30:00'
+      field_derivations:
+        - output_field: category
+          source_entity: input-data
+          source_field: category
+        - output_field: value
+          source_entity: input-data
+          source_field: value
 ```
 
 ### Lineage Propagation
@@ -185,7 +241,7 @@ teachers = pd.read_csv('teachers.csv', project_path=PROJECT_PATH)  # source 2
 merged = pd.merge(schools, teachers, on='school_id')
 
 # Result tracks both sources
-print(len(merged.lineage.sources))  # 2
+print(len(merged.metadata.lineage.sources))  # 2
 ```
 
 ### Content Hash Optimization
@@ -205,6 +261,138 @@ result.to_csv('output.csv', slug='output', name='Output')
 result_v2.to_csv('output.csv', slug='output', name='Output')
 # lineage.created_at = '2026-02-04T11:00:00'  (updated!)
 ```
+
+## DataFrame Metadata
+
+Every DataFrame carries a `metadata` container that holds lineage, dataset identity, and per-field annotations. This metadata flows through operations and is persisted to `datasets.yaml` on write.
+
+### The Metadata Container
+
+```python
+df = pd.read_csv('data.csv', project_path=PROJECT_PATH)
+
+# Dataset identity (used at write time)
+df.metadata.slug = 'my-analysis'
+df.metadata.name = 'My Analysis'
+df.metadata.description = 'Analysis of school enrollment data'
+
+# RDF prefixes and custom properties
+df.metadata.rdf_prefixes = {'schema': 'http://schema.org/'}
+df.metadata.custom_properties = {'schema:about': 'Education'}
+
+# Lineage is accessed through metadata
+print(df.metadata.lineage.sources)
+```
+
+### Per-Field Metadata
+
+Annotate individual columns with descriptions, units, and source tracking:
+
+```python
+df.set_field_metadata('enrollment', description='Total enrolled students', unit='students')
+df.set_field_metadata('area_km2', description='School district area', unit='km^2')
+df.set_field_metadata('density', description='Students per square kilometer', unit='students / km^2')
+```
+
+Field metadata is written to `datasets.yaml` alongside the field schema:
+
+```yaml
+fields:
+  - name: enrollment
+    type: integer
+    description: Total enrolled students
+    unit: students
+  - name: area_km2
+    type: number
+    description: School district area
+    unit: km^2
+```
+
+### Deprecation: `df.lineage`
+
+The old `df.lineage` accessor still works but is deprecated. Use `df.metadata.lineage` instead.
+
+## Plugin System
+
+Reading, writing, and URL fetching are handled by a plugin registry. Built-in handlers cover common formats and URL schemes; external plugins are discovered automatically via entry points.
+
+### Built-in Support
+
+**Formats:** CSV, JSON, Excel, Parquet, TSV
+
+**URL schemes:**
+- Local file paths (built-in)
+- `http://` and `https://` (built-in, with SSRF protection)
+- `gs://` (requires `sunstone-py[gcs]`)
+- `s3://` and `r2://` (requires `sunstone-py[s3]`)
+
+### Using the Plugin Registry
+
+```python
+from sunstone.plugins import PluginRegistry
+from pathlib import Path
+
+registry = PluginRegistry.get('/path/to/project')
+
+# Fetch a file from any supported URL
+registry.fetch('gs://my-bucket/data.csv', Path('data/local.csv'))
+```
+
+### Writing Custom Plugins
+
+Implement one or more plugin protocols (`AuthProvider`, `URLHandler`, `FormatHandler`) and register via entry points:
+
+```toml
+# In your plugin's pyproject.toml
+[project.entry-points."sunstone.plugins"]
+my-plugin = "my_package:MyPlugin"
+```
+
+### Plugin Configuration
+
+Configuration uses cascading precedence:
+
+1. `datasets.yaml` → `plugins.<name>` section (highest priority)
+2. `pyproject.toml` → `[tool.sunstone.plugins.<name>]`
+3. Environment variables → `SUNSTONE_PLUGIN_<NAME>_<KEY>`
+
+## Unit-Aware Arithmetic
+
+sunstone-py integrates with [Pint](https://pint.readthedocs.io/) for unit-aware column operations. When columns have units set via `set_field_metadata()`, arithmetic operations validate unit compatibility.
+
+### Unit Modes
+
+```bash
+export SUNSTONE_UNIT_MODE=auto  # or: strict, relaxed (default)
+```
+
+```python
+from sunstone.units import set_unit_mode
+set_unit_mode('auto')
+```
+
+| Mode | Behavior |
+|------|----------|
+| `relaxed` | No unit validation (default) |
+| `strict` | Raises `UnitError` on incompatible operations |
+| `auto` | Auto-converts compatible units, warns on mismatch |
+
+### Example
+
+```python
+from sunstone.units import set_unit_mode
+set_unit_mode('auto')
+
+df.set_field_metadata('distance_km', unit='km')
+df.set_field_metadata('distance_miles', unit='mile')
+
+# In auto mode, merging DataFrames with km and miles on the same
+# column will automatically convert to a common unit
+```
+
+### QUDT Round-Tripping
+
+Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles. The original URI is stored in `FieldSchema.unit_source` so it round-trips without loss.
 
 ## Dataset Metadata
 

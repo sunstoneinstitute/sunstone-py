@@ -12,15 +12,39 @@ from sunstone import pandas as pd
 
 ### Functions
 
-#### `read_csv(filepath, project_path, strict=False, **kwargs)`
+#### `read_dataset(slug, project_path=None, strict=None, fetch_from_url=True, format=None, **kwargs)`
+
+Read a dataset by slug with automatic format detection.
+
+**Parameters:**
+
+- `slug` (str): Dataset slug to look up in `datasets.yaml`
+- `project_path` (str | Path | None): Path to project directory. Defaults to `Path.cwd()`
+- `strict` (bool | None): Enable strict mode. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
+- `fetch_from_url` (bool): If True and dataset has a source URL but no local file, fetch automatically
+- `format` (str | None): Format override (`'csv'`, `'json'`, `'excel'`, `'parquet'`, `'tsv'`). Auto-detected from extension if not provided
+- `**kwargs`: Additional arguments passed to the underlying pandas reader
+
+**Returns:** `DataFrame` with lineage tracking
+
+**Example:**
+
+```python
+df = pd.read_dataset('official-un-member-states')
+df = pd.read_dataset('my-data', format='json', project_path='/path/to/project')
+```
+
+---
+
+#### `read_csv(filepath, project_path=None, strict=None, **kwargs)`
 
 Read CSV file with lineage tracking.
 
 **Parameters:**
 
-- `filepath` (str | Path): Path to CSV file (relative to project or absolute)
-- `project_path` (str | Path): Path to project directory containing `datasets.yaml`
-- `strict` (bool): If True, dataset must be pre-registered in `datasets.yaml`
+- `filepath` (str | Path): Path to CSV file, URL, or dataset slug
+- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to `Path.cwd()`
+- `strict` (bool | None): If True, dataset must be pre-registered in `datasets.yaml`. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `**kwargs`: Additional arguments passed to `pandas.read_csv()`
 
 **Returns:** `DataFrame` with lineage tracking
@@ -43,14 +67,14 @@ df = pd.read_csv(
 
 ---
 
-#### `read_excel(filepath, project_path, strict=False, fetch_from_url=True, **kwargs)`
+#### `read_excel(filepath, project_path=None, strict=None, fetch_from_url=True, **kwargs)`
 
 Read Excel file (.xlsx/.xls) with lineage tracking.
 
 **Parameters:**
 
 - `filepath` (str | Path): Path to Excel file or dataset slug
-- `project_path` (str | Path): Path to project directory containing `datasets.yaml`
+- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to `Path.cwd()`
 - `strict` (bool | None): If True, dataset must be pre-registered. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `fetch_from_url` (bool): If True and dataset has a source URL but no local file, automatically fetch from URL
 - `**kwargs`: Additional arguments passed to `pandas.read_excel()`
@@ -74,18 +98,28 @@ df = pd.read_excel('data/schools.xlsx', project_path='/path/to/project', sheet_n
 
 ---
 
-#### `read_json(filepath, project_path, strict=False, **kwargs)`
+#### `read_json(filepath, project_path=None, strict=None, **kwargs)`
 
 Read JSON file with lineage tracking.
 
 **Parameters:**
 
-- `filepath` (str | Path): Path to JSON file
-- `project_path` (str | Path): Path to project directory
-- `strict` (bool): Enable strict mode
+- `filepath` (str | Path): Path to JSON file or dataset slug
+- `project_path` (str | Path | None): Path to project directory. Defaults to `Path.cwd()`
+- `strict` (bool | None): Enable strict mode. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `**kwargs`: Additional arguments passed to `pandas.read_json()`
 
 **Returns:** `DataFrame` with lineage tracking
+
+**Example:**
+
+```python
+# Read a JSON file
+df = pd.read_json('data/records.json', project_path=PROJECT_PATH)
+
+# With pandas options
+df = pd.read_json('data/records.json', orient='records', lines=True)
+```
 
 ---
 
@@ -187,6 +221,62 @@ df.to_csv(
 
 ---
 
+#### `to_parquet(path, slug, name, **kwargs)`
+
+Write DataFrame to Parquet file and register in `datasets.yaml`.
+
+**Parameters:**
+
+- `path` (str | Path): Output file path
+- `slug` (str | None): Machine-readable identifier (required in relaxed mode if not registered)
+- `name` (str | None): Human-readable name (required in relaxed mode if not registered)
+- `track` (bool): If False, write without lineage tracking or dataset registration
+- `**kwargs`: Arguments passed to `pandas.DataFrame.to_parquet()`
+
+**Returns:** None
+
+**Example:**
+
+```python
+df.to_parquet(
+    'outputs/summary.parquet',
+    slug='summary',
+    name='Summary Results'
+)
+```
+
+---
+
+#### `set_field_metadata(column, *, description, unit, source, type, constraints)`
+
+Set metadata for a column. Returns self for method chaining.
+
+**Parameters:**
+
+- `column` (str): Column name to annotate
+- `description` (str, optional): Human-readable description of the field
+- `unit` (str, optional): Unit of measure (e.g., `'kg'`, `'students'`, `'%'`)
+- `source` (str, optional): Slug of the input dataset this field comes from
+- `type` (str, optional): Data type override. If None, inferred from dtype at write time
+- `constraints` (dict, optional): Validation constraints (e.g., enum values)
+
+**Returns:** `DataFrame` (self, for chaining)
+
+**Example:**
+
+```python
+df.set_field_metadata('population', description='Total population', unit='people')
+df.set_field_metadata('gdp', description='Gross domestic product', unit='USD')
+
+# Method chaining
+df = (df
+    .set_field_metadata('area', unit='km^2')
+    .set_field_metadata('density', unit='people / km^2')
+)
+```
+
+---
+
 #### `merge(right, **kwargs)`
 
 Merge with another DataFrame.
@@ -271,18 +361,48 @@ styled = df.data.style.highlight_max()
 
 ---
 
-#### `lineage`
+#### `metadata`
 
-Access lineage metadata.
+Access the unified metadata container.
+
+**Type:** `Metadata`
+
+**Example:**
+
+```python
+# Lineage is accessed through metadata
+print(df.metadata.lineage.sources)
+print(df.metadata.lineage.get_licenses())
+
+# Dataset identity
+df.metadata.slug = 'my-dataset'
+df.metadata.name = 'My Dataset'
+df.metadata.description = 'A description of this dataset'
+
+# RDF prefixes and custom properties
+df.metadata.rdf_prefixes = {'schema': 'http://schema.org/'}
+df.metadata.custom_properties = {'schema:about': 'Education'}
+
+# Per-field metadata (see set_field_metadata)
+print(df.metadata.field_metadata)
+```
+
+---
+
+#### `lineage` *(deprecated)*
+
+Access lineage metadata directly. Use `df.metadata.lineage` instead.
 
 **Type:** `LineageMetadata`
 
 **Example:**
 
 ```python
+# Preferred
+print(df.metadata.lineage.sources)
+
+# Deprecated (still works)
 print(df.lineage.sources)
-print(df.lineage.operations)
-print(df.lineage.get_licenses())
 ```
 
 ## DatasetsManager Class
@@ -295,18 +415,22 @@ from sunstone import DatasetsManager
 
 ### Constructor
 
-#### `DatasetsManager(project_path)`
+#### `DatasetsManager(project_path, datasets_file=None)`
 
 Create a datasets manager.
 
 **Parameters:**
 
 - `project_path` (str | Path): Path to project directory containing `datasets.yaml`
+- `datasets_file` (str | Path | None): Path to a specific datasets YAML file (relative to project_path or absolute). Defaults to `"datasets.yaml"`
 
 **Example:**
 
 ```python
 manager = DatasetsManager('/path/to/project')
+
+# Use a custom datasets file
+manager = DatasetsManager('/path/to/project', datasets_file='config/my-datasets.yaml')
 ```
 
 ---
@@ -548,8 +672,10 @@ Field definition for datasets.
 **Attributes:**
 
 - `name` (str): Field name
-- `type` (str): Field type (string, number, integer, boolean, date, datetime)
+- `type` (str | None): Field type (string, number, integer, boolean, date, datetime). If None, inferred from dtype at write time
 - `description` (str, optional): Field description
+- `unit` (str, optional): Unit of measure (e.g., `'kg'`, `'%'`, `'people'`)
+- `source` (str, optional): Slug of the input dataset this field's data comes from
 - `constraints` (dict, optional): Validation constraints
 
 **Example:**
@@ -561,8 +687,12 @@ field = FieldSchema(
     name='enrollment',
     type='integer',
     description='Number of enrolled students',
+    unit='students',
     constraints={'minimum': 0}
 )
+
+# type can be omitted — it's inferred at write time
+field = FieldSchema(name='ratio', description='Student-teacher ratio')
 ```
 
 ---
@@ -616,18 +746,226 @@ config = PublishConfig(
 
 ### LineageMetadata
 
-Lineage tracking information.
+Lineage tracking information. Aligned with W3C PROV-O.
 
 **Attributes:**
 
-- `sources` (list[SourceDataset]): Source datasets
-- `operations` (list[str]): Operations performed
+- `sources` (list[DatasetMetadata]): Source datasets that contributed to this data
+- `created_at` (datetime | None): Timestamp when lineage was last updated (content changed)
+- `content_hash` (str | None): SHA256 hash of the DataFrame content
+- `activity` (Activity | None): The PROV-O Activity that generated this data
+- `field_derivations` (list[FieldDerivation] | None): Field-level derivation detail (prov:qualifiedDerivation)
 
 **Methods:**
 
 - `get_licenses()`: Return list of all source licenses
 - `add_source(source)`: Add source dataset
-- `add_operation(description)`: Add operation description
+- `populate_field_derivations(columns, slug)`: Auto-populate field derivations for columns from a source
+- `merge(other)`: Merge lineage from another DataFrame, combining sources and field derivations
+
+---
+
+### Activity
+
+A W3C PROV-O Activity representing a script or notebook execution.
+
+**Attributes:**
+
+- `id` (str): Unique identifier (e.g., `'exec-{timestamp}-{hash}'`)
+- `used` (list[UsageRecord]): Input entities consumed by this activity
+- `generated` (list[EntityRef]): Output entities produced
+- `was_associated_with` (list[Agent]): Agents involved in this activity
+- `started_at` (datetime | None): When the activity started
+- `ended_at` (datetime | None): When the activity ended
+- `script_path` (str | None): Path to the executed Python script
+- `git_commit` (str | None): Git commit hash at time of execution
+
+---
+
+### Agent
+
+A W3C PROV-O Agent: something that bears responsibility for an activity.
+
+**Attributes:**
+
+- `id` (str): Unique identifier (username, org name, software name)
+- `type` (AgentType): One of `PERSON`, `SOFTWARE`, `ORGANIZATION`
+- `label` (str | None): Human-readable label
+- `version` (str | None): Version string (for SoftwareAgent)
+
+---
+
+### FieldDerivation
+
+Records that an output field was derived from a source entity. Maps to prov:qualifiedDerivation at the field level.
+
+**Attributes:**
+
+- `output_field` (str): Name of the output column
+- `source_entity` (str): Slug of the source dataset
+- `source_field` (str | None): Name of the source field, if known
+
+---
+
+### EntityRef
+
+Lightweight reference to a PROV Entity (dataset).
+
+**Attributes:**
+
+- `slug` (str): Dataset slug identifier
+- `namespace` (str | None): Optional namespace URI for external entities
+
+---
+
+### UsageRecord
+
+Records how an Activity used an Entity. Maps to prov:qualifiedUsage.
+
+**Attributes:**
+
+- `entity` (EntityRef): Which entity was used
+- `columns` (list[str] | None): Which columns were selected (None means all)
+- `filters` (dict | None): Filters applied during read
+
+## Metadata Class
+
+Unified metadata container for DataFrames.
+
+```python
+from sunstone.lineage import Metadata
+```
+
+**Attributes:**
+
+- `lineage` (LineageMetadata): Lineage metadata tracking data provenance
+- `description` (str | None): Human-readable description of the dataset
+- `rdf_prefixes` (dict | None): RDF namespace prefixes for custom properties
+- `custom_properties` (dict | None): Custom properties including RDF triples
+- `field_metadata` (dict[str, FieldSchema]): Per-column metadata, keyed by column name
+- `slug` (str | None): Dataset slug, used at write time
+- `name` (str | None): Human-readable dataset name, used at write time
+
+## Plugin System
+
+The plugin system handles reading, writing, and URL resolution through a registry of handlers.
+
+```python
+from sunstone.plugins import PluginRegistry
+```
+
+### PluginRegistry
+
+Central registry for auth providers, URL handlers, and format handlers.
+
+#### `PluginRegistry.get(project_path=None)`
+
+Return a cached registry instance. If `project_path` is provided, the registry is scoped to that project and loads project-specific plugin configuration.
+
+**Example:**
+
+```python
+registry = PluginRegistry.get('/path/to/project')
+```
+
+---
+
+#### `registry.fetch(url, dest)`
+
+Download a URL to a local file using the appropriate URL handler.
+
+**Parameters:**
+
+- `url` (str): URL to download (supports `http://`, `https://`, `gs://`, `s3://`, `r2://`, local paths)
+- `dest` (Path): Local destination file path
+
+**Returns:** `Path` to the downloaded file
+
+**Example:**
+
+```python
+from pathlib import Path
+from sunstone.plugins import PluginRegistry
+
+registry = PluginRegistry.get()
+registry.fetch('gs://my-bucket/data.csv', Path('data/local.csv'))
+```
+
+> **Note:** `DatasetsManager.fetch_from_url()` is deprecated. Use `PluginRegistry.get().fetch()` instead.
+
+---
+
+### Plugin Protocols
+
+Plugins implement one or more of these protocols:
+
+- **`AuthProvider`**: Provides authentication headers for HTTP requests
+- **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`
+- **`FormatHandler`**: Reads and writes data formats (CSV, JSON, Excel, Parquet, TSV)
+
+### Plugin Discovery
+
+External plugins are discovered via the `sunstone.plugins` entry point group:
+
+```toml
+# In your plugin's pyproject.toml
+[project.entry-points."sunstone.plugins"]
+my-plugin = "my_package:MyPlugin"
+```
+
+### Plugin Configuration
+
+Configuration is loaded with cascading precedence:
+
+1. `datasets.yaml` → `plugins.<name>` section (highest priority)
+2. `pyproject.toml` → `[tool.sunstone.plugins.<name>]` section
+3. Environment variables → `SUNSTONE_PLUGIN_<NAME>_<KEY>`
+
+### Built-in URL Handlers
+
+| Scheme | Handler | Extra |
+|--------|---------|-------|
+| Local files | `LocalFileHandler` | Built-in |
+| `http://`, `https://` | `HttpURLHandler` | Built-in (with SSRF protection) |
+| `gs://` | `GcsURLHandler` | Requires `sunstone-py[gcs]` |
+| `s3://`, `r2://` | `S3URLHandler` | Requires `sunstone-py[s3]` |
+
+## Unit-Aware Arithmetic
+
+sunstone-py integrates with [Pint](https://pint.readthedocs.io/) for unit-aware column arithmetic.
+
+### Unit Modes
+
+Set via `SUNSTONE_UNIT_MODE` environment variable or programmatically:
+
+```python
+from sunstone.units import set_unit_mode
+
+set_unit_mode('strict')  # Raise on unit mismatch
+set_unit_mode('auto')    # Auto-convert compatible units
+set_unit_mode('relaxed') # No unit validation (default)
+```
+
+| Mode | Add/Sub mismatch | Mul/Div | Unknown units |
+|------|-----------------|---------|---------------|
+| `relaxed` | Allowed | Allowed | Allowed |
+| `strict` | Error | Computes result unit | Error |
+| `auto` | Auto-converts if compatible | Computes result unit | Warning |
+
+### Setting Units on Columns
+
+```python
+df.set_field_metadata('distance', unit='km')
+df.set_field_metadata('time', unit='hour')
+```
+
+### Unit Tracking Through Operations
+
+When columns with units are used in merge, join, or concat operations, sunstone validates unit compatibility and (in `auto` mode) applies conversions automatically.
+
+### QUDT Round-Tripping
+
+Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles via the `unit_source` field on `FieldSchema`.
 
 ## Exceptions
 
