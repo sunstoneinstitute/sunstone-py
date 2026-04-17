@@ -625,3 +625,312 @@ class TestRedirectSSRFProtection:
                         # URL is rewritten to use resolved IP; check path is correct
                         assert "/new/data.csv" in second_call_request.full_url
                         assert "93.184.216.34" in second_call_request.full_url
+
+
+class TestGetPackages:
+    """Tests for DatasetsManager.get_packages()."""
+
+    def _make_manager(self, yaml_content: str, tmp_path: Path) -> "sunstone.datasets.DatasetsManager":
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(yaml_content)
+        return sunstone.datasets.DatasetsManager(tmp_path, yaml_file)
+
+    def test_singular_package(self, tmp_path: Path) -> None:
+        """package: (singular) produces one PackageEntry with datasets=None."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "package:\n"
+            "  title: My Package\n"
+            "  version: '1.0.0'\n"
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 1
+        assert packages[0].metadata.title == "My Package"
+        assert packages[0].metadata.version == "1.0.0"
+        assert packages[0].datasets is None
+        assert packages[0].name is None
+        assert packages[0].publish is not None
+        assert packages[0].publish.enabled is True
+        assert packages[0].publish.to == "gs://bucket/test/"
+
+    def test_singular_package_no_publish(self, tmp_path: Path) -> None:
+        """package: without top-level publish: still works."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "package:\n"
+            "  title: My Package\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 1
+        assert packages[0].publish is None
+
+    def test_no_package_or_packages(self, tmp_path: Path) -> None:
+        """No package: or packages: returns empty list."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 0
+
+    def test_plural_packages(self, tmp_path: Path) -> None:
+        """packages: (plural) produces multiple PackageEntry objects."""
+        (tmp_path / "a.csv").write_text("col\nval")
+        (tmp_path / "b.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: pkg-a\n"
+            "    title: Package A\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/a/\n"
+            "    datasets:\n"
+            "      - dataset-a\n"
+            "  - name: pkg-b\n"
+            "    title: Package B\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/b/\n"
+            "    datasets:\n"
+            "      - dataset-b\n"
+            "outputs:\n"
+            "  - name: Dataset A\n"
+            "    slug: dataset-a\n"
+            "    location: a.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Dataset B\n"
+            "    slug: dataset-b\n"
+            "    location: b.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 2
+        assert packages[0].name == "pkg-a"
+        assert packages[0].metadata.title == "Package A"
+        assert packages[0].datasets == ["dataset-a"]
+        assert packages[1].name == "pkg-b"
+        assert packages[1].datasets == ["dataset-b"]
+
+    def test_both_package_and_packages_is_error(self, tmp_path: Path) -> None:
+        """Having both package: and packages: raises ValueError."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "package:\n"
+            "  title: Singular\n"
+            "packages:\n"
+            "  - name: pkg\n"
+            "    datasets:\n"
+            "      - test\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        with pytest.raises(ValueError, match="Cannot use both.*package.*and.*packages"):
+            mgr.get_packages()
+
+    def test_packages_with_top_level_publish_is_error(self, tmp_path: Path) -> None:
+        """packages: with top-level publish: raises ValueError."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/\n"
+            "packages:\n"
+            "  - name: pkg\n"
+            "    datasets:\n"
+            "      - test\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        with pytest.raises(ValueError, match="top-level.*publish.*not allowed.*packages"):
+            mgr.get_packages()
+
+    def test_packages_invalid_slug_is_error(self, tmp_path: Path) -> None:
+        """A datasets: slug that doesn't exist raises ValueError."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: pkg\n"
+            "    datasets:\n"
+            "      - nonexistent-slug\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        with pytest.raises(ValueError, match="nonexistent-slug.*not found"):
+            mgr.get_packages()
+
+    def test_packages_missing_name_is_error(self, tmp_path: Path) -> None:
+        """A packages: entry without name raises ValueError."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - title: No Name\n"
+            "    datasets:\n"
+            "      - test\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        with pytest.raises(ValueError, match="name.*required"):
+            mgr.get_packages()
+
+    def test_packages_missing_datasets_is_error(self, tmp_path: Path) -> None:
+        """A packages: entry without datasets raises ValueError."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: pkg\n"
+            "    title: No Datasets\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        with pytest.raises(ValueError, match="datasets.*required"):
+            mgr.get_packages()
+
+    def test_packages_dataset_from_inputs(self, tmp_path: Path) -> None:
+        """packages: can reference input dataset slugs."""
+        (tmp_path / "input.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: pkg\n"
+            "    title: With Input\n"
+            "    datasets:\n"
+            "      - my-input\n"
+            "inputs:\n"
+            "  - name: My Input\n"
+            "    slug: my-input\n"
+            "    location: input.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 1
+        assert packages[0].datasets == ["my-input"]
+
+    def test_dataset_in_multiple_packages(self, tmp_path: Path) -> None:
+        """A dataset can appear in multiple packages (e.g. full and lite)."""
+        (tmp_path / "shared.csv").write_text("col\nval")
+        (tmp_path / "extra.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: full\n"
+            "    title: Full\n"
+            "    datasets:\n"
+            "      - shared\n"
+            "      - extra\n"
+            "  - name: lite\n"
+            "    title: Lite\n"
+            "    datasets:\n"
+            "      - shared\n"
+            "outputs:\n"
+            "  - name: Shared\n"
+            "    slug: shared\n"
+            "    location: shared.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Extra\n"
+            "    slug: extra\n"
+            "    location: extra.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n",
+            tmp_path,
+        )
+        packages = mgr.get_packages()
+        assert len(packages) == 2
+        assert packages[0].datasets == ["shared", "extra"]
+        assert packages[1].datasets == ["shared"]
+
+
+class TestPerDatasetPublishDeprecation:
+    """Test that per-dataset publish: emits a deprecation warning."""
+
+    def test_warns_on_per_dataset_publish(self, tmp_path: Path) -> None:
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/test/\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "test.csv").write_text("col\nval")
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            from sunstone.datasets import DatasetsManager
+
+            mgr = DatasetsManager(tmp_path, yaml_file)
+            mgr.get_all_outputs()
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+            assert len(deprecation_warnings) == 1
+            assert "publish" in str(deprecation_warnings[0].message).lower()
+            assert "packages:" in str(deprecation_warnings[0].message)

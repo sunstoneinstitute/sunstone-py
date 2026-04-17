@@ -309,6 +309,27 @@ class PublishConfig:
 
 
 @dataclass
+class PackageEntry:
+    """A package definition combining metadata, publish config, and dataset membership.
+
+    Used by ``DatasetsManager.get_packages()`` to represent either a single
+    ``package:`` or one entry in a ``packages:`` list from datasets.yaml.
+    """
+
+    metadata: PackageMetadata
+    """Title, description, version, and other package-level metadata."""
+
+    name: Optional[str] = None
+    """Datapackage name/slug. None for singular package: (auto-derived from project slug)."""
+
+    publish: Optional[PublishConfig] = None
+    """Where and how to publish this package."""
+
+    datasets: Optional[List[str]] = None
+    """Dataset slugs included in this package. None means all outputs (single-package mode)."""
+
+
+@dataclass
 class DatasetMetadata:
     """Metadata for a dataset from datasets.yaml."""
 

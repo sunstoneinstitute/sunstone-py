@@ -15,7 +15,29 @@ import typer as _typer
 from typer.testing import CliRunner
 
 from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
-from sunstone.lineage import Contributor, PackageMetadata
+from sunstone.lineage import Contributor, PackageEntry, PackageMetadata, PublishConfig
+
+
+class TestPackageEntry:
+    """Tests for PackageEntry dataclass."""
+
+    def test_minimal(self) -> None:
+        entry = PackageEntry(metadata=PackageMetadata())
+        assert entry.name is None
+        assert entry.datasets is None
+        assert entry.publish is None
+
+    def test_with_all_fields(self) -> None:
+        entry = PackageEntry(
+            name="my-pkg",
+            metadata=PackageMetadata(title="My Package", version="1.0.0"),
+            publish=PublishConfig(enabled=True, to="gs://bucket/"),
+            datasets=["slug-a", "slug-b"],
+        )
+        assert entry.metadata.title == "My Package"
+        assert entry.publish is not None
+        assert entry.publish.enabled is True
+        assert entry.datasets == ["slug-a", "slug-b"]
 
 
 class _MockURLHandler:
@@ -1449,6 +1471,140 @@ class TestBuildDatapackageWithPackageMetadata:
             assert dp["version"] == "1.0.0"
             assert dp["license"] == "CC-BY-4.0"
             assert len(dp["contributors"]) == 1
+
+
+class TestBuildDatapackageWithPackageEntry:
+    """Tests that build_datapackage works with PackageEntry."""
+
+    def test_build_with_package_entry_explicit_datasets(self, runner: CliRunner, tmp_path: Path) -> None:
+        """PackageEntry with explicit datasets list builds only those resources."""
+        import json
+
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "packages:\n"
+            "  - name: my-pkg\n"
+            "    title: My Package\n"
+            "    version: '2.0.0'\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/test/\n"
+            "    datasets:\n"
+            "      - included\n"
+            "outputs:\n"
+            "  - name: Included\n"
+            "    slug: included\n"
+            "    location: included.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Excluded\n"
+            "    slug: excluded\n"
+            "    location: excluded.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "included.csv").write_text("col\nval")
+        (tmp_path / "excluded.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            app,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "dp.json")],
+        )
+        assert result.exit_code == 0, result.output
+
+        dp = json.loads((tmp_path / "dp.json").read_text())
+        assert dp["name"] == "my-pkg"
+        assert dp["title"] == "My Package"
+        assert dp["version"] == "2.0.0"
+        assert len(dp["resources"]) == 1
+        assert dp["resources"][0]["name"] == "included"
+
+    def test_build_with_multiple_packages(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Multiple packages: entries produce multiple datapackage files."""
+        import json
+
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "packages:\n"
+            "  - name: pkg-a\n"
+            "    title: Package A\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/a/\n"
+            "    datasets:\n"
+            "      - dataset-a\n"
+            "  - name: pkg-b\n"
+            "    title: Package B\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/b/\n"
+            "    datasets:\n"
+            "      - dataset-b\n"
+            "outputs:\n"
+            "  - name: Dataset A\n"
+            "    slug: dataset-a\n"
+            "    location: a.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+            "  - name: Dataset B\n"
+            "    slug: dataset-b\n"
+            "    location: b.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "a.csv").write_text("col\nval")
+        (tmp_path / "b.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            app,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "dp.json")],
+        )
+        assert result.exit_code == 0, result.output
+
+        dp0 = json.loads((tmp_path / "dp.json").read_text())
+        assert dp0["name"] == "pkg-a"
+        assert dp0["title"] == "Package A"
+
+        dp1 = json.loads((tmp_path / "dp.1.json").read_text())
+        assert dp1["name"] == "pkg-b"
+        assert dp1["title"] == "Package B"
+
+    def test_build_singular_package_still_works(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Backward compat: package: (singular) + publish: still works."""
+        import json
+
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(
+            "package:\n"
+            "  title: Legacy Package\n"
+            "  version: '1.0.0'\n"
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "outputs:\n"
+            "  - name: Test\n"
+            "    slug: test\n"
+            "    location: test.csv\n"
+            "    fields:\n"
+            "      - name: col\n"
+            "        type: string\n"
+        )
+        (tmp_path / "test.csv").write_text("col\nval")
+
+        result = runner.invoke(
+            app,
+            ["package", "build", "-f", str(yaml_file), "-o", str(tmp_path / "dp.json")],
+        )
+        assert result.exit_code == 0, result.output
+
+        dp = json.loads((tmp_path / "dp.json").read_text())
+        assert dp["title"] == "Legacy Package"
+        assert dp["version"] == "1.0.0"
+        assert len(dp["resources"]) == 1
 
 
 class TestCLIHelp:

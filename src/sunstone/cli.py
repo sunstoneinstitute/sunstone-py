@@ -19,7 +19,7 @@ from ruamel.yaml import YAML
 from .datasets import DatasetsManager
 from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
-from .lineage import Contributor, DatasetMetadata, PackageMetadata, PublishConfig
+from .lineage import Contributor, DatasetMetadata, PackageEntry, PackageMetadata, PublishConfig
 
 logger = logging.getLogger(__name__)
 
@@ -291,8 +291,8 @@ def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig
     """
     if ds.publish is not None:
         # Per-dataset config takes precedence. Merge with top-level for
-        # missing fields (to, flatten, as_url) when the dataset doesn't
-        # specify them.
+        # missing fields (to, flatten, as_url) when the dataset
+        # doesn't specify them.
         if not ds.publish.enabled:
             return ds.publish  # Explicitly disabled
         if top_level and top_level.enabled:
@@ -1046,9 +1046,17 @@ def build_datapackage(
     datasets: list[DatasetMetadata],
     manager: DatasetsManager,
     publish_config: Optional[PublishConfig],
+    package_entry: Optional[PackageEntry] = None,
 ) -> Optional[dict[str, Any]]:
     """
     Build a datapackage dict for a group of datasets.
+
+    Args:
+        project_slug: Fallback name if package_entry has no name.
+        datasets: The datasets to include as resources.
+        manager: DatasetsManager for metadata lookups.
+        publish_config: Publish config for resource path building.
+        package_entry: Optional PackageEntry with name and metadata.
 
     Returns None if no resources could be built.
     """
@@ -1062,14 +1070,21 @@ def build_datapackage(
     if not resources:
         return None
 
+    pkg_name = package_entry.name if package_entry and package_entry.name else project_slug
+
     datapackage: dict[str, Any] = {
-        "name": project_slug,
+        "name": pkg_name,
         f"{STANDARD_RDF_PREFIXES['rdf']}type": f"{STANDARD_RDF_PREFIXES['dcat']}Dataset",
         "resources": resources,
     }
 
     # Add standard package metadata (title, description, etc.)
-    pkg_meta = manager.get_package_metadata()
+    # PackageEntry metadata takes precedence over global
+    pkg_meta: Optional[PackageMetadata]
+    if package_entry:
+        pkg_meta = package_entry.metadata
+    else:
+        pkg_meta = manager.get_package_metadata()
     if pkg_meta:
         datapackage.update(_package_metadata_to_dict(pkg_meta))
 
@@ -1087,55 +1102,99 @@ def build_datapackage(
     return datapackage
 
 
-@package_app.command("build")
-def package_build(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
-    output_file: str = typer.Option("datapackage.json", "-o", "--output", help="Output file path"),
-) -> None:
-    """Build a datapackage.json from datasets.yaml.
+def _resolve_package_datasets(pkg: PackageEntry, manager: DatasetsManager) -> list[DatasetMetadata]:
+    """Resolve a PackageEntry's dataset slugs to DatasetMetadata objects.
 
-    Creates a Data Package (https://datapackage.org/) with publishable datasets as resources.
-    Datasets are grouped by their publish destination. If there are multiple destinations,
-    separate datapackage.json files are created for each.
+    If pkg.datasets is None (singular package: mode), returns all publishable
+    outputs using the legacy effective-publish logic.
     """
-    try:
-        manager, project_path = get_manager(datasets_file)
-    except FileNotFoundError as e:
-        typer.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+    if pkg.datasets is None:
+        # Singular package: mode — all publishable outputs
+        all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
+        publishable = []
+        for ds in all_datasets:
+            effective = get_effective_publish(ds, pkg.publish)
+            if effective and effective.enabled:
+                publishable.append(ds)
+        return publishable
 
-    try:
-        from frictionless import describe  # noqa: F401
-    except ImportError:
-        typer.echo("Error: frictionless is required for package build", err=True)
-        sys.exit(1)
+    # Explicit dataset list — look up each slug
+    resolved: list[DatasetMetadata] = []
+    for slug in pkg.datasets:
+        found: Optional[DatasetMetadata] = manager.find_dataset_by_slug(slug)
+        if found is None:
+            raise ValueError(f"Dataset slug '{slug}' not found")
+        resolved.append(found)
+    return resolved
 
-    project_slug = get_project_slug(project_path)
-    top_level_publish = manager.get_publish_config()
-    all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
 
-    groups = group_datasets_by_destination(all_datasets, top_level_publish)
+def _build_from_packages(
+    packages: list[PackageEntry],
+    project_slug: str,
+    manager: DatasetsManager,
+    output_file: str,
+) -> None:
+    """Build datapackage files from PackageEntry list."""
+    output_base = Path(output_file)
 
-    if not groups:
-        typer.echo("No publishable datasets found.", err=True)
-        sys.exit(1)
+    if len(packages) == 1:
+        pkg = packages[0]
+        datasets = _resolve_package_datasets(pkg, manager)
+        datapackage = build_datapackage(project_slug, datasets, manager, pkg.publish, package_entry=pkg)
+        if not datapackage:
+            typer.echo("Error: No resources could be added to the package", err=True)
+            sys.exit(1)
+
+        with open(output_base, "w") as f:
+            json.dump(datapackage, f, indent=2)
+        typer.echo(f"\n✓ Created {output_file} with {len(datapackage['resources'])} resource(s)")
+    else:
+        total_resources = 0
+        files_created = 0
+        for i, pkg in enumerate(packages):
+            datasets = _resolve_package_datasets(pkg, manager)
+            datapackage = build_datapackage(project_slug, datasets, manager, pkg.publish, package_entry=pkg)
+            if not datapackage:
+                typer.echo(f"Warning: No resources for package: {pkg.name}", err=True)
+                continue
+
+            if i == 0:
+                out_path = output_base
+            else:
+                out_path = output_base.parent / f"{output_base.stem}.{i}{output_base.suffix}"
+
+            with open(out_path, "w") as f:
+                json.dump(datapackage, f, indent=2)
+
+            n = len(datapackage["resources"])
+            total_resources += n
+            files_created += 1
+            dest = pkg.publish.to if pkg.publish else "local"
+            typer.echo(f"\n✓ Created {out_path} with {n} resource(s) -> {dest}")
+
+        typer.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
+
+
+def _build_from_groups(
+    groups: dict[str, tuple[PublishConfig, list[DatasetMetadata]]],
+    project_slug: str,
+    manager: DatasetsManager,
+    output_file: str,
+) -> None:
+    """Build datapackage files from legacy destination-based groups."""
+    output_base = Path(output_file)
 
     if len(groups) == 1:
-        # Single destination: write to the specified output file
         dest, (pub_config, datasets) = next(iter(groups.items()))
         datapackage = build_datapackage(project_slug, datasets, manager, pub_config)
         if not datapackage:
             typer.echo("Error: No resources could be added to the package", err=True)
             sys.exit(1)
 
-        output_path = Path(output_file)
-        with open(output_path, "w") as f:
+        with open(output_base, "w") as f:
             json.dump(datapackage, f, indent=2)
-
         typer.echo(f"\n✓ Created {output_file} with {len(datapackage['resources'])} resource(s)")
     else:
-        # Multiple destinations: write separate files
-        output_base = Path(output_file)
         total_resources = 0
         files_created = 0
         for i, (dest, (pub_config, datasets)) in enumerate(groups.items()):
@@ -1160,6 +1219,46 @@ def package_build(
         typer.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
 
 
+@package_app.command("build")
+def package_build(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    output_file: str = typer.Option("datapackage.json", "-o", "--output", help="Output file path"),
+) -> None:
+    """Build a datapackage.json from datasets.yaml.
+
+    Creates a Data Package (https://datapackage.org/) with publishable datasets as resources.
+    Supports both single package: and multiple packages: configurations.
+    """
+    try:
+        manager, project_path = get_manager(datasets_file)
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    try:
+        from frictionless import describe  # noqa: F401
+    except ImportError:
+        typer.echo("Error: frictionless is required for package build", err=True)
+        sys.exit(1)
+
+    project_slug = get_project_slug(project_path)
+    packages = manager.get_packages()
+
+    if packages:
+        _build_from_packages(packages, project_slug, manager, output_file)
+    else:
+        # Fall back to legacy destination-based grouping (no package: or packages:)
+        top_level_publish = manager.get_publish_config()
+        all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
+        groups = group_datasets_by_destination(all_datasets, top_level_publish)
+
+        if not groups:
+            typer.echo("No publishable datasets found.", err=True)
+            sys.exit(1)
+
+        _build_from_groups(groups, project_slug, manager, output_file)
+
+
 def is_lfs_pointer(file_path: Path) -> bool:
     """Check if a file is a Git LFS pointer file instead of actual content.
 
@@ -1178,6 +1277,7 @@ def push_group_to_gcs(
     publish_config: PublishConfig,
     *,
     allow_outside_project: bool = False,
+    package_entry: Optional[PackageEntry] = None,
 ) -> None:
     """
     Push a group of datasets to a remote destination.
@@ -1191,15 +1291,21 @@ def push_group_to_gcs(
         manager: The DatasetsManager instance.
         project_slug: The project slug for the datapackage name.
         publish_config: The effective publish config for this group.
+        package_entry: Optional PackageEntry for per-package name and metadata.
     """
     from .packaging import push_group
 
     # Prepare package metadata callback
     def package_metadata_fn() -> Optional[dict[str, Any]]:
+        if package_entry:
+            return _package_metadata_to_dict(package_entry.metadata)
         pkg_meta = manager.get_package_metadata()
         if pkg_meta:
             return _package_metadata_to_dict(pkg_meta)
         return None
+
+    # Use package entry name if available
+    effective_slug = package_entry.name if package_entry and package_entry.name else project_slug
 
     # Prepare top-level properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
@@ -1220,7 +1326,7 @@ def push_group_to_gcs(
             dest_url=dest_url,
             datasets=datasets,
             manager=manager,
-            project_slug=project_slug,
+            project_slug=effective_slug,
             publish_config=publish_config,
             build_resource_dict_fn=build_resource_dict,
             package_metadata_fn=package_metadata_fn,
@@ -1333,27 +1439,70 @@ def package_push(
             typer.echo(f"Error uploading to GCS: {e}", err=True)
             sys.exit(1)
     else:
-        groups = group_datasets_by_destination(all_datasets, top_level_publish)
+        packages = manager.get_packages()
 
-        if not groups:
-            typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
-            sys.exit(1)
+        if packages:
+            # New packages:-based path
+            has_publishable = False
+            try:
+                for pkg in packages:
+                    if not pkg.publish or not pkg.publish.enabled:
+                        continue
+                    has_publishable = True
+                    pkg_datasets = _resolve_package_datasets(pkg, manager)
+                    dest_url = expand_env_vars(pkg.publish.to or "")
+                    push_group_to_gcs(
+                        dest_url,
+                        pkg_datasets,
+                        manager,
+                        project_slug,
+                        pkg.publish,
+                        allow_outside_project=allow_outside_project,
+                        package_entry=pkg,
+                    )
+                    typer.echo()
 
-        try:
-            for dest_url, (pub_config, datasets) in groups.items():
-                push_group_to_gcs(
-                    dest_url, datasets, manager, project_slug, pub_config, allow_outside_project=allow_outside_project
-                )
-                typer.echo()
+                if not has_publishable:
+                    typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
+                    sys.exit(1)
 
-            typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
-        except ImportError:
-            typer.echo("Error: google-cloud-storage is required for push", err=True)
-            typer.echo("Install with: pip install google-cloud-storage", err=True)
-            sys.exit(1)
-        except Exception as e:
-            typer.echo(f"Error uploading to GCS: {e}", err=True)
-            sys.exit(1)
+                enabled_count = sum(1 for p in packages if p.publish and p.publish.enabled)
+                typer.echo(f"✓ Pushed {enabled_count} package(s)")
+            except ImportError:
+                typer.echo("Error: google-cloud-storage is required for push", err=True)
+                typer.echo("Install with: pip install google-cloud-storage", err=True)
+                sys.exit(1)
+            except Exception as e:
+                typer.echo(f"Error uploading: {e}", err=True)
+                sys.exit(1)
+        else:
+            # Legacy destination-based grouping (no package: or packages:)
+            groups = group_datasets_by_destination(all_datasets, top_level_publish)
+
+            if not groups:
+                typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
+                sys.exit(1)
+
+            try:
+                for dest_url, (pub_config, datasets) in groups.items():
+                    push_group_to_gcs(
+                        dest_url,
+                        datasets,
+                        manager,
+                        project_slug,
+                        pub_config,
+                        allow_outside_project=allow_outside_project,
+                    )
+                    typer.echo()
+
+                typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
+            except ImportError:
+                typer.echo("Error: google-cloud-storage is required for push", err=True)
+                typer.echo("Install with: pip install google-cloud-storage", err=True)
+                sys.exit(1)
+            except Exception as e:
+                typer.echo(f"Error uploading to GCS: {e}", err=True)
+                sys.exit(1)
 
 
 # =============================================================================

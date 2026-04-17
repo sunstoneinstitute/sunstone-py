@@ -23,6 +23,7 @@ from .lineage import (
     FieldDerivation,
     FieldSchema,
     LineageMetadata,
+    PackageEntry,
     PackageMetadata,
     PublishConfig,
     Source,
@@ -426,6 +427,16 @@ class DatasetsManager:
 
         publish = self._parse_publish(dataset_data.get("publish"))
 
+        slug = dataset_data["slug"]
+        if publish is not None:
+            import warnings
+
+            warnings.warn(
+                f"Per-dataset 'publish:' on '{slug}' is deprecated. Use 'packages:' with a 'datasets:' list instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         # Parse PROV-O fields from lineage section (outputs only)
         lineage_raw = dataset_data.get("lineage", {})
         was_derived_from = None
@@ -611,6 +622,101 @@ class DatasetsManager:
             PackageMetadata if present, None otherwise.
         """
         return self._parse_package(self._data.get("package"))
+
+    def get_packages(self) -> list[PackageEntry]:
+        """Get package definitions from datasets.yaml.
+
+        Supports two mutually exclusive forms:
+        - ``package:`` (singular): backward-compatible single package.
+          Top-level ``publish:`` is copied into the package entry.
+          Returns a single PackageEntry with ``datasets=None`` (all outputs).
+        - ``packages:`` (plural): list of explicit package definitions,
+          each with ``name``, ``datasets``, optional metadata and ``publish``.
+
+        Returns:
+            List of PackageEntry objects. Empty if neither form is present.
+
+        Raises:
+            ValueError: If both ``package:`` and ``packages:`` are present,
+                if ``packages:`` is used with top-level ``publish:``,
+                if a packages entry is missing ``name`` or ``datasets``,
+                or if a dataset slug doesn't exist.
+        """
+        has_singular = "package" in self._data
+        has_plural = "packages" in self._data
+
+        if has_singular and has_plural:
+            raise ValueError(
+                "Cannot use both 'package:' and 'packages:' in datasets.yaml. "
+                "Use 'package:' for a single package or 'packages:' for multiple."
+            )
+
+        if has_plural:
+            if "publish" in self._data:
+                raise ValueError(
+                    "A top-level 'publish:' is not allowed with 'packages:'. "
+                    "Move publish config into each package entry."
+                )
+            return [self._parse_package_entry(entry) for entry in self._data["packages"]]
+
+        if has_singular:
+            metadata = self._parse_package(self._data["package"])
+            if metadata is None:
+                metadata = PackageMetadata()
+            publish = self.get_publish_config()
+            return [PackageEntry(metadata=metadata, name=None, publish=publish, datasets=None)]
+
+        return []
+
+    def _parse_package_entry(self, entry_data: Dict[str, Any]) -> PackageEntry:
+        """Parse a single entry from the packages: list.
+
+        Args:
+            entry_data: Raw dict from YAML.
+
+        Returns:
+            A PackageEntry with validated dataset slugs.
+
+        Raises:
+            ValueError: If name or datasets is missing, or a slug doesn't exist.
+        """
+        name = entry_data.get("name")
+        if not name:
+            raise ValueError("Each 'packages:' entry: 'name' is required.")
+
+        datasets = entry_data.get("datasets")
+        if datasets is None:
+            raise ValueError(f"Package '{name}': 'datasets' list is required in each packages: entry.")
+
+        # Validate all slugs exist
+        all_slugs = {ds.get("slug") for ds in self._data.get("inputs", []) + self._data.get("outputs", [])}
+        for slug in datasets:
+            if slug not in all_slugs:
+                raise ValueError(f"Package '{name}': dataset slug '{slug}' not found in inputs or outputs.")
+
+        # Parse package metadata from remaining fields
+        metadata_keys = {
+            "title",
+            "description",
+            "version",
+            "keywords",
+            "license",
+            "contributors",
+            "homepage",
+            "id",
+            "image",
+        }
+        metadata_data = {k: v for k, v in entry_data.items() if k in metadata_keys}
+        metadata = (self._parse_package(metadata_data) if metadata_data else None) or PackageMetadata()
+
+        publish = self._parse_publish(entry_data.get("publish"))
+
+        return PackageEntry(
+            metadata=metadata,
+            name=name,
+            publish=publish,
+            datasets=list(datasets),
+        )
 
     def get_top_level_custom_properties(self) -> Dict[str, Any]:
         """

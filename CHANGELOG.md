@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `packages:` list support in datasets.yaml for multi-package projects
+- Deprecated: per-dataset `publish:` config (use `packages:` with `datasets:` instead)
+
 ## [1.5.0] - 2026-04-14
 
 ### Added
