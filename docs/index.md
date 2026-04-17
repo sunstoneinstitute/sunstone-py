@@ -129,9 +129,10 @@ Ready to dive in? Here's your learning path:
 
 1. **[Quick Start](quickstart.md)** - Get up and running in 5 minutes
 2. **[Core Concepts](concepts.md)** - Understand lineage tracking and strict/relaxed modes
-3. **[CLI Guide](cli.md)** - Learn the command-line tools for dataset management
-4. **[API Reference](api.md)** - Complete API documentation
-5. **[Examples](examples.md)** - Real-world usage patterns and workflows
+3. **[Data Packages How-To](datapackage-howto.md)** - Configure inputs, outputs, and packages for publishing
+4. **[CLI Guide](cli.md)** - Learn the command-line tools for dataset management
+5. **[API Reference](api.md)** - Complete API documentation
+6. **[Examples](examples.md)** - Real-world usage patterns and workflows
 
 ## Common Use Cases
 
@@ -218,7 +219,7 @@ sunstone-py builds on the [Data Package v2](https://datapackage.org/) standard, 
 - Integrate with tools that consume Data Packages
 - Share data with complete metadata
 
-See [Data Package Standard](datapackage.md) for the full specification.
+See the [Data Packages How-To](datapackage-howto.md) for a practical guide to configuring packages, or the [Data Package Standard](datapackage.md) for the full specification.
 
 ## Development
 
