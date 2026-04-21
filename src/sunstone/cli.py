@@ -758,14 +758,169 @@ def dataset_validate(
             typer.echo(f"✓ {datasets_file} is valid")
 
 
-@dataset_app.command("lock")
-def dataset_lock(
+@dataset_app.command("migrate")
+def dataset_migrate(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+) -> None:
+    """Migrate inline lineage from datasets.yaml to datasets.lock.yaml.
+
+    Extracts lineage blocks from output datasets and writes them to the lock file.
+    Adds .gitattributes entry if inside a git repo.
+    """
+    import subprocess
+
+    try:
+        manager, project_path = get_manager(datasets_file)
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    # Find outputs with inline lineage
+    migrated = []
+    lock_outputs: list[dict] = []
+
+    for output in manager._data.get("outputs", []):
+        lineage = output.get("lineage")
+        if lineage:
+            slug = output["slug"]
+            lock_entry: dict = {"slug": slug}
+            lock_entry.update(lineage)
+            # Strip source entries to just slug to match update_output_lineage format
+            if "sources" in lock_entry:
+                lock_entry["sources"] = [{"slug": s["slug"]} for s in lock_entry["sources"] if "slug" in s]
+            lock_outputs.append(lock_entry)
+            del output["lineage"]
+            migrated.append(slug)
+
+    if not migrated:
+        typer.echo("No inline lineage found — nothing to migrate.")
+        return
+
+    # Write lock file (preserve existing entries if any)
+    lock_data = dict(manager._lock_data) if manager._lock_data else {}
+    if "outputs" not in lock_data:
+        lock_data["outputs"] = []
+
+    # Merge: don't duplicate slugs
+    existing_slugs = {e["slug"] for e in lock_data["outputs"]}
+    for entry in lock_outputs:
+        if entry["slug"] not in existing_slugs:
+            lock_data["outputs"].append(entry)
+        else:
+            for existing in lock_data["outputs"]:
+                if existing["slug"] == entry["slug"]:
+                    existing.update(entry)
+                    break
+
+    manager._lock_data = lock_data
+    manager._save_lock()
+
+    # Save datasets.yaml without lineage
+    manager._save()
+
+    typer.echo(f"Migrated lineage for {len(migrated)} output(s): {', '.join(migrated)}")
+
+    # Add .gitattributes if in a git repo
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=project_path,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            gitattributes = project_path / ".gitattributes"
+            line = "datasets.lock.yaml linguist-generated=true\n"
+            if gitattributes.exists():
+                content = gitattributes.read_text()
+                if "datasets.lock.yaml" not in content:
+                    gitattributes.write_text(content.rstrip("\n") + "\n" + line)
+                    typer.echo("Updated .gitattributes")
+            else:
+                gitattributes.write_text(line)
+                typer.echo("Created .gitattributes")
+    except FileNotFoundError:
+        pass
+
+
+@dataset_app.command("resolve")
+def dataset_resolve(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    check: bool = typer.Option(False, "--check", help="Exit non-zero if lock file is out of date"),
+) -> None:
+    """Resolve dataset metadata and write datasets.lock.yaml.
+
+    Iterates all inputs and outputs, resolves metadata from URL handlers
+    (content hashes, field inference), and writes the lock file.
+
+    Use --check in CI to verify the lock file is up to date.
+    """
+    import hashlib
+
+    try:
+        manager, project_path = get_manager(datasets_file)
+    except FileNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    lock_data: dict = {"inputs": [], "outputs": []}
+
+    # Resolve inputs
+    for ds in manager.get_all_inputs():
+        entry: dict = {"slug": ds.slug}
+        abs_path = manager.get_absolute_path(ds.location)
+
+        if abs_path.exists():
+            with open(abs_path, "rb") as f:
+                file_hash = hashlib.sha256(f.read()).hexdigest()
+            entry["content_hash"] = f"sha256:{file_hash}"
+
+        lock_data["inputs"].append(entry)
+
+    # Resolve outputs
+    for ds in manager.get_all_outputs():
+        entry = {"slug": ds.slug}
+        abs_path = manager.get_absolute_path(ds.location)
+
+        if abs_path.exists():
+            with open(abs_path, "rb") as f:
+                file_hash = hashlib.sha256(f.read()).hexdigest()
+            entry["content_hash"] = f"sha256:{file_hash}"
+
+        # Preserve existing lineage from lock file
+        existing = manager._get_lock_entry(ds.slug, "output")
+        for key in ("created_at", "sources", "activity", "field_derivations", "context", "transformation_params"):
+            if key in existing:
+                entry[key] = existing[key]
+
+        lock_data["outputs"].append(entry)
+
+    if check:
+        # Convert ruamel CommentedMap to plain dict for reliable comparison
+        existing_plain = json.loads(json.dumps(manager.lock_data)) if manager.lock_data else {}
+        if lock_data != existing_plain:
+            typer.echo("Lock file is out of date. Run 'sunstone dataset resolve' to update.", err=True)
+            sys.exit(1)
+        else:
+            typer.echo("Lock file is up to date.")
+            return
+
+    manager._lock_data = lock_data
+    manager._save_lock()
+
+    input_count = len(lock_data["inputs"])
+    output_count = len(lock_data["outputs"])
+    typer.echo(f"Resolved {input_count} input(s) and {output_count} output(s) to datasets.lock.yaml")
+
+
+@dataset_app.command("strict")
+def dataset_strict(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
     datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
 ) -> None:
     """Enable strict mode for datasets.
 
-    If no datasets are specified, locks all datasets.
+    If no datasets are specified, enables strict mode for all datasets.
     """
     datasets = datasets or []
     try:
@@ -792,17 +947,17 @@ def dataset_lock(
             typer.echo(f"Warning: Dataset '{slug}' not found", err=True)
 
     if locked:
-        typer.echo(f"✓ Locked {len(locked)} dataset(s): {', '.join(locked)}")
+        typer.echo(f"✓ Strict mode enabled for {len(locked)} dataset(s): {', '.join(locked)}")
 
 
-@dataset_app.command("unlock")
-def dataset_unlock(
+@dataset_app.command("unstrict")
+def dataset_unstrict(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
     datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
 ) -> None:
     """Disable strict mode for datasets.
 
-    If no datasets are specified, unlocks all datasets.
+    If no datasets are specified, disables strict mode for all datasets.
     """
     datasets = datasets or []
     try:
@@ -829,7 +984,7 @@ def dataset_unlock(
             typer.echo(f"Warning: Dataset '{slug}' not found", err=True)
 
     if unlocked:
-        typer.echo(f"✓ Unlocked {len(unlocked)} dataset(s): {', '.join(unlocked)}")
+        typer.echo(f"✓ Strict mode disabled for {len(unlocked)} dataset(s): {', '.join(unlocked)}")
 
 
 # =============================================================================

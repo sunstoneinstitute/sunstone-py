@@ -161,24 +161,23 @@ class TestFlushAndPersist:
             index=False,
         )
 
-        # Read datasets.yaml and check lineage
+        # Lineage should be in datasets.lock.yaml, not datasets.yaml
         yaml = YAML()
-        with open(flow_project / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "merged-output")
-        lineage = output["lineage"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "merged-output")
 
-        assert "content_hash" in lineage
-        assert "created_at" in lineage
-        assert "sources" in lineage
-        assert len(lineage["sources"]) >= 1  # At least from DataFrame lineage
-        assert "context" in lineage
-        assert lineage["context"]["user"] == "test-user"
+        assert "content_hash" in lock_output
+        assert "created_at" in lock_output
+        assert "sources" in lock_output
+        assert len(lock_output["sources"]) >= 1  # At least from DataFrame lineage
+        assert "context" in lock_output
+        assert lock_output["context"]["user"] == "test-user"
 
         # PROV-O: activity section should also be present
-        assert "activity" in lineage
-        activity = lineage["activity"]
+        assert "activity" in lock_output
+        activity = lock_output["activity"]
         assert activity["id"].startswith("exec-")
         assert any(a["id"] == "test-user" for a in activity["agents"])
         assert any(a["type"] == "prov:SoftwareAgent" for a in activity["agents"])
@@ -186,6 +185,12 @@ class TestFlushAndPersist:
         used_slugs = {u["entity"] for u in activity["used"]}
         assert "alpha-data" in used_slugs
         assert "beta-data" in used_slugs
+
+        # datasets.yaml should NOT have lineage
+        with open(flow_project / "datasets.yaml") as f:
+            yaml_data = yaml.load(f)
+        yaml_output = next(d for d in yaml_data["outputs"] if d["slug"] == "merged-output")
+        assert "lineage" not in yaml_output
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_transformation_params_persisted(self, mock_ctx: Any, flow_project: Path) -> None:
@@ -201,18 +206,17 @@ class TestFlushAndPersist:
         )
 
         yaml = YAML()
-        with open(flow_project / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "filtered-output")
-        lineage = output["lineage"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "filtered-output")
 
-        assert "transformation_params" in lineage
-        assert lineage["transformation_params"]["threshold"] == 100
+        assert "transformation_params" in lock_output
+        assert lock_output["transformation_params"]["threshold"] == 100
 
         # PROV-O: activity should also carry transformation_params
-        assert "activity" in lineage
-        assert lineage["activity"]["transformation_params"]["threshold"] == 100
+        assert "activity" in lock_output
+        assert lock_output["activity"]["transformation_params"]["threshold"] == 100
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_session_cleared_after_flush(self, mock_ctx: Any, flow_project: Path) -> None:
@@ -255,15 +259,15 @@ class TestFlushAndPersist:
             )
 
         yaml = YAML()
-        with open(flow_project / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "relative-test")
-        context = output["lineage"]["context"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "relative-test")
+        context = lock_output["context"]
         assert context["script_path"] == "scripts/process.py"
 
         # PROV-O: activity script_path should also be relativized
-        activity = output["lineage"]["activity"]
+        activity = lock_output["activity"]
         assert activity["script_path"] == "scripts/process.py"
 
     def test_script_path_kept_absolute_when_outside_project(self, flow_project: Path) -> None:
@@ -292,11 +296,11 @@ class TestFlushAndPersist:
             )
 
         yaml = YAML()
-        with open(flow_project / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "absolute-test")
-        context = output["lineage"]["context"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "absolute-test")
+        context = lock_output["context"]
         assert context["script_path"] == "/some/other/place/process.py"
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
@@ -314,14 +318,13 @@ class TestFlushAndPersist:
         )
 
         yaml = YAML()
-        with open(flow_project / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "merged-output")
-        lineage = output["lineage"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "merged-output")
 
-        assert "field_derivations" in lineage
-        fd = lineage["field_derivations"]
+        assert "field_derivations" in lock_output
+        fd = lock_output["field_derivations"]
         fd_by_field = {d["output_field"]: d for d in fd}
 
         # Columns from alpha-data

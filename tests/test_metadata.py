@@ -558,8 +558,11 @@ class TestMetadataIntegration:
         assert fields_by_name["Member State"]["description"] == "Country name"
         assert fields_by_name["ISO Code"]["description"] == "ISO 3166-1 alpha-3"
         assert fields_by_name["ISO Code"]["source"] == "official-un-member-states"
-        assert "lineage" in output
-        assert "sources" in output["lineage"]
+        # Lineage is in the lock file, not in datasets.yaml
+        with open(test_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+        lock_output = next(o for o in lock_data["outputs"] if o["slug"] == "top-five-members")
+        assert "sources" in lock_output
 
     def test_to_csv_slug_name_from_metadata(self, project_path: Path, tmp_path: Path):
         """to_csv uses metadata slug/name when not passed as parameters."""
