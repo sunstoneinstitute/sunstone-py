@@ -403,21 +403,20 @@ class TestDatasetsYamlRoundTrip:
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_activity_persisted_to_yaml(self, mock_ctx: Any, project_with_output: Path) -> None:
-        """Writing an output should persist an activity section in datasets.yaml."""
+        """Writing an output should persist an activity section in lock file."""
         close_session()
 
         df = sunstone.DataFrame.read_dataset("input-data", project_path=project_with_output)
         df.to_csv("outputs/out.csv", index=False)
 
         yaml = YAML()
-        with open(project_with_output / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_with_output / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "output-data")
-        lineage = output["lineage"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "output-data")
 
-        assert "activity" in lineage
-        activity = lineage["activity"]
+        assert "activity" in lock_output
+        activity = lock_output["activity"]
         assert activity["id"].startswith("exec-")
         assert "agents" in activity
         assert any(a["id"] == "test-user" for a in activity["agents"])
@@ -427,7 +426,7 @@ class TestDatasetsYamlRoundTrip:
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
     def test_field_derivations_persisted_to_yaml(self, mock_ctx: Any, project_with_output: Path) -> None:
-        """Setting field source metadata should persist field_derivations."""
+        """Setting field source metadata should persist field_derivations in lock file."""
         close_session()
 
         df = sunstone.DataFrame.read_dataset("input-data", project_path=project_with_output)
@@ -435,14 +434,13 @@ class TestDatasetsYamlRoundTrip:
         df.to_csv("outputs/out.csv", index=False)
 
         yaml = YAML()
-        with open(project_with_output / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_with_output / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next(d for d in data["outputs"] if d["slug"] == "output-data")
-        lineage = output["lineage"]
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "output-data")
 
-        assert "field_derivations" in lineage
-        fd = lineage["field_derivations"]
+        assert "field_derivations" in lock_output
+        fd = lock_output["field_derivations"]
         fd_by_field = {d["output_field"]: d for d in fd}
 
         # Auto-populated derivation for 'id'

@@ -399,41 +399,41 @@ class TestDatasetListCommand:
 
 
 class TestDatasetLockUnlockCommands:
-    """Tests for dataset lock and unlock commands."""
+    """Tests for dataset strict and unstrict commands."""
 
-    def test_lock_single_dataset(self, runner: CliRunner, test_project: Path) -> None:
-        """Test locking a single dataset."""
+    def test_strict_single_dataset(self, runner: CliRunner, test_project: Path) -> None:
+        """Test enabling strict mode for a single dataset."""
         result = runner.invoke(
-            app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
+            app, ["dataset", "strict", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
-        assert "Locked 1 dataset(s)" in result.output
+        assert "Strict mode enabled for 1 dataset(s)" in result.output
 
         # Verify the file was updated
         content = (test_project / "datasets.yaml").read_text()
         assert "strict: true" in content
 
-    def test_lock_all_datasets(self, runner: CliRunner, test_project: Path) -> None:
-        """Test locking all datasets."""
-        result = runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml")])
+    def test_strict_all_datasets(self, runner: CliRunner, test_project: Path) -> None:
+        """Test enabling strict mode for all datasets."""
+        result = runner.invoke(app, ["dataset", "strict", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
-        assert "Locked 3 dataset(s)" in result.output
+        assert "Strict mode enabled for 3 dataset(s)" in result.output
 
-    def test_unlock_dataset(self, runner: CliRunner, test_project: Path) -> None:
-        """Test unlocking a dataset."""
-        # First lock it
-        runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"])
+    def test_unstrict_dataset(self, runner: CliRunner, test_project: Path) -> None:
+        """Test disabling strict mode for a dataset."""
+        # First enable strict mode
+        runner.invoke(app, ["dataset", "strict", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"])
 
-        # Then unlock
+        # Then disable
         result = runner.invoke(
-            app, ["dataset", "unlock", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
+            app, ["dataset", "unstrict", "-f", str(test_project / "datasets.yaml"), "current-un-member-states"]
         )
         assert result.exit_code == 0
-        assert "Unlocked 1 dataset(s)" in result.output
+        assert "Strict mode disabled for 1 dataset(s)" in result.output
 
-    def test_lock_nonexistent_dataset(self, runner: CliRunner, test_project: Path) -> None:
-        """Test locking a non-existent dataset."""
-        result = runner.invoke(app, ["dataset", "lock", "-f", str(test_project / "datasets.yaml"), "nonexistent"])
+    def test_strict_nonexistent_dataset(self, runner: CliRunner, test_project: Path) -> None:
+        """Test enabling strict mode for a non-existent dataset."""
+        result = runner.invoke(app, ["dataset", "strict", "-f", str(test_project / "datasets.yaml"), "nonexistent"])
         assert "not found" in result.output
 
 
@@ -1623,8 +1623,8 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "list" in result.output
         assert "validate" in result.output
-        assert "lock" in result.output
-        assert "unlock" in result.output
+        assert "strict" in result.output
+        assert "unstrict" in result.output
 
     def test_package_help(self, runner: CliRunner) -> None:
         """Test package subcommand help."""

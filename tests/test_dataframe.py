@@ -351,19 +351,18 @@ class TestContentHashLineage:
         output_path = "outputs/test_output.csv"
         df.to_csv(output_path, slug="test-output", name="Test Output", index=False)
 
-        # Read the datasets.yaml and check for content_hash
+        # Lineage is in datasets.lock.yaml
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        # Find the output dataset
-        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-output"), None)
-        assert output is not None
-        assert "lineage" in output
-        assert "content_hash" in output["lineage"]
-        assert "created_at" in output["lineage"]
+        # Find the output in lock file
+        lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "test-output"), None)
+        assert lock_output is not None
+        assert "content_hash" in lock_output
+        assert "created_at" in lock_output
         # Hash should be a 64-character hex string (SHA256)
-        assert len(output["lineage"]["content_hash"]) == 64
+        assert len(lock_output["content_hash"]) == 64
 
     def test_timestamp_not_updated_when_content_unchanged(self, project_copy: Path) -> None:
         """Test that timestamp stays the same when saving identical content."""
@@ -382,15 +381,15 @@ class TestContentHashLineage:
         # First write
         df.to_csv(output_path, slug="stable-output", name="Stable Output", index=False)
 
-        # Read the first timestamp and hash
+        # Read the first timestamp and hash from lock file
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data1 = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock1 = yaml.load(f)
 
-        output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "stable-output"), None)
-        assert output1 is not None
-        first_timestamp = output1["lineage"]["created_at"]
-        first_hash = output1["lineage"]["content_hash"]
+        lock_output1 = next((d for d in lock1.get("outputs", []) if d["slug"] == "stable-output"), None)
+        assert lock_output1 is not None
+        first_timestamp = lock_output1["created_at"]
+        first_hash = lock_output1["content_hash"]
 
         # Wait a bit to ensure different timestamp would be generated
         time.sleep(0.1)
@@ -403,14 +402,14 @@ class TestContentHashLineage:
         )
         df2.to_csv(output_path, slug="stable-output", name="Stable Output", index=False)
 
-        # Read the second timestamp and hash
-        with open(project_copy / "datasets.yaml") as f:
-            data2 = yaml.load(f)
+        # Read the second timestamp and hash from lock file
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock2 = yaml.load(f)
 
-        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "stable-output"), None)
-        assert output2 is not None
-        second_timestamp = output2["lineage"]["created_at"]
-        second_hash = output2["lineage"]["content_hash"]
+        lock_output2 = next((d for d in lock2.get("outputs", []) if d["slug"] == "stable-output"), None)
+        assert lock_output2 is not None
+        second_timestamp = lock_output2["created_at"]
+        second_hash = lock_output2["content_hash"]
 
         # Hash should be the same
         assert first_hash == second_hash
@@ -434,15 +433,15 @@ class TestContentHashLineage:
         # First write
         df.to_csv(output_path, slug="changing-output", name="Changing Output", index=False)
 
-        # Read the first timestamp and hash
+        # Read the first timestamp and hash from lock file
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data1 = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock1 = yaml.load(f)
 
-        output1 = next((d for d in data1.get("outputs", []) if d["slug"] == "changing-output"), None)
-        assert output1 is not None
-        first_timestamp = output1["lineage"]["created_at"]
-        first_hash = output1["lineage"]["content_hash"]
+        lock_output1 = next((d for d in lock1.get("outputs", []) if d["slug"] == "changing-output"), None)
+        assert lock_output1 is not None
+        first_timestamp = lock_output1["created_at"]
+        first_hash = lock_output1["content_hash"]
 
         # Wait a bit to ensure different timestamp
         time.sleep(0.1)
@@ -457,14 +456,14 @@ class TestContentHashLineage:
         df2_modified = df2.head(10)
         df2_modified.to_csv(output_path, slug="changing-output", name="Changing Output", index=False)
 
-        # Read the second timestamp and hash
-        with open(project_copy / "datasets.yaml") as f:
-            data2 = yaml.load(f)
+        # Read the second timestamp and hash from lock file
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock2 = yaml.load(f)
 
-        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "changing-output"), None)
-        assert output2 is not None
-        second_timestamp = output2["lineage"]["created_at"]
-        second_hash = output2["lineage"]["content_hash"]
+        lock_output2 = next((d for d in lock2.get("outputs", []) if d["slug"] == "changing-output"), None)
+        assert lock_output2 is not None
+        second_timestamp = lock_output2["created_at"]
+        second_hash = lock_output2["content_hash"]
 
         # Hash should be different since content changed
         assert first_hash != second_hash
@@ -489,19 +488,17 @@ class TestContentHashLineage:
         output_path = "outputs/source_tracking_output.csv"
         df.to_csv(output_path, slug="source-tracking-output", name="Source Tracking Output", index=False)
 
-        # Read the datasets.yaml
+        # Lineage sources are in datasets.lock.yaml
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        # Find the output dataset
-        output = next((d for d in data.get("outputs", []) if d["slug"] == "source-tracking-output"), None)
-        assert output is not None
-        assert "lineage" in output
-        assert "sources" in output["lineage"]
+        lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "source-tracking-output"), None)
+        assert lock_output is not None
+        assert "sources" in lock_output
 
         # Sources should be a list of dicts with just slug
-        sources = output["lineage"]["sources"]
+        sources = lock_output["sources"]
         assert len(sources) > 0
         assert sources[0] == {"slug": source_slug}
 
@@ -520,17 +517,17 @@ class TestContentHashLineage:
         # First write
         df.to_csv(output_path, slug="update-sources-output", name="Update Sources Output", index=False)
 
-        # Read dataset.yaml and verify sources
+        # Read lock file and verify sources
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next((d for d in data.get("outputs", []) if d["slug"] == "update-sources-output"), None)
-        assert output is not None
-        assert "sources" in output["lineage"]
-        assert len(output["lineage"]["sources"]) == 1
+        lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "update-sources-output"), None)
+        assert lock_output is not None
+        assert "sources" in lock_output
+        assert len(lock_output["sources"]) == 1
 
-        # Write again - sources should still be present
+        # Write again - sources should still be present (but content unchanged = no-op)
         df2 = sunstone.DataFrame.read_csv(
             "inputs/official_un_member_states_raw.csv",
             project_path=project_copy,
@@ -539,13 +536,13 @@ class TestContentHashLineage:
         df2.to_csv(output_path, slug="update-sources-output", name="Update Sources Output", index=False)
 
         # Verify sources are still there
-        with open(project_copy / "datasets.yaml") as f:
-            data2 = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock_data2 = yaml.load(f)
 
-        output2 = next((d for d in data2.get("outputs", []) if d["slug"] == "update-sources-output"), None)
-        assert output2 is not None
-        assert "sources" in output2["lineage"]
-        assert len(output2["lineage"]["sources"]) == 1
+        lock_output2 = next((d for d in lock_data2.get("outputs", []) if d["slug"] == "update-sources-output"), None)
+        assert lock_output2 is not None
+        assert "sources" in lock_output2
+        assert len(lock_output2["sources"]) == 1
 
 
 class TestToParquetTrackParameter:
@@ -625,14 +622,13 @@ class TestToParquetLineage:
         df.to_parquet(output_path, slug="test-parquet-output", name="Test Parquet Output")
 
         yaml = YAML()
-        with open(project_copy / "datasets.yaml") as f:
-            data = yaml.load(f)
+        with open(project_copy / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
 
-        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-parquet-output"), None)
-        assert output is not None
-        assert "lineage" in output
-        assert "content_hash" in output["lineage"]
-        assert len(output["lineage"]["content_hash"]) == 64
+        lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "test-parquet-output"), None)
+        assert lock_output is not None
+        assert "content_hash" in lock_output
+        assert len(lock_output["content_hash"]) == 64
 
     def test_parquet_auto_registers_fields(self, project_copy: Path) -> None:
         """Test that field schema is auto-registered in datasets.yaml."""

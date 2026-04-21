@@ -271,10 +271,16 @@ class TestUpdateOutputLineage:
             )
 
     def test_strict_mode_raises_when_lineage_differs(self, project_copy: Path) -> None:
-        """Lines 676-684: strict mode raises when files differ."""
+        """Strict mode raises when content hash differs from existing lock entry."""
         mgr = DatasetsManager(project_copy)
         lineage = LineageMetadata(sources=[])
-        # Use a different hash to force a change
+        # First write lineage in relaxed mode to create a lock entry
+        mgr.update_output_lineage(
+            slug="current-un-member-states",
+            lineage=lineage,
+            content_hash="original_hash",
+        )
+        # Now use strict mode with a different hash - should raise
         with pytest.raises(DatasetValidationError, match="strict mode"):
             mgr.update_output_lineage(
                 slug="current-un-member-states",
@@ -303,11 +309,11 @@ class TestUpdateOutputLineage:
             strict=True,
         )
 
-    def test_exception_cleans_up_temp_file(self, project_copy: Path) -> None:
-        """Lines 694-698: cleanup temp file on exception."""
+    def test_exception_during_save_lock_propagates(self, project_copy: Path) -> None:
+        """Errors during _save_lock propagate to caller."""
         mgr = DatasetsManager(project_copy)
         lineage = LineageMetadata(sources=[])
-        # Patch _yaml.dump to raise after temp file is created
+        # Patch _yaml.dump to raise during lock file write
         with patch("sunstone.datasets._yaml.dump", side_effect=RuntimeError("dump failed")):
             with pytest.raises(RuntimeError, match="dump failed"):
                 mgr.update_output_lineage(
@@ -315,9 +321,6 @@ class TestUpdateOutputLineage:
                     lineage=lineage,
                     content_hash="abc",
                 )
-        # Verify no temp files were left behind
-        temp_files = list(project_copy.glob("datasets_*.yaml"))
-        assert len(temp_files) == 0
 
 
 class TestGetAbsolutePath:

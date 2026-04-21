@@ -26,10 +26,8 @@ inputs:
     source:
       name: United Nations Member States Authority File
       location:
-        data:
-          https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
-        metadata:
-          https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
+        data: https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv
+        metadata: https://digitallibrary.un.org/record/4082085/files/2025-10-08_UN%2520member%2520states.md
         about: https://digitallibrary.un.org/record/4082085
       attributedTo: "United Nations Dag Hammarskjöld Library"
       acquiredAt: 2025-10-08
@@ -119,11 +117,3 @@ outputs:
         type: date
       - name: version
         type: string
-    lineage:
-      sources:
-        - slug: official-un-member-states
-          name: Official UN Member States
-          location: inputs/official_un_member_states_raw.csv
-      content_hash:
-        a4fed3f8938014e3365584eb805fd0e3fa27ab535202b80be109538300473334
-      created_at: '2025-12-04T03:04:16.508497'
