@@ -4,6 +4,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-04-22
+
+- Added: `datasets.lock.yaml` for separating auto-generated lineage from human-authored `datasets.yaml`
+- Added: `sunstone dataset resolve` command to generate lock file with resolved metadata
+- Added: `sunstone dataset migrate` command to extract inline lineage into lock file
+- Changed: `sunstone dataset lock`/`unlock` renamed to `sunstone dataset strict`/`unstrict`
+- Deprecated: inline `lineage:` blocks in `datasets.yaml` (use `sunstone dataset migrate`)
+
+
 - Added: `datasets.lock.yaml` for separating auto-generated lineage from human-authored `datasets.yaml`
 - Added: `sunstone dataset resolve` command to generate lock file with resolved metadata
 - Added: `sunstone dataset migrate` command to extract inline lineage into lock file
