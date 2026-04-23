@@ -3,8 +3,13 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added: `min_sunstone_version` field in `datasets.yaml` with auto-bumping on lock file writes
-- Changed: split ambiguous `content_hash` into `data_hash` (DataFrame content) and `file_hash` (file bytes) with consistent `sha256:` prefix
+- Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer
+- Added: `ParquetFormatHandler` with `supports_metadata()` capability on `FormatHandler` protocol
+- Added: `Metadata.to_jsonld()` and `Metadata.from_jsonld()` for JSON-LD serialization
+- Added: `min_sunstone_version` field in `datasets.yaml` with auto-bump on lock file writes
+- Fixed: split ambiguous `content_hash` into `data_hash` (DataFrame content) and `file_hash` (file bytes)
+- Fixed: hash prefix inconsistency — all hashes now use `sha256:` prefix
+- Changed: `sunstone dataset migrate` now handles hash field rename and version bump
 
 ## [1.7.0] - 2026-04-22
 
