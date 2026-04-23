@@ -11,7 +11,7 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -558,19 +558,14 @@ class Metadata:
     name: str | None = None
     """Human-readable dataset name, used at write time."""
 
-    # Default JSON-LD context prefixes
-    _DEFAULT_PREFIXES: Dict[str, str] = field(
-        default_factory=lambda: {
-            "dcat": "http://www.w3.org/ns/dcat#",
-            "dct": "http://purl.org/dc/terms/",
-            "prov": "http://www.w3.org/ns/prov#",
-            "si": "https://sunstone.institute/ns/",
-            "schema": "http://schema.org/",
-        },
-        init=False,
-        repr=False,
-        compare=False,
-    )
+    # Default JSON-LD context prefixes (class-level constant, not a dataclass field)
+    _DEFAULT_PREFIXES: ClassVar[Dict[str, str]] = {
+        "dcat": "http://www.w3.org/ns/dcat#",
+        "dct": "http://purl.org/dc/terms/",
+        "prov": "http://www.w3.org/ns/prov#",
+        "si": "https://sunstone.institute/ns/",
+        "schema": "http://schema.org/",
+    }
 
     def to_jsonld(self) -> Dict[str, Any]:
         """Serialize metadata to a JSON-LD document.
@@ -697,9 +692,9 @@ class Metadata:
         for src in doc.get("prov:wasDerivedFrom", []):
             sources.append(
                 DatasetMetadata(
-                    slug=src["dct:identifier"],
-                    name=src["dct:title"],
-                    location=src["dcat:downloadURL"],
+                    slug=src.get("dct:identifier", ""),
+                    name=src.get("dct:title", ""),
+                    location=src.get("dcat:downloadURL", ""),
                 )
             )
 
