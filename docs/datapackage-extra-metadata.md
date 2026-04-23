@@ -269,12 +269,12 @@ Add semantic metadata to describe the entire dataset:
   "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
   "name": "climate-observations",
   "title": "Climate Observation Dataset",
-  "kg:ontology": "http://schema.org/Dataset",
-  "kg:subject": [
+  "dct:conformsTo": "http://schema.org/Dataset",
+  "dct:subject": [
     "http://dbpedia.org/resource/Climate_change",
     "http://dbpedia.org/resource/Temperature"
   ],
-  "kg:spatialCoverage": "http://sws.geonames.org/3144096/",
+  "dct:spatial": "http://sws.geonames.org/3144096/",
   "schema:temporalCoverage": "2020-01-01/2024-12-31",
   "resources": [...]
 }
@@ -291,8 +291,8 @@ Annotate individual data resources with semantic concepts:
       "name": "temperatures",
       "path": "data/temperatures.csv",
       "type": "table",
-      "kg:concept": "http://purl.obolibrary.org/obo/ENVO_01000267",
-      "kg:methodology": "http://example.org/methodology/automated-sensor",
+      "dct:subject": "http://purl.obolibrary.org/obo/ENVO_01000267",
+      "si:methodology": "http://example.org/methodology/automated-sensor",
       "prov:wasGeneratedBy": "http://example.org/activity/sensor-collection-2024",
       "schema": {...}
     }
@@ -312,9 +312,8 @@ Add semantic annotations to individual fields for precise meaning:
         "name": "temperature",
         "type": "number",
         "title": "Air Temperature",
-        "kg:unit": "http://qudt.org/vocab/unit/DEG_C",
-        "kg:measuredProperty": "http://purl.obolibrary.org/obo/PATO_0000146",
-        "sosa:observedProperty": "http://example.org/property/air-temperature",
+        "qudt:unit": "http://qudt.org/vocab/unit/DEG_C",
+        "sosa:observedProperty": "http://purl.obolibrary.org/obo/PATO_0000146",
         "constraints": {
           "minimum": -50,
           "maximum": 50
@@ -323,14 +322,14 @@ Add semantic annotations to individual fields for precise meaning:
       {
         "name": "location_id",
         "type": "string",
-        "kg:references": "http://www.geonames.org/",
+        "dct:references": "http://www.geonames.org/",
         "skos:exactMatch": "http://www.w3.org/2003/01/geo/wgs84_pos#SpatialThing"
       },
       {
         "name": "species_code",
         "type": "string",
         "dwc:scientificName": "Taxonomic reference",
-        "kg:vocabulary": "http://rs.gbif.org/vocabulary/gbif/taxonomic_status.xml"
+        "rdfs:seeAlso": "http://rs.gbif.org/vocabulary/gbif/taxonomic_status.xml"
       }
     ]
   }
@@ -346,7 +345,7 @@ Link datasets to ontologies and knowledge graphs:
 ```json
 {
   "name": "biodiversity-survey",
-  "kg:alignedOntology": [
+  "dct:conformsTo": [
     "http://rs.tdwg.org/dwc/terms/",
     "http://purl.obolibrary.org/obo/envo.owl"
   ],
@@ -413,7 +412,9 @@ Consider using established vocabulary prefixes for interoperability:
 
 | Prefix | Namespace | Purpose |
 |--------|-----------|---------|
-| `kg:` | Custom knowledge graph | Your semantic annotations |
+| `si:` | https://sunstone.institute/rdf/vocab# | Sunstone Institute vocabulary |
+| `dct:` | http://purl.org/dc/terms/ | Dublin Core Terms |
+| `rdfs:` | http://www.w3.org/2000/01/rdf-schema# | RDF Schema |
 | `schema:` | http://schema.org/ | Schema.org vocabulary |
 | `dcat:` | http://www.w3.org/ns/dcat# | Data Catalog Vocabulary |
 | `prov:` | http://www.w3.org/ns/prov# | Provenance Ontology |
@@ -470,8 +471,8 @@ When linking to knowledge graphs, use full URIs:
 
 ```json
 {
-  "kg:concept": "http://purl.obolibrary.org/obo/ENVO_01000267",
-  // Not: "kg:concept": "ENVO_01000267"
+  "dct:subject": "http://purl.obolibrary.org/obo/ENVO_01000267",
+  // Not: "dct:subject": "ENVO_01000267"
 }
 ```
 
@@ -501,8 +502,8 @@ For strict validation of your extensions, create a custom profile:
   // Semantic metadata
   "schema:keywords": ["oceanography", "climate", "temperature"],
   "dcat:theme": ["http://eurovoc.europa.eu/2107"],
-  "kg:ontology": "http://www.w3.org/ns/sosa/",
-  "kg:spatialCoverage": "http://sws.geonames.org/3144096/",
+  "dct:conformsTo": "http://www.w3.org/ns/sosa/",
+  "dct:spatial": "http://sws.geonames.org/3144096/",
 
   // Provenance
   "prov:wasDerivedFrom": "http://example.org/dataset/raw-sensor-data",
@@ -530,7 +531,7 @@ For strict validation of your extensions, create a custom profile:
 
       // Resource-level semantics
       "sosa:observationType": "http://example.org/observation/sea-surface-temperature",
-      "kg:instrumentType": "http://vocab.nerc.ac.uk/collection/L05/current/134/",
+      "example:instrumentType": "http://vocab.nerc.ac.uk/collection/L05/current/134/",
 
       "schema": {
         "fields": [
@@ -544,7 +545,7 @@ For strict validation of your extensions, create a custom profile:
             "name": "station_id",
             "type": "string",
             "title": "Monitoring Station ID",
-            "kg:references": "http://example.org/stations/",
+            "dct:references": "http://example.org/stations/",
             "constraints": {"required": true}
           },
           {
@@ -555,7 +556,6 @@ For strict validation of your extensions, create a custom profile:
             // Field-level semantics
             "sosa:observedProperty": "http://vocab.nerc.ac.uk/collection/P07/current/CFSN0381/",
             "qudt:unit": "http://qudt.org/vocab/unit/DEG_C",
-            "kg:measuredProperty": "http://purl.obolibrary.org/obo/PATO_0000146",
             "skos:definition": "Temperature measured at 1 meter below sea surface",
 
             "constraints": {
