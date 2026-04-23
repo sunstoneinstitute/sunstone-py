@@ -93,12 +93,49 @@ class DatasetsManager:
         self._data: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._lock_data: Dict[str, Any] = {}
-        self._load()
+        self._load(check_version=True)
 
-    def _load(self) -> None:
+    @staticmethod
+    def _compare_versions(a: str, b: str) -> int:
+        """Compare two semver version strings. Returns -1, 0, or 1."""
+
+        def parse(v: str) -> tuple[int, ...]:
+            parts = v.split("-")[0].split("+")[0].split(".")
+            return tuple(int(p) for p in parts[:3])
+
+        pa, pb = parse(a), parse(b)
+        if pa < pb:
+            return -1
+        if pa > pb:
+            return 1
+        return 0
+
+    def _ensure_min_version(self, required: str) -> None:
+        """Set min_sunstone_version in datasets.yaml if absent or lower."""
+        current_min = self._data.get("min_sunstone_version")
+        if current_min is None or self._compare_versions(current_min, required) < 0:
+            self._data["min_sunstone_version"] = required
+            self._save()
+
+    def _load(self, check_version: bool = False) -> None:
         """Load and parse the datasets.yaml file."""
         with open(self.datasets_file, "r") as f:
             self._data = _yaml.load(f) or {}
+
+        # Check min_sunstone_version compatibility (only on initial load)
+        min_version = self._data.get("min_sunstone_version")
+        if check_version and min_version:
+            from importlib.metadata import version as pkg_version
+
+            try:
+                current = pkg_version("sunstone-py")
+            except Exception:
+                current = "0.0.0"
+            if self._compare_versions(current, min_version) < 0:
+                raise RuntimeError(
+                    f"This project requires sunstone-py >= {min_version} "
+                    f"(you have {current}). Run: uv add sunstone-py@latest"
+                )
 
         if "inputs" not in self._data:
             self._data["inputs"] = []
@@ -1031,6 +1068,15 @@ class DatasetsManager:
 
         # Save the lock file
         self._save_lock()
+
+        # Auto-bump min_sunstone_version if needed
+        from importlib.metadata import version as pkg_version
+
+        try:
+            current_ver = pkg_version("sunstone-py")
+        except Exception:
+            current_ver = "1.8.0"
+        self._ensure_min_version(current_ver)
 
         # Reload to pick up merged lineage
         self._load()

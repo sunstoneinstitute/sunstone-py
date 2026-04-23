@@ -904,6 +904,79 @@ class TestGetPackages:
         assert packages[1].datasets == ["shared"]
 
 
+class TestMinSunstoneVersion:
+    """Tests for min_sunstone_version checking and auto-bumping."""
+
+    def test_load_with_compatible_version(self, tmp_path: Path) -> None:
+        """datasets.yaml with a low min_sunstone_version loads successfully."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+        yaml.dump(
+            {"min_sunstone_version": "1.0.0", "inputs": [], "outputs": []},
+            tmp_path / "datasets.yaml",
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        assert manager is not None
+
+    def test_load_with_incompatible_version(self, tmp_path: Path) -> None:
+        """datasets.yaml requiring a future version raises RuntimeError."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+        yaml.dump(
+            {"min_sunstone_version": "99.0.0", "inputs": [], "outputs": []},
+            tmp_path / "datasets.yaml",
+        )
+        with pytest.raises(RuntimeError, match="requires sunstone-py >= 99.0.0"):
+            sunstone.DatasetsManager(tmp_path)
+
+    def test_load_without_version_field(self, tmp_path: Path) -> None:
+        """datasets.yaml without min_sunstone_version loads successfully."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+        yaml.dump({"inputs": [], "outputs": []}, tmp_path / "datasets.yaml")
+        manager = sunstone.DatasetsManager(tmp_path)
+        assert manager is not None
+
+    def test_auto_bump_on_lock_write(self, tmp_path: Path) -> None:
+        """update_output_lineage sets min_sunstone_version in datasets.yaml."""
+        from ruamel.yaml import YAML
+
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import LineageMetadata
+
+        yaml = YAML()
+        yaml.dump(
+            {
+                "inputs": [],
+                "outputs": [{"name": "Out", "slug": "out", "location": "outputs/out.csv"}],
+            },
+            tmp_path / "datasets.yaml",
+        )
+
+        manager = DatasetsManager(tmp_path)
+        manager.update_output_lineage(
+            slug="out",
+            lineage=LineageMetadata(),
+            data_hash="sha256:" + "a" * 64,
+        )
+
+        # Re-read datasets.yaml and check min_sunstone_version was set
+        with open(tmp_path / "datasets.yaml") as f:
+            data = yaml.load(f)
+        assert data["min_sunstone_version"] is not None
+        # Should be set to the current running version
+        from importlib.metadata import version as pkg_version
+
+        try:
+            expected = pkg_version("sunstone-py")
+        except Exception:
+            expected = "1.8.0"
+        assert data["min_sunstone_version"] == expected
+
+
 class TestPerDatasetPublishDeprecation:
     """Test that per-dataset publish: emits a deprecation warning."""
 
