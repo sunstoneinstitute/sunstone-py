@@ -392,7 +392,8 @@ class TestMigrateCommand:
         with open(project / "datasets.lock.yaml") as f:
             lock_data = _yaml.load(f)
         lock_output = next(o for o in lock_data["outputs"] if o["slug"] == "out")
-        assert lock_output["content_hash"] == "sha256:abc123"
+        # content_hash is renamed to file_hash by the hash migration step
+        assert lock_output["file_hash"] == "sha256:abc123"
         assert lock_output["sources"][0]["slug"] == "in"
 
     def test_migrate_adds_gitattributes_in_git_repo(self, tmp_path: Path) -> None:

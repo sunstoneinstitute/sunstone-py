@@ -792,33 +792,88 @@ def dataset_migrate(
             del output["lineage"]
             migrated.append(slug)
 
-    if not migrated:
+    if migrated:
+        # Write lock file (preserve existing entries if any)
+        lock_data = dict(manager._lock_data) if manager._lock_data else {}
+        if "outputs" not in lock_data:
+            lock_data["outputs"] = []
+
+        # Merge: don't duplicate slugs
+        existing_slugs = {e["slug"] for e in lock_data["outputs"]}
+        for entry in lock_outputs:
+            if entry["slug"] not in existing_slugs:
+                lock_data["outputs"].append(entry)
+            else:
+                for existing in lock_data["outputs"]:
+                    if existing["slug"] == entry["slug"]:
+                        existing.update(entry)
+                        break
+
+        manager._lock_data = lock_data
+        manager._save_lock()
+
+        # Save datasets.yaml without lineage
+        manager._save()
+
+        typer.echo(f"Migrated lineage for {len(migrated)} output(s): {', '.join(migrated)}")
+    else:
         typer.echo("No inline lineage found — nothing to migrate.")
-        return
 
-    # Write lock file (preserve existing entries if any)
-    lock_data = dict(manager._lock_data) if manager._lock_data else {}
-    if "outputs" not in lock_data:
-        lock_data["outputs"] = []
+    # --- Hash migration: content_hash -> file_hash + data_hash ---
+    hash_migrated = []
 
-    # Merge: don't duplicate slugs
-    existing_slugs = {e["slug"] for e in lock_data["outputs"]}
-    for entry in lock_outputs:
-        if entry["slug"] not in existing_slugs:
-            lock_data["outputs"].append(entry)
-        else:
-            for existing in lock_data["outputs"]:
-                if existing["slug"] == entry["slug"]:
-                    existing.update(entry)
-                    break
+    for entry in manager._lock_data.get("outputs", []):
+        slug = entry.get("slug", "unknown")
+        changed = False
 
-    manager._lock_data = lock_data
-    manager._save_lock()
+        # Rename content_hash -> file_hash
+        if "content_hash" in entry:
+            old_hash = entry.pop("content_hash")
+            if not old_hash.startswith("sha256:"):
+                old_hash = f"sha256:{old_hash}"
+            entry["file_hash"] = old_hash
+            changed = True
 
-    # Save datasets.yaml without lineage
-    manager._save()
+        # Compute data_hash if not present and output file exists
+        if "data_hash" not in entry:
+            ds = manager.find_dataset_by_slug(slug)
+            if ds:
+                abs_path = manager.get_absolute_path(ds.location)
+                if abs_path.exists():
+                    try:
+                        from sunstone.lineage import compute_dataframe_hash
+                        from sunstone.plugins import PluginRegistry
 
-    typer.echo(f"Migrated lineage for {len(migrated)} output(s): {', '.join(migrated)}")
+                        registry = PluginRegistry.get(manager.project_path)
+                        reader = registry.find_format_reader(str(abs_path), None)
+                        if reader:
+                            url_handler = registry.find_url_handler(str(abs_path))
+                            if url_handler:
+                                with url_handler.open(str(abs_path), "rb") as stream:
+                                    df = reader.read(stream, path=str(abs_path))
+                                entry["data_hash"] = compute_dataframe_hash(df)
+                                changed = True
+                    except Exception as e:
+                        typer.echo(f"  Warning: could not compute data_hash for '{slug}': {e}", err=True)
+
+        if changed:
+            hash_migrated.append(slug)
+
+    # Also migrate input entries
+    for entry in manager._lock_data.get("inputs", []):
+        if "content_hash" in entry:
+            old_hash = entry.pop("content_hash")
+            if not old_hash.startswith("sha256:"):
+                old_hash = f"sha256:{old_hash}"
+            entry["file_hash"] = old_hash
+            hash_migrated.append(entry.get("slug", "unknown"))
+
+    if hash_migrated:
+        manager._save_lock()
+        typer.echo(f"Migrated hashes for {len(hash_migrated)} dataset(s): {', '.join(hash_migrated)}")
+
+    # Set min_sunstone_version
+    manager._ensure_min_version("1.8.0")
 
     # Add .gitattributes if in a git repo
     try:

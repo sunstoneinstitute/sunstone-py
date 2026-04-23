@@ -2330,3 +2330,165 @@ def test_env_update_reports_write_errors(tmp_path):
         result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://newhost:19120/api/v1"])
     assert result.exit_code == 1
     assert "permission denied" in result.output
+
+
+# =============================================================================
+# Migrate hash tests
+# =============================================================================
+
+
+class TestMigrateHashes:
+    """Tests for hash migration in dataset migrate command."""
+
+    def test_migrate_renames_content_hash(self, tmp_path: Path) -> None:
+        """Migrate renames content_hash to file_hash with sha256: prefix and computes data_hash."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+
+        # Set up datasets.yaml with an output
+        datasets_yaml = tmp_path / "datasets.yaml"
+        datasets_yaml.write_text("outputs:\n  - name: My Output\n    slug: my-output\n    location: outputs/data.csv\n")
+
+        # Create the output CSV file
+        outputs_dir = tmp_path / "outputs"
+        outputs_dir.mkdir()
+        csv_file = outputs_dir / "data.csv"
+        csv_file.write_text("a,b\n1,2\n3,4\n")
+
+        # Set up datasets.lock.yaml with content_hash (bare hex)
+        bare_hex = "a" * 64
+        lock_yaml = tmp_path / "datasets.lock.yaml"
+        lock_data = {
+            "outputs": [
+                {
+                    "slug": "my-output",
+                    "content_hash": bare_hex,
+                }
+            ]
+        }
+        with open(lock_yaml, "w") as f:
+            yaml.dump(lock_data, f)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["dataset", "migrate", "-f", str(datasets_yaml)])
+        assert result.exit_code == 0, f"Command failed: {result.output}"
+
+        # Read the lock file back
+        with open(lock_yaml) as f:
+            updated_lock = yaml.load(f)
+
+        output_entry = updated_lock["outputs"][0]
+        assert "content_hash" not in output_entry
+        assert "file_hash" in output_entry
+        assert output_entry["file_hash"] == f"sha256:{bare_hex}"
+        assert "data_hash" in output_entry
+        assert output_entry["data_hash"].startswith("sha256:")
+
+        # Verify datasets.yaml has min_sunstone_version
+        with open(datasets_yaml) as f:
+            updated_datasets = yaml.load(f)
+        assert updated_datasets.get("min_sunstone_version") == "1.8.0"
+
+    def test_migrate_idempotent(self, tmp_path: Path) -> None:
+        """Running migrate twice with already-migrated format does not change the lock file."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+
+        # Set up datasets.yaml with min_sunstone_version already set
+        # (as if a previous migrate already ran)
+        datasets_yaml = tmp_path / "datasets.yaml"
+        datasets_yaml.write_text(
+            "min_sunstone_version: '1.8.0'\n"
+            "outputs:\n"
+            "  - name: My Output\n"
+            "    slug: my-output\n"
+            "    location: outputs/data.csv\n"
+        )
+
+        # Create the output CSV file
+        outputs_dir = tmp_path / "outputs"
+        outputs_dir.mkdir()
+        csv_file = outputs_dir / "data.csv"
+        csv_file.write_text("a,b\n1,2\n3,4\n")
+
+        # Set up lock file with already-migrated format
+        lock_yaml = tmp_path / "datasets.lock.yaml"
+        lock_data = {
+            "outputs": [
+                {
+                    "slug": "my-output",
+                    "file_hash": "sha256:" + "b" * 64,
+                    "data_hash": "sha256:" + "c" * 64,
+                }
+            ]
+        }
+        with open(lock_yaml, "w") as f:
+            yaml.dump(lock_data, f)
+
+        runner = CliRunner()
+
+        # Mock version check so 1.8.0 requirement doesn't block
+        with patch("sunstone.datasets.DatasetsManager._compare_versions", return_value=0):
+            # Run migrate first time
+            result1 = runner.invoke(app, ["dataset", "migrate", "-f", str(datasets_yaml)])
+            assert result1.exit_code == 0, f"First run failed: {result1.output}"
+
+            # Read lock file after first run
+            with open(lock_yaml) as f:
+                lock_after_first = yaml.load(f)
+
+            # Run migrate second time
+            result2 = runner.invoke(app, ["dataset", "migrate", "-f", str(datasets_yaml)])
+            assert result2.exit_code == 0, f"Second run failed: {result2.output}"
+
+        # Read lock file after second run
+        with open(lock_yaml) as f:
+            lock_after_second = yaml.load(f)
+
+        # Verify lock file is unchanged between runs
+        entry1 = lock_after_first["outputs"][0]
+        entry2 = lock_after_second["outputs"][0]
+        assert entry1["file_hash"] == entry2["file_hash"]
+        assert entry1["data_hash"] == entry2["data_hash"]
+        assert "content_hash" not in entry2
+
+    def test_migrate_input_content_hash(self, tmp_path: Path) -> None:
+        """Migrate renames content_hash to file_hash for input entries too."""
+        from ruamel.yaml import YAML
+
+        yaml = YAML()
+
+        datasets_yaml = tmp_path / "datasets.yaml"
+        datasets_yaml.write_text("inputs:\n  - name: My Input\n    slug: my-input\n    location: inputs/data.csv\n")
+
+        # Create the input file
+        inputs_dir = tmp_path / "inputs"
+        inputs_dir.mkdir()
+        (inputs_dir / "data.csv").write_text("x,y\n1,2\n")
+
+        bare_hex = "d" * 64
+        lock_yaml = tmp_path / "datasets.lock.yaml"
+        lock_data = {
+            "inputs": [
+                {
+                    "slug": "my-input",
+                    "content_hash": bare_hex,
+                }
+            ]
+        }
+        with open(lock_yaml, "w") as f:
+            yaml.dump(lock_data, f)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["dataset", "migrate", "-f", str(datasets_yaml)])
+        assert result.exit_code == 0, f"Command failed: {result.output}"
+
+        with open(lock_yaml) as f:
+            updated_lock = yaml.load(f)
+
+        input_entry = updated_lock["inputs"][0]
+        assert "content_hash" not in input_entry
+        assert input_entry["file_hash"] == f"sha256:{bare_hex}"
+        assert "Migrated hashes" in result.output
