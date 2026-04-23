@@ -18,23 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Fixed: use original source URL for `dcat:downloadURL` in Parquet metadata
 - Fixed: `STANDARD_RDF_PREFIXES` moved to package root for consistent access
 
-- Fixed: Sunstone RDF namespace URI corrected from `https://sunstone.institute/ns/` to `https://sunstone.institute/rdf/vocab#`
-- Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer
-- Added: `ParquetFormatHandler` with `supports_metadata()` capability on `FormatHandler` protocol
-- Added: `Metadata.to_jsonld()` and `Metadata.from_jsonld()` for JSON-LD serialization
-- Added: `min_sunstone_version` field in `datasets.yaml` with auto-bump on lock file writes
-- Fixed: split ambiguous `content_hash` into `data_hash` (DataFrame content) and `file_hash` (file bytes)
-- Fixed: hash prefix inconsistency — all hashes now use `sha256:` prefix
-- Changed: `sunstone dataset migrate` now handles hash field rename and version bump
-
 ## [1.7.0] - 2026-04-22
-
-- Added: `datasets.lock.yaml` for separating auto-generated lineage from human-authored `datasets.yaml`
-- Added: `sunstone dataset resolve` command to generate lock file with resolved metadata
-- Added: `sunstone dataset migrate` command to extract inline lineage into lock file
-- Changed: `sunstone dataset lock`/`unlock` renamed to `sunstone dataset strict`/`unstrict`
-- Deprecated: inline `lineage:` blocks in `datasets.yaml` (use `sunstone dataset migrate`)
-
 
 - Added: `datasets.lock.yaml` for separating auto-generated lineage from human-authored `datasets.yaml`
 - Added: `sunstone dataset resolve` command to generate lock file with resolved metadata
@@ -53,18 +37,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [1.5.0] - 2026-04-14
 
 - Added: Auto-populate field derivations on dataset read so field provenance flows through merge/join/concat
-- Changed: Align lineage data model with W3C PROV-O (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
-- Changed: Persist activity tracking to datasets.yaml on every write
-- Added: PROV-O aligned provenance types (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
-- Added: Activity tracking on dataset write (agents, timestamps, usage records persisted to datasets.yaml)
 - Added: Field-level derivation tracking (prov:qualifiedDerivation) propagated through DataFrame operations
 - Added: Source.agent property for backwards-compatible Agent access from string attributed\_to
+- Changed: Align lineage data model with W3C PROV-O (Agent, Activity, FieldDerivation, UsageRecord, EntityRef)
+- Changed: Persist activity tracking to datasets.yaml on every write
 
 ## [1.4.3] - 2026-04-13
-
-- Security: harden HTTP handler against DNS rebinding and large responses
-- Security: pin GitHub Actions to full commit SHAs
-- Security: prevent package push from publishing files outside project root
 
 - Security: Prevent package push from publishing files outside the project root (GHSA-85m4-5f4j-mrr5)
 - Security: Pin all third-party GitHub Actions to full commit SHAs (GHSA-499q-3p86-jj3c)

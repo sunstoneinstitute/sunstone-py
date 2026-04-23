@@ -17,14 +17,18 @@ State the bump level and why.
 
 ## Step 2: Generate changelog entry
 
-Review the commits since the last version tag and write a changelog entry in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Group changes under the appropriate headings:
+First, check if CHANGELOG.md already has entries under `## [Unreleased]`. If it does, use those as the starting point — they were written incrementally during development and are likely accurate. Supplement with any commits not already covered.
 
-- **Added** — new features
-- **Changed** — changes in existing functionality
-- **Fixed** — bug fixes
-- **Removed** — removed features
+If `[Unreleased]` is empty, review the commits since the last version tag and write a changelog entry from scratch.
 
-Only include headings that have entries. Be concise but descriptive. Each entry should be one line. Do NOT include the version header line — the release script adds that.
+Format as [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Use these category prefixes per line (no group headings):
+
+- `- Added:` — new features
+- `- Changed:` — changes in existing functionality
+- `- Fixed:` — bug fixes
+- `- Removed:` — removed features
+
+Be concise but descriptive. Each entry should be one line. Do NOT include the version header line — the release script adds that. The release script also clears the `[Unreleased]` section automatically, so don't worry about duplication.
 
 ## Step 3: Confirm with user
 

@@ -55,11 +55,20 @@ def update_changelog(new_version: str, entry: str) -> None:
 
     if CHANGELOG.exists():
         text = CHANGELOG.read_text()
-        # Insert after ## [Unreleased] if present, otherwise after the title
-        unreleased_pattern = r"(## \[Unreleased\]\n)"
-        if re.search(unreleased_pattern, text):
+        # Insert after ## [Unreleased] if present, otherwise after the title.
+        # Also clear any content under [Unreleased] to avoid duplication.
+        unreleased_with_content = r"(## \[Unreleased\])\n(?:.*?\n)*?(?=## \[)"
+        unreleased_bare = r"(## \[Unreleased\]\n)"
+        if re.search(unreleased_with_content, text):
             text = re.sub(
-                unreleased_pattern,
+                unreleased_with_content,
+                f"\\1\n\n{header}\n\n{entry.strip()}\n\n",
+                text,
+                count=1,
+            )
+        elif re.search(unreleased_bare, text):
+            text = re.sub(
+                unreleased_bare,
                 f"\\1\n{header}\n\n{entry.strip()}\n\n",
                 text,
                 count=1,
