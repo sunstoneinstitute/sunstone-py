@@ -801,14 +801,22 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
-        if url_handler and format_writer:
-            with url_handler.open(location, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-        elif format_writer:
-            with open(absolute_path, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-        else:
-            self.data.to_parquet(absolute_path, **pandas_kwargs)
+        # Attach metadata for format handlers that support it
+        if format_writer and registry.handler_supports_metadata(format_writer):
+            self.data.attrs["sunstone_metadata"] = self.metadata
+
+        try:
+            if url_handler and format_writer:
+                with url_handler.open(location, "wb") as stream:
+                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+            elif format_writer:
+                with open(absolute_path, "wb") as stream:
+                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+            else:
+                self.data.to_parquet(absolute_path, **pandas_kwargs)
+        finally:
+            # Clean up transport copy
+            self.data.attrs.pop("sunstone_metadata", None)
 
         # Compute data hash for change detection
         data_hash = compute_dataframe_hash(self.data)

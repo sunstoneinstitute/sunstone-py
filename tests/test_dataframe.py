@@ -652,3 +652,45 @@ class TestToParquetLineage:
         field_names = [f["name"] for f in output["fields"]]
         assert "name" in field_names
         assert "value" in field_names
+
+
+class TestToParquetMetadata:
+    """Tests for metadata embedding in Parquet output."""
+
+    def test_to_parquet_embeds_metadata(self, project_copy: Path) -> None:
+        """Test that writing Parquet with track=True embeds JSON-LD metadata."""
+        import json
+
+        import pyarrow.parquet as pq
+
+        df = sunstone.DataFrame({"name": ["Alice", "Bob"], "score": [95.0, 87.5]})
+        df.metadata.lineage.project_path = str(project_copy)
+        df.metadata.description = "Test dataset with scores"
+        df.set_field_metadata("score", unit="percent")
+
+        output_path = "outputs/meta_output.parquet"
+        df.to_parquet(output_path, slug="meta-output", name="Meta Output")
+
+        # Read back raw Parquet and check schema metadata
+        abs_path = project_copy / output_path
+        pf = pq.ParquetFile(abs_path)
+        schema_meta = pf.schema_arrow.metadata
+
+        assert b"sunstone" in schema_meta
+        doc = json.loads(schema_meta[b"sunstone"])
+        assert "@context" in doc
+        assert doc.get("dct:description") == "Test dataset with scores"
+
+    def test_to_parquet_track_false_no_metadata(self, tmp_path: Path) -> None:
+        """Test that track=False does NOT embed sunstone metadata."""
+        import pyarrow.parquet as pq
+
+        df = sunstone.DataFrame({"x": [1, 2, 3]})
+        df.metadata.description = "Should not appear"
+
+        output_path = tmp_path / "no_meta.parquet"
+        df.to_parquet(output_path, track=False)
+
+        pf = pq.ParquetFile(output_path)
+        schema_meta = pf.schema_arrow.metadata or {}
+        assert b"sunstone" not in schema_meta
