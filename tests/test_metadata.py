@@ -11,6 +11,8 @@ from sunstone.lineage import (
     FieldSchema,
     LineageMetadata,
     Metadata,
+    Source,
+    SourceLocation,
 )
 
 
@@ -693,6 +695,33 @@ class TestMetadataJsonLd:
 
         # Custom properties
         assert doc["ex:category"] == "testing"
+
+    def test_to_jsonld_prefers_source_url(self):
+        """dcat:downloadURL should use the original source URL, not the local path."""
+        m = Metadata(
+            slug="test",
+            name="Test",
+            lineage=LineageMetadata(
+                sources=[
+                    DatasetMetadata(
+                        name="Remote Source",
+                        slug="remote",
+                        location="data/local/copy.xlsx",
+                        source=Source(
+                            name="Official Data",
+                            location=SourceLocation(data="https://example.org/data.xlsx"),
+                            attributed_to="Example Org",
+                            acquired_at="2026-01-01",
+                            acquisition_method="manual-download",
+                            license="CC-BY-4.0",
+                        ),
+                    ),
+                ],
+            ),
+        )
+        doc = m.to_jsonld()
+        sources = doc["prov:wasDerivedFrom"]
+        assert sources[0]["dcat:downloadURL"] == "https://example.org/data.xlsx"
 
     def test_to_jsonld_excludes_project_path(self):
         """project_path never appears in serialized output."""

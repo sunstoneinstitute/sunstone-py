@@ -602,14 +602,19 @@ class Metadata:
 
         # Sources
         if self.lineage.sources:
-            doc["prov:wasDerivedFrom"] = [
-                {
+            sources_list = []
+            for src in self.lineage.sources:
+                source_doc: Dict[str, Any] = {
                     "dct:identifier": src.slug,
                     "dct:title": src.name,
-                    "dcat:downloadURL": src.location,
                 }
-                for src in self.lineage.sources
-            ]
+                # Prefer the original source URL over the local file path
+                if src.source and src.source.location and src.source.location.data:
+                    source_doc["dcat:downloadURL"] = src.source.location.data
+                elif src.location:
+                    source_doc["dcat:downloadURL"] = src.location
+                sources_list.append(source_doc)
+            doc["prov:wasDerivedFrom"] = sources_list
 
         # Build field derivation lookup
         fd_by_field: Dict[str, FieldDerivation] = {}
