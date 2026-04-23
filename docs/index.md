@@ -133,6 +133,7 @@ Ready to dive in? Here's your learning path:
 4. **[CLI Guide](cli.md)** - Learn the command-line tools for dataset management
 5. **[API Reference](api.md)** - Complete API documentation
 6. **[Examples](examples.md)** - Real-world usage patterns and workflows
+7. **[Migration: datasets.lock.yaml](migration-lock-file.md)** - Upgrade guide for v1.7 lock file split
 
 ## Common Use Cases
 
@@ -168,8 +169,8 @@ sunstone dataset list
 # Validate datasets.yaml structure
 sunstone dataset validate
 
-# Lock datasets for production (enable strict mode)
-sunstone dataset lock
+# Enable strict mode for production
+sunstone dataset strict
 
 # Build a Data Package
 sunstone package build
