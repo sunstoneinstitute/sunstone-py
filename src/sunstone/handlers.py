@@ -25,7 +25,6 @@ _EXTENSION_MAP: dict[str, str] = {
     ".json": "json",
     ".xlsx": "excel",
     ".xls": "excel",
-    ".parquet": "parquet",
     ".tsv": "tsv",
     ".txt": "tsv",
 }
@@ -35,19 +34,21 @@ _READER_MAP: dict[str, Callable[..., pd.DataFrame]] = {
     "csv": pd.read_csv,
     "json": pd.read_json,
     "excel": pd.read_excel,
-    "parquet": pd.read_parquet,
     "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
 }
 
 # Format string -> pandas writer method name on DataFrame
 _WRITER_MAP: dict[str, str] = {
     "csv": "to_csv",
-    "parquet": "to_parquet",
 }
 
 
 class BuiltinFormatHandler:
-    """Handles CSV, JSON, Excel, Parquet, and TSV formats using pandas."""
+    """Handles CSV, JSON, Excel, and TSV formats using pandas."""
+
+    def supports_metadata(self) -> bool:
+        """Return False — these formats do not support embedded metadata."""
+        return False
 
     def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve a format string from explicit format or file extension."""
@@ -90,6 +91,72 @@ class BuiltinFormatHandler:
         method_name = _WRITER_MAP[str(fmt)]
         writer = getattr(df, method_name)
         writer(stream, **kwargs)
+
+
+class ParquetFormatHandler:
+    """Handles Parquet format with metadata embedding support via PyArrow."""
+
+    def supports_metadata(self) -> bool:
+        """Return True — Parquet supports embedded metadata in file footer."""
+        return True
+
+    def _resolve_format(self, path: str, format: str | None) -> str | None:
+        """Resolve format from explicit format or file extension."""
+        if format is not None:
+            return "parquet" if format == "parquet" else None
+        parsed = urlparse(path)
+        file_path = parsed.path if parsed.scheme else path
+        suffix = PurePosixPath(file_path).suffix.lower()
+        return "parquet" if suffix == ".parquet" else None
+
+    def can_read(self, path: str, format: str | None) -> bool:
+        return self._resolve_format(path, format) == "parquet"
+
+    def can_write(self, path: str, format: str | None) -> bool:
+        return self._resolve_format(path, format) == "parquet"
+
+    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
+        import json as _json
+
+        import pyarrow.parquet as pq
+
+        kwargs.pop("format", None)
+        kwargs.pop("path", None)
+
+        table = pq.read_table(stream, **kwargs)
+        df: pd.DataFrame = table.to_pandas()
+
+        # Extract sunstone metadata from Parquet schema metadata if present
+        schema_meta = table.schema.metadata or {}
+        raw = schema_meta.get(b"sunstone")
+        if raw is not None:
+            from .lineage import Metadata
+
+            doc = _json.loads(raw)
+            df.attrs["sunstone_metadata"] = Metadata.from_jsonld(doc)
+
+        return df
+
+    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+        import json as _json
+
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        kwargs.pop("format", None)
+        kwargs.pop("path", None)
+
+        table = pa.Table.from_pandas(df)
+
+        # Embed sunstone metadata in Parquet schema metadata if present
+        metadata_obj = df.attrs.get("sunstone_metadata")
+        if metadata_obj is not None:
+            existing_meta = table.schema.metadata or {}
+            doc = metadata_obj.to_jsonld()
+            existing_meta[b"sunstone"] = _json.dumps(doc).encode("utf-8")
+            table = table.replace_schema_metadata(existing_meta)
+
+        pq.write_table(table, stream, **kwargs)
 
 
 logger = logging.getLogger(__name__)

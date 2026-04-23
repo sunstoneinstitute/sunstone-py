@@ -66,6 +66,9 @@ class FakeURLHandler:
 
 
 class FakeFormatHandler:
+    def supports_metadata(self):
+        return False
+
     def can_read(self, path, format):
         return str(path).endswith(".fake")
 
@@ -223,6 +226,9 @@ def test_external_plugin_takes_priority_over_builtin():
     """External plugins registered via entry points come before builtins."""
 
     class ExternalCSVHandler:
+        def supports_metadata(self):
+            return False
+
         def can_read(self, path, format):
             return str(path).endswith(".csv")
 

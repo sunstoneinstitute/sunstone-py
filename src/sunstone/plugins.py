@@ -54,6 +54,10 @@ class URLHandler(Protocol):
 class FormatHandler(Protocol):
     """Reads and writes data formats."""
 
+    def supports_metadata(self) -> bool:
+        """Return True if this handler can embed/extract metadata in the file format."""
+        ...
+
     def can_read(self, path: str, format: str | None) -> bool:
         """Return True if this handler can read the given format. path is used for extension detection."""
         ...
@@ -193,8 +197,9 @@ class PluginRegistry:
             pass  # boto3 not installed
 
         # Internal handlers last (fallback)
-        from .handlers import BuiltinFormatHandler, HttpURLHandler
+        from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
 
+        self._format_handlers.append(ParquetFormatHandler())
         self._format_handlers.append(BuiltinFormatHandler())
         self._url_handlers.append(HttpURLHandler())
         # LocalFileHandler is always present (registered in __init__)
@@ -238,6 +243,16 @@ class PluginRegistry:
             except Exception:
                 logger.exception("Failed to get CLI groups from provider %r", provider)
         return groups
+
+    def handler_supports_metadata(self, handler: FormatHandler) -> bool:
+        """Check if a format handler supports metadata embedding.
+
+        Returns False for legacy plugins that don't implement supports_metadata().
+        """
+        try:
+            return handler.supports_metadata()
+        except AttributeError:
+            return False
 
     def find_url_handler(self, url: str) -> URLHandler | None:
         """Find the first URL handler that can handle the given URL."""

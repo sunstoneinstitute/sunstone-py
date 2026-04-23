@@ -10,6 +10,7 @@ from sunstone.handlers import (
     BuiltinFormatHandler,
     HttpURLHandler,
     LocalFileHandler,
+    ParquetFormatHandler,
     MAX_RESPONSE_SIZE,
     _read_response_with_limit,
 )
@@ -37,8 +38,8 @@ class TestBuiltinFormatHandlerCanRead:
     def test_excel_xls(self, handler):
         assert handler.can_read("data.xls", None)
 
-    def test_parquet(self, handler):
-        assert handler.can_read("data.parquet", None)
+    def test_parquet_not_handled(self, handler):
+        assert not handler.can_read("data.parquet", None)
 
     def test_tsv(self, handler):
         assert handler.can_read("data.tsv", None)
@@ -93,13 +94,6 @@ class TestBuiltinFormatHandlerRead:
         df = handler.read(stream, format="json")
         assert list(df.columns) == ["a", "b"]
 
-    def test_read_parquet(self, handler, tmp_path):
-        f = tmp_path / "data.parquet"
-        pd.DataFrame({"a": [1], "b": [2]}).to_parquet(f)
-        stream = io.BytesIO(f.read_bytes())
-        df = handler.read(stream, format="parquet")
-        assert list(df.columns) == ["a", "b"]
-
     def test_read_with_path_kwarg(self, handler):
         stream = io.BytesIO(b"a,b\n1,2\n3,4\n")
         df = handler.read(stream, path="data.csv")
@@ -122,28 +116,146 @@ class TestBuiltinFormatHandlerWrite:
         assert len(result) == 2
 
 
-class TestBuiltinFormatHandlerParquetWrite:
-    """Tests for Parquet write support in BuiltinFormatHandler."""
+class TestBuiltinFormatHandlerParquetNoLongerHandled:
+    """Verify that BuiltinFormatHandler no longer handles Parquet."""
 
-    def test_can_write_parquet(self) -> None:
+    def test_cannot_write_parquet(self) -> None:
         handler = BuiltinFormatHandler()
-        assert handler.can_write("output.parquet", None) is True
+        assert handler.can_write("output.parquet", None) is False
 
-    def test_can_write_parquet_explicit_format(self) -> None:
+    def test_cannot_write_parquet_explicit_format(self) -> None:
         handler = BuiltinFormatHandler()
-        assert handler.can_write("output.dat", "parquet") is True
+        assert handler.can_write("output.dat", "parquet") is False
 
-    def test_write_parquet(self, tmp_path) -> None:
-        import pandas as pd
 
-        handler = BuiltinFormatHandler()
-        df = pd.DataFrame({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
-        out = tmp_path / "test.parquet"
-        with open(out, "wb") as f:
-            handler.write(df, f, format="parquet", path=str(out))
-        result = pd.read_parquet(out)
-        assert list(result.columns) == ["a", "b"]
-        assert len(result) == 3
+class TestSupportsMetadata:
+    """Test supports_metadata() on format handlers."""
+
+    def test_builtin_does_not_support_metadata(self) -> None:
+        assert BuiltinFormatHandler().supports_metadata() is False
+
+    def test_parquet_supports_metadata(self) -> None:
+        assert ParquetFormatHandler().supports_metadata() is True
+
+
+class TestParquetFormatHandler:
+    """Tests for the ParquetFormatHandler."""
+
+    @pytest.fixture
+    def handler(self):
+        return ParquetFormatHandler()
+
+    def test_can_read_parquet(self, handler):
+        assert handler.can_read("data.parquet", None)
+
+    def test_can_read_parquet_explicit_format(self, handler):
+        assert handler.can_read("data.whatever", "parquet")
+
+    def test_can_write_parquet(self, handler):
+        assert handler.can_write("output.parquet", None)
+
+    def test_can_write_parquet_explicit_format(self, handler):
+        assert handler.can_write("output.dat", "parquet")
+
+    def test_cannot_read_csv(self, handler):
+        assert not handler.can_read("data.csv", None)
+
+    def test_cannot_write_csv(self, handler):
+        assert not handler.can_write("data.csv", None)
+
+    def test_read_parquet_basic(self, handler, tmp_path):
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        table = pa.table({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
+        path = tmp_path / "test.parquet"
+        pq.write_table(table, path)
+
+        with open(path, "rb") as f:
+            df = handler.read(f)
+        assert list(df.columns) == ["a", "b"]
+        assert len(df) == 3
+
+    def test_write_parquet_basic(self, handler, tmp_path):
+        import pyarrow.parquet as pq
+
+        df = pd.DataFrame({"x": [10, 20], "y": ["a", "b"]})
+        path = tmp_path / "out.parquet"
+        with open(path, "wb") as f:
+            handler.write(df, f)
+
+        table = pq.read_table(path)
+        result = table.to_pandas()
+        assert list(result.columns) == ["x", "y"]
+        assert len(result) == 2
+
+    def test_write_embeds_metadata(self, handler, tmp_path):
+        import pyarrow.parquet as pq
+
+        from sunstone.lineage import Metadata
+
+        meta = Metadata()
+        meta.slug = "test-dataset"
+        meta.name = "Test Dataset"
+        meta.description = "A test"
+
+        df = pd.DataFrame({"col": [1, 2, 3]})
+        df.attrs["sunstone_metadata"] = meta
+
+        path = tmp_path / "meta.parquet"
+        with open(path, "wb") as f:
+            handler.write(df, f)
+
+        # Verify the b"sunstone" key exists in Parquet schema metadata
+        pf = pq.ParquetFile(path)
+        schema_meta = pf.schema_arrow.metadata
+        assert b"sunstone" in schema_meta
+
+    def test_read_extracts_metadata(self, handler, tmp_path):
+        import json
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        from sunstone.lineage import Metadata
+
+        # Create metadata and serialize to JSON-LD
+        meta = Metadata()
+        meta.slug = "round-trip"
+        meta.name = "Round Trip"
+        meta.description = "Testing round-trip"
+        doc = meta.to_jsonld()
+
+        # Write a parquet file with sunstone metadata in footer
+        table = pa.table({"val": [100, 200]})
+        table = table.replace_schema_metadata(
+            {
+                b"sunstone": json.dumps(doc).encode("utf-8"),
+            }
+        )
+        path = tmp_path / "with_meta.parquet"
+        pq.write_table(table, path)
+
+        # Read back via handler
+        with open(path, "rb") as f:
+            df = handler.read(f)
+
+        assert "sunstone_metadata" in df.attrs
+        restored = df.attrs["sunstone_metadata"]
+        assert isinstance(restored, Metadata)
+        assert restored.slug == "round-trip"
+        assert restored.name == "Round Trip"
+
+    def test_read_without_metadata(self, handler, tmp_path):
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        table = pa.table({"a": [1]})
+        path = tmp_path / "plain.parquet"
+        pq.write_table(table, path)
+
+        with open(path, "rb") as f:
+            df = handler.read(f)
+        assert "sunstone_metadata" not in df.attrs
 
 
 @pytest.fixture
