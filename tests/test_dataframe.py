@@ -694,3 +694,157 @@ class TestToParquetMetadata:
         pf = pq.ParquetFile(output_path)
         schema_meta = pf.schema_arrow.metadata or {}
         assert b"sunstone" not in schema_meta
+
+
+class TestReadDatasetParquetMetadata:
+    """Tests for metadata restoration when reading Parquet files."""
+
+    def test_read_dataset_parquet_restores_metadata(self, tmp_path: Path) -> None:
+        """Test that embedded Parquet metadata is restored on read_dataset()."""
+        import json
+
+        import pandas as pd
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        from ruamel.yaml import YAML
+
+        # 1. Create a Parquet file with embedded sunstone metadata
+        raw_df = pd.DataFrame({"city": ["Oslo", "Bergen"], "population": [709037, 286930]})
+        table = pa.Table.from_pandas(raw_df)
+
+        jsonld_doc = {
+            "@context": {
+                "dcat": "http://www.w3.org/ns/dcat#",
+                "dct": "http://purl.org/dc/terms/",
+                "prov": "http://www.w3.org/ns/prov#",
+                "si": "https://sunstone.institute/ns/",
+                "schema": "http://schema.org/",
+            },
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+            "dct:description": "Norwegian city populations",
+            "si:fields": {
+                "population": {
+                    "si:unit": "people",
+                    "dct:description": "City population count",
+                },
+            },
+        }
+
+        existing_meta = table.schema.metadata or {}
+        existing_meta[b"sunstone"] = json.dumps(jsonld_doc).encode("utf-8")
+        table = table.replace_schema_metadata(existing_meta)
+
+        inputs_dir = tmp_path / "inputs"
+        inputs_dir.mkdir()
+        pq.write_table(table, inputs_dir / "cities.parquet")
+
+        # 2. Write datasets.yaml with an input entry for the parquet file
+        datasets_yaml = {
+            "inputs": [
+                {
+                    "name": "Norwegian Cities",
+                    "slug": "norwegian-cities",
+                    "location": "inputs/cities.parquet",
+                    "source": {
+                        "name": "Statistics Norway",
+                        "location": {"data": "https://example.com/cities.parquet"},
+                        "attributedTo": "SSB",
+                        "acquiredAt": "2025-01-01",
+                        "acquisitionMethod": "manual-download",
+                        "license": "CC-BY-4.0",
+                    },
+                }
+            ]
+        }
+
+        yaml = YAML()
+        with open(tmp_path / "datasets.yaml", "w") as f:
+            yaml.dump(datasets_yaml, f)
+
+        # 3. Read via DataFrame.read_dataset()
+        df = sunstone.DataFrame.read_dataset("norwegian-cities", project_path=tmp_path)
+
+        # 4. Assert embedded metadata was restored
+        assert df.metadata.description == "Norwegian city populations"
+        assert "population" in df.metadata.field_metadata
+        assert df.metadata.field_metadata["population"].unit == "people"
+        assert df.metadata.field_metadata["population"].description == "City population count"
+
+    def test_read_dataset_parquet_datasets_yaml_wins(self, tmp_path: Path) -> None:
+        """Test that datasets.yaml metadata takes precedence over embedded metadata."""
+        import json
+
+        import pandas as pd
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        from ruamel.yaml import YAML
+
+        raw_df = pd.DataFrame({"city": ["Oslo"], "population": [709037]})
+        table = pa.Table.from_pandas(raw_df)
+
+        jsonld_doc = {
+            "@context": {
+                "dcat": "http://www.w3.org/ns/dcat#",
+                "dct": "http://purl.org/dc/terms/",
+                "prov": "http://www.w3.org/ns/prov#",
+                "si": "https://sunstone.institute/ns/",
+                "schema": "http://schema.org/",
+                "ex": "http://example.org/",
+            },
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+            "dct:description": "Embedded description",
+            "si:fields": {
+                "population": {
+                    "si:unit": "people",
+                    "dct:description": "From embedded",
+                },
+            },
+            "ex:custom": "embedded-value",
+        }
+
+        existing_meta = table.schema.metadata or {}
+        existing_meta[b"sunstone"] = json.dumps(jsonld_doc).encode("utf-8")
+        table = table.replace_schema_metadata(existing_meta)
+
+        inputs_dir = tmp_path / "inputs"
+        inputs_dir.mkdir()
+        pq.write_table(table, inputs_dir / "cities.parquet")
+
+        # datasets.yaml does NOT set description, so embedded should win
+        # But it does set a field for "population" which should override embedded
+        datasets_yaml = {
+            "inputs": [
+                {
+                    "name": "Norwegian Cities",
+                    "slug": "norwegian-cities",
+                    "location": "inputs/cities.parquet",
+                    "source": {
+                        "name": "Statistics Norway",
+                        "location": {"data": "https://example.com/cities.parquet"},
+                        "attributedTo": "SSB",
+                        "acquiredAt": "2025-01-01",
+                        "acquisitionMethod": "manual-download",
+                        "license": "CC-BY-4.0",
+                    },
+                }
+            ]
+        }
+
+        yaml = YAML()
+        with open(tmp_path / "datasets.yaml", "w") as f:
+            yaml.dump(datasets_yaml, f)
+
+        df = sunstone.DataFrame.read_dataset("norwegian-cities", project_path=tmp_path)
+
+        # Embedded description should be restored (datasets.yaml doesn't set one)
+        assert df.metadata.description == "Embedded description"
+        # Embedded field metadata should be restored
+        assert "population" in df.metadata.field_metadata
+        # Custom properties from embedded should be present
+        assert df.metadata.custom_properties is not None
+        assert df.metadata.custom_properties.get("ex:custom") == "embedded-value"
+        # User RDF prefixes from embedded should be present
+        assert df.metadata.rdf_prefixes is not None
+        assert "ex" in df.metadata.rdf_prefixes

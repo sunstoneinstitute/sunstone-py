@@ -324,10 +324,37 @@ class DataFrame:
         with url_handler.open(location, "rb") as stream:
             df = format_handler.read(stream, format=format, path=location, **kwargs)
 
+        # Extract embedded metadata if the format handler provided it
+        embedded_metadata = df.attrs.pop("sunstone_metadata", None)
+
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), slug)
+
+        # Merge embedded metadata (datasets.yaml wins on conflicts)
+        if embedded_metadata is not None:
+            # Description: datasets.yaml wins if set
+            if metadata.description is None and embedded_metadata.description is not None:
+                metadata.description = embedded_metadata.description
+            # Field metadata: datasets.yaml fields override, embedded fills gaps
+            for col, field_schema in embedded_metadata.field_metadata.items():
+                if col not in metadata.field_metadata:
+                    metadata.field_metadata[col] = field_schema
+            # RDF prefixes: merge, datasets.yaml wins on duplicate
+            if embedded_metadata.rdf_prefixes:
+                if metadata.rdf_prefixes is None:
+                    metadata.rdf_prefixes = {}
+                merged = dict(embedded_metadata.rdf_prefixes)
+                merged.update(metadata.rdf_prefixes)
+                metadata.rdf_prefixes = merged
+            # Custom properties: merge, datasets.yaml wins on duplicate
+            if embedded_metadata.custom_properties:
+                if metadata.custom_properties is None:
+                    metadata.custom_properties = {}
+                merged_props = dict(embedded_metadata.custom_properties)
+                merged_props.update(metadata.custom_properties)
+                metadata.custom_properties = merged_props
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
