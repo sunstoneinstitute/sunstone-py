@@ -146,10 +146,12 @@ class ParquetFormatHandler:
         kwargs.pop("format", None)
         kwargs.pop("path", None)
 
+        # Pop metadata before from_pandas() — pyarrow tries to JSON-serialize attrs
+        metadata_obj = df.attrs.pop("sunstone_metadata", None)
+
         table = pa.Table.from_pandas(df)
 
         # Embed sunstone metadata in Parquet schema metadata if present
-        metadata_obj = df.attrs.get("sunstone_metadata")
         if metadata_obj is not None:
             existing_meta = table.schema.metadata or {}
             doc = metadata_obj.to_jsonld()
