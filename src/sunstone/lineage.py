@@ -557,3 +557,205 @@ class Metadata:
 
     name: str | None = None
     """Human-readable dataset name, used at write time."""
+
+    # Default JSON-LD context prefixes
+    _DEFAULT_PREFIXES: Dict[str, str] = field(
+        default_factory=lambda: {
+            "dcat": "http://www.w3.org/ns/dcat#",
+            "dct": "http://purl.org/dc/terms/",
+            "prov": "http://www.w3.org/ns/prov#",
+            "si": "https://sunstone.institute/ns/",
+            "schema": "http://schema.org/",
+        },
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
+    def to_jsonld(self) -> Dict[str, Any]:
+        """Serialize metadata to a JSON-LD document.
+
+        Returns:
+            A dictionary representing a JSON-LD document with ``@context``,
+            ``@type``, and mapped metadata fields.  ``None``-valued fields
+            are omitted, and ``lineage.project_path`` is never included.
+        """
+        # Build @context: defaults merged with user prefixes
+        context = dict(self._DEFAULT_PREFIXES)
+        if self.rdf_prefixes:
+            context.update(self.rdf_prefixes)
+
+        doc: Dict[str, Any] = {
+            "@context": context,
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+        }
+
+        # Core identity fields
+        if self.slug is not None:
+            doc["dct:identifier"] = self.slug
+        if self.name is not None:
+            doc["dct:title"] = self.name
+        if self.description is not None:
+            doc["dct:description"] = self.description
+
+        # Lineage fields
+        if self.lineage.created_at is not None:
+            doc["dct:created"] = self.lineage.created_at.isoformat()
+        if self.lineage.content_hash is not None:
+            doc["si:dataHash"] = self.lineage.content_hash
+
+        # Sources
+        if self.lineage.sources:
+            doc["prov:wasDerivedFrom"] = [
+                {
+                    "dct:identifier": src.slug,
+                    "dct:title": src.name,
+                    "dcat:downloadURL": src.location,
+                }
+                for src in self.lineage.sources
+            ]
+
+        # Build field derivation lookup
+        fd_by_field: Dict[str, FieldDerivation] = {}
+        if self.lineage.field_derivations:
+            for fd in self.lineage.field_derivations:
+                fd_by_field[fd.output_field] = fd
+
+        # Field metadata + derivations
+        if self.field_metadata:
+            fields: Dict[str, Any] = {}
+            for col_name, fs in self.field_metadata.items():
+                entry: Dict[str, Any] = {}
+                if fs.description is not None:
+                    entry["dct:description"] = fs.description
+                if fs.unit is not None:
+                    entry["si:unit"] = fs.unit
+                if fs.type is not None:
+                    entry["si:type"] = fs.type
+                if col_name in fd_by_field:
+                    fd = fd_by_field[col_name]
+                    derivation: Dict[str, Any] = {"dct:identifier": fd.source_entity}
+                    if fd.source_field is not None:
+                        derivation["si:sourceField"] = fd.source_field
+                    entry["prov:wasDerivedFrom"] = derivation
+                if entry:
+                    fields[col_name] = entry
+            if fields:
+                doc["si:fields"] = fields
+
+        # Custom properties as top-level keys
+        if self.custom_properties:
+            for key, value in self.custom_properties.items():
+                doc[key] = value
+
+        return doc
+
+    @classmethod
+    def from_jsonld(cls, doc: Dict[str, Any]) -> "Metadata":
+        """Reconstruct a Metadata instance from a JSON-LD document.
+
+        Unrecognized top-level keys are placed into ``custom_properties``
+        for forward compatibility.  User-defined prefixes (those not in
+        ``_DEFAULT_PREFIXES``) are extracted into ``rdf_prefixes``.
+
+        Args:
+            doc: A JSON-LD dictionary previously produced by ``to_jsonld()``
+                or compatible external tooling.
+
+        Returns:
+            A new ``Metadata`` instance.
+        """
+        default_prefixes = {
+            "dcat": "http://www.w3.org/ns/dcat#",
+            "dct": "http://purl.org/dc/terms/",
+            "prov": "http://www.w3.org/ns/prov#",
+            "si": "https://sunstone.institute/ns/",
+            "schema": "http://schema.org/",
+        }
+
+        # Extract user prefixes from @context
+        context = doc.get("@context", {})
+        user_prefixes = {k: v for k, v in context.items() if k not in default_prefixes}
+        rdf_prefixes = user_prefixes if user_prefixes else None
+
+        # Core fields
+        slug = doc.get("dct:identifier")
+        name = doc.get("dct:title")
+        description = doc.get("dct:description")
+
+        # Lineage
+        created_at = None
+        created_str = doc.get("dct:created")
+        if created_str is not None:
+            created_at = datetime.fromisoformat(created_str)
+
+        content_hash = doc.get("si:dataHash")
+
+        # Sources
+        sources: List[DatasetMetadata] = []
+        for src in doc.get("prov:wasDerivedFrom", []):
+            sources.append(
+                DatasetMetadata(
+                    slug=src["dct:identifier"],
+                    name=src["dct:title"],
+                    location=src["dcat:downloadURL"],
+                )
+            )
+
+        # Field metadata and derivations
+        field_metadata: Dict[str, FieldSchema] = {}
+        field_derivations: List[FieldDerivation] = []
+        si_fields = doc.get("si:fields", {})
+        for col_name, entry in si_fields.items():
+            fs = FieldSchema(
+                name=col_name,
+                type=entry.get("si:type"),
+                description=entry.get("dct:description"),
+                unit=entry.get("si:unit"),
+            )
+            field_metadata[col_name] = fs
+            derivation = entry.get("prov:wasDerivedFrom")
+            if derivation is not None:
+                field_derivations.append(
+                    FieldDerivation(
+                        output_field=col_name,
+                        source_entity=derivation["dct:identifier"],
+                        source_field=derivation.get("si:sourceField"),
+                    )
+                )
+
+        lineage = LineageMetadata(
+            sources=sources,
+            created_at=created_at,
+            content_hash=content_hash,
+            field_derivations=field_derivations if field_derivations else None,
+        )
+
+        # Collect unknown top-level keys into custom_properties
+        known_keys = {
+            "@context",
+            "@type",
+            "si:version",
+            "dct:identifier",
+            "dct:title",
+            "dct:description",
+            "dct:created",
+            "si:dataHash",
+            "prov:wasDerivedFrom",
+            "si:fields",
+        }
+        custom_properties: Dict[str, Any] = {}
+        for key, value in doc.items():
+            if key not in known_keys:
+                custom_properties[key] = value
+
+        return cls(
+            lineage=lineage,
+            slug=slug,
+            name=name,
+            description=description,
+            rdf_prefixes=rdf_prefixes,
+            custom_properties=custom_properties if custom_properties else None,
+            field_metadata=field_metadata,
+        )

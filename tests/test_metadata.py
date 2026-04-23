@@ -1,10 +1,17 @@
 """Tests for the Metadata container."""
 
 import warnings
+from datetime import datetime, timezone
 from pathlib import Path
 
 import sunstone
-from sunstone.lineage import FieldDerivation, FieldSchema, LineageMetadata, Metadata
+from sunstone.lineage import (
+    DatasetMetadata,
+    FieldDerivation,
+    FieldSchema,
+    LineageMetadata,
+    Metadata,
+)
 
 
 class TestMetadataConstruction:
@@ -613,3 +620,236 @@ class TestMetadataIntegration:
             data = yaml.load(f)
         output = next(o for o in data["outputs"] if o["slug"] == "param-slug")
         assert output["name"] == "Param Name"
+
+
+class TestMetadataJsonLd:
+    """Tests for Metadata.to_jsonld() and Metadata.from_jsonld()."""
+
+    def test_to_jsonld_minimal(self):
+        """Metadata with just slug+name produces valid JSON-LD with @context, @type, identifiers."""
+        m = Metadata(slug="test-slug", name="Test Dataset")
+        doc = m.to_jsonld()
+        assert "@context" in doc
+        assert doc["@type"] == "dcat:Distribution"
+        assert doc["si:version"] == "1.0"
+        assert doc["dct:identifier"] == "test-slug"
+        assert doc["dct:title"] == "Test Dataset"
+
+    def test_to_jsonld_full(self):
+        """Full metadata with sources, field metadata, field derivations, rdf_prefixes, custom_properties."""
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        lineage = LineageMetadata(
+            created_at=ts,
+            content_hash="abc123",
+            project_path="/some/path",
+            sources=[
+                DatasetMetadata(name="Source A", slug="source-a", location="a.csv"),
+            ],
+            field_derivations=[
+                FieldDerivation(output_field="col_a", source_entity="source-a", source_field="orig_a"),
+            ],
+        )
+        m = Metadata(
+            lineage=lineage,
+            slug="full-dataset",
+            name="Full Dataset",
+            description="A full test dataset",
+            rdf_prefixes={"ex": "http://example.org/"},
+            custom_properties={"ex:category": "testing"},
+            field_metadata={
+                "col_a": FieldSchema(name="col_a", type="string", description="Column A", unit="kg"),
+            },
+        )
+        doc = m.to_jsonld()
+
+        # Context includes default + user prefixes
+        assert doc["@context"]["dcat"] == "http://www.w3.org/ns/dcat#"
+        assert doc["@context"]["ex"] == "http://example.org/"
+
+        # Core fields
+        assert doc["dct:identifier"] == "full-dataset"
+        assert doc["dct:title"] == "Full Dataset"
+        assert doc["dct:description"] == "A full test dataset"
+        assert doc["dct:created"] == "2025-06-15T12:00:00+00:00"
+        assert doc["si:dataHash"] == "abc123"
+
+        # Sources
+        sources = doc["prov:wasDerivedFrom"]
+        assert len(sources) == 1
+        assert sources[0]["dct:identifier"] == "source-a"
+        assert sources[0]["dct:title"] == "Source A"
+        assert sources[0]["dcat:downloadURL"] == "a.csv"
+
+        # Field metadata
+        fields = doc["si:fields"]
+        assert "col_a" in fields
+        assert fields["col_a"]["dct:description"] == "Column A"
+        assert fields["col_a"]["si:unit"] == "kg"
+        assert fields["col_a"]["si:type"] == "string"
+
+        # Field derivations
+        assert fields["col_a"]["prov:wasDerivedFrom"]["dct:identifier"] == "source-a"
+        assert fields["col_a"]["prov:wasDerivedFrom"]["si:sourceField"] == "orig_a"
+
+        # Custom properties
+        assert doc["ex:category"] == "testing"
+
+    def test_to_jsonld_excludes_project_path(self):
+        """project_path never appears in serialized output."""
+        m = Metadata(
+            lineage=LineageMetadata(project_path="/secret/path"),
+            slug="test",
+            name="Test",
+        )
+        doc = m.to_jsonld()
+        import json
+
+        serialized = json.dumps(doc)
+        assert "/secret/path" not in serialized
+        assert "project_path" not in serialized
+
+    def test_to_jsonld_with_content_hash(self):
+        """content_hash serializes as si:dataHash."""
+        m = Metadata(
+            lineage=LineageMetadata(content_hash="sha256-deadbeef"),
+            slug="hashed",
+            name="Hashed",
+        )
+        doc = m.to_jsonld()
+        assert doc["si:dataHash"] == "sha256-deadbeef"
+
+    def test_to_jsonld_omits_none_fields(self):
+        """None-valued fields are omitted from the output."""
+        m = Metadata(slug="minimal", name="Minimal")
+        doc = m.to_jsonld()
+        assert "dct:description" not in doc
+        assert "si:dataHash" not in doc
+        assert "prov:wasDerivedFrom" not in doc
+        assert "si:fields" not in doc
+        assert "dct:created" not in doc
+
+    def test_from_jsonld_minimal(self):
+        """Reconstruct from minimal doc."""
+        doc = {
+            "@context": {
+                "dcat": "http://www.w3.org/ns/dcat#",
+                "dct": "http://purl.org/dc/terms/",
+                "prov": "http://www.w3.org/ns/prov#",
+                "si": "https://sunstone.institute/ns/",
+                "schema": "http://schema.org/",
+            },
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+            "dct:identifier": "my-slug",
+            "dct:title": "My Title",
+        }
+        m = Metadata.from_jsonld(doc)
+        assert m.slug == "my-slug"
+        assert m.name == "My Title"
+        assert m.description is None
+        assert m.lineage.content_hash is None
+
+    def test_from_jsonld_full_round_trip(self):
+        """to_jsonld -> from_jsonld preserves all fields."""
+        ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        lineage = LineageMetadata(
+            created_at=ts,
+            content_hash="abc123",
+            sources=[
+                DatasetMetadata(name="Source A", slug="source-a", location="a.csv"),
+            ],
+            field_derivations=[
+                FieldDerivation(output_field="col_a", source_entity="source-a", source_field="orig_a"),
+            ],
+        )
+        original = Metadata(
+            lineage=lineage,
+            slug="round-trip",
+            name="Round Trip",
+            description="A round trip test",
+            rdf_prefixes={"ex": "http://example.org/"},
+            custom_properties={"ex:category": "testing"},
+            field_metadata={
+                "col_a": FieldSchema(name="col_a", type="string", description="Column A", unit="kg"),
+            },
+        )
+        doc = original.to_jsonld()
+        restored = Metadata.from_jsonld(doc)
+
+        assert restored.slug == "round-trip"
+        assert restored.name == "Round Trip"
+        assert restored.description == "A round trip test"
+        assert restored.rdf_prefixes == {"ex": "http://example.org/"}
+        assert restored.custom_properties == {"ex:category": "testing"}
+        assert restored.lineage.content_hash == "abc123"
+        assert restored.lineage.created_at == ts
+
+        # Sources
+        assert len(restored.lineage.sources) == 1
+        assert restored.lineage.sources[0].slug == "source-a"
+        assert restored.lineage.sources[0].name == "Source A"
+        assert restored.lineage.sources[0].location == "a.csv"
+
+        # Field metadata
+        assert "col_a" in restored.field_metadata
+        assert restored.field_metadata["col_a"].description == "Column A"
+        assert restored.field_metadata["col_a"].unit == "kg"
+        assert restored.field_metadata["col_a"].type == "string"
+
+        # Field derivations
+        assert restored.lineage.field_derivations is not None
+        assert len(restored.lineage.field_derivations) == 1
+        fd = restored.lineage.field_derivations[0]
+        assert fd.output_field == "col_a"
+        assert fd.source_entity == "source-a"
+        assert fd.source_field == "orig_a"
+
+    def test_from_jsonld_unknown_keys_preserved(self):
+        """Unknown top-level keys go to custom_properties."""
+        doc = {
+            "@context": {
+                "dcat": "http://www.w3.org/ns/dcat#",
+                "dct": "http://purl.org/dc/terms/",
+                "prov": "http://www.w3.org/ns/prov#",
+                "si": "https://sunstone.institute/ns/",
+                "schema": "http://schema.org/",
+                "ex": "http://example.org/",
+            },
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+            "dct:identifier": "test",
+            "dct:title": "Test",
+            "ex:customField": "custom-value",
+            "ex:anotherField": 42,
+        }
+        m = Metadata.from_jsonld(doc)
+        assert m.custom_properties is not None
+        assert m.custom_properties["ex:customField"] == "custom-value"
+        assert m.custom_properties["ex:anotherField"] == 42
+        # User prefix extracted
+        assert m.rdf_prefixes is not None
+        assert m.rdf_prefixes["ex"] == "http://example.org/"
+
+    def test_from_jsonld_missing_optional_fields(self):
+        """Missing optional fields produce None/empty, not errors."""
+        doc = {
+            "@context": {
+                "dcat": "http://www.w3.org/ns/dcat#",
+                "dct": "http://purl.org/dc/terms/",
+                "prov": "http://www.w3.org/ns/prov#",
+                "si": "https://sunstone.institute/ns/",
+                "schema": "http://schema.org/",
+            },
+            "@type": "dcat:Distribution",
+            "si:version": "1.0",
+        }
+        m = Metadata.from_jsonld(doc)
+        assert m.slug is None
+        assert m.name is None
+        assert m.description is None
+        assert m.lineage.content_hash is None
+        assert m.lineage.created_at is None
+        assert m.lineage.sources == []
+        assert m.field_metadata == {}
+        assert m.custom_properties is None
+        assert m.rdf_prefixes is None
