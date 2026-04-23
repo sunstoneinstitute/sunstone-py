@@ -1851,7 +1851,8 @@ class TestParquetResourceSupport:
 
     def test_parquet_resource_has_rdf_type(self, parquet_project: Path) -> None:
         """Parquet resource dict includes the DCAT Distribution RDF type."""
-        from sunstone.cli import STANDARD_RDF_PREFIXES, build_resource_dict
+        from sunstone import STANDARD_RDF_PREFIXES
+        from sunstone.cli import build_resource_dict
         from sunstone.datasets import DatasetsManager
         from sunstone.lineage import PublishConfig
 

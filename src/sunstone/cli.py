@@ -16,6 +16,7 @@ from urllib.parse import urljoin, urlparse
 import typer
 from ruamel.yaml import YAML
 
+from . import STANDARD_RDF_PREFIXES
 from .datasets import DatasetsManager
 from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
@@ -34,14 +35,6 @@ VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime
 
 # Pattern for ${VAR} or ${VAR:-default} substitution
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
-
-# Standard RDF and DCAT prefixes for automatic type properties
-STANDARD_RDF_PREFIXES = {
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "dcat": "http://www.w3.org/ns/dcat#",
-    "si": "https://sunstone.institute/rdf/vocab#",
-    "si30": "https://sunstone.institute/rdf/threat/",
-}
 
 
 def get_project_slug(project_path: Path) -> str:

@@ -157,7 +157,7 @@ Add to `src/sunstone/lineage.py` at the end of the `Metadata` class (after line 
         "dcat": "http://www.w3.org/ns/dcat#",
         "dct": "http://purl.org/dc/terms/",
         "prov": "http://www.w3.org/ns/prov#",
-        "si": "https://sunstone.institute/ns/",
+        "si": "https://sunstone.institute/rdf/vocab#",
         "schema": "http://schema.org/",
     }
 
@@ -1150,7 +1150,7 @@ def test_read_dataset_parquet_restores_metadata(self, tmp_path):
     table = pa.Table.from_pandas(df_data)
     meta_doc = {
         "@context": {"dct": "http://purl.org/dc/terms/",
-                      "si": "https://sunstone.institute/ns/"},
+                      "si": "https://sunstone.institute/rdf/vocab#"},
         "@type": "dcat:Distribution",
         "si:version": "1.0",
         "dct:identifier": "test-input",

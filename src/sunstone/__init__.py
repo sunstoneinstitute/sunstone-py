@@ -81,6 +81,14 @@ from .context import ExecutionContext, detect_execution_context
 from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
 from .session import DatasetRead, LineageSession, close_session, get_session
 
+# Standard RDF and DCAT prefixes for automatic type properties
+STANDARD_RDF_PREFIXES = {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "si": "https://sunstone.institute/rdf/vocab#",
+    "si30": "https://sunstone.institute/rdf/threat/",
+}
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -138,6 +146,8 @@ __all__ = [
     "resolve_environment",
     # Packaging
     "packaging",
+    # RDF prefixes
+    "STANDARD_RDF_PREFIXES",
     # Lineage queries
     "LineageNode",
     "get_upstream",

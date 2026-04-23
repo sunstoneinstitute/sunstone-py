@@ -17,7 +17,7 @@ from .lineage import DatasetMetadata, PublishConfig
 from .plugins import PluginRegistry
 
 # Only the prefixes needed for the datapackage envelope.
-# The full STANDARD_RDF_PREFIXES dict lives in cli.py.
+# The full STANDARD_RDF_PREFIXES dict lives in sunstone.__init__.
 _RDF_TYPE_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 _DCAT_DATASET_URI = "http://www.w3.org/ns/dcat#Dataset"
 

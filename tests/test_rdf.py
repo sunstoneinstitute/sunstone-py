@@ -448,7 +448,8 @@ class TestRDFInDatapackage:
 
     def test_standard_prefixes_expanded_without_explicit_rdfPrefixes(self) -> None:
         """Test that standard prefixes like si: are expanded even without rdfPrefixes in datasets.yaml."""
-        from sunstone.cli import STANDARD_RDF_PREFIXES, build_datapackage
+        from sunstone import STANDARD_RDF_PREFIXES
+        from sunstone.cli import build_datapackage
 
         with tempfile.TemporaryDirectory() as tmpdir:
             datasets_file = Path(tmpdir) / "datasets.yaml"
@@ -490,7 +491,7 @@ outputs:
 
     def test_automatic_rdf_types(self) -> None:
         """Test that automatic RDF types are added to datapackage."""
-        from sunstone.cli import STANDARD_RDF_PREFIXES
+        from sunstone import STANDARD_RDF_PREFIXES
 
         # Verify standard prefixes are defined
         assert "rdf" in STANDARD_RDF_PREFIXES

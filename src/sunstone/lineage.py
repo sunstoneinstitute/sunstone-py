@@ -563,7 +563,7 @@ class Metadata:
         "dcat": "http://www.w3.org/ns/dcat#",
         "dct": "http://purl.org/dc/terms/",
         "prov": "http://www.w3.org/ns/prov#",
-        "si": "https://sunstone.institute/ns/",
+        "si": "https://sunstone.institute/rdf/vocab#",
         "schema": "http://schema.org/",
     }
 
@@ -670,7 +670,7 @@ class Metadata:
             "dcat": "http://www.w3.org/ns/dcat#",
             "dct": "http://purl.org/dc/terms/",
             "prov": "http://www.w3.org/ns/prov#",
-            "si": "https://sunstone.institute/ns/",
+            "si": "https://sunstone.institute/rdf/vocab#",
             "schema": "http://schema.org/",
         }
 

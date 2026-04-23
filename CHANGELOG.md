@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Fixed: Sunstone RDF namespace URI corrected from `https://sunstone.institute/ns/` to `https://sunstone.institute/rdf/vocab#`
 - Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer
 - Added: `ParquetFormatHandler` with `supports_metadata()` capability on `FormatHandler` protocol
 - Added: `Metadata.to_jsonld()` and `Metadata.from_jsonld()` for JSON-LD serialization
