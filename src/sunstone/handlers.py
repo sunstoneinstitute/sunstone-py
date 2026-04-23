@@ -118,7 +118,7 @@ class ParquetFormatHandler:
     def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
         import json as _json
 
-        import pyarrow.parquet as pq
+        import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
         kwargs.pop("format", None)
         kwargs.pop("path", None)
@@ -140,8 +140,8 @@ class ParquetFormatHandler:
     def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
         import json as _json
 
-        import pyarrow as pa
-        import pyarrow.parquet as pq
+        import pyarrow as pa  # type: ignore[import-untyped]
+        import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
         kwargs.pop("format", None)
         kwargs.pop("path", None)
