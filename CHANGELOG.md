@@ -3,6 +3,21 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.8.0] - 2026-04-24
+
+- Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer
+- Added: `ParquetFormatHandler` with `supports_metadata()` capability on `FormatHandler` protocol
+- Added: `Metadata.to_jsonld()` and `Metadata.from_jsonld()` for JSON-LD serialization
+- Added: `min_sunstone_version` field in `datasets.yaml` with auto-bump on lock file writes
+- Changed: `sunstone dataset migrate` now handles hash field rename and version bump
+- Fixed: Sunstone RDF namespace URI corrected from `https://sunstone.institute/ns/` to `https://sunstone.institute/rdf/vocab#`
+- Fixed: split ambiguous `content_hash` into `data_hash` (DataFrame content) and `file_hash` (file bytes)
+- Fixed: hash prefix inconsistency — all hashes now use `sha256:` prefix
+- Fixed: pop metadata from df.attrs before pyarrow table conversion
+- Fixed: use original source URL for `dcat:downloadURL` in Parquet metadata
+- Fixed: `STANDARD_RDF_PREFIXES` moved to package root for consistent access
+
 - Fixed: Sunstone RDF namespace URI corrected from `https://sunstone.institute/ns/` to `https://sunstone.institute/rdf/vocab#`
 - Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer
 - Added: `ParquetFormatHandler` with `supports_metadata()` capability on `FormatHandler` protocol
