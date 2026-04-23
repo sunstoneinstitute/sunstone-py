@@ -168,7 +168,7 @@ class TestFlushAndPersist:
 
         lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "merged-output")
 
-        assert "content_hash" in lock_output
+        assert "data_hash" in lock_output
         assert "created_at" in lock_output
         assert "sources" in lock_output
         assert len(lock_output["sources"]) >= 1  # At least from DataFrame lineage

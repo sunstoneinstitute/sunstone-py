@@ -683,8 +683,8 @@ class DataFrame:
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 
-        # Compute content hash for change detection
-        content_hash = compute_dataframe_hash(self.data)
+        # Compute data hash for change detection
+        data_hash = compute_dataframe_hash(self.data)
 
         # Flush session lineage with execution context
         from .session import get_session
@@ -696,7 +696,7 @@ class DataFrame:
         manager.update_output_lineage(
             slug=dataset.slug,
             lineage=self.metadata.lineage,
-            content_hash=content_hash,
+            data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),
@@ -810,8 +810,8 @@ class DataFrame:
         else:
             self.data.to_parquet(absolute_path, **pandas_kwargs)
 
-        # Compute content hash for change detection
-        content_hash = compute_dataframe_hash(self.data)
+        # Compute data hash for change detection
+        data_hash = compute_dataframe_hash(self.data)
 
         # Flush session lineage with execution context
         from .session import get_session
@@ -823,7 +823,7 @@ class DataFrame:
         manager.update_output_lineage(
             slug=dataset.slug,
             lineage=self.metadata.lineage,
-            content_hash=content_hash,
+            data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),

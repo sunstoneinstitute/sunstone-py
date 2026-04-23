@@ -54,7 +54,7 @@ def query_project(tmp_path: Path) -> Path:
 
 
 class TestLineageMetadataToDict:
-    """Tests for LineageMetadata.to_dict() with created_at and content_hash."""
+    """Tests for LineageMetadata.to_dict() with created_at and data_hash."""
 
     def test_to_dict_with_created_at(self) -> None:
         """to_dict includes created_at when set."""
@@ -64,29 +64,29 @@ class TestLineageMetadataToDict:
         assert "created_at" in result
         assert result["created_at"] == "2026-01-15T10:00:00"
 
-    def test_to_dict_with_content_hash(self) -> None:
-        """to_dict includes content_hash when set."""
+    def test_to_dict_with_data_hash(self) -> None:
+        """to_dict includes data_hash when set."""
         lineage = LineageMetadata()
-        lineage.content_hash = "abc123"
+        lineage.data_hash = "abc123"
         result = lineage.to_dict()
-        assert "content_hash" in result
-        assert result["content_hash"] == "abc123"
+        assert "data_hash" in result
+        assert result["data_hash"] == "abc123"
 
     def test_to_dict_without_optional_fields(self) -> None:
-        """to_dict omits created_at and content_hash when None."""
+        """to_dict omits created_at and data_hash when None."""
         lineage = LineageMetadata()
         result = lineage.to_dict()
         assert "created_at" not in result
-        assert "content_hash" not in result
+        assert "data_hash" not in result
 
     def test_to_dict_with_both(self) -> None:
         """to_dict includes both when set."""
         lineage = LineageMetadata()
         lineage.created_at = datetime(2026, 3, 1, 12, 0, 0)
-        lineage.content_hash = "deadbeef"
+        lineage.data_hash = "deadbeef"
         result = lineage.to_dict()
         assert result["created_at"] == "2026-03-01T12:00:00"
-        assert result["content_hash"] == "deadbeef"
+        assert result["data_hash"] == "deadbeef"
 
 
 class TestPandasReadCsvPassthrough:

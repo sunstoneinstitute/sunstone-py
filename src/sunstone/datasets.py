@@ -910,7 +910,7 @@ class DatasetsManager:
         self,
         slug: str,
         lineage: LineageMetadata,
-        content_hash: str,
+        data_hash: str,
         strict: bool = False,
         context: Optional[dict] = None,
         transformation_params: Optional[dict] = None,
@@ -929,7 +929,7 @@ class DatasetsManager:
         Args:
             slug: The slug of the output dataset to update.
             lineage: The lineage metadata to persist.
-            content_hash: SHA256 hash of the DataFrame content.
+            data_hash: SHA256 hash of the DataFrame content (sha256:hex).
             strict: If True, validate without modifying. If False, update the file.
             context: Optional execution context dict (backwards compat).
             transformation_params: Optional transformation parameters dict.
@@ -951,12 +951,16 @@ class DatasetsManager:
         if not found:
             raise DatasetNotFoundError(f"Output dataset with slug '{slug}' not found")
 
-        # Check existing hash from lock entry
+        # Check existing hash from lock entry (accept both old and new field names)
         lock_entry = self._get_lock_entry(slug, "output")
-        existing_hash = lock_entry.get("content_hash")
+        existing_hash = lock_entry.get("data_hash") or lock_entry.get("content_hash")
+
+        # Normalize bare hex hashes for comparison
+        if existing_hash and not existing_hash.startswith("sha256:"):
+            existing_hash = f"sha256:{existing_hash}"
 
         # If content hasn't changed, skip the write entirely
-        if existing_hash == content_hash:
+        if existing_hash == data_hash:
             return
 
         # In strict mode, if the hash differs from an existing lock entry, error
@@ -968,10 +972,10 @@ class DatasetsManager:
 
         timestamp = datetime.now().isoformat()
 
-        # Build lineage metadata (order: slug, content_hash, created_at, sources)
+        # Build lineage metadata (order: slug, data_hash, created_at, sources)
         lineage_data: dict[str, Any] = {}
         lineage_data["slug"] = slug
-        lineage_data["content_hash"] = content_hash
+        lineage_data["data_hash"] = data_hash
         if timestamp:
             lineage_data["created_at"] = timestamp
         if lineage.sources:

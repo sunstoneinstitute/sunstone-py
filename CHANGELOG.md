@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: split ambiguous `content_hash` into `data_hash` (DataFrame content) and `file_hash` (file bytes) with consistent `sha256:` prefix
 
 ## [1.7.0] - 2026-04-22
 

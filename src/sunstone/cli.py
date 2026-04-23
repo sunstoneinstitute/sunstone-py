@@ -873,7 +873,7 @@ def dataset_resolve(
         if abs_path.exists():
             with open(abs_path, "rb") as f:
                 file_hash = hashlib.sha256(f.read()).hexdigest()
-            entry["content_hash"] = f"sha256:{file_hash}"
+            entry["file_hash"] = f"sha256:{file_hash}"
 
         lock_data["inputs"].append(entry)
 
@@ -885,7 +885,7 @@ def dataset_resolve(
         if abs_path.exists():
             with open(abs_path, "rb") as f:
                 file_hash = hashlib.sha256(f.read()).hexdigest()
-            entry["content_hash"] = f"sha256:{file_hash}"
+            entry["file_hash"] = f"sha256:{file_hash}"
 
         # Preserve existing lineage from lock file
         existing = manager._get_lock_entry(ds.slug, "output")

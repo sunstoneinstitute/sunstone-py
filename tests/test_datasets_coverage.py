@@ -267,7 +267,7 @@ class TestUpdateOutputLineage:
             mgr.update_output_lineage(
                 slug="nonexistent",
                 lineage=lineage,
-                content_hash="abc123",
+                data_hash="abc123",
             )
 
     def test_strict_mode_raises_when_lineage_differs(self, project_copy: Path) -> None:
@@ -278,14 +278,14 @@ class TestUpdateOutputLineage:
         mgr.update_output_lineage(
             slug="current-un-member-states",
             lineage=lineage,
-            content_hash="original_hash",
+            data_hash="original_hash",
         )
         # Now use strict mode with a different hash - should raise
         with pytest.raises(DatasetValidationError, match="strict mode"):
             mgr.update_output_lineage(
                 slug="current-un-member-states",
                 lineage=lineage,
-                content_hash="different_hash_value",
+                data_hash="different_hash_value",
                 strict=True,
             )
 
@@ -299,13 +299,13 @@ class TestUpdateOutputLineage:
         mgr.update_output_lineage(
             slug="current-un-member-states",
             lineage=lineage,
-            content_hash="test_hash_123",
+            data_hash="sha256:test_hash_123",
         )
         # Now run in strict mode with the same hash - should pass without error
         mgr.update_output_lineage(
             slug="current-un-member-states",
             lineage=lineage,
-            content_hash="test_hash_123",
+            data_hash="sha256:test_hash_123",
             strict=True,
         )
 
@@ -319,7 +319,7 @@ class TestUpdateOutputLineage:
                 mgr.update_output_lineage(
                     slug="current-un-member-states",
                     lineage=lineage,
-                    content_hash="abc",
+                    data_hash="abc",
                 )
 
 

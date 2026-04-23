@@ -359,10 +359,11 @@ class TestContentHashLineage:
         # Find the output in lock file
         lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "test-output"), None)
         assert lock_output is not None
-        assert "content_hash" in lock_output
+        assert "data_hash" in lock_output
         assert "created_at" in lock_output
-        # Hash should be a 64-character hex string (SHA256)
-        assert len(lock_output["content_hash"]) == 64
+        # Hash should be a prefixed sha256:hex string (7 + 64 = 71 chars)
+        assert lock_output["data_hash"].startswith("sha256:")
+        assert len(lock_output["data_hash"]) == 71
 
     def test_timestamp_not_updated_when_content_unchanged(self, project_copy: Path) -> None:
         """Test that timestamp stays the same when saving identical content."""
@@ -389,7 +390,7 @@ class TestContentHashLineage:
         lock_output1 = next((d for d in lock1.get("outputs", []) if d["slug"] == "stable-output"), None)
         assert lock_output1 is not None
         first_timestamp = lock_output1["created_at"]
-        first_hash = lock_output1["content_hash"]
+        first_hash = lock_output1["data_hash"]
 
         # Wait a bit to ensure different timestamp would be generated
         time.sleep(0.1)
@@ -409,7 +410,7 @@ class TestContentHashLineage:
         lock_output2 = next((d for d in lock2.get("outputs", []) if d["slug"] == "stable-output"), None)
         assert lock_output2 is not None
         second_timestamp = lock_output2["created_at"]
-        second_hash = lock_output2["content_hash"]
+        second_hash = lock_output2["data_hash"]
 
         # Hash should be the same
         assert first_hash == second_hash
@@ -441,7 +442,7 @@ class TestContentHashLineage:
         lock_output1 = next((d for d in lock1.get("outputs", []) if d["slug"] == "changing-output"), None)
         assert lock_output1 is not None
         first_timestamp = lock_output1["created_at"]
-        first_hash = lock_output1["content_hash"]
+        first_hash = lock_output1["data_hash"]
 
         # Wait a bit to ensure different timestamp
         time.sleep(0.1)
@@ -463,7 +464,7 @@ class TestContentHashLineage:
         lock_output2 = next((d for d in lock2.get("outputs", []) if d["slug"] == "changing-output"), None)
         assert lock_output2 is not None
         second_timestamp = lock_output2["created_at"]
-        second_hash = lock_output2["content_hash"]
+        second_hash = lock_output2["data_hash"]
 
         # Hash should be different since content changed
         assert first_hash != second_hash
@@ -627,8 +628,9 @@ class TestToParquetLineage:
 
         lock_output = next((d for d in lock_data.get("outputs", []) if d["slug"] == "test-parquet-output"), None)
         assert lock_output is not None
-        assert "content_hash" in lock_output
-        assert len(lock_output["content_hash"]) == 64
+        assert "data_hash" in lock_output
+        assert lock_output["data_hash"].startswith("sha256:")
+        assert len(lock_output["data_hash"]) == 71
 
     def test_parquet_auto_registers_fields(self, project_copy: Path) -> None:
         """Test that field schema is auto-registered in datasets.yaml."""

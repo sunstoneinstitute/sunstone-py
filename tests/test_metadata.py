@@ -640,7 +640,7 @@ class TestMetadataJsonLd:
         ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         lineage = LineageMetadata(
             created_at=ts,
-            content_hash="abc123",
+            data_hash="abc123",
             project_path="/some/path",
             sources=[
                 DatasetMetadata(name="Source A", slug="source-a", location="a.csv"),
@@ -708,10 +708,10 @@ class TestMetadataJsonLd:
         assert "/secret/path" not in serialized
         assert "project_path" not in serialized
 
-    def test_to_jsonld_with_content_hash(self):
-        """content_hash serializes as si:dataHash."""
+    def test_to_jsonld_with_data_hash(self):
+        """data_hash serializes as si:dataHash."""
         m = Metadata(
-            lineage=LineageMetadata(content_hash="sha256-deadbeef"),
+            lineage=LineageMetadata(data_hash="sha256-deadbeef"),
             slug="hashed",
             name="Hashed",
         )
@@ -747,14 +747,14 @@ class TestMetadataJsonLd:
         assert m.slug == "my-slug"
         assert m.name == "My Title"
         assert m.description is None
-        assert m.lineage.content_hash is None
+        assert m.lineage.data_hash is None
 
     def test_from_jsonld_full_round_trip(self):
         """to_jsonld -> from_jsonld preserves all fields."""
         ts = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         lineage = LineageMetadata(
             created_at=ts,
-            content_hash="abc123",
+            data_hash="abc123",
             sources=[
                 DatasetMetadata(name="Source A", slug="source-a", location="a.csv"),
             ],
@@ -781,7 +781,7 @@ class TestMetadataJsonLd:
         assert restored.description == "A round trip test"
         assert restored.rdf_prefixes == {"ex": "http://example.org/"}
         assert restored.custom_properties == {"ex:category": "testing"}
-        assert restored.lineage.content_hash == "abc123"
+        assert restored.lineage.data_hash == "abc123"
         assert restored.lineage.created_at == ts
 
         # Sources
@@ -847,7 +847,7 @@ class TestMetadataJsonLd:
         assert m.slug is None
         assert m.name is None
         assert m.description is None
-        assert m.lineage.content_hash is None
+        assert m.lineage.data_hash is None
         assert m.lineage.created_at is None
         assert m.lineage.sources == []
         assert m.field_metadata == {}

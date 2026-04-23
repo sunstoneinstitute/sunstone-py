@@ -393,13 +393,13 @@ def compute_dataframe_hash(df: "pd.DataFrame") -> str:
         df: The pandas DataFrame to hash.
 
     Returns:
-        A SHA256 hex digest string representing the DataFrame content.
+        A prefixed hash string (sha256:hex) representing the DataFrame content.
     """
     import pickle
 
     # Use pickle protocol 5 for efficiency; hash the bytes directly
     data_bytes = pickle.dumps(df, protocol=5)
-    return hashlib.sha256(data_bytes).hexdigest()
+    return f"sha256:{hashlib.sha256(data_bytes).hexdigest()}"
 
 
 @dataclass
@@ -416,8 +416,8 @@ class LineageMetadata:
     created_at: Optional[datetime] = None
     """Timestamp when this lineage was last updated (content changed)."""
 
-    content_hash: Optional[str] = None
-    """SHA256 hash of the DataFrame content, used to detect changes."""
+    data_hash: Optional[str] = None
+    """SHA256 hash of the DataFrame content (sha256:hex), used to detect changes."""
 
     project_path: Optional[str] = None
     """Path to the project directory containing datasets.yaml."""
@@ -523,8 +523,8 @@ class LineageMetadata:
         }
         if self.created_at is not None:
             result["created_at"] = self.created_at.isoformat()
-        if self.content_hash is not None:
-            result["content_hash"] = self.content_hash
+        if self.data_hash is not None:
+            result["data_hash"] = self.data_hash
         return result
 
 
@@ -597,8 +597,8 @@ class Metadata:
         # Lineage fields
         if self.lineage.created_at is not None:
             doc["dct:created"] = self.lineage.created_at.isoformat()
-        if self.lineage.content_hash is not None:
-            doc["si:dataHash"] = self.lineage.content_hash
+        if self.lineage.data_hash is not None:
+            doc["si:dataHash"] = self.lineage.data_hash
 
         # Sources
         if self.lineage.sources:
@@ -685,7 +685,7 @@ class Metadata:
         if created_str is not None:
             created_at = datetime.fromisoformat(created_str)
 
-        content_hash = doc.get("si:dataHash")
+        data_hash = doc.get("si:dataHash")
 
         # Sources
         sources: List[DatasetMetadata] = []
@@ -723,7 +723,7 @@ class Metadata:
         lineage = LineageMetadata(
             sources=sources,
             created_at=created_at,
-            content_hash=content_hash,
+            data_hash=data_hash,
             field_derivations=field_derivations if field_derivations else None,
         )
 

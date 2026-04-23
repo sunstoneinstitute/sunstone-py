@@ -63,14 +63,14 @@ def lock_project(tmp_path: Path) -> Path:
             "inputs": [
                 {
                     "slug": "input-data",
-                    "content_hash": "sha256:abc123",
+                    "file_hash": "sha256:abc123",
                     "row_count": 1,
                 }
             ],
             "outputs": [
                 {
                     "slug": "output-data",
-                    "content_hash": "sha256:def456",
+                    "data_hash": "sha256:def456",
                     "created_at": "2026-04-10T14:23:01.508497",
                     "sources": [{"slug": "input-data"}],
                 }
@@ -199,14 +199,14 @@ class TestLockFileWriting:
         manager.update_output_lineage(
             slug="output-data",
             lineage=lineage,
-            content_hash="sha256:newvalue",
+            data_hash="sha256:newvalue",
         )
 
         # Lock file should have the lineage
         with open(lock_project / "datasets.lock.yaml") as f:
             lock_data = _yaml.load(f)
         lock_output = next(o for o in lock_data["outputs"] if o["slug"] == "output-data")
-        assert lock_output["content_hash"] == "sha256:newvalue"
+        assert lock_output["data_hash"] == "sha256:newvalue"
 
         # datasets.yaml should NOT have lineage
         with open(lock_project / "datasets.yaml") as f:
@@ -235,12 +235,12 @@ class TestLockFileWriting:
         manager = DatasetsManager(project)
         source = DatasetMetadata(name="In", slug="in", location="inputs/data.csv")
         lineage = LineageMetadata(sources=[source])
-        manager.update_output_lineage(slug="out", lineage=lineage, content_hash="sha256:first")
+        manager.update_output_lineage(slug="out", lineage=lineage, data_hash="sha256:first")
 
         assert (project / "datasets.lock.yaml").exists()
         with open(project / "datasets.lock.yaml") as f:
             lock_data = _yaml.load(f)
-        assert lock_data["outputs"][0]["content_hash"] == "sha256:first"
+        assert lock_data["outputs"][0]["data_hash"] == "sha256:first"
 
     def test_update_lineage_preserves_other_lock_entries(self, lock_project: Path) -> None:
         """Updating one output shouldn't clobber other lock entries."""
@@ -253,18 +253,18 @@ class TestLockFileWriting:
         # Add second output to lock file
         with open(lock_project / "datasets.lock.yaml") as f:
             lock = _yaml.load(f)
-        lock["outputs"].append({"slug": "second-output", "content_hash": "sha256:keep-this"})
+        lock["outputs"].append({"slug": "second-output", "data_hash": "sha256:keep-this"})
         _write_yaml(lock_project / "datasets.lock.yaml", lock)
 
         manager = DatasetsManager(lock_project)
         source = DatasetMetadata(name="Input Data", slug="input-data", location="inputs/data.csv")
         lineage = LineageMetadata(sources=[source])
-        manager.update_output_lineage(slug="output-data", lineage=lineage, content_hash="sha256:updated")
+        manager.update_output_lineage(slug="output-data", lineage=lineage, data_hash="sha256:updated")
 
         with open(lock_project / "datasets.lock.yaml") as f:
             result = _yaml.load(f)
         second = next(o for o in result["outputs"] if o["slug"] == "second-output")
-        assert second["content_hash"] == "sha256:keep-this"
+        assert second["data_hash"] == "sha256:keep-this"
 
 
 class TestResolveCommand:
@@ -315,7 +315,7 @@ class TestResolveCommand:
         with open(lock_path) as f:
             lock = _yaml.load(f)
         input_entry = next(i for i in lock["inputs"] if i["slug"] == "people")
-        assert "content_hash" in input_entry
+        assert "file_hash" in input_entry
 
     def test_resolve_check_mode(self, lock_project: Path) -> None:
         """--check should exit 0 when lock file is up to date."""
