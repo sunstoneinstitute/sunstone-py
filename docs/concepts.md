@@ -497,6 +497,108 @@ This allows data consumers to fetch files directly from your public URL.
 - `flatten: true`: Puts all files in same directory as datapackage.json
   - `location: outputs/data/file.csv` → `gs://bucket/project/file.csv`
 
+## Including Other Files
+
+As projects accumulate many datasets, `datasets.yaml` can become large and hard to navigate. The `include:` directive lets you split it into multiple files:
+
+```yaml
+# datasets.yaml
+include:
+  - data/external-sources.yaml
+  - data/internal-sources.yaml
+  - packages.yaml
+
+defaults:
+  rdfPrefixes:
+    schema: https://schema.org/
+
+inputs:
+  - name: Local Survey
+    slug: local-survey
+    location: data/survey.csv
+    fields:
+      - name: response_id
+        type: string
+
+outputs: []
+```
+
+Each included file can contain `inputs`, `outputs`, and/or `packages` lists:
+
+```yaml
+# data/external-sources.yaml
+inputs:
+  - name: Census Data
+    slug: census-data
+    location: data/census.csv
+    source:
+      name: National Statistics Office
+      location:
+        data: https://example.com/census.csv
+      attributedTo: NSO
+      acquiredAt: 2025-06-01
+      acquisitionMethod: api-download
+      license: OGL-3.0
+    fields:
+      - name: district
+        type: string
+      - name: population
+        type: integer
+```
+
+```yaml
+# packages.yaml
+packages:
+  - name: full-dataset
+    title: Complete Dataset Package
+    datasets:
+      - local-survey
+      - census-data
+```
+
+### How It Works
+
+At load time, `DatasetsManager` merges included files into the main data before any other processing. This means all downstream operations (find, read, write, package) work transparently across included datasets.
+
+- **Path resolution**: Paths in `include:` are relative to the file containing the directive (typically the project root where `datasets.yaml` lives)
+- **Merge order**: Main file entries come first, then included files in the order they appear in the `include:` list
+- **Writes go to the main file**: Operations like `add_output_dataset` and lineage updates always write to the main `datasets.yaml`, not to included files
+
+### What Can Go in Included Files
+
+Included files can contain:
+- `inputs` — input dataset definitions
+- `outputs` — output dataset definitions
+- `packages` — package definitions (the plural `packages:` form)
+
+### What Must Stay in the Main File
+
+These top-level keys are only allowed in the main `datasets.yaml`:
+- `defaults` — default values inherited by datasets
+- `rdfPrefixes` — top-level RDF namespace prefixes
+- `package` — singular package metadata
+- `publish` — top-level publish configuration
+- `min_sunstone_version` — minimum required sunstone-py version
+- `include` — nested includes are not supported
+
+If an included file contains any of these keys, loading will fail with a `DatasetValidationError`.
+
+### Duplicate Detection
+
+Each dataset slug must be unique across all files (both inputs and outputs). Similarly, each package name must be unique. If a duplicate is found, the error message identifies both files involved:
+
+```
+DatasetValidationError: Duplicate dataset slug 'census-data' found in
+'data/internal-sources.yaml' and 'data/external-sources.yaml'
+```
+
+### Tips for Organizing
+
+- **By source**: Group external data sources in one file, internal data in another
+- **By domain**: Split datasets by subject area (`education.yaml`, `health.yaml`)
+- **Packages separately**: Keep package definitions in `packages.yaml` when you have multiple packages
+- **Keep it flat**: Don't over-split — if your main file is manageable, there's no need to use includes
+
 ## Validation Tools
 
 Check notebooks and scripts for correct import usage:

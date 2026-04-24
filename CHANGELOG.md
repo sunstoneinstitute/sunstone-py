@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `include:` directive in datasets.yaml to organize datasets across multiple files
+
 ## [1.8.0] - 2026-04-24
 
 - Added: embed JSON-LD metadata (lineage, field descriptions, RDF properties) in Parquet file footer

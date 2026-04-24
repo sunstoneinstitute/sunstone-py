@@ -53,6 +53,7 @@ The `sunstone-py` package provides:
     ├── test_dataframe_coverage.py
     ├── test_datasets.py
     ├── test_datasets_coverage.py
+    ├── test_datasets_include.py
     ├── test_errors.py
     ├── test_handlers.py
     ├── test_handlers_gcs.py
@@ -113,6 +114,29 @@ result.to_csv(
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
 5. **Metadata container**: Use `df.metadata` for dataset-level metadata (description, RDF prefixes, custom properties) and `df.set_field_metadata()` for column-level metadata. All metadata propagates through operations and flows to `datasets.yaml` on write.
 6. **Lineage via metadata**: Access lineage through `df.metadata.lineage` (the old `df.lineage` accessor is deprecated)
+
+## Including Other Files
+
+Large projects can split `datasets.yaml` into multiple files using a top-level `include:` list:
+
+```yaml
+include:
+  - data/external-sources.yaml
+  - packages.yaml
+
+inputs:
+  - name: Local Data
+    slug: local-data
+    location: data/local.csv
+```
+
+- Paths resolve relative to the file containing the `include:` directive
+- Included files can contribute `inputs`, `outputs`, and `packages` lists
+- Duplicate slugs or package names across files raise `DatasetValidationError`
+- Nested includes are not supported
+- Top-level settings (`defaults`, `rdfPrefixes`, `publish`, `package`, `min_sunstone_version`) must stay in the main file
+- All writes go to the main `datasets.yaml` — included files are read-only
+- Implementation: `DatasetsManager._merge_includes()` called from `_load()`
 
 ## Plugin System
 
