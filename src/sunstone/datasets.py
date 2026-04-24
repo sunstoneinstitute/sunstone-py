@@ -63,6 +63,17 @@ class DatasetsManager:
     from datasets.yaml files in Sunstone projects.
     """
 
+    # Top-level keys that are not allowed in included files
+    _INCLUDE_DISALLOWED_KEYS = frozenset(
+        {
+            "defaults",
+            "rdfPrefixes",
+            "package",
+            "publish",
+            "min_sunstone_version",
+        }
+    )
+
     def __init__(
         self,
         project_path: Union[str, Path],
@@ -117,10 +128,86 @@ class DatasetsManager:
             self._data["min_sunstone_version"] = required
             self._save()
 
+    def _merge_includes(self) -> None:
+        """Merge datasets from included files into self._data.
+
+        Pops the ``include`` key, loads each referenced YAML file,
+        validates it, and extends the inputs/outputs/packages lists.
+        Raises on nested includes, disallowed keys, or duplicate slugs/names.
+        """
+        include_list = self._data.pop("include", None)
+        if not include_list:
+            return
+
+        base_dir = self.datasets_file.parent
+
+        # Track which file defines each slug/name for error messages
+        slug_origins: dict[str, str] = {}
+        main_label = self.datasets_file.name
+        for section in ("inputs", "outputs"):
+            for entry in self._data.get(section, []):
+                slug = entry.get("slug", "")
+                if slug:
+                    slug_origins[slug] = main_label
+
+        pkg_name_origins: dict[str, str] = {}
+        for entry in self._data.get("packages", []):
+            name = entry.get("name", "")
+            if name:
+                pkg_name_origins[name] = main_label
+
+        for rel_path in include_list:
+            inc_file = (base_dir / rel_path).resolve()
+            if not inc_file.exists():
+                raise FileNotFoundError(f"Included file not found: {rel_path} (resolved to {inc_file})")
+
+            with open(inc_file, "r") as f:
+                inc_data = _yaml.load(f) or {}
+
+            inc_label = str(rel_path)
+
+            # Reject nested includes
+            if "include" in inc_data:
+                raise DatasetValidationError(
+                    f"Nested includes are not supported: {inc_label} contains an 'include:' key"
+                )
+
+            # Reject disallowed top-level keys
+            bad_keys = self._INCLUDE_DISALLOWED_KEYS & set(inc_data.keys())
+            if bad_keys:
+                raise DatasetValidationError(
+                    f"Included file {inc_label} contains disallowed top-level keys: {', '.join(sorted(bad_keys))}"
+                )
+
+            # Merge list sections
+            for section in ("inputs", "outputs"):
+                for entry in inc_data.get(section, []):
+                    slug = entry.get("slug", "")
+                    if slug in slug_origins:
+                        raise DatasetValidationError(
+                            f"Duplicate dataset slug '{slug}' found in '{inc_label}' and '{slug_origins[slug]}'"
+                        )
+                    slug_origins[slug] = inc_label
+                self._data.setdefault(section, []).extend(inc_data.get(section, []))
+
+            # Merge packages
+            for entry in inc_data.get("packages", []):
+                name = entry.get("name", "")
+                if name in pkg_name_origins:
+                    raise DatasetValidationError(
+                        f"Duplicate package name '{name}' found in '{inc_label}' and '{pkg_name_origins[name]}'"
+                    )
+                pkg_name_origins[name] = inc_label
+            if "packages" in inc_data:
+                self._data.setdefault("packages", []).extend(inc_data["packages"])
+
     def _load(self, check_version: bool = False) -> None:
         """Load and parse the datasets.yaml file."""
         with open(self.datasets_file, "r") as f:
             self._data = _yaml.load(f) or {}
+
+        # Merge included files before anything else
+        self._merge_includes()
 
         # Check min_sunstone_version compatibility (only on initial load)
         min_version = self._data.get("min_sunstone_version")
