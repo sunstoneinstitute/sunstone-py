@@ -83,13 +83,21 @@ from .session import DatasetRead, LineageSession, close_session, get_session
 
 # Standard RDF and DCAT prefixes for automatic type properties
 STANDARD_RDF_PREFIXES = {
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
     "dcat": "http://www.w3.org/ns/dcat#",
+    "dct": "http://purl.org/dc/terms/",
+    "dwc": "http://rs.tdwg.org/dwc/terms/",
+    "gtio-i": "https://sunstone.institute/rdf/gtio/0.3/interventions#",
+    "gtio-t": "https://sunstone.institute/rdf/gtio/0.3/threats#",
+    "prov": "http://www.w3.org/ns/prov#",
+    "qudt": "http://qudt.org/schema/qudt/",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "schema": "http://schema.org/",
     "si": "https://sunstone.institute/rdf/vocab#",
     "si30": "https://sunstone.institute/rdf/threat/",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "sosa": "http://www.w3.org/ns/sosa/",
 }
-
-__version__ = "0.1.0"
 
 __all__ = [
     # Main classes
