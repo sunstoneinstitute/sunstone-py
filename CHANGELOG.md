@@ -4,7 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-04-29
+
 - Added: `include:` directive in datasets.yaml to organize datasets across multiple files
+- Added: more standard (built-in) RDF prefixes
+- Fixed: prevent duplicate changelog entries during release
 
 ## [1.8.0] - 2026-04-24
 
