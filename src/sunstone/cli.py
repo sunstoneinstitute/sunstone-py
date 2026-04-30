@@ -1805,5 +1805,27 @@ def lint_cmd(
     sys.exit(1 if has_blocking else 0)
 
 
+@lineage_app.command("attribution")
+def lineage_attribution(
+    slug: str = typer.Argument(..., help="Dataset slug to show attributions for"),
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    format: str = typer.Option("text", "--format", help="Output format: text, markdown, or html"),
+) -> None:
+    """Show source attributions for a dataset by traversing its lineage tree."""
+    from .queries import generate_attribution_statement
+
+    project_path = Path(datasets_file).resolve().parent
+    try:
+        statement = generate_attribution_statement(slug, project_path=project_path, format=format)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    typer.echo(statement)
+
+
 if __name__ == "__main__":
     app()
