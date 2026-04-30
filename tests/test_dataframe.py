@@ -498,10 +498,10 @@ class TestContentHashLineage:
         assert lock_output is not None
         assert "sources" in lock_output
 
-        # Sources should be a list of dicts with just slug
+        # Sources should be a list of dicts with slug (and optionally attributedTo/license)
         sources = lock_output["sources"]
         assert len(sources) > 0
-        assert sources[0] == {"slug": source_slug}
+        assert sources[0]["slug"] == source_slug
 
     def test_sources_updated_on_existing_output(self, project_copy: Path) -> None:
         """Test that sources are updated when writing to an existing output."""
