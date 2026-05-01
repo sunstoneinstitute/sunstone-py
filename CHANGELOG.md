@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `to_csv()` and `to_parquet()` now fall back to session-accumulated sources when the DataFrame has empty lineage (e.g. constructed from extracted scalar values)
+
 ## [1.9.0] - 2026-04-29
 
 - Added: `include:` directive in datasets.yaml to organize datasets across multiple files
