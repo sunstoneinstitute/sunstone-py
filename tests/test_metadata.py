@@ -4,6 +4,8 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 import sunstone
 from sunstone.lineage import (
     DatasetMetadata,
@@ -361,8 +363,13 @@ class TestConflictingMetadata:
         assert result.metadata.field_metadata["val_l"].unit == "kg"
         assert result.metadata.field_metadata["val_r"].unit == "lbs"
 
+    @pytest.mark.filterwarnings("ignore:Adding 'meter' and 'foot':UserWarning")
     def test_concat_conflicting_metadata(self):
-        """Concat: first DataFrame wins for dataset-level, lineage combined."""
+        """Concat: first DataFrame wins for dataset-level, lineage combined.
+
+        The intentional meter/foot unit mismatch is what makes this a "conflict";
+        the dimension-mismatch warning is expected and silenced for this test.
+        """
         df1 = sunstone.DataFrame({"x": [1, 2]})
         df1.metadata.slug = "first-slug"
         df1.metadata.name = "First"

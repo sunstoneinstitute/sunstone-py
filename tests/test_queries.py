@@ -5,8 +5,14 @@ Unit tests for lineage query API (queries.py).
 import textwrap
 from pathlib import Path
 
+import pytest
 
 from sunstone.queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
+
+# These tests use the legacy inline-lineage format in datasets.yaml fixtures
+# because the queries API supports both formats; the lock-file format is
+# exercised in test_lock_file.py.
+pytestmark = pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 
 
 def _write_datasets_yaml(tmp_path: Path, content: str) -> Path:

@@ -404,6 +404,7 @@ class TestURLSafety:
         """Test that URLs without hostnames are blocked."""
         assert is_public_url("http:///no-host") is False
 
+    @pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
     def test_fetch_from_url_with_ssrf_attempt(self, project_path: Path) -> None:
         """Test that fetch_from_url raises ValueError for SSRF attempts."""
         manager = sunstone.DatasetsManager(project_path)
@@ -418,6 +419,7 @@ class TestURLSafety:
                 with pytest.raises(ValueError, match="not allowed"):
                     manager.fetch_from_url(dataset, force=True)
 
+    @pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
     def test_fetch_from_url_with_file_scheme(self, project_path: Path) -> None:
         """Test that fetch_from_url raises ValueError for file:// URLs."""
         manager = sunstone.DatasetsManager(project_path)
@@ -431,6 +433,7 @@ class TestURLSafety:
                 manager.fetch_from_url(dataset, force=True)
 
 
+@pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
 class TestRedirectSSRFProtection:
     """Tests for HTTP redirect SSRF protection."""
 

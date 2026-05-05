@@ -105,6 +105,7 @@ class TestLockFileLoading:
         assert manager.lock_file == expected
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestLockFileMerge:
     def test_output_lineage_from_lock_file(self, lock_project: Path) -> None:
         """Output lineage should come from lock file, not inline."""
@@ -388,6 +389,7 @@ class TestResolveCommand:
         assert result.exit_code == 1
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestMigrateCommand:
     def test_migrate_extracts_lineage(self, tmp_path: Path) -> None:
         """migrate should move inline lineage to lock file."""

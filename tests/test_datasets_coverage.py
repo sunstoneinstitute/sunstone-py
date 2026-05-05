@@ -338,6 +338,7 @@ class TestGetAbsolutePath:
         assert result == abs_file
 
 
+@pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
 class TestFetchFromUrl:
     """Tests for fetch_from_url edge cases (lines 739, 745-746, 801-805)."""
 

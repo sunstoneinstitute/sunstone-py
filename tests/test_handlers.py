@@ -615,6 +615,7 @@ class TestLocalFileHandlerOpen:
         assert f.read_bytes() == b"data"
 
 
+@pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
 def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
     """Auth providers set headers on the HttpURLHandler before fetch."""
     datasets_yaml = tmp_path / "datasets.yaml"

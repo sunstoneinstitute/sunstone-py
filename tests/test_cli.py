@@ -1043,6 +1043,7 @@ class TestPublishConfigParsing:
         assert "[publish]" not in result.output
 
 
+@pytest.mark.filterwarnings("ignore:Per-dataset:DeprecationWarning")
 class TestPerDatasetPublish:
     """Tests for per-dataset publish configuration."""
 
@@ -1641,6 +1642,7 @@ class TestCLIHelp:
         assert "tree" in result.output
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestLineageCLI:
     """Tests for lineage CLI commands."""
 
