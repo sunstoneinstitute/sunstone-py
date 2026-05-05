@@ -82,6 +82,9 @@ from .validation import (
     validate_project_notebooks,
 )
 
+# Linter
+from .lint import LintReport, Severity as LintSeverity, Violation, lint_project
+
 # Lineage tracking modules
 from .context import ExecutionContext, detect_execution_context
 from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
@@ -123,6 +126,11 @@ __all__ = [
     "check_notebook_imports",
     "check_script_imports",
     "validate_project_notebooks",
+    # Linter
+    "LintReport",
+    "LintSeverity",
+    "Violation",
+    "lint_project",
     # Lineage classes
     "Contributor",
     "LineageMetadata",

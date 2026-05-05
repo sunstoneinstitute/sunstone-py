@@ -7,6 +7,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: `sunstone.set_project_path()`, `get_project_path()`, `clear_project_path()`, and
   `use_project_path()` context manager — set the default project path once instead of passing
   `project_path=` to every `read_csv`/`read_excel`/`read_dataset` call
+- Added: `sunstone lint` CLI command and `sunstone.lint_project()` API for checking
+  `datasets.yaml` against the Sunstone Minimum Viable Metadata recommendations (closes #59).
+  Rules R001–R008 (errors) cover required metadata; R101–R105 (warnings) cover recommended
+  provenance, units, slug case, and field descriptions; R201–R202 (info) flag generic names.
+  Supports `--rules`, `--warnings-as-errors`, and `--json`.
 
 ## [1.9.1] - 2026-05-05
 

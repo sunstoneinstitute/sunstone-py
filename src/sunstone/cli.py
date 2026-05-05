@@ -1760,5 +1760,50 @@ def lineage_tree(
     typer.echo(display_lineage(node))
 
 
+@app.command("lint")
+def lint_cmd(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    rules: Optional[str] = typer.Option(
+        None,
+        "--rules",
+        help="Comma-separated list of rule IDs to run (default: all). Example: --rules R001,R005",
+    ),
+    warnings_as_errors: bool = typer.Option(
+        False,
+        "--warnings-as-errors",
+        help="Treat warnings as errors when computing exit code.",
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
+) -> None:
+    """Lint datasets.yaml against the Sunstone Minimum Viable Metadata recommendations.
+
+    Exits with code 1 if any errors are found (or any warnings, when
+    --warnings-as-errors is set). Run without arguments to lint the project
+    in the current directory.
+    """
+    from .lint import lint_project, report_to_json
+
+    rule_filter: Optional[set[str]] = None
+    if rules:
+        rule_filter = {r.strip() for r in rules.split(",") if r.strip()}
+
+    yaml_path = Path(datasets_file).resolve()
+    project_path = yaml_path.parent if yaml_path.is_file() else yaml_path
+
+    if not yaml_path.exists():
+        typer.echo(f"Error: {datasets_file} not found", err=True)
+        sys.exit(1)
+
+    report = lint_project(project_path, datasets_file=yaml_path.name, rules=rule_filter)
+
+    if json_output:
+        typer.echo(report_to_json(report))
+    else:
+        typer.echo(report.format_text())
+
+    has_blocking = bool(report.errors) or (warnings_as_errors and bool(report.warnings))
+    sys.exit(1 if has_blocking else 0)
+
+
 if __name__ == "__main__":
     app()

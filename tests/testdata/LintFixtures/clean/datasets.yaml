@@ -1,0 +1,42 @@
+package:
+  title: Clean Lint Fixture
+  description: A datasets.yaml that should produce zero violations.
+  version: "1.0.0"
+  license: CC-BY-4.0
+
+inputs:
+  - name: Clean Input
+    slug: clean-input
+    location: inputs/clean.csv
+    description: A pristine input dataset for testing the linter.
+    source:
+      name: Test Source
+      location:
+        data: https://example.com/clean.csv
+      attributedTo: Example Org
+      acquiredAt: 2026-01-01
+      acquisitionMethod: manual-download
+      license: CC-BY-4.0
+    fields:
+      - name: country
+        type: string
+        description: ISO country code.
+      - name: gdp_usd
+        type: number
+        unit: USD
+        description: Gross domestic product in current US dollars.
+
+outputs:
+  - name: Clean Output
+    slug: clean-output
+    location: outputs/clean.csv
+    description: A pristine output dataset for testing the linter.
+    license: CC-BY-4.0
+    fields:
+      - name: country
+        type: string
+        description: ISO country code.
+      - name: gdp_per_capita_usd
+        type: number
+        unit: USD
+        description: GDP per capita in current US dollars.
