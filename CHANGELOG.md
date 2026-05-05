@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `datasets.lock.yaml` no longer accumulates a duplicate auto-generated header comment on each save
+
 ## [1.9.0] - 2026-04-29
 
 - Added: `include:` directive in datasets.yaml to organize datasets across multiple files
