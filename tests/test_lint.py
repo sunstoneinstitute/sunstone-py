@@ -191,6 +191,143 @@ class TestMissingDatasetsFile:
         assert report.violations == []
 
 
+def _write_yaml(path: Path, body: str) -> None:
+    path.write_text(body)
+
+
+class TestLintDisable:
+    """Tests for the 'lint.disable' suppression mechanism."""
+
+    def _project_with_kebab_violation(self, tmp_path: Path, lint_block: str = "") -> Path:
+        # Slug 'Bad_Slug' triggers R104.
+        body = (
+            f"{lint_block}"
+            "inputs:\n"
+            "  - name: With Bad Slug\n"
+            "    slug: Bad_Slug\n"
+            "    location: inputs/x.csv\n"
+            "    description: A dataset whose slug intentionally violates kebab-case.\n"
+            "    source:\n"
+            "      name: Provider\n"
+            "      location:\n"
+            "        data: https://example.com/x.csv\n"
+            "      attributedTo: Example Org\n"
+            "      acquiredAt: 2026-01-01\n"
+            "      acquisitionMethod: manual-download\n"
+            "      license: CC-BY-4.0\n"
+            "outputs: []\n"
+        )
+        _write_yaml(tmp_path / "datasets.yaml", body)
+        return tmp_path
+
+    def test_disable_moves_violation_to_suppressed(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            'lint:\n  disable:\n    R104: "Slug mirrors upstream M49 codes; kebab-case would lose information."\n',
+        )
+        report = lint_project(project)
+        assert all(v.rule_id != "R104" for v in report.violations)
+        assert any(v.rule_id == "R104" for v in report.suppressed)
+        assert "M49" in report.suppressions["R104"]
+
+    def test_disable_without_justification_emits_r009(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            "lint:\n  disable:\n    R104: ''\n",
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert any("R104" in v.message for v in r009)
+        # Without a valid suppression, R104 still fires.
+        assert any(v.rule_id == "R104" for v in report.violations)
+
+    def test_disable_with_unknown_rule_emits_r009(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            'lint:\n  disable:\n    R999: "rolling our own"\n',
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert any("R999" in v.message for v in r009)
+
+    def test_disable_with_non_string_justification_emits_r009(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            "lint:\n  disable:\n    R104: 42\n",
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert r009
+        # An invalid suppression does NOT silence the underlying rule.
+        assert any(v.rule_id == "R104" for v in report.violations)
+        assert all(v.rule_id != "R104" for v in report.suppressed)
+
+    def test_disable_R009_itself_emits_r009(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            'lint:\n  disable:\n    R009: "trying to silence the silencer"\n',
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert any("cannot be suppressed" in v.message for v in r009)
+
+    def test_disable_block_must_be_mapping(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            "lint:\n  disable: not-a-map\n",
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert any("must be a mapping" in v.message for v in r009)
+
+    def test_lint_block_must_be_mapping(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            "lint: not-a-map\n",
+        )
+        report = lint_project(project)
+        r009 = [v for v in report.violations if v.rule_id == "R009"]
+        assert any("'lint' must be a mapping" in v.message for v in r009)
+
+    def test_format_text_shows_suppressions_with_reasons(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            'lint:\n  disable:\n    R104: "Domain-specific upstream slug"\n',
+        )
+        report = lint_project(project)
+        text = report.format_text()
+        assert "Suppressed by lint.disable" in text
+        assert "Domain-specific upstream slug" in text
+
+    def test_to_dict_includes_suppressions(self, tmp_path: Path) -> None:
+        project = self._project_with_kebab_violation(
+            tmp_path,
+            'lint:\n  disable:\n    R104: "Justified"\n',
+        )
+        report = lint_project(project)
+        d = report.to_dict()
+        assert d["suppressed"]
+        assert d["suppressions"] == {"R104": "Justified"}
+        assert d["summary"]["suppressed"] == len(d["suppressed"])
+
+    def test_disable_does_not_affect_other_rules(self, tmp_path: Path) -> None:
+        # An input missing source (R101) plus a bad slug (R104). Disable R104 only.
+        body = (
+            'lint:\n  disable:\n    R104: "Justified"\n'
+            "inputs:\n"
+            "  - name: With Bad Slug\n"
+            "    slug: Bad_Slug\n"
+            "    location: inputs/x.csv\n"
+            "    description: Has a bad slug AND no source block.\n"
+            "outputs: []\n"
+        )
+        _write_yaml(tmp_path / "datasets.yaml", body)
+        report = lint_project(tmp_path)
+        assert any(v.rule_id == "R101" for v in report.violations)
+        assert all(v.rule_id != "R104" for v in report.violations)
+        assert any(v.rule_id == "R104" for v in report.suppressed)
+
+
 # --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #

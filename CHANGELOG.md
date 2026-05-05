@@ -12,6 +12,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   Rules R001–R008 (errors) cover required metadata; R101–R105 (warnings) cover recommended
   provenance, units, slug case, and field descriptions; R201–R202 (info) flag generic names.
   Supports `--rules`, `--warnings-as-errors`, and `--json`.
+- Added: `lint.disable` block in `datasets.yaml` to suppress lint rules with a written
+  justification (e.g. `lint: { disable: { R104: "Slug mirrors upstream UN identifier" } }`).
+  Suppressed findings are kept in a separate `suppressed` list in the report so reviewers
+  can audit reasons. New rule R009 flags malformed suppressions (unknown rule IDs, empty
+  justifications, attempts to suppress R009 itself); R009 cannot itself be suppressed.
 
 ## [1.9.1] - 2026-05-05
 

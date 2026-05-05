@@ -62,10 +62,18 @@ class Violation:
 
 @dataclass
 class LintReport:
-    """Aggregated lint output."""
+    """Aggregated lint output.
+
+    ``violations`` are findings that the project still owes someone an answer
+    on. ``suppressed`` are findings that ``lint.disable`` in ``datasets.yaml``
+    silenced — they are kept around so reviewers can audit which justifications
+    were applied.
+    """
 
     project_path: Path
     violations: list[Violation] = field(default_factory=list)
+    suppressed: list[Violation] = field(default_factory=list)
+    suppressions: dict[str, str] = field(default_factory=dict)
 
     def add(self, v: Violation) -> None:
         self.violations.append(v)
@@ -94,15 +102,18 @@ class LintReport:
         return {
             "project_path": str(self.project_path),
             "violations": [v.to_dict() for v in self.violations],
+            "suppressed": [v.to_dict() for v in self.suppressed],
+            "suppressions": dict(self.suppressions),
             "summary": {
                 "errors": len(self.errors),
                 "warnings": len(self.warnings),
                 "info": len(self.info),
+                "suppressed": len(self.suppressed),
             },
         }
 
     def format_text(self) -> str:
-        if not self.violations:
+        if not self.violations and not self.suppressed:
             return "No violations found."
 
         lines: list[str] = []
@@ -111,8 +122,22 @@ class LintReport:
             lines.append(f"[{v.rule_id}] {sev} {v.location}: {v.message}")
             if v.fix_hint:
                 lines.append(f"    hint: {v.fix_hint}")
+
+        if self.suppressed:
+            lines.append("")
+            lines.append(f"Suppressed by lint.disable ({len(self.suppressed)}):")
+            for v in self.suppressed:
+                justification = self.suppressions.get(v.rule_id, "")
+                lines.append(f"  [{v.rule_id}] {v.location}: {v.message}")
+                if justification:
+                    lines.append(f"      reason: {justification}")
+
         lines.append("")
-        lines.append(f"Summary: {len(self.errors)} error(s), {len(self.warnings)} warning(s), {len(self.info)} info")
+        suppressed_note = f", {len(self.suppressed)} suppressed" if self.suppressed else ""
+        lines.append(
+            f"Summary: {len(self.errors)} error(s), {len(self.warnings)} warning(s), "
+            f"{len(self.info)} info{suppressed_note}"
+        )
         return "\n".join(lines)
 
 
@@ -145,6 +170,12 @@ RULES: dict[str, Rule] = {
     ),
     "R007": Rule("R007", Severity.ERROR, "Field missing 'name'", "Every field entry must have a name."),
     "R008": Rule("R008", Severity.ERROR, "Field missing 'type'", "Every field entry must declare a type."),
+    "R009": Rule(
+        "R009",
+        Severity.ERROR,
+        "Malformed lint.disable entry",
+        "Each entry under 'lint.disable' must map a known rule ID to a non-empty justification string. R009 itself cannot be suppressed.",
+    ),
     # Recommended (warnings)
     "R101": Rule(
         "R101",
@@ -505,6 +536,14 @@ def lint_project(
 
     report = LintReport(project_path=project)
 
+    suppressions, config_violations = _parse_lint_config(data.get("lint"))
+    report.suppressions = suppressions
+
+    # R009 violations are NEVER suppressed — that's how we keep lint.disable honest.
+    for v in config_violations:
+        if ctx.is_enabled(v.rule_id):
+            report.add(v)
+
     for ds_kind, ds_type in (("inputs", "input"), ("outputs", "output")):
         items = data.get(ds_kind) or []
         if not isinstance(items, list):
@@ -516,19 +555,121 @@ def lint_project(
 
             for checker in _DATASET_CHECKERS:
                 for v in checker(ds, loc, ctx):
-                    if ctx.is_enabled(v.rule_id):
-                        report.add(v)
+                    _apply_violation(v, ctx, suppressions, report)
 
             for v in _check_dataset_license(ds, loc, ds_type, ctx):
-                if ctx.is_enabled(v.rule_id):
-                    report.add(v)
+                _apply_violation(v, ctx, suppressions, report)
 
             if ds_type == "input":
                 for v in _check_input_source(ds, loc, ctx):
-                    if ctx.is_enabled(v.rule_id):
-                        report.add(v)
+                    _apply_violation(v, ctx, suppressions, report)
 
     return report
+
+
+def _apply_violation(
+    v: Violation,
+    ctx: "_LintContext",
+    suppressions: dict[str, str],
+    report: LintReport,
+) -> None:
+    """Route a violation to ``report.violations`` or ``report.suppressed`` based on ``lint.disable``."""
+    if not ctx.is_enabled(v.rule_id):
+        return
+    if v.rule_id in suppressions:
+        report.suppressed.append(v)
+    else:
+        report.add(v)
+
+
+def _parse_lint_config(raw: Any) -> tuple[dict[str, str], list[Violation]]:
+    """Parse and validate the ``lint:`` section from ``datasets.yaml``.
+
+    Returns a tuple ``(suppressions, config_violations)`` where:
+
+    - ``suppressions`` maps rule IDs to non-empty justification strings, only
+      including entries that passed validation.
+    - ``config_violations`` is a list of R009 errors describing malformed
+      entries (unknown rule IDs, empty justifications, wrong types). These
+      cannot themselves be suppressed.
+    """
+    suppressions: dict[str, str] = {}
+    violations: list[Violation] = []
+
+    if raw is None:
+        return suppressions, violations
+
+    if not isinstance(raw, dict):
+        violations.append(
+            Violation(
+                rule_id="R009",
+                severity=Severity.ERROR,
+                message="'lint' must be a mapping",
+                location="lint",
+                fix_hint="Use 'lint:\\n  disable:\\n    R104: \"reason\"'.",
+            )
+        )
+        return suppressions, violations
+
+    disable = raw.get("disable")
+    if disable is None:
+        return suppressions, violations
+
+    if not isinstance(disable, dict):
+        violations.append(
+            Violation(
+                rule_id="R009",
+                severity=Severity.ERROR,
+                message="'lint.disable' must be a mapping of rule ID to justification",
+                location="lint.disable",
+                fix_hint="Use 'lint.disable:\\n  R104: \"reason\"'.",
+            )
+        )
+        return suppressions, violations
+
+    for rule_id, justification in disable.items():
+        rule_id_str = str(rule_id)
+        loc = f"lint.disable.{rule_id_str}"
+
+        if rule_id_str not in RULES:
+            violations.append(
+                Violation(
+                    rule_id="R009",
+                    severity=Severity.ERROR,
+                    message=f"unknown rule ID '{rule_id_str}' in lint.disable",
+                    location=loc,
+                    fix_hint=f"Use one of: {', '.join(sorted(RULES))}",
+                )
+            )
+            continue
+
+        if rule_id_str == "R009":
+            violations.append(
+                Violation(
+                    rule_id="R009",
+                    severity=Severity.ERROR,
+                    message="R009 itself cannot be suppressed",
+                    location=loc,
+                    fix_hint="Remove this entry or fix the underlying lint.disable error.",
+                )
+            )
+            continue
+
+        if not isinstance(justification, str) or not justification.strip():
+            violations.append(
+                Violation(
+                    rule_id="R009",
+                    severity=Severity.ERROR,
+                    message=f"justification for '{rule_id_str}' must be a non-empty string",
+                    location=loc,
+                    fix_hint="Provide a sentence explaining why this rule does not apply here.",
+                )
+            )
+            continue
+
+        suppressions[rule_id_str] = justification.strip()
+
+    return suppressions, violations
 
 
 def report_to_json(report: LintReport) -> str:
