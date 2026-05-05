@@ -87,25 +87,37 @@ jobs:
         uv sync
         url="${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}"
         version="${GITHUB_REF#refs/tags/v}"
-        message="New release of sunstone-py available: $version"
+        title="New release of sunstone-py available: $version"
         changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
         pypi_url="https://pypi.org/project/sunstone-py/${version}/"
         docs_url="https://sunstoneinstitute.github.io/sunstone-py/${version}/"
-        jq -n --arg message "$message" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
-          text: $message,
-          cards: [{
-            sections: [{
-              widgets: [{
-                textParagraph: {
-                  text: "<b>Changelog</b><br>\($changelog)"
-                }
+        # Single-message card with a collapsible changelog section.
+        # The card header is always visible; the section collapses by default
+        # because uncollapsibleWidgetsCount=0.
+        jq -n --arg title "$title" --arg version "$version" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
+          cardsV2: [{
+            cardId: ("release-" + $version),
+            card: {
+              header: {
+                title: $title
               },
-              {
-                textParagraph: {
-                  text: "<b>Links</b><br><a href=\"\($pypi_url)\">PyPI</a> · <a href=\"\($docs_url)\">Documentation</a>"
-                }
+              sections: [{
+                collapsible: true,
+                uncollapsibleWidgetsCount: 0,
+                widgets: [
+                  {
+                    textParagraph: {
+                      text: ("<b>Changelog</b><br>" + $changelog)
+                    }
+                  },
+                  {
+                    textParagraph: {
+                      text: ("<a href=\"" + $pypi_url + "\">PyPI</a> · <a href=\"" + $docs_url + "\">Documentation</a>")
+                    }
+                  }
+                ]
               }]
-            }]
+            }
           }]
         }' | curl -X POST -H 'Content-Type: application/json' -d @- "$url"
 
