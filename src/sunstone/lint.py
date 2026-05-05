@@ -294,14 +294,22 @@ def _check_dataset_license(ds: dict[str, Any], loc: str, ds_type: str, ctx: "_Li
     For inputs, license lives on ``source.license``. For outputs, license can
     live on the dataset itself or be inherited from ``package.license``.
     """
-    license_value: str | None
+    license_value: Any
+    license_loc: str
     if ds_type == "input":
-        source = ds.get("source") or {}
+        raw_source = ds.get("source")
+        source = raw_source if isinstance(raw_source, dict) else {}
         license_value = source.get("license")
         license_loc = f"{loc}.source.license"
     else:
-        license_value = ds.get("license") or ctx.package_license
-        license_loc = f"{loc}.license" if ds.get("license") else "package.license"
+        package_license = ctx.package_license_for(ds.get("slug"))
+        license_value = ds.get("license") or package_license[0] or ctx.package_license
+        if ds.get("license"):
+            license_loc = f"{loc}.license"
+        elif package_license[0]:
+            license_loc = package_license[1]
+        else:
+            license_loc = "package.license"
 
     if not license_value:
         yield ctx.violation(
@@ -382,6 +390,12 @@ def _check_input_source(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> It
         return
 
     if not isinstance(source, dict):
+        yield ctx.violation(
+            "R102",
+            "source block must be a mapping",
+            f"{loc}.source",
+            "Use a 'source:' block with name, location, attributedTo, acquiredAt, acquisitionMethod, license.",
+        )
         return
 
     missing = []
@@ -432,8 +446,10 @@ def _check_dataset_name(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> It
 
 
 def _is_publish_enabled(ds: dict[str, Any], ctx: "_LintContext") -> bool:
-    """True when the dataset would be published — top-level or per-dataset."""
-    if isinstance(ds.get("publish"), dict) and ds["publish"].get("enabled"):
+    """True when the dataset would be published — top-level, package, or per-dataset."""
+    if "publish" in ds:
+        return _publish_enabled(ds.get("publish"))
+    if ctx.is_published_by_package(ds.get("slug")):
         return True
     return ctx.top_level_publish_enabled
 
@@ -444,7 +460,9 @@ class _LintContext:
 
     project_path: Path
     rule_filter: set[str] | None
-    package_license: str | None
+    package_license: Any
+    package_licenses_by_slug: dict[str, tuple[Any, str]]
+    package_published_slugs: set[str]
     top_level_publish_enabled: bool
     lock_data: dict[str, Any]
 
@@ -460,6 +478,14 @@ class _LintContext:
 
     def is_enabled(self, rule_id: str) -> bool:
         return self.rule_filter is None or rule_id in self.rule_filter
+
+    def package_license_for(self, slug: str | None) -> tuple[Any, str]:
+        if not slug:
+            return None, "package.license"
+        return self.package_licenses_by_slug.get(slug, (None, "package.license"))
+
+    def is_published_by_package(self, slug: str | None) -> bool:
+        return slug in self.package_published_slugs if slug else False
 
     def locked_units_for(self, slug: str | None) -> set[str]:
         """Return the set of field names that have a unit recorded in datasets.lock.yaml.
@@ -486,6 +512,53 @@ _DATASET_CHECKERS: list[Callable[[dict[str, Any], str, "_LintContext"], Iterator
     _check_dataset_name,
     _check_fields,
 ]
+
+
+def _publish_enabled(raw: Any) -> bool:
+    """Return whether a publish block uses an accepted enabled form."""
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, dict):
+        return bool(raw.get("enabled"))
+    return False
+
+
+def _package_licenses_by_slug(data: dict[str, Any]) -> dict[str, tuple[Any, str]]:
+    """Map output dataset slugs to package-level licenses from ``packages:`` entries."""
+    result: dict[str, tuple[Any, str]] = {}
+    packages = data.get("packages")
+    if not isinstance(packages, list):
+        return result
+
+    for i, package in enumerate(packages):
+        if not isinstance(package, dict) or "license" not in package:
+            continue
+        datasets = package.get("datasets")
+        if not isinstance(datasets, list):
+            continue
+        for slug in datasets:
+            if isinstance(slug, str) and slug not in result:
+                result[slug] = (package.get("license"), f"packages[{i}].license")
+
+    return result
+
+
+def _package_published_slugs(data: dict[str, Any]) -> set[str]:
+    """Return dataset slugs included in a package with publishing enabled."""
+    result: set[str] = set()
+    packages = data.get("packages")
+    if not isinstance(packages, list):
+        return result
+
+    for package in packages:
+        if not isinstance(package, dict) or not _publish_enabled(package.get("publish")):
+            continue
+        datasets = package.get("datasets")
+        if not isinstance(datasets, list):
+            continue
+        result.update(slug for slug in datasets if isinstance(slug, str))
+
+    return result
 
 
 def lint_project(
@@ -524,13 +597,15 @@ def lint_project(
         with open(lock_path, "r") as f:
             lock_data = _yaml.load(f) or {}
 
-    package = data.get("package") or {}
-    top_publish = data.get("publish") or {}
+    package_value = data.get("package")
+    package = package_value if isinstance(package_value, dict) else {}
     ctx = _LintContext(
         project_path=project,
         rule_filter=rules,
         package_license=package.get("license"),
-        top_level_publish_enabled=bool(top_publish.get("enabled")),
+        package_licenses_by_slug=_package_licenses_by_slug(data),
+        package_published_slugs=_package_published_slugs(data),
+        top_level_publish_enabled=_publish_enabled(data.get("publish")),
         lock_data=lock_data,
     )
 

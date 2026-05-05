@@ -17,6 +17,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   Suppressed findings are kept in a separate `suppressed` list in the report so reviewers
   can audit reasons. New rule R009 flags malformed suppressions (unknown rule IDs, empty
   justifications, attempts to suppress R009 itself); R009 cannot itself be suppressed.
+- Fixed: `sunstone lint` now accepts the same `datasets.yaml` forms used elsewhere —
+  boolean `publish: true`, package-level license and publish flags under `packages:`
+  (output license can be inherited from a `packages` entry; outputs listed in a
+  published package count as published), and per-dataset `publish: { enabled: false }`
+  overriding a top-level publish. R102 now also flags non-mapping `source` values
+  instead of silently passing.
 
 ## [1.9.1] - 2026-05-05
 

@@ -4,7 +4,7 @@ Get started with sunstone-py in minutes.
 
 ## 1. Set Up Your Project with datasets.yaml
 
-Create a `datasets.yaml` file in your project directory (please see website-guidelines.md for extra instructions regarding the formatting of output files that will appear on our website):
+Create a `datasets.yaml` file in your project directory:
 
 ```yaml
 publish:
@@ -85,7 +85,6 @@ result.to_parquet(
 ## Next Steps
 
 - Learn about the [CLI tools](cli.md) for dataset management
-- Review [website guidelines](website-guidelines.md) for information on the expected formatting of output files (especially those used in charts/visuals)
 - Understand [core concepts](concepts.md) like strict mode and lineage tracking
 - Browse the [API reference](api.md) for detailed documentation
 - Check out [examples](examples.md) for real-world usage patterns

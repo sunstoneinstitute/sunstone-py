@@ -94,6 +94,22 @@ class TestRecommendedRules:
         # The "Sloppy Source" input has an incomplete source block.
         assert any("inputs[3]" in v.location for v in r102)
 
+    def test_r102_source_must_be_mapping(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: Scalar Source\n"
+            "    slug: scalar-source\n"
+            "    location: inputs/scalar.csv\n"
+            "    description: Input whose source value is malformed.\n"
+            "    source: upstream-provider\n"
+            "outputs: []\n"
+        )
+
+        report = lint_project(tmp_path)
+
+        assert any(v.rule_id == "R102" and "must be a mapping" in v.message for v in report.violations)
+        assert any(v.rule_id == "R005" for v in report.violations)
+
     def test_r103_numeric_field_missing_unit(self, violations_project: Path) -> None:
         report = lint_project(violations_project)
         r103 = [v for v in report.violations if v.rule_id == "R103"]
@@ -129,6 +145,54 @@ class TestRecommendedRules:
         r105 = [v for v in report.violations if v.rule_id == "R105"]
         # All output fields lack descriptions.
         assert len(r105) >= 1
+
+    def test_r105_package_published_output_field_no_description(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "packages:\n"
+            "  - name: public-package\n"
+            "    title: Public Package\n"
+            "    license: CC-BY-4.0\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/public/\n"
+            "    datasets:\n"
+            "      - packaged-output\n"
+            "outputs:\n"
+            "  - name: Packaged Output\n"
+            "    slug: packaged-output\n"
+            "    location: outputs/packaged.csv\n"
+            "    description: Output published through a packages entry.\n"
+            "    fields:\n"
+            "      - name: country\n"
+            "        type: string\n"
+        )
+
+        report = lint_project(tmp_path)
+
+        assert any(v.rule_id == "R105" and "outputs[0].fields[0]" in v.location for v in report.violations)
+
+    def test_r105_per_dataset_publish_false_overrides_top_level_publish(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "package:\n"
+            "  license: CC-BY-4.0\n"
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/public/\n"
+            "outputs:\n"
+            "  - name: Private Output\n"
+            "    slug: private-output\n"
+            "    location: outputs/private.csv\n"
+            "    description: Output excluded from publication.\n"
+            "    publish:\n"
+            "      enabled: false\n"
+            "    fields:\n"
+            "      - name: country\n"
+            "        type: string\n"
+        )
+
+        report = lint_project(tmp_path)
+
+        assert all(v.rule_id != "R105" for v in report.violations)
 
 
 class TestStyleRules:
@@ -326,6 +390,55 @@ class TestLintDisable:
         assert any(v.rule_id == "R101" for v in report.violations)
         assert all(v.rule_id != "R104" for v in report.violations)
         assert any(v.rule_id == "R104" for v in report.suppressed)
+
+
+class TestAcceptedYamlForms:
+    """Compatibility checks for datasets.yaml forms accepted elsewhere."""
+
+    def test_boolean_top_level_publish_does_not_crash(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "package:\n"
+            "  license: CC-BY-4.0\n"
+            "publish: true\n"
+            "outputs:\n"
+            "  - name: Boolean Publish Output\n"
+            "    slug: boolean-publish-output\n"
+            "    location: outputs/out.csv\n"
+            "    description: Output dataset using legacy boolean publish.\n"
+            "    fields:\n"
+            "      - name: country\n"
+            "        type: string\n"
+        )
+
+        report = lint_project(tmp_path)
+
+        assert any(v.rule_id == "R105" for v in report.violations)
+
+    def test_output_license_can_be_inherited_from_packages_entry(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "packages:\n"
+            "  - name: public-package\n"
+            "    title: Public Package\n"
+            "    license: CC-BY-4.0\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      to: gs://bucket/public/\n"
+            "    datasets:\n"
+            "      - packaged-output\n"
+            "outputs:\n"
+            "  - name: Packaged Output\n"
+            "    slug: packaged-output\n"
+            "    location: outputs/packaged.csv\n"
+            "    description: Output dataset whose license lives on its package.\n"
+            "    fields:\n"
+            "      - name: country\n"
+            "        type: string\n"
+            "        description: ISO country code.\n"
+        )
+
+        report = lint_project(tmp_path)
+
+        assert all(v.rule_id != "R005" for v in report.violations)
 
 
 # --------------------------------------------------------------------------- #

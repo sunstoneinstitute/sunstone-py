@@ -14,10 +14,13 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import sunstone.pandas as pd
 import pycountry
+from pandas._libs.tslibs.nattype import NaTType
+
+DateOrNaT = pd.Timestamp | NaTType
 
 # Project path for dataset registration
 PROJECT_PATH = Path(__file__).parent
@@ -72,12 +75,12 @@ def _split_date_strings(cell: str) -> List[str]:
     return [p.strip() for p in re.split(r"[;,]", normalized) if p.strip()]
 
 
-def _parse_dates(items: List[str]) -> List[pd.Timestamp]:
-    """Parse date strings to Timestamps."""
+def _parse_dates(items: List[str]) -> List[DateOrNaT]:
+    """Parse date strings to Timestamps (NaT for unparseable values)."""
     return [pd.to_datetime(x, errors="coerce") for x in items]
 
 
-def _determine_status(start: pd.Timestamp, end: pd.Timestamp, reference: pd.Timestamp) -> str:
+def _determine_status(start: DateOrNaT, end: DateOrNaT, reference: pd.Timestamp) -> str:
     """Determine membership status for a period."""
     if pd.isna(start):
         if pd.isna(end):
@@ -265,7 +268,7 @@ def enrich_with_iso_codes(current_members: pd.DataFrame, country_col: str = "Mem
     # Reorder columns
     result = result[["Country", "Alpha-2 Code", "Alpha-3 Code", "Date of Admission"]]
 
-    return result
+    return cast(pd.DataFrame, result)
 
 
 def create_dataset(output_filepath: Optional[str] = None, include_timestamp: bool = False) -> pd.DataFrame:
