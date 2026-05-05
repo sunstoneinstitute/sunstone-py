@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-05-05
+
 - Fixed: `datasets.lock.yaml` no longer accumulates a duplicate auto-generated header comment on each save
 
 ## [1.9.0] - 2026-04-29
