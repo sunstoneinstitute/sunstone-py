@@ -84,6 +84,7 @@ disallow_untyped_defs = true
 check_untyped_defs = false
 exclude = [
     "^tests/testdata/",
+    "^templates/",
 ]
 overrides = [
     { module = "tests.*", disallow_untyped_defs = false },
@@ -94,6 +95,7 @@ overrides = [
 addopts = "--cov=sunstone --cov-report=term-missing"
 norecursedirs = [
     ".worktrees",
+    ".claude",
 ]
 
 [tool.coverage.run]

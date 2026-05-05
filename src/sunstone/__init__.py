@@ -25,6 +25,12 @@ Example:
     ... )
 """
 
+from .config import (
+    clear_project_path,
+    get_project_path,
+    set_project_path,
+    use_project_path,
+)
 from .dataframe import DataFrame
 from .datasets import DatasetsManager
 from .exceptions import (
@@ -103,6 +109,11 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    # Project-path configuration
+    "set_project_path",
+    "get_project_path",
+    "clear_project_path",
+    "use_project_path",
     # Pandas-like interface
     "pandas",
     # Errors (re-exported from pandas.errors)

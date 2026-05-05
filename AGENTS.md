@@ -86,12 +86,15 @@ The `sunstone-py` package provides:
 
 ```python
 from sunstone import pandas as pd
+import sunstone
 from pathlib import Path
 
-PROJECT_PATH = Path.cwd()
+# Configure the project path once. read_csv/read_excel/read_dataset
+# pick this up automatically — no need to pass project_path everywhere.
+sunstone.set_project_path(Path.cwd())
 
 # Load data (must be in datasets.yaml)
-df = pd.read_csv('input.csv', project_path=PROJECT_PATH)
+df = pd.read_csv('input.csv')
 
 # Transform using familiar pandas operations
 result = df[df['value'] > 100].groupby('category').sum()
@@ -107,7 +110,7 @@ result.to_csv(
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: `read_csv()`, `read_excel()`, and `read_json()` require `project_path` parameter
+1. **Project path**: `read_csv()`, `read_excel()`, and `read_json()` resolve paths against a project directory containing `datasets.yaml`. Set it once with `sunstone.set_project_path(...)` (recommended for notebooks/scripts), pass it explicitly via the `project_path=` argument, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for scoped overrides.
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)

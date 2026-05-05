@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone.set_project_path()`, `get_project_path()`, `clear_project_path()`, and
+  `use_project_path()` context manager — set the default project path once instead of passing
+  `project_path=` to every `read_csv`/`read_excel`/`read_dataset` call
+
 ## [1.9.1] - 2026-05-05
 
 - Fixed: `datasets.lock.yaml` no longer accumulates a duplicate auto-generated header comment on each save

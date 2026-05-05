@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
@@ -92,7 +93,7 @@ class DataFrame:
         if project_path is not None:
             self.metadata.lineage.project_path = str(Path(project_path).resolve())
         elif self.metadata.lineage.project_path is None:
-            self.metadata.lineage.project_path = str(Path.cwd())
+            self.metadata.lineage.project_path = str(get_project_path())
 
         # Store datasets file override
         self._datasets_file = datasets_file
@@ -277,7 +278,7 @@ class DataFrame:
             >>> df = DataFrame.read_dataset('my-data', format='json', project_path='/path/to/project')
         """
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 
@@ -422,7 +423,7 @@ class DataFrame:
 
         # File path - handle with original logic
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 
@@ -536,7 +537,7 @@ class DataFrame:
 
         # File path - handle with original logic
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 

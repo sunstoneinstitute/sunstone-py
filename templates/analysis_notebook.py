@@ -42,8 +42,9 @@ def _():
     import sunstone
     import marimo as mo
 
-    # Set project path (update this to your actual project directory)
-    PROJECT_PATH = Path.cwd()
+    # Configure the project path once. After this, read_csv/read_excel/etc.
+    # do not need a project_path argument — they pick this up automatically.
+    PROJECT_PATH = sunstone.set_project_path(Path.cwd())
     mo.md(f"**Project path:** `{PROJECT_PATH}`")
     return PROJECT_PATH, pd, sunstone, mo, Path
 
@@ -62,10 +63,10 @@ def _(mo):
 
 
 @app.cell
-def _(pd, PROJECT_PATH, mo):
+def _(pd, mo):
     # Read a dataset (must be in datasets.yaml inputs)
     # Update the filename to match your actual input dataset
-    df = pd.read_csv("input_data.csv", project_path=PROJECT_PATH)
+    df = pd.read_csv("input_data.csv")
 
     # Display the data
     mo.ui.table(df.data.head())
@@ -124,9 +125,9 @@ def _(mo):
 
 
 @app.cell
-def _(pd, PROJECT_PATH, mo):
+def _(pd, mo):
     # Example: Load another dataset
-    # df2 = pd.read_csv('other_data.csv', project_path=PROJECT_PATH)
+    # df2 = pd.read_csv('other_data.csv')
 
     # Merge datasets
     # merged_df = pd.merge(df, df2, on='key_column', how='inner')
