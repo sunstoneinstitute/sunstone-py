@@ -1138,7 +1138,22 @@ class DatasetsManager:
         if timestamp:
             lineage_data["created_at"] = timestamp
         if lineage.sources:
-            lineage_data["sources"] = [{"slug": src.slug} for src in lineage.sources]
+            sources_list = []
+            for src in lineage.sources:
+                source_entry: dict[str, Any] = {"slug": src.slug}
+                # Denormalize attribution and license from input dataset source block
+                if src.source:
+                    attributed_to = src.source.attributed_to
+                    if isinstance(attributed_to, Agent):
+                        attr_str = attributed_to.label or attributed_to.id
+                    else:
+                        attr_str = str(attributed_to)
+                    if attr_str:
+                        source_entry["attributedTo"] = attr_str
+                    if src.source.license:
+                        source_entry["license"] = src.source.license
+                sources_list.append(source_entry)
+            lineage_data["sources"] = sources_list
         if context:
             # Convert script_path to relative when it's within the project
             if "script_path" in context:

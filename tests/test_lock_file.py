@@ -557,3 +557,259 @@ class TestDeprecationWarning:
             DatasetsManager(lock_project)
             deprecations = [x for x in w if issubclass(x.category, DeprecationWarning)]
             assert len(deprecations) == 0
+
+
+class TestDenormalizeAttribution:
+    """Tests for denormalizing attributedTo and license into output lineage sources."""
+
+    def test_attribution_and_license_written_to_lock(self, tmp_path: Path) -> None:
+        """Source entries in lock file should include attributedTo and license from input source block."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "inputs").mkdir()
+        (project / "outputs").mkdir()
+        (project / "inputs" / "data.csv").write_text("a\n1\n")
+
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [
+                    {
+                        "name": "UNESCO Stats",
+                        "slug": "unesco-stats",
+                        "location": "inputs/data.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                        "source": {
+                            "name": "UNESCO Education Statistics",
+                            "location": {"data": "https://example.com/data.csv"},
+                            "attributedTo": "UNESCO Institute for Statistics",
+                            "acquiredAt": "2026-01-15",
+                            "acquisitionMethod": "manual-download",
+                            "license": "CC-BY-SA-4.0",
+                        },
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "Output",
+                        "slug": "output",
+                        "location": "outputs/out.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                    }
+                ],
+            },
+        )
+
+        manager = DatasetsManager(project)
+        input_ds = manager.find_dataset_by_slug("unesco-stats", "input")
+        assert input_ds is not None
+        lineage = LineageMetadata(sources=[input_ds])
+        manager.update_output_lineage(slug="output", lineage=lineage, data_hash="sha256:abc123")
+
+        with open(project / "datasets.lock.yaml") as f:
+            lock_data = _yaml.load(f)
+
+        source_entry = lock_data["outputs"][0]["sources"][0]
+        assert source_entry["slug"] == "unesco-stats"
+        assert source_entry["attributedTo"] == "UNESCO Institute for Statistics"
+        assert source_entry["license"] == "CC-BY-SA-4.0"
+
+    def test_source_without_attribution_omits_fields(self, tmp_path: Path) -> None:
+        """Sources without attribution/license should not include those fields."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "inputs").mkdir()
+        (project / "outputs").mkdir()
+        (project / "inputs" / "data.csv").write_text("a\n1\n")
+
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [
+                    {
+                        "name": "Simple Input",
+                        "slug": "simple-input",
+                        "location": "inputs/data.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "Output",
+                        "slug": "output",
+                        "location": "outputs/out.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                    }
+                ],
+            },
+        )
+
+        manager = DatasetsManager(project)
+        source = DatasetMetadata(name="Simple Input", slug="simple-input", location="inputs/data.csv")
+        lineage = LineageMetadata(sources=[source])
+        manager.update_output_lineage(slug="output", lineage=lineage, data_hash="sha256:abc123")
+
+        with open(project / "datasets.lock.yaml") as f:
+            lock_data = _yaml.load(f)
+
+        source_entry = lock_data["outputs"][0]["sources"][0]
+        assert source_entry["slug"] == "simple-input"
+        assert "attributedTo" not in source_entry
+        assert "license" not in source_entry
+
+    def test_mixed_sources_with_and_without_attribution(self, tmp_path: Path) -> None:
+        """When some sources have attribution and others don't, each is handled correctly."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "inputs").mkdir()
+        (project / "outputs").mkdir()
+        (project / "inputs" / "data1.csv").write_text("a\n1\n")
+        (project / "inputs" / "data2.csv").write_text("b\n2\n")
+
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [
+                    {
+                        "name": "Attributed Input",
+                        "slug": "attributed-input",
+                        "location": "inputs/data1.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                        "source": {
+                            "name": "World Bank",
+                            "location": {"data": "https://example.com/wb.csv"},
+                            "attributedTo": "The World Bank",
+                            "acquiredAt": "2026-03-01",
+                            "acquisitionMethod": "api",
+                            "license": "CC-BY-4.0",
+                        },
+                    },
+                    {
+                        "name": "Plain Input",
+                        "slug": "plain-input",
+                        "location": "inputs/data2.csv",
+                        "fields": [{"name": "b", "type": "integer"}],
+                    },
+                ],
+                "outputs": [
+                    {
+                        "name": "Output",
+                        "slug": "output",
+                        "location": "outputs/out.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                    }
+                ],
+            },
+        )
+
+        manager = DatasetsManager(project)
+        attributed = manager.find_dataset_by_slug("attributed-input", "input")
+        assert attributed is not None
+        plain = DatasetMetadata(name="Plain Input", slug="plain-input", location="inputs/data2.csv")
+        lineage = LineageMetadata(sources=[attributed, plain])
+        manager.update_output_lineage(slug="output", lineage=lineage, data_hash="sha256:mixed")
+
+        with open(project / "datasets.lock.yaml") as f:
+            lock_data = _yaml.load(f)
+
+        sources = lock_data["outputs"][0]["sources"]
+        assert len(sources) == 2
+
+        attr_src = next(s for s in sources if s["slug"] == "attributed-input")
+        assert attr_src["attributedTo"] == "The World Bank"
+        assert attr_src["license"] == "CC-BY-4.0"
+
+        plain_src = next(s for s in sources if s["slug"] == "plain-input")
+        assert "attributedTo" not in plain_src
+        assert "license" not in plain_src
+
+    def test_backward_compat_lock_without_attribution_fields(self, tmp_path: Path) -> None:
+        """Lock files without attributedTo/license fields should load without errors."""
+        project = tmp_path / "project"
+        project.mkdir()
+
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [{"name": "In", "slug": "in", "location": "in.csv"}],
+                "outputs": [
+                    {
+                        "name": "Out",
+                        "slug": "out",
+                        "location": "out.csv",
+                    }
+                ],
+            },
+        )
+        _write_yaml(
+            project / "datasets.lock.yaml",
+            {
+                "outputs": [
+                    {
+                        "slug": "out",
+                        "data_hash": "sha256:old",
+                        "sources": [{"slug": "in"}],
+                    }
+                ],
+            },
+        )
+
+        # Should load without errors
+        manager = DatasetsManager(project)
+        outputs = manager.get_all_outputs()
+        output = next(o for o in outputs if o.slug == "out")
+        assert output.was_derived_from is not None
+        assert output.was_derived_from[0].slug == "in"
+
+    def test_attribution_with_agent_object(self, tmp_path: Path) -> None:
+        """Source with Agent object for attributedTo should serialize the label."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [
+                    {
+                        "name": "Agent Input",
+                        "slug": "agent-input",
+                        "location": "in.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                        "source": {
+                            "name": "Test Source",
+                            "location": {"data": "https://example.com/data.csv"},
+                            "attributedTo": {
+                                "id": "uis",
+                                "type": "prov:Organization",
+                                "label": "UNESCO Institute for Statistics",
+                            },
+                            "acquiredAt": "2026-01-01",
+                            "acquisitionMethod": "manual-download",
+                            "license": "CC-BY-SA-4.0",
+                        },
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "Output",
+                        "slug": "output",
+                        "location": "outputs/out.csv",
+                        "fields": [{"name": "a", "type": "integer"}],
+                    }
+                ],
+            },
+        )
+
+        manager = DatasetsManager(project)
+        input_ds = manager.find_dataset_by_slug("agent-input", "input")
+        assert input_ds is not None
+        lineage = LineageMetadata(sources=[input_ds])
+        manager.update_output_lineage(slug="output", lineage=lineage, data_hash="sha256:agent")
+
+        with open(project / "datasets.lock.yaml") as f:
+            lock_data = _yaml.load(f)
+
+        source_entry = lock_data["outputs"][0]["sources"][0]
+        assert source_entry["attributedTo"] == "UNESCO Institute for Statistics"
+        assert source_entry["license"] == "CC-BY-SA-4.0"
