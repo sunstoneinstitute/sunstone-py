@@ -7,11 +7,15 @@ Understanding the key concepts behind sunstone-py's data management and lineage 
 sunstone-py provides a drop-in replacement for pandas that adds lineage tracking:
 
 ```python
+import sunstone
 from sunstone import pandas as pd
 
+# Configure the default project path once
+sunstone.set_project_path('/path/to/project')
+
 # Works like pandas, but tracks lineage
-df = pd.read_csv('input.csv', project_path='/path/to/project')
-df2 = pd.read_csv('input2.csv', project_path='/path/to/project')
+df = pd.read_csv('input.csv')
+df2 = pd.read_csv('input2.csv')
 
 # All pandas operations work
 filtered = df[df['value'] > 100]
@@ -24,7 +28,7 @@ concatenated = pd.concat([df, df2])
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: All read operations need a `project_path` parameter pointing to where `datasets.yaml` lives
+1. **Project path configuration**: Reads resolve paths against a project directory containing `datasets.yaml`. Set it once with `sunstone.set_project_path(...)`, pass `project_path=` per call, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for a scoped override.
 2. **Dataset registration**: All reads and writes must correspond to entries in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: Write operations require `slug` and `name` for dataset registration
@@ -76,7 +80,7 @@ result.to_csv(
 
 ```python
 # Per-operation
-df = pd.read_csv('data.csv', project_path=PROJECT_PATH, strict=True)
+df = pd.read_csv('data.csv', strict=True)
 
 # Globally via environment variable
 import os
@@ -521,6 +525,61 @@ for path, result in results.items():
 - No direct pandas imports in data processing code
 - Proper usage of `project_path` parameter
 
+## Project Path Configuration
+
+`read_csv`, `read_excel`, `read_json`, `read_dataset`, and the `DataFrame` constructor all need to know which project's `datasets.yaml` to consult. They accept a `project_path=` argument; when none is given, they fall back to a process-wide default, and finally to `Path.cwd()`.
+
+```python
+import sunstone
+from sunstone import pandas as pd
+from pathlib import Path
+
+# 1. Set once for the entire process (recommended in notebooks/scripts)
+sunstone.set_project_path(Path(__file__).parent)
+df = pd.read_csv('inputs/data.csv')          # uses configured path
+
+# 2. Pass explicitly per call (overrides the default)
+df = pd.read_csv('inputs/data.csv', project_path='/other/project')
+
+# 3. Scoped override
+with sunstone.use_project_path('/temporary/project'):
+    df = pd.read_csv('inputs/other.csv')
+# default is restored after the with block
+
+# Read or clear the configured default
+print(sunstone.get_project_path())
+sunstone.clear_project_path()
+```
+
+The configured value is held in a `contextvars.ContextVar`, so it is safe across threads and async tasks.
+
+## Organizing Datasets Across Files
+
+For projects with many datasets, `datasets.yaml` can pull in additional files via an `include:` directive:
+
+```yaml
+# datasets.yaml
+package:
+  name: my-project
+  license: CC-BY-4.0
+
+include:
+  - datasets/inputs.yaml
+  - datasets/outputs.yaml
+
+# Top-level inputs/outputs/packages here are still allowed
+inputs: []
+outputs: []
+```
+
+Each included file may declare its own `inputs:`, `outputs:`, and `packages:` lists. Top-level configuration that affects the whole project (`defaults`, `rdfPrefixes`, `package`, `publish`, `min_sunstone_version`) is not allowed in included files — only in the main `datasets.yaml`.
+
+Other rules:
+
+- Includes are not nested — an included file cannot itself contain an `include:` key.
+- Slug collisions across files are an error: every dataset slug and every package name must be unique across the merged set.
+- Paths are relative to the file containing the `include:` directive.
+
 ## Environment Variables
 
 ### SUNSTONE_DATAFRAME_STRICT
@@ -535,7 +594,7 @@ export SUNSTONE_DATAFRAME_STRICT=true
 
 ```python
 # Now all operations are strict by default
-df = pd.read_csv('input.csv', project_path=PROJECT_PATH)  # strict=True implied
+df = pd.read_csv('input.csv')  # strict=True implied
 ```
 
 ## Best Practices
@@ -545,6 +604,10 @@ df = pd.read_csv('input.csv', project_path=PROJECT_PATH)  # strict=True implied
 1. **Development**: Use relaxed mode for exploration
 2. **Refinement**: Review auto-generated `datasets.yaml` entries
 3. **Production**: Lock datasets with `sunstone dataset lock`
+
+### Lint Before You Ship
+
+Run `sunstone lint` to catch missing licenses, units, descriptions, and slugs that don't follow project conventions before publishing. In CI, use `sunstone lint --warnings-as-errors` to make recommended-but-not-required metadata mandatory. See the [CLI Guide](cli.md#lint-command) for the full rule list.
 
 ### Document Sources Thoroughly
 

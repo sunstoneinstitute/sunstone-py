@@ -35,14 +35,16 @@ outputs: []
 ## 2. Use Pandas-Like API with Lineage Tracking
 
 ```python
+import sunstone
 from sunstone import pandas as pd
 from pathlib import Path
 
-# Set project path (where datasets.yaml lives)
-PROJECT_PATH = Path.cwd()
+# Set the project path once. read_csv/read_excel/read_dataset and
+# the DataFrame constructor will pick this up automatically.
+sunstone.set_project_path(Path.cwd())
 
 # Read data - lineage automatically tracked
-df = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
+df = pd.read_csv('data/schools.csv')
 
 # Transform using familiar pandas operations
 result = df[df['enrollment'] > 100].groupby('district').sum()
@@ -55,6 +57,8 @@ result.to_csv(
     index=False
 )
 ```
+
+You can still pass `project_path=` explicitly per call, or use `with sunstone.use_project_path(...):` for a scoped override.
 
 ## 3. Check Lineage Metadata
 

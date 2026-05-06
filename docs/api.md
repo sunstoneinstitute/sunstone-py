@@ -2,6 +2,71 @@
 
 Complete API documentation for sunstone-py.
 
+## Project Path Configuration
+
+```python
+import sunstone
+```
+
+`read_csv`, `read_excel`, `read_json`, `read_dataset`, and the `DataFrame` constructor look up paths against a project directory containing `datasets.yaml`. The `project_path` argument is optional — when omitted, these functions fall back to the process-wide configured value, then to `Path.cwd()`.
+
+The configured value is stored in a `contextvars.ContextVar`, so it is safe across threads and async tasks.
+
+### `sunstone.set_project_path(path)`
+
+Set the default project path for the current context.
+
+**Parameters:**
+
+- `path` (str | Path): Project directory.
+
+**Returns:** `Path` — the resolved absolute path.
+
+**Example:**
+
+```python
+import sunstone
+from pathlib import Path
+
+sunstone.set_project_path(Path(__file__).parent)
+```
+
+---
+
+### `sunstone.get_project_path()`
+
+Return the configured default project path, or `Path.cwd()` if none is set.
+
+**Returns:** `Path`
+
+---
+
+### `sunstone.clear_project_path()`
+
+Clear any previously configured default project path.
+
+**Returns:** `None`
+
+---
+
+### `sunstone.use_project_path(path)`
+
+Context manager that temporarily sets the default project path.
+
+**Parameters:**
+
+- `path` (str | Path): Project directory.
+
+**Yields:** `Path` — the resolved absolute path.
+
+**Example:**
+
+```python
+with sunstone.use_project_path('/path/to/other/project'):
+    df = pd.read_csv('inputs/data.csv')
+# previous default restored here
+```
+
 ## pandas Module
 
 Drop-in replacement for pandas with lineage tracking.
@@ -19,7 +84,7 @@ Read a dataset by slug with automatic format detection.
 **Parameters:**
 
 - `slug` (str): Dataset slug to look up in `datasets.yaml`
-- `project_path` (str | Path | None): Path to project directory. Defaults to `Path.cwd()`
+- `project_path` (str | Path | None): Path to project directory. Defaults to the value set with `sunstone.set_project_path()`, or `Path.cwd()` if none is set
 - `strict` (bool | None): Enable strict mode. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `fetch_from_url` (bool): If True and dataset has a source URL but no local file, fetch automatically
 - `format` (str | None): Format override (`'csv'`, `'json'`, `'excel'`, `'parquet'`, `'tsv'`). Auto-detected from extension if not provided
@@ -43,7 +108,7 @@ Read CSV file with lineage tracking.
 **Parameters:**
 
 - `filepath` (str | Path): Path to CSV file, URL, or dataset slug
-- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to `Path.cwd()`
+- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to the value set with `sunstone.set_project_path()`, or `Path.cwd()` if none is set
 - `strict` (bool | None): If True, dataset must be pre-registered in `datasets.yaml`. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `**kwargs`: Additional arguments passed to `pandas.read_csv()`
 
@@ -74,7 +139,7 @@ Read Excel file (.xlsx/.xls) with lineage tracking.
 **Parameters:**
 
 - `filepath` (str | Path): Path to Excel file or dataset slug
-- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to `Path.cwd()`
+- `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to the value set with `sunstone.set_project_path()`, or `Path.cwd()` if none is set
 - `strict` (bool | None): If True, dataset must be pre-registered. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `fetch_from_url` (bool): If True and dataset has a source URL but no local file, automatically fetch from URL
 - `**kwargs`: Additional arguments passed to `pandas.read_excel()`
@@ -105,7 +170,7 @@ Read JSON file with lineage tracking.
 **Parameters:**
 
 - `filepath` (str | Path): Path to JSON file or dataset slug
-- `project_path` (str | Path | None): Path to project directory. Defaults to `Path.cwd()`
+- `project_path` (str | Path | None): Path to project directory. Defaults to the value set with `sunstone.set_project_path()`, or `Path.cwd()` if none is set
 - `strict` (bool | None): Enable strict mode. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `**kwargs`: Additional arguments passed to `pandas.read_json()`
 
@@ -615,6 +680,74 @@ Convert relative path to absolute project path.
 
 **Returns:** `Path`
 
+## Linting
+
+```python
+from sunstone import lint_project
+```
+
+### `lint_project(project_path, *, datasets_file='datasets.yaml', rules=None)`
+
+Lint a Sunstone project's `datasets.yaml` against the Sunstone Minimum Viable Metadata recommendations.
+
+**Parameters:**
+
+- `project_path` (str | Path): Project directory or a direct path to a `datasets.yaml` file.
+- `datasets_file` (str): Filename relative to `project_path`. Defaults to `'datasets.yaml'`.
+- `rules` (set[str] | None): Optional set of rule IDs to run (e.g. `{'R005', 'R104'}`). `None` runs all rules.
+
+**Returns:** `LintReport` — see below.
+
+**Example:**
+
+```python
+from sunstone import lint_project
+
+report = lint_project('/path/to/project')
+for v in report.errors:
+    print(f"{v.rule_id} {v.location}: {v.message}")
+```
+
+See the [CLI Guide](cli.md#lint-command) for the full rule list.
+
+---
+
+### `LintReport`
+
+Aggregated lint output.
+
+**Attributes:**
+
+- `project_path` (Path): The linted project directory.
+- `violations` (list[Violation]): Active findings (not suppressed by `lint.disable`).
+- `suppressed` (list[Violation]): Findings silenced by `lint.disable`, kept around for audit.
+- `suppressions` (dict[str, str]): Map of `rule_id` → justification string from `lint.disable`.
+
+**Properties:**
+
+- `errors` (list[Violation]): Subset of `violations` with `severity == ERROR`.
+- `warnings` (list[Violation]): Subset of `violations` with `severity == WARNING`.
+- `info` (list[Violation]): Subset of `violations` with `severity == INFO`.
+
+**Methods:**
+
+- `to_dict()` — JSON-serialisable summary including counts and violation details.
+- `format_text()` — Human-readable text summary.
+
+---
+
+### `Violation`
+
+A single rule violation.
+
+**Attributes:**
+
+- `rule_id` (str): Stable identifier (e.g. `'R005'`).
+- `severity` (Severity): `ERROR`, `WARNING`, or `INFO`.
+- `message` (str): Short description of the problem.
+- `location` (str): Path within `datasets.yaml` (e.g. `'inputs[0].source.license'`).
+- `fix_hint` (str | None): Suggestion for how to fix it.
+
 ## Validation Functions
 
 ```python
@@ -966,6 +1099,21 @@ When columns with units are used in merge, join, or concat operations, sunstone 
 ### QUDT Round-Tripping
 
 Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles via the `unit_source` field on `FieldSchema`.
+
+## Constants
+
+### `STANDARD_RDF_PREFIXES`
+
+Dictionary of built-in RDF prefix bindings that are always available in `datasets.yaml` and the generated `datapackage.json` without needing to be declared.
+
+```python
+from sunstone import STANDARD_RDF_PREFIXES
+
+print(STANDARD_RDF_PREFIXES['si'])
+# 'https://sunstone.institute/rdf/vocab#'
+```
+
+See [RDF Prefixes in datasets.yaml](rdf-prefixes-guide.md#standard-prefixes) for the full table and usage.
 
 ## Exceptions
 
