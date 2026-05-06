@@ -1,0 +1,1536 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.10.0/superpowers/specs/2026-04-14-catalog-aware-datasets-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Catalog-Aware datasets.yaml Design - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#catalog-aware-datasetsyaml-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Catalog-Aware datasets.yaml Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#approach-lock-file-does-everything" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Approach: Lock File Does Everything
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datasetsyaml-the-human-authored-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        datasets.yaml — The Human-Authored File
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="datasets.yaml — The Human-Authored File">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#catalog-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalog inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#local-file-inputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local file inputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#top-level-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top-level config
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datasetslockyaml-the-resolved-snapshot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        datasets.lock.yaml — The Resolved Snapshot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="datasets.lock.yaml — The Resolved Snapshot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#catalog-input-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Catalog input (resolved)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#local-file-input-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local file input (resolved)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output (lineage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolution-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadataprovider-plugin-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MetadataProvider Plugin Protocol
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MetadataProvider Plugin Protocol">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#capability-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Capability flags
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#built-in-handler-capabilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in handler capabilities
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sunstone-uri-scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sunstone:// URI Scheme
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="sunstone:// URI Scheme">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-nessie-branch-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git-Nessie branch sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Variable substitution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ref-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ref validation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-catalog-handler-lives-in-data-platform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The catalog handler (lives in data-platform)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ownership" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sunstone-dataset-lock-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sunstone dataset lock Command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="sunstone dataset lock Command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lock-file-freshness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lock file freshness
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-and-backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration and Backward Compatibility
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migration and Backward Compatibility">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reading-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migration-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#writing-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecation-timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecation timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-rationale-and-prior-art" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Rationale and Prior Art
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design Rationale and Prior Art">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-a-lock-file-not-inline-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a lock file (not inline metadata)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-capability-based-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why capability-based metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-sunstone-uri-scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why sunstone:// URI scheme
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-git_branch-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why ${GIT_BRANCH} substitution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-explicit-sunstone-dataset-lock-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why explicit sunstone dataset lock command
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-plugin-based-catalog-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why plugin-based catalog handler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-output-pre-registration-is-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why output pre-registration is optional
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="catalog-aware-datasetsyaml-design">Catalog-Aware datasets.yaml Design<a class="headerlink" href="#catalog-aware-datasetsyaml-design" title="Permanent link">&para;</a></h1>
+<p><strong>Date</strong>: 2026-04-14
+<strong>Status</strong>: Proposed
+<strong>Related</strong>: <a href="https://github.com/sunstoneinstitute/sunstone-py/issues/30">#30 — Split datasets.yaml into human-authored and auto-generated files</a></p>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p><code>datasets.yaml</code> currently contains both human-authored declarations and auto-generated metadata (lineage, hashes). When input datasets come from the Sunstone data catalog (Iceberg + Nessie), maintaining field schemas, descriptions, and source attribution in <code>datasets.yaml</code> duplicates what the catalog already provides. This creates drift and unnecessary maintenance.</p>
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Catalog inputs should be minimal references in <code>datasets.yaml</code> — no duplicated metadata</li>
+<li>A lock file caches resolved metadata for offline work and reproducibility</li>
+<li>Git branch names sync with Nessie branches so PRs resolve automatically</li>
+<li>The plugin system declares metadata capabilities so the lock command knows what each source can provide</li>
+<li>Existing projects continue working with zero changes</li>
+</ol>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<h3 id="approach-lock-file-does-everything">Approach: Lock File Does Everything<a class="headerlink" href="#approach-lock-file-does-everything" title="Permanent link">&para;</a></h3>
+<p>A single <code>datasets.lock.yaml</code> serves as both the resolved metadata cache for inputs and the lineage store for outputs. This follows the DVC/Poetry/Terraform pattern of separating human intent from machine-resolved state.</p>
+<ul>
+<li><code>datasets.yaml</code> — human-authored declarations only</li>
+<li><code>datasets.lock.yaml</code> — everything resolved: cached fields/schemas, content hashes, snapshot IDs, output lineage, owner refs</li>
+</ul>
+<h3 id="datasetsyaml-the-human-authored-file">datasets.yaml — The Human-Authored File<a class="headerlink" href="#datasetsyaml-the-human-authored-file" title="Permanent link">&para;</a></h3>
+<h4 id="catalog-inputs">Catalog inputs<a class="headerlink" href="#catalog-inputs" title="Permanent link">&para;</a></h4>
+<p>Minimal — just a reference. Name, description, fields, and source attribution are resolved from the catalog at lock time.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed-consumption-raw</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sunstone://fishfarming/nutrient-analysis/feed-consumption-raw@${GIT_BRANCH:-main}</span>
+</code></pre></div>
+<p>The human can optionally add overrides (e.g. a project-specific description), which take precedence over catalog metadata.</p>
+<h4 id="local-file-inputs">Local file inputs<a class="headerlink" href="#local-file-inputs" title="Permanent link">&para;</a></h4>
+<p>The handler can't provide rich metadata, so the human supplies it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-corrections</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Manual Corrections</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/corrections.csv</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">correction_factor</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Internal</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">attributedTo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Sunstone Institute</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">acquiredAt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2026-03-15</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">acquisitionMethod</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+</code></pre></div>
+<h4 id="outputs">Outputs<a class="headerlink" href="#outputs" title="Permanent link">&para;</a></h4>
+<p>Declared with human-authored metadata. Lineage moves to the lock file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaned-feed-data</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Cleaned Feed Consumption Data</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outputs/cleaned_feed_data.csv</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed_tonnes</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">t</span>
+</code></pre></div>
+<h4 id="top-level-config">Top-level config<a class="headerlink" href="#top-level-config" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">package</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fish Farming Nutrient Analysis</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analysis of feed consumption and nutrient loading</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">defaults</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">rdfPrefixes</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">gtio</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://sunstone.institute/rdf/gtio/0.2/</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="nt">publish</span><span class="p">:</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket/datasets/fishfarming/nutrient-analysis/</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://data.sunstone.institute/datasets/fishfarming/nutrient-analysis/</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">datasets</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaned-feed-data</span>
+</code></pre></div>
+<p>The <code>publish</code> key uses a list-of-packages format rather than the current per-dataset <code>publish:</code> field. Each package defines its destination and which datasets to include by slug. This supports publishing the same dataset in multiple packages.</p>
+<h3 id="datasetslockyaml-the-resolved-snapshot">datasets.lock.yaml — The Resolved Snapshot<a class="headerlink" href="#datasetslockyaml-the-resolved-snapshot" title="Permanent link">&para;</a></h3>
+<p>Auto-generated by <code>sunstone dataset lock</code>, committed to git, marked <code>linguist-generated=true</code> in <code>.gitattributes</code>.</p>
+<h4 id="catalog-input-resolved">Catalog input (resolved)<a class="headerlink" href="#catalog-input-resolved" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Auto-generated by sunstone. Do not edit manually.</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed-consumption-raw</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sunstone://fishfarming/nutrient-analysis/feed-consumption-raw@${GIT_BRANCH:-main}</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">resolved_ref</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">main</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">snapshot_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1737849600000</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">content_hash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sha256:a4fed3f8938014e3365584eb805fd0e3fa27ab535202b80be109538300473334</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">row_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4523</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Feed Consumption Raw Data</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Raw feed consumption data from Norwegian fish farms</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="nt">owner</span><span class="p">:</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="nt">github</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sunstoneinstitute/projects</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FishFarmingProject/nutrient_analysis/datasets.yaml</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">farm_id</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">        </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Unique farm identifier</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed_kg</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">        </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kg</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">date</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">date</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Norwegian Directorate of Fisheries</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">      </span><span class="nt">attributedTo</span><span class="p">:</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Organization</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">        </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Norwegian Directorate of Fisheries</span>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">      </span><span class="nt">acquiredAt</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2026-01-15</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">      </span><span class="nt">acquisitionMethod</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">      </span><span class="nt">license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NLOD-2.0</span>
+</code></pre></div>
+<h4 id="local-file-input-resolved">Local file input (resolved)<a class="headerlink" href="#local-file-input-resolved" title="Permanent link">&para;</a></h4>
+<p>Less metadata — the handler can only provide what it can detect:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-corrections</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/corrections.csv</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">content_hash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sha256:b7c2e1f...</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">row_count</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">12</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">country</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">correction_factor</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+</code></pre></div>
+<p>Fields are inferred from the file and merged with human declarations from <code>datasets.yaml</code>. Human-declared fields win on conflict.</p>
+<h4 id="output-lineage">Output (lineage)<a class="headerlink" href="#output-lineage" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaned-feed-data</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">content_hash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sha256:e9f8d2a...</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">created_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-04-10T14:23:01.508497&#39;</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">sources</span><span class="p">:</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed-consumption-raw</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-corrections</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">    </span><span class="nt">activity</span><span class="p">:</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">urn:uuid:abc123</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">      </span><span class="nt">started_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-04-10T14:22:58&#39;</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">      </span><span class="nt">ended_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-04-10T14:23:01&#39;</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">      </span><span class="nt">script_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scripts/clean_feed_data.py</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">      </span><span class="nt">git_commit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8af6c91</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">      </span><span class="nt">agents</span><span class="p">:</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">urn:user:stig</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Person</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">          </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Stig Bakken</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="nt">field_derivations</span><span class="p">:</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">output_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed_tonnes</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">        </span><span class="nt">source_entity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed-consumption-raw</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">        </span><span class="nt">source_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feed_kg</span>
+</code></pre></div>
+<h4 id="resolution-rules">Resolution rules<a class="headerlink" href="#resolution-rules" title="Permanent link">&para;</a></h4>
+<ol>
+<li><code>sunstone dataset lock</code> iterates all inputs and outputs</li>
+<li>For each, asks the URL handler chain: "do you implement <code>MetadataProvider</code>?"</li>
+<li>If yes, calls <code>resolve_metadata(url, capabilities)</code> — handler returns what it can</li>
+<li>Merges: lock file = handler-resolved metadata + human overrides from <code>datasets.yaml</code> (human wins)</li>
+<li>For outputs, lineage is written by <code>DatasetsManager.update_output_lineage()</code> as it does today</li>
+</ol>
+<h3 id="metadataprovider-plugin-protocol">MetadataProvider Plugin Protocol<a class="headerlink" href="#metadataprovider-plugin-protocol" title="Permanent link">&para;</a></h3>
+<p>URL handlers optionally implement <code>MetadataProvider</code> to declare what they can resolve.</p>
+<h4 id="capability-flags">Capability flags<a class="headerlink" href="#capability-flags" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MetadataCapabilities</span><span class="p">(</span><span class="n">enum</span><span class="o">.</span><span class="n">Flag</span><span class="p">):</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">FIELDS</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>        <span class="c1"># column names + types</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">DESCRIPTIONS</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>  <span class="c1"># field/dataset descriptions</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">VERSIONING</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>    <span class="c1"># branches, tags, snapshots</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">CONTENT_HASH</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>  <span class="c1"># content checksum</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">ROW_COUNT</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>     <span class="c1"># row count without full read</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">PROVENANCE</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>    <span class="c1"># source attribution, lineage</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">OWNER</span> <span class="o">=</span> <span class="n">auto</span><span class="p">()</span>         <span class="c1"># authoritative owner reference</span>
+</code></pre></div>
+<h4 id="protocol">Protocol<a class="headerlink" href="#protocol" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">MetadataProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">metadata_capabilities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetadataCapabilities</span><span class="p">:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Declare what this handler can resolve for the given URL.&quot;&quot;&quot;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="o">...</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">resolve_metadata</span><span class="p">(</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">requested</span><span class="p">:</span> <span class="n">MetadataCapabilities</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResolvedMetadata</span><span class="p">:</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve metadata for the URL. Only populate requested capabilities.&quot;&quot;&quot;</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="o">...</span>
+</code></pre></div>
+<p><code>ResolvedMetadata</code> is a dataclass with optional fields matching each capability: <code>fields</code>, <code>description</code>, <code>content_hash</code>, <code>snapshot_id</code>, <code>resolved_ref</code>, <code>row_count</code>, <code>source</code>, <code>owner</code>. All optional; handlers populate what they can.</p>
+<h4 id="built-in-handler-capabilities">Built-in handler capabilities<a class="headerlink" href="#built-in-handler-capabilities" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Handler</th>
+<th>Capabilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LocalFileHandler</code></td>
+<td><code>FIELDS</code> (infer column names), <code>CONTENT_HASH</code> (SHA256 of file)</td>
+</tr>
+<tr>
+<td><code>HttpURLHandler</code></td>
+<td><code>CONTENT_HASH</code> (ETag if available)</td>
+</tr>
+<tr>
+<td><code>GcsURLHandler</code></td>
+<td><code>CONTENT_HASH</code> (GCS object hash), <code>ROW_COUNT</code> (for Parquet)</td>
+</tr>
+<tr>
+<td><code>S3URLHandler</code></td>
+<td><code>CONTENT_HASH</code> (S3 ETag)</td>
+</tr>
+<tr>
+<td>Catalog handler (in data-platform)</td>
+<td>All capabilities</td>
+</tr>
+</tbody>
+</table>
+<p>Field inference for local files is delegated to the <code>FormatHandler</code> — the URL handler opens the file and the format handler peeks at headers/schema.</p>
+<h3 id="sunstone-uri-scheme"><code>sunstone://</code> URI Scheme<a class="headerlink" href="#sunstone-uri-scheme" title="Permanent link">&para;</a></h3>
+<h4 id="format">Format<a class="headerlink" href="#format" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>sunstone://{namespace-path}/{table}@{ref}
+</code></pre></div>
+<ul>
+<li><strong>namespace-path</strong>: <code>/</code>-separated, maps to Nessie multi-level namespace. E.g. <code>fishfarming/nutrient-analysis</code> becomes <code>("fishfarming", "nutrient-analysis")</code> in PyIceberg.</li>
+<li><strong>table</strong>: the dataset slug (last path segment before <code>@</code>)</li>
+<li><strong>ref</strong>: branch name, tag name, or <code>${GIT_BRANCH:-default}</code>. Optional — omitting <code>@ref</code> implies <code>@main</code>.</li>
+</ul>
+<p>Examples:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sunstone://fishfarming/nutrient-analysis/feed-consumption-raw@main
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>sunstone://fishfarming/nutrient-analysis/feed-consumption-raw@${GIT_BRANCH:-main}
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>sunstone://shared/countries-50m@v2.0
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>sunstone://energy-transition/eia-countries
+</code></pre></div>
+<h4 id="git-nessie-branch-sync">Git-Nessie branch sync<a class="headerlink" href="#git-nessie-branch-sync" title="Permanent link">&para;</a></h4>
+<p><code>${GIT_BRANCH:-main}</code> enables a workflow where:</p>
+<ol>
+<li>Data scientist creates git branch <code>feature/new-analysis</code></li>
+<li><code>datasets.yaml</code> uses <code>@${GIT_BRANCH:-main}</code> for catalog inputs</li>
+<li><code>sunstone dataset lock</code> resolves to Nessie branch <code>feature/new-analysis</code> (if it exists) or falls back to <code>main</code></li>
+<li>PR merges to <code>main</code> → lock resolves to Nessie <code>main</code> branch — no file changes needed</li>
+</ol>
+<p>If the git branch has no corresponding Nessie branch, the handler falls back to the default specified in <code>:-</code>. Not every git branch needs its own catalog branch.</p>
+<h4 id="variable-substitution">Variable substitution<a class="headerlink" href="#variable-substitution" title="Permanent link">&para;</a></h4>
+<p>Only <code>${GIT_BRANCH}</code> is supported, with default syntax <code>${GIT_BRANCH:-fallback}</code>. Resolved by reading the current git branch. If not in a git repo and no default provided, error.</p>
+<h4 id="ref-validation">Ref validation<a class="headerlink" href="#ref-validation" title="Permanent link">&para;</a></h4>
+<p>Ref validation is the catalog handler's responsibility, not sunstone-py's. The handler knows the backend constraints (Nessie naming rules: <code>[A-Za-z-][A-Za-z0-9/._-]*[A-Za-z0-9_-]</code>, no <code>..</code> sequences). sunstone-py only handles variable substitution.</p>
+<h4 id="the-catalog-handler-lives-in-data-platform">The catalog handler (lives in data-platform)<a class="headerlink" href="#the-catalog-handler-lives-in-data-platform" title="Permanent link">&para;</a></h4>
+<p>The <code>sunstone://</code> URL handler is a plugin in <code>sunstone-data</code>, registered via the <code>sunstone.plugins</code> entry point. sunstone-py never imports from <code>sunstone-data</code>. The plugin system handles discovery.</p>
+<h3 id="ownership">Ownership<a class="headerlink" href="#ownership" title="Permanent link">&para;</a></h3>
+<p>Catalog tables have an owner — a pointer to the authoritative <code>datasets.yaml</code> that manages the dataset.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">owner</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">github</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sunstoneinstitute/projects</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FishFarmingProject/nutrient_analysis/datasets.yaml</span>
+</code></pre></div>
+<p>The <code>owner</code> object supports <code>github:</code> (org/repo) initially, with <code>git:</code> (full remote URL) as a future extension.</p>
+<p>The catalog handler checks ownership on write: if a table already has an owner from a different project path, the write is rejected (on branches where the table already exists). The owner is stored in catalog table properties and cached in the lock file.</p>
+<h3 id="sunstone-dataset-lock-command"><code>sunstone dataset lock</code> Command<a class="headerlink" href="#sunstone-dataset-lock-command" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>sunstone dataset lock [--offline] [--check]
+</code></pre></div>
+<ul>
+<li><strong>Default</strong>: resolves all inputs and outputs, writes <code>datasets.lock.yaml</code></li>
+<li><strong><code>--offline</code></strong>: skips network calls, only resolves local file inputs. Catalog inputs keep their existing lock entries unchanged.</li>
+<li><strong><code>--check</code></strong>: exits non-zero if the lock file is out of date (useful in CI, same pattern as <code>uv lock --check</code>)</li>
+</ul>
+<h4 id="lock-file-freshness">Lock file freshness<a class="headerlink" href="#lock-file-freshness" title="Permanent link">&para;</a></h4>
+<p><code>--check</code> compares the current lock against what a fresh resolve would produce. This lets CI enforce that the lock file was updated after <code>datasets.yaml</code> changes.</p>
+<h3 id="migration-and-backward-compatibility">Migration and Backward Compatibility<a class="headerlink" href="#migration-and-backward-compatibility" title="Permanent link">&para;</a></h3>
+<h4 id="reading-behavior">Reading behavior<a class="headerlink" href="#reading-behavior" title="Permanent link">&para;</a></h4>
+<p><code>DatasetsManager._load()</code> uses this precedence:</p>
+<ol>
+<li>If <code>datasets.lock.yaml</code> exists → merge lock data into the in-memory model</li>
+<li>If no lock file but <code>datasets.yaml</code> has inline <code>lineage:</code> blocks → use those (today's behavior)</li>
+<li>If neither → datasets work but with no resolved metadata (first-time project)</li>
+</ol>
+<p>Existing projects continue working with zero changes.</p>
+<h4 id="migration-command">Migration command<a class="headerlink" href="#migration-command" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>sunstone dataset migrate
+</code></pre></div>
+<ul>
+<li>Extracts inline <code>lineage:</code> blocks from <code>datasets.yaml</code> into <code>datasets.lock.yaml</code></li>
+<li>Removes <code>lineage:</code> from <code>datasets.yaml</code></li>
+<li>Moves per-dataset <code>publish:</code> into top-level <code>publish:</code> list format (if present)</li>
+<li>Adds <code>.gitattributes</code> entry for <code>datasets.lock.yaml linguist-generated=true</code> (only if inside a git repo)</li>
+<li>Reports what it did</li>
+</ul>
+<h4 id="writing-behavior">Writing behavior<a class="headerlink" href="#writing-behavior" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>DatasetsManager.update_output_lineage()</code> writes to <code>datasets.lock.yaml</code> (not <code>datasets.yaml</code>)</li>
+<li><code>DatasetsManager._save()</code> writes only human-authored content to <code>datasets.yaml</code></li>
+<li>If no lock file exists yet, first write creates it</li>
+</ul>
+<h4 id="deprecation-timeline">Deprecation timeline<a class="headerlink" href="#deprecation-timeline" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>v1.6</strong>: Lock file support added, migration command available, inline lineage still read (with deprecation warning)</li>
+<li><strong>v1.7</strong> (or later): Inline lineage triggers a warning recommending migration</li>
+<li><strong>v2.0</strong>: Inline lineage no longer read</li>
+</ol>
+<h2 id="design-rationale-and-prior-art">Design Rationale and Prior Art<a class="headerlink" href="#design-rationale-and-prior-art" title="Permanent link">&para;</a></h2>
+<h3 id="why-a-lock-file-not-inline-metadata">Why a lock file (not inline metadata)<a class="headerlink" href="#why-a-lock-file-not-inline-metadata" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: <code>datasets.yaml</code> mixes human-authored declarations with auto-generated metadata. Code reviewers rubber-stamp diffs. Catalog inputs duplicate metadata that already lives in the catalog.</p>
+<p><strong>Prior art</strong>: DVC (<code>dvc.yaml</code> + <code>dvc.lock</code>), Poetry/uv (<code>pyproject.toml</code> + lock file), Terraform (<code>.tf</code> + <code>.tfstate</code>). All separate intent from resolved state. dbt goes further with three tiers (human YAML, manifest, catalog).</p>
+<p><strong>Decision</strong>: Single lock file containing all resolved/generated metadata. Marked <code>linguist-generated=true</code> for collapsed PR diffs.</p>
+<h3 id="why-capability-based-metadata">Why capability-based metadata<a class="headerlink" href="#why-capability-based-metadata" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Input sources vary wildly in what metadata they can provide. A CSV gives you column names (maybe). Iceberg+Nessie gives you everything.</p>
+<p><strong>Prior art</strong>: dbt's three-tier enrichment (human fills what the warehouse can't), Frictionless Data's infer-then-enrich pattern, Dagster's observable source assets.</p>
+<p><strong>Decision</strong>: <code>MetadataCapabilities</code> flags on URL handlers. The lock command asks "what can you tell me?" and caches whatever comes back. <code>datasets.yaml</code> carries whatever the handler can't provide.</p>
+<h3 id="why-sunstone-uri-scheme">Why <code>sunstone://</code> URI scheme<a class="headerlink" href="#why-sunstone-uri-scheme" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Need a way to reference catalog datasets that fits the existing URL handler dispatch pattern.</p>
+<p><strong>Prior art survey</strong>: LakeFS (<code>lakefs://repo/branch/path</code>) is the closest precedent — clean URI with version in path. Quilt uses <code>quilt+s3://</code>. No other data tool has a custom URI scheme for catalog references. None are IANA-registered. Iceberg, Unity Catalog, Hive, Delta Lake, dbt, DVC, and Frictionless Data all use dot-separated identifiers or plain paths rather than URI schemes.</p>
+<p><strong>Decision</strong>: <code>sunstone://namespace/table@ref</code>. Uses our own namespace since this is our catalog. <code>@ref</code> follows Nessie's established convention. Ref validation is the handler's responsibility. The slash-separated namespace maps directly to Nessie's multi-level namespace model and enables path-based RBAC.</p>
+<h3 id="why-git_branch-substitution">Why <code>${GIT_BRANCH}</code> substitution<a class="headerlink" href="#why-git_branch-substitution" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: PRs should test against feature branches in the catalog. Merging to main should automatically resolve to the main catalog branch without file changes.</p>
+<p><strong>Decision</strong>: Shell-style variable with default: <code>${GIT_BRANCH:-main}</code>. Only this one variable. Resolved at lock time, concrete value stored in lock file.</p>
+<h3 id="why-explicit-sunstone-dataset-lock-command">Why explicit <code>sunstone dataset lock</code> command<a class="headerlink" href="#why-explicit-sunstone-dataset-lock-command" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: When should metadata be refreshed from the catalog?</p>
+<p><strong>Prior art</strong>: DVC requires explicit <code>dvc repro</code>. Poetry/uv require explicit <code>lock</code>. Auto-refresh on read (like npm's old behavior) caused surprise network calls and non-deterministic builds.</p>
+<p><strong>Decision</strong>: Explicit command only. No network calls during <code>pd.read_csv()</code>. Offline work uses the lock file as cache.</p>
+<h3 id="why-plugin-based-catalog-handler">Why plugin-based catalog handler<a class="headerlink" href="#why-plugin-based-catalog-handler" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: sunstone-py needs to resolve <code>sunstone://</code> URIs but shouldn't depend on the data-platform package.</p>
+<p><strong>Decision</strong>: The catalog handler lives in <code>sunstone-data</code> as a plugin registered via the <code>sunstone.plugins</code> entry point. sunstone-py defines the <code>MetadataProvider</code> protocol; the catalog handler implements it. This keeps sunstone-py decoupled and allows alternative catalog backends.</p>
+<h3 id="why-output-pre-registration-is-optional">Why output pre-registration is optional<a class="headerlink" href="#why-output-pre-registration-is-optional" title="Permanent link">&para;</a></h3>
+<p><strong>Problem</strong>: Should outputs be declared in <code>datasets.yaml</code> before they can be written?</p>
+<p><strong>Prior art</strong>: DVC and Frictionless require pre-registration. dbt, Pachyderm, and Dagster auto-discover outputs.</p>
+<p><strong>Decision</strong>: Use existing strict/relaxed mode. Strict mode requires declaration (production governance). Relaxed mode auto-registers on first write (exploration). No change needed.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
