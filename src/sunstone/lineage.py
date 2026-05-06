@@ -354,6 +354,9 @@ class DatasetMetadata:
     source: Optional[Source] = None
     """Source attribution (for input datasets)."""
 
+    license: Optional[str] = None
+    """SPDX license identifier for output datasets. Falls back to package.license when unset."""
+
     strict: bool = False
     """Whether strict mode is enabled (lineage cannot be modified)."""
 

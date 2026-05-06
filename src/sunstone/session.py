@@ -150,6 +150,21 @@ class LineageSession:
             transformation_params=transformation_params,
         )
 
+    def current_source_slugs(self) -> list[str]:
+        """Return slugs of datasets read so far in this session, in order, deduplicated.
+
+        Useful for inspecting upcoming lineage (e.g., for write-time license checks)
+        without consuming the accumulated reads.
+        """
+        seen: set[str] = set()
+        out: list[str] = []
+        for r in self._reads:
+            if r.slug in seen:
+                continue
+            seen.add(r.slug)
+            out.append(r.slug)
+        return out
+
     def flush_activity(
         self,
         transformation_params: Optional[dict] = None,

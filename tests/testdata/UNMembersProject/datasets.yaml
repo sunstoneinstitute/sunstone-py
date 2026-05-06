@@ -8,7 +8,7 @@ package:
     - united-nations
     - member-states
     - international-organizations
-  license: CC-BY-4.0
+  license: CC-BY-NC-3.0-IGO
   contributors:
     - title: Sunstone Institute
       roles:

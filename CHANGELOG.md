@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Added: full attribution chain traversal with `get_full_attribution()` and `generate_attribution_statement()`
 - Added: `sunstone lineage attribution` CLI command with text, markdown, and HTML output formats
+- Added: `sunstone.licenses` module with embedded SPDX registry (CC, ODC, CC0/PDDL, common LicenseRef-),
+  `LicenseProperties`, `check_compatibility()`, `get_most_restrictive_license()`, and
+  `LicenseCompatibilityError` (closes #13).
+- Added: per-output `license:` field in `datasets.yaml` (falls back to `package.license`).
+- Added: write-time license compatibility enforcement on `DataFrame.to_csv` / `to_parquet`
+  (default `check_license=True`); raises `LicenseCompatibilityError` with conflict descriptions
+  and suggested compatible target licenses. Pass `license=` to override or persist a target license.
+- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
+- Changed: `sunstone dataset validate` now flags non-SPDX identifiers in dataset, source, and
+  package license fields (LicenseRef-* identifiers are accepted).
 
 ## [1.10.0] - 2026-05-06
 

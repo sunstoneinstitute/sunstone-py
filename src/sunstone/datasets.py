@@ -653,6 +653,7 @@ class DatasetsManager:
             resource_type=dataset_data.get("type"),
             fields=fields,
             source=source,
+            license=dataset_data.get("license"),
             strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,
             rdf_prefixes=rdf_prefixes,
@@ -893,6 +894,27 @@ class DatasetsManager:
             datasets=list(datasets),
         )
 
+    def effective_license_for(self, slug: str) -> Optional[str]:
+        """Return the effective license identifier for an output dataset.
+
+        Resolution order: explicit ``license`` on the dataset, then the
+        license of any package whose ``datasets`` list contains the slug
+        (or the singular ``package:`` if no explicit ``packages:`` are defined).
+        Returns ``None`` when no license is declared anywhere.
+        """
+        ds = self.find_dataset_by_slug(slug, "output")
+        if ds is not None and ds.license:
+            return ds.license
+        try:
+            packages = self.get_packages()
+        except ValueError:
+            return None
+        for pkg in packages:
+            covers = pkg.datasets is None or slug in pkg.datasets
+            if covers and pkg.metadata.license:
+                return pkg.metadata.license
+        return None
+
     def get_top_level_custom_properties(self) -> Dict[str, Any]:
         """
         Get top-level custom properties from datasets.yaml.
@@ -926,6 +948,7 @@ class DatasetsManager:
         description: Optional[str] = None,
         rdf_prefixes: Optional[Dict[str, str]] = None,
         custom_properties: Optional[Dict[str, Any]] = None,
+        license: Optional[str] = None,
     ) -> DatasetMetadata:
         """
         Add a new output dataset to datasets.yaml.
@@ -938,6 +961,7 @@ class DatasetsManager:
             description: Optional dataset description.
             rdf_prefixes: Optional RDF namespace prefix map.
             custom_properties: Optional custom/RDF properties to include.
+            license: Optional SPDX license identifier (overrides package.license).
 
         Returns:
             The newly created DatasetMetadata.
@@ -955,6 +979,8 @@ class DatasetsManager:
         }
         if description is not None:
             dataset_data["description"] = description
+        if license is not None:
+            dataset_data["license"] = license
         if rdf_prefixes is not None:
             dataset_data["rdfPrefixes"] = rdf_prefixes
         if custom_properties is not None:
@@ -972,6 +998,7 @@ class DatasetsManager:
         description: Optional[str] = None,
         rdf_prefixes: Optional[Dict[str, str]] = None,
         custom_properties: Optional[Dict[str, Any]] = None,
+        license: Optional[str] = None,
     ) -> DatasetMetadata:
         """
         Update an existing output dataset.
@@ -983,6 +1010,7 @@ class DatasetsManager:
             description: Optional dataset description.
             rdf_prefixes: Optional RDF namespace prefix map.
             custom_properties: Optional custom/RDF properties to include.
+            license: Optional SPDX license identifier (overrides package.license).
 
         Returns:
             The updated DatasetMetadata.
@@ -990,7 +1018,7 @@ class DatasetsManager:
         Raises:
             DatasetNotFoundError: If the dataset doesn't exist.
         """
-        for i, dataset_data in enumerate(self._data["outputs"]):
+        for dataset_data in self._data["outputs"]:
             if dataset_data["slug"] == slug:
                 if fields is not None:
                     dataset_data["fields"] = [_field_schema_to_dict(field) for field in fields]
@@ -998,6 +1026,8 @@ class DatasetsManager:
                     dataset_data["location"] = location
                 if description is not None:
                     dataset_data["description"] = description
+                if license is not None:
+                    dataset_data["license"] = license
                 if rdf_prefixes is not None:
                     dataset_data["rdfPrefixes"] = rdf_prefixes
                 if custom_properties is not None:
