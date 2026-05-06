@@ -16,6 +16,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
 - Changed: `sunstone dataset validate` now flags non-SPDX identifiers in dataset, source, and
   package license fields (LicenseRef-* identifiers are accepted).
+- Added: `NLOD-1.0`, `NLOD-2.0` (Norwegian Licence for Open Government Data), `CC-BY-3.0-IGO`,
+  and `CC-BY-NC-SA-3.0-IGO` to the embedded license registry — needed for Norwegian government
+  data publishers (Fiskeridirektoratet, Miljødirektoratet) and additional UN/IGO datasets.
 
 ## [1.10.0] - 2026-05-06
 

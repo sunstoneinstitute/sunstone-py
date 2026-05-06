@@ -43,11 +43,30 @@ class TestRegistry:
             "PDDL-1.0",
             "ODC-By-1.0",
             "ODbL-1.0",
+            "CC-BY-3.0-IGO",
             "CC-BY-NC-3.0-IGO",
+            "CC-BY-NC-SA-3.0-IGO",
+            "NLOD-1.0",
+            "NLOD-2.0",
             "LicenseRef-US-PD",
             "LicenseRef-OGL-3.0",
         ):
             assert required in spdx
+
+    def test_nlod_2_attribution_only(self):
+        nlod = get_properties("NLOD-2.0")
+        assert nlod is not None
+        assert nlod.attribution
+        assert not nlod.share_alike
+        assert not nlod.non_commercial
+
+    def test_cc_by_nc_sa_3_igo_distinct_share_alike_family(self):
+        # Different SA family from CC-BY-NC-SA-3.0 and CC-BY-NC-SA-4.0.
+        igo = get_properties("CC-BY-NC-SA-3.0-IGO")
+        assert igo is not None
+        assert igo.family == "cc-by-nc-sa-3-igo"
+        result = check_compatibility(["CC-BY-NC-SA-3.0-IGO"], "CC-BY-NC-SA-4.0")
+        assert not result.compatible
 
     def test_get_properties_known(self):
         cc_by_sa = get_properties("CC-BY-SA-4.0")
