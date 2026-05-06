@@ -101,6 +101,21 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         name="UK Open Government Licence v3.0",
         attribution=True,
     ),
+    LicenseProperties(
+        spdx="CC-BY-3.0-IGO",
+        name="Creative Commons Attribution 3.0 IGO",
+        attribution=True,
+    ),
+    LicenseProperties(
+        spdx="NLOD-2.0",
+        name="Norwegian Licence for Open Government Data 2.0",
+        attribution=True,
+    ),
+    LicenseProperties(
+        spdx="NLOD-1.0",
+        name="Norwegian Licence for Open Government Data 1.0",
+        attribution=True,
+    ),
     # Attribution + ShareAlike
     LicenseProperties(
         spdx="CC-BY-SA-4.0",
@@ -152,6 +167,14 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         share_alike=True,
         non_commercial=True,
         family="cc-by-nc-sa-3",
+    ),
+    LicenseProperties(
+        spdx="CC-BY-NC-SA-3.0-IGO",
+        name="Creative Commons Attribution-NonCommercial-ShareAlike 3.0 IGO",
+        attribution=True,
+        share_alike=True,
+        non_commercial=True,
+        family="cc-by-nc-sa-3-igo",
     ),
 )
 
