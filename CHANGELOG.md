@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: full attribution chain traversal with `get_full_attribution()` and `generate_attribution_statement()`
+- Added: `sunstone lineage attribution` CLI command with text, markdown, and HTML output formats
+
 ## [1.10.0] - 2026-05-06
 
 - Added: `sunstone.set_project_path()`, `get_project_path()`, `clear_project_path()`, and
