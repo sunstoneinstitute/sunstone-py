@@ -358,14 +358,16 @@ dataset_app = typer.Typer(help="Manage datasets in datasets.yaml.")
 package_app = typer.Typer(help="Manage data packages.")
 lineage_app = typer.Typer(help="Query dataset lineage.")
 env_app = typer.Typer(help="Manage data platform environments.")
+license_app = typer.Typer(help="Inspect and check dataset licenses.")
 
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(package_app, name="package")
 app.add_typer(lineage_app, name="lineage")
 app.add_typer(env_app, name="env")
+app.add_typer(license_app, name="license")
 
 # Mount plugin CLI groups
-_BUILTIN_GROUPS = {"dataset", "package", "lineage", "env"}
+_BUILTIN_GROUPS = {"dataset", "package", "lineage", "env", "license"}
 
 
 def _mount_plugin_cli_groups() -> None:
@@ -710,6 +712,26 @@ def dataset_validate(
                             f"(must be one of: {', '.join(sorted(VALID_FIELD_TYPES))})"
                         )
 
+        # SPDX validation on output license
+        from .licenses import is_valid_spdx
+
+        if ds_type == "outputs":
+            license_value = ds.get("license")
+            if license_value is not None and not is_valid_spdx(str(license_value)):
+                errors.append(
+                    f"{prefix}: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {license_value!r}"
+                )
+
+        # SPDX validation on input source license
+        if ds_type == "inputs":
+            source = ds.get("source")
+            if isinstance(source, dict):
+                source_license = source.get("license")
+                if source_license is not None and not is_valid_spdx(str(source_license)):
+                    errors.append(
+                        f"{prefix}.source: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {source_license!r}"
+                    )
+
     # Validate inputs
     inputs = data.get("inputs", [])
     if not isinstance(inputs, list):
@@ -731,6 +753,28 @@ def dataset_validate(
                 errors.append(f"outputs[{i}]: must be an object")
             else:
                 validate_dataset_entry(ds, "outputs", i)
+
+    # SPDX validation on package licenses (only when not filtering by slug)
+    if not datasets_to_validate:
+        from .licenses import is_valid_spdx as _is_valid_spdx
+
+        package_block = data.get("package")
+        if isinstance(package_block, dict):
+            pkg_license = package_block.get("license")
+            if pkg_license is not None and not _is_valid_spdx(str(pkg_license)):
+                errors.append(
+                    f"package: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
+                )
+        packages_block = data.get("packages")
+        if isinstance(packages_block, list):
+            for i, pkg in enumerate(packages_block):
+                if not isinstance(pkg, dict):
+                    continue
+                pkg_license = pkg.get("license")
+                if pkg_license is not None and not _is_valid_spdx(str(pkg_license)):
+                    errors.append(
+                        f"packages[{i}]: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
+                    )
 
     # Check if requested datasets were found
     if datasets_to_validate:
@@ -1825,6 +1869,153 @@ def lineage_attribution(
         sys.exit(1)
 
     typer.echo(statement)
+
+
+# =============================================================================
+# License commands
+# =============================================================================
+
+
+def _resolve_license_project_path(datasets_file: str) -> tuple[Path, str]:
+    """Resolve a datasets.yaml argument to (project_path, file_name)."""
+    yaml_path = Path(datasets_file).resolve()
+    if yaml_path.is_dir():
+        project_path = yaml_path
+        file_name = "datasets.yaml"
+    else:
+        project_path = yaml_path.parent
+        file_name = yaml_path.name
+    return project_path, file_name
+
+
+@license_app.command("list")
+def license_list(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
+) -> None:
+    """List every license used in the project, with the datasets that declare it."""
+    import json as _json
+
+    from .datasets import DatasetsManager
+
+    project_path, file_name = _resolve_license_project_path(datasets_file)
+    if not (project_path / file_name).exists():
+        typer.echo(f"Error: {datasets_file} not found", err=True)
+        sys.exit(1)
+
+    manager = DatasetsManager(project_path, datasets_file=file_name)
+    usage: dict[str, list[str]] = {}
+
+    for ds in manager.get_all_inputs():
+        if ds.source is not None and ds.source.license:
+            usage.setdefault(ds.source.license, []).append(f"input:{ds.slug}")
+    for ds in manager.get_all_outputs():
+        eff = manager.effective_license_for(ds.slug)
+        if eff:
+            usage.setdefault(eff, []).append(f"output:{ds.slug}")
+
+    if json_output:
+        payload = {license_id: sorted(refs) for license_id, refs in sorted(usage.items())}
+        typer.echo(_json.dumps(payload, indent=2))
+        return
+
+    if not usage:
+        typer.echo("No licenses declared in this project.")
+        return
+
+    for license_id in sorted(usage):
+        typer.echo(license_id)
+        for ref in sorted(usage[license_id]):
+            typer.echo(f"  - {ref}")
+
+
+@license_app.command("check")
+def license_check(
+    slug: Optional[str] = typer.Argument(None, help="Output dataset slug to check (omit to check all outputs)."),
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
+) -> None:
+    """Check license compatibility for one output (or every output) against its sources."""
+    import json as _json
+
+    from .datasets import DatasetsManager
+    from .licenses import check_compatibility
+
+    project_path, file_name = _resolve_license_project_path(datasets_file)
+    if not (project_path / file_name).exists():
+        typer.echo(f"Error: {datasets_file} not found", err=True)
+        sys.exit(1)
+
+    manager = DatasetsManager(project_path, datasets_file=file_name)
+
+    if slug is not None:
+        single = manager.find_dataset_by_slug(slug, "output")
+        if single is None:
+            typer.echo(f"Error: output dataset '{slug}' not found", err=True)
+            sys.exit(1)
+        target_outputs = [single]
+    else:
+        target_outputs = list(manager.get_all_outputs())
+
+    reports: list[dict[str, Any]] = []
+    any_conflict = False
+
+    for output in target_outputs:
+        target_license = manager.effective_license_for(output.slug)
+        # Collect direct source licenses from the output's wasDerivedFrom refs.
+        source_licenses: list[str] = []
+        sources_seen: list[str] = []
+        for ref in output.was_derived_from or []:
+            ds = manager.find_dataset_by_slug(ref.slug)
+            if ds is None:
+                continue
+            sources_seen.append(ref.slug)
+            if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
+                source_licenses.append(ds.source.license)
+            elif ds.dataset_type == "output":
+                eff = manager.effective_license_for(ref.slug)
+                if eff:
+                    source_licenses.append(eff)
+
+        report: dict[str, Any] = {
+            "slug": output.slug,
+            "target_license": target_license,
+            "sources": sources_seen,
+            "source_licenses": source_licenses,
+        }
+
+        if not source_licenses or target_license is None:
+            report["status"] = "skipped"
+            report["reason"] = "no source licenses to check" if not source_licenses else "no target license declared"
+            reports.append(report)
+            continue
+
+        result = check_compatibility(source_licenses, target_license)
+        report["compatible"] = result.compatible
+        report["conflicts"] = result.conflicts
+        report["suggestions"] = result.suggestions
+        report["unknown_sources"] = result.unknown_sources
+        report["unknown_target"] = result.unknown_target
+        report["status"] = "compatible" if result.compatible else "conflict"
+        if not result.compatible:
+            any_conflict = True
+        reports.append(report)
+
+    if json_output:
+        typer.echo(_json.dumps({"reports": reports}, indent=2))
+    else:
+        for r in reports:
+            label = r["target_license"] or "(none)"
+            typer.echo(f"{r['slug']}: target={label} status={r['status']}")
+            if r["status"] == "conflict":
+                for c in r.get("conflicts", []):
+                    typer.echo(f"  conflict: {c}")
+                if r.get("suggestions"):
+                    typer.echo(f"  suggestions: {', '.join(r['suggestions'])}")
+            elif r["status"] == "skipped":
+                typer.echo(f"  skipped: {r['reason']}")
+
+    sys.exit(1 if any_conflict else 0)
 
 
 if __name__ == "__main__":

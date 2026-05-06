@@ -202,7 +202,7 @@ class TestPackageMetadata:
         assert package is not None
         assert package.title == "UN Member States Dataset"
         assert package.version == "1.0.0"
-        assert package.license == "CC-BY-4.0"
+        assert package.license == "CC-BY-NC-3.0-IGO"
 
     def test_package_description(self, project_path: Path) -> None:
         """Test that package description is parsed correctly."""

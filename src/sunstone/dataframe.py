@@ -229,6 +229,61 @@ class DataFrame:
             datasets_file=self._datasets_file,
         )
 
+    def _enforce_license_compatibility(
+        self,
+        manager: DatasetsManager,
+        dataset_slug: str,
+        target_license: Optional[str],
+    ) -> None:
+        """Check the proposed write against source licenses.
+
+        Raises :class:`LicenseCompatibilityError` if the target license is
+        incompatible with any source license collected from the current session.
+        Warns if there are source licenses to check but no target license
+        could be determined.
+        """
+        from .licenses import LicenseCompatibilityError, check_compatibility
+        from .session import get_session
+
+        source_slugs = get_session().current_source_slugs()
+        source_licenses: list[str] = []
+        for slug in source_slugs:
+            ds = manager.find_dataset_by_slug(slug)
+            if ds is None:
+                continue
+            if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
+                source_licenses.append(ds.source.license)
+            elif ds.dataset_type == "output":
+                eff = manager.effective_license_for(slug)
+                if eff:
+                    source_licenses.append(eff)
+
+        if not source_licenses:
+            return
+
+        if target_license is None:
+            warnings.warn(
+                f"Output '{dataset_slug}' has source datasets with declared licenses "
+                f"({source_licenses}) but no target license is declared "
+                f"(set 'license:' on the dataset, on a package, or pass license= to the writer). "
+                f"Skipping license compatibility check.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return
+
+        result = check_compatibility(source_licenses, target_license)
+        if result.compatible:
+            return
+
+        message_lines = [f"License compatibility check failed for output '{dataset_slug}' (target: {target_license})."]
+        message_lines.extend(f"  - {c}" for c in result.conflicts)
+        if result.suggestions:
+            message_lines.append("Suggested compatible target licenses: " + ", ".join(result.suggestions))
+        if result.unknown_sources:
+            message_lines.append("Unknown source licenses (not validated): " + ", ".join(result.unknown_sources))
+        raise LicenseCompatibilityError("\n".join(message_lines))
+
     @classmethod
     def read_dataset(
         cls,
@@ -612,6 +667,8 @@ class DataFrame:
         publish: bool = False,
         transformation_params: Optional[dict] = None,
         track: bool = True,
+        license: Optional[str] = None,
+        check_license: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -627,11 +684,21 @@ class DataFrame:
             publish: Reserved for future use (publishing to data catalog).
             track: If False, write the CSV directly without lineage tracking
                 or dataset registration. Useful for tests and exploratory work.
+            license: SPDX license identifier for the output. Persisted to
+                datasets.yaml and used for compatibility checking against
+                source licenses. Falls back to the dataset's existing license
+                or ``package.license`` when omitted.
+            check_license: If True (default), raise
+                :class:`~sunstone.licenses.LicenseCompatibilityError` when
+                the target license is incompatible with any source license
+                in the current session lineage.
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
             StrictModeError: In strict mode, if dataset not registered.
             ValueError: In relaxed mode, if slug/name not provided for new dataset.
+            LicenseCompatibilityError: If ``check_license`` is True and the
+                target license conflicts with a source license.
         """
         # Filter out any Sunstone-specific kwargs that might have slipped through
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
@@ -689,7 +756,15 @@ class DataFrame:
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,
                     custom_properties=self.metadata.custom_properties,
+                    license=license,
                 )
+        elif license is not None and dataset.license != license:
+            # Persist explicit override on a pre-registered dataset
+            dataset = manager.update_output_dataset(slug=dataset.slug, license=license)
+
+        if check_license:
+            target_license = license or manager.effective_license_for(dataset.slug)
+            self._enforce_license_compatibility(manager, dataset.slug, target_license)
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
@@ -739,6 +814,8 @@ class DataFrame:
         publish: bool = False,
         transformation_params: Optional[dict] = None,
         track: bool = True,
+        license: Optional[str] = None,
+        check_license: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -754,11 +831,21 @@ class DataFrame:
             publish: Reserved for future use (publishing to data catalog).
             track: If False, write the Parquet directly without lineage tracking
                 or dataset registration. Useful for tests and exploratory work.
+            license: SPDX license identifier for the output. Persisted to
+                datasets.yaml and used for compatibility checking against
+                source licenses. Falls back to the dataset's existing license
+                or ``package.license`` when omitted.
+            check_license: If True (default), raise
+                :class:`~sunstone.licenses.LicenseCompatibilityError` when
+                the target license is incompatible with any source license
+                in the current session lineage.
             **kwargs: Additional arguments passed to pandas.to_parquet.
 
         Raises:
             StrictModeError: In strict mode, if dataset not registered.
             ValueError: In relaxed mode, if slug/name not provided for new dataset.
+            LicenseCompatibilityError: If ``check_license`` is True and the
+                target license conflicts with a source license.
         """
         # Filter out any Sunstone-specific kwargs that might have slipped through
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
@@ -816,7 +903,15 @@ class DataFrame:
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,
                     custom_properties=self.metadata.custom_properties,
+                    license=license,
                 )
+        elif license is not None and dataset.license != license:
+            # Persist explicit override on a pre-registered dataset
+            dataset = manager.update_output_dataset(slug=dataset.slug, license=license)
+
+        if check_license:
+            target_license = license or manager.effective_license_for(dataset.slug)
+            self._enforce_license_compatibility(manager, dataset.slug, target_license)
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)

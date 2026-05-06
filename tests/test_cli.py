@@ -1420,7 +1420,7 @@ class TestBuildDatapackageWithPackageMetadata:
         assert "Processed data" in dp["description"]
         assert dp["version"] == "1.0.0"
         assert dp["keywords"] == ["united-nations", "member-states", "international-organizations"]
-        assert dp["license"] == "CC-BY-4.0"
+        assert dp["license"] == "CC-BY-NC-3.0-IGO"
         assert dp["contributors"] == [{"title": "Sunstone Institute", "roles": ["creator", "publisher"]}]
 
     def test_build_without_package_metadata(self, runner: CliRunner, tmp_path: Path) -> None:
@@ -1470,7 +1470,7 @@ class TestBuildDatapackageWithPackageMetadata:
             dp = json.loads(handler.uploaded_text[dp_path])
             assert dp["title"] == "UN Member States Dataset"
             assert dp["version"] == "1.0.0"
-            assert dp["license"] == "CC-BY-4.0"
+            assert dp["license"] == "CC-BY-NC-3.0-IGO"
             assert len(dp["contributors"]) == 1
 
 
