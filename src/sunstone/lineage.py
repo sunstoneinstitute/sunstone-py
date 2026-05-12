@@ -330,6 +330,25 @@ class PackageEntry:
 
 
 @dataclass
+class CsvDialect:
+    """CSV dialect for reading and writing delimited text files.
+
+    Fields follow the Frictionless Data ``csv`` dialect convention. Defaults
+    match plain pandas ``read_csv`` / ``to_csv`` behavior so a missing
+    dialect block is equivalent to passing nothing.
+    """
+
+    delimiter: str = ","
+    """Field separator (``sep``/``delimiter`` in pandas)."""
+
+    quote_char: str = '"'
+    """Character used to quote fields containing special characters."""
+
+    header: bool = True
+    """Whether the file has (on read) or should be written with (on write) a header row."""
+
+
+@dataclass
 class DatasetMetadata:
     """Metadata for a dataset from datasets.yaml."""
 
@@ -384,6 +403,10 @@ class DatasetMetadata:
 
     field_derivations: Optional[List[FieldDerivation]] = None
     """prov:qualifiedDerivation — field-level derivation detail."""
+
+    dialect: Optional[CsvDialect] = None
+    """CSV dialect (delimiter, quote char, header) for ``text/csv`` datasets.
+    ``None`` means use pandas defaults (comma-delimited, double-quote, header row)."""
 
 
 def compute_dataframe_hash(df: "pd.DataFrame") -> str:

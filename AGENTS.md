@@ -176,6 +176,18 @@ but formatted like this:
 **IMPORTANT**: every time you make a commit, consider whether the change is changelog-worthy, and
 if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
 
+##### Updating CHANGELOG.md
+
+**Keep it tight.** Each entry is one short line — ideally under ~140 characters. Write for a
+user skimming the release page, not for an engineer who wants the full story. Rules:
+
+- One line, one sentence. No subclauses piling up rationale, mechanism, edge cases, and follow-ups.
+- Lead with the user-visible change. Skip implementation detail (file paths, internal flags,
+  "now patches X at package time") unless it changes how the user interacts with the thing.
+- If an existing `[Unreleased]` entry is verbose, rewrite it — don't just copy it forward.
+- Details belong in commit messages, `docs/`, `CONTRIBUTORS.md`, etc. The changelog may point
+  at them, it doesn't replace them.
+
 #### Make a Release
 
 Use the `/release` command. It auto-detects the bump level from commit history,

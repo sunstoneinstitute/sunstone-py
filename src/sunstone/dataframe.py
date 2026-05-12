@@ -378,7 +378,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format=format, path=location, **kwargs)
+            df = format_handler.read(
+                stream,
+                format=format,
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
 
         # Extract embedded metadata if the format handler provided it
         embedded_metadata = df.attrs.pop("sunstone_metadata", None)
@@ -521,7 +527,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="csv", path=location, **kwargs)
+            df = format_handler.read(
+                stream,
+                format="csv",
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -777,12 +789,13 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
+        dialect = dataset.dialect if dataset is not None else None
         if url_handler and format_writer:
             with url_handler.open(location, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         elif format_writer:
             with open(absolute_path, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 

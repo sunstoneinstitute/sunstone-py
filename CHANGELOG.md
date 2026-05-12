@@ -4,24 +4,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: full attribution chain traversal with `get_full_attribution()` and `generate_attribution_statement()`
-- Added: `sunstone lineage attribution` CLI command with text, markdown, and HTML output formats
-- Added: `sunstone.licenses` module with embedded SPDX registry (CC, ODC, CC0/PDDL, common LicenseRef-),
-  `LicenseProperties`, `check_compatibility()`, `get_most_restrictive_license()`, and
-  `LicenseCompatibilityError` (closes #13).
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown, HTML).
+- Added: `sunstone.licenses` module with embedded SPDX registry and compatibility checks (closes #13).
 - Added: per-output `license:` field in `datasets.yaml` (falls back to `package.license`).
-- Added: write-time license compatibility enforcement on `DataFrame.to_csv` / `to_parquet`
-  (default `check_license=True`); raises `LicenseCompatibilityError` with conflict descriptions
-  and suggested compatible target licenses. Pass `license=` to override or persist a target license.
+- Added: write-time license compatibility enforcement on `to_csv` / `to_parquet`; pass `license=` to override.
 - Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
-- Changed: `sunstone dataset validate` now flags non-SPDX identifiers in dataset, source, and
-  package license fields (LicenseRef-* identifiers are accepted).
-- Added: `NLOD-1.0`, `NLOD-2.0` (Norwegian Licence for Open Government Data), `CC-BY-3.0-IGO`,
-  and `CC-BY-NC-SA-3.0-IGO` to the embedded license registry — needed for Norwegian government
-  data publishers (Fiskeridirektoratet, Miljødirektoratet) and additional UN/IGO datasets.
-- Added: denormalize `attributedTo` and `license` from input source blocks into output lineage
-  source entries in `datasets.lock.yaml` — makes lineage self-contained for datapackage.json
-  export and cross-project use (closes #15).
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-* still accepted).
+- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license registry.
+- Added: denormalize source `attributedTo` and `license` into `datasets.lock.yaml` for self-contained lineage (closes #15).
+- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
 
 ## [1.10.0] - 2026-05-06
 

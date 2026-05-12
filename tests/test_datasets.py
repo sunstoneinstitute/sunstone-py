@@ -252,6 +252,129 @@ outputs: []
         assert package is None
 
 
+class TestCsvDialect:
+    """Tests for parsing and serializing the per-dataset CSV dialect block."""
+
+    def test_dialect_absent_yields_none(self, tmp_path: Path) -> None:
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            """
+inputs:
+  - name: Sample
+    slug: sample
+    location: inputs/sample.csv
+outputs: []
+"""
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("sample")
+        assert dataset is not None
+        assert dataset.dialect is None
+
+    def test_dialect_parses_semicolon_delimiter(self, tmp_path: Path) -> None:
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            """
+inputs:
+  - name: Sample
+    slug: sample
+    location: inputs/sample.csv
+    dialect:
+      delimiter: ";"
+      quoteChar: "'"
+      header: true
+outputs: []
+"""
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("sample")
+        assert dataset is not None
+        assert dataset.dialect is not None
+        assert dataset.dialect.delimiter == ";"
+        assert dataset.dialect.quote_char == "'"
+        assert dataset.dialect.header is True
+
+    def test_dialect_defaults_match_pandas(self, tmp_path: Path) -> None:
+        """An empty dialect block parses with pandas-default values."""
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            """
+inputs:
+  - name: Sample
+    slug: sample
+    location: inputs/sample.csv
+    dialect: {}
+outputs: []
+"""
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("sample")
+        assert dataset is not None
+        assert dataset.dialect is not None
+        assert dataset.dialect.delimiter == ","
+        assert dataset.dialect.quote_char == '"'
+        assert dataset.dialect.header is True
+
+    def test_dialect_header_false(self, tmp_path: Path) -> None:
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            """
+inputs:
+  - name: Sample
+    slug: sample
+    location: inputs/sample.csv
+    dialect:
+      header: false
+outputs: []
+"""
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("sample")
+        assert dataset is not None and dataset.dialect is not None
+        assert dataset.dialect.header is False
+
+    def test_dialect_not_in_custom_properties(self, tmp_path: Path) -> None:
+        """dialect is a standard field, not a custom RDF property."""
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            """
+inputs:
+  - name: Sample
+    slug: sample
+    location: inputs/sample.csv
+    dialect:
+      delimiter: ";"
+outputs: []
+"""
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("sample")
+        assert dataset is not None
+        assert dataset.custom_properties is None or "dialect" not in dataset.custom_properties
+
+    def test_add_output_persists_dialect(self, tmp_path: Path) -> None:
+        from sunstone.lineage import CsvDialect, FieldSchema
+
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text("inputs: []\noutputs: []\n")
+        manager = sunstone.DatasetsManager(tmp_path)
+
+        manager.add_output_dataset(
+            name="Out",
+            slug="out",
+            location="outputs/out.csv",
+            fields=[FieldSchema(name="a", type="integer")],
+            dialect=CsvDialect(delimiter=";", quote_char='"', header=True),
+        )
+
+        # Re-read the file from disk to verify it was persisted
+        manager2 = sunstone.DatasetsManager(tmp_path)
+        dataset = manager2.find_dataset_by_slug("out", "output")
+        assert dataset is not None and dataset.dialect is not None
+        assert dataset.dialect.delimiter == ";"
+        assert dataset.dialect.quote_char == '"'
+
+
 class TestURLSafety:
     """Tests for URL safety validation (SSRF prevention)."""
 
