@@ -889,3 +889,31 @@ class TestMetadataJsonLd:
         assert m.field_metadata == {}
         assert m.custom_properties is None
         assert m.rdf_prefixes is None
+
+
+class TestMetadataIdentityAndComponentMetadata:
+    """Tests for identity URI and component_metadata fields."""
+
+    def test_metadata_identity_defaults_to_none(self):
+        """Metadata.identity defaults to None."""
+        m = Metadata()
+        assert m.identity is None
+
+    def test_metadata_identity_accepts_uri_template(self):
+        """Metadata.identity accepts a URI template string."""
+        m = Metadata(identity="sunstone://acme/sales@1.0.0")
+        assert m.identity == "sunstone://acme/sales@1.0.0"
+
+    def test_metadata_component_metadata_defaults_to_empty_dict(self):
+        """Metadata.component_metadata defaults to an empty dict."""
+        m = Metadata()
+        assert m.component_metadata == {}
+
+    def test_metadata_component_metadata_per_instance(self):
+        """Each Metadata instance has its own component_metadata dict."""
+        from sunstone.component import ComponentSchema
+
+        a = Metadata()
+        b = Metadata()
+        a.component_metadata["b04"] = ComponentSchema(name="b04", component_kind="band")
+        assert "b04" not in b.component_metadata
