@@ -29,3 +29,20 @@ def test_component_kinds_documented():
     # Sanity: the four conventional component_kind values are accepted as strings.
     for kind in ("column", "band", "variable", "layer"):
         assert ComponentSchema(name="x", component_kind=kind).component_kind == kind
+
+
+def test_component_schema_derived_from():
+    from sunstone.lineage import FieldDerivation
+
+    d = FieldDerivation(
+        output_field="ndvi",
+        source_entity="sentinel2",
+        source_field="b04",
+    )
+    c = ComponentSchema(
+        name="ndvi",
+        component_kind="band",
+        derived_from=[d],
+    )
+    assert c.derived_from == [d]
+    assert c.derived_from[0].output_field == "ndvi"
