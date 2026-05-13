@@ -24,7 +24,7 @@ def test_lang_string_is_frozen_dataclass():
     ls = LangString("hello", "en")
     assert ls.value == "hello"
     assert ls.lang == "en"
-    with pytest.raises((AttributeError, Exception)):
+    with pytest.raises(AttributeError):
         ls.value = "bye"
 
 
@@ -41,5 +41,5 @@ def test_typed_literal_is_frozen_dataclass():
     tl = TypedLiteral("3.14", "xsd:double")
     assert tl.value == "3.14"
     assert tl.datatype == "xsd:double"
-    with pytest.raises((AttributeError, Exception)):
+    with pytest.raises(AttributeError):
         tl.value = "0"

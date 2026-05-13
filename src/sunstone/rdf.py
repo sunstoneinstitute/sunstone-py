@@ -20,7 +20,7 @@ class IRI(str):
     using `Metadata.rdf_prefixes`.
     """
 
-    def __repr__(self) -> str:  # pragma: no cover — trivial
+    def __repr__(self) -> str:
         return f"IRI({str.__repr__(self)})"
 
 
