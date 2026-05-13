@@ -583,6 +583,31 @@ class Metadata:
         "schema": "http://schema.org/",
     }
 
+    def __setitem__(self, key: str, value: Any) -> None:
+        if ":" not in key:
+            raise ValueError(
+                f"Metadata keys must be prefixed RDF names (contain ':'). "
+                f"Got bare key {key!r}. Use a regular attribute for non-RDF fields."
+            )
+        if self.custom_properties is None:
+            self.custom_properties = {}
+        self.custom_properties[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        if self.custom_properties is None or key not in self.custom_properties:
+            raise KeyError(key)
+        return self.custom_properties[key]
+
+    def __delitem__(self, key: str) -> None:
+        if self.custom_properties is None or key not in self.custom_properties:
+            raise KeyError(key)
+        del self.custom_properties[key]
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str) or self.custom_properties is None:
+            return False
+        return key in self.custom_properties
+
     def to_jsonld(self) -> Dict[str, Any]:
         """Serialize metadata to a JSON-LD document.
 
