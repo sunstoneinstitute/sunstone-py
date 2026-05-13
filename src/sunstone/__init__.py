@@ -31,7 +31,6 @@ from .config import (
     set_project_path,
     use_project_path,
 )
-from .component import ComponentSchema
 from .dataframe import DataFrame
 from .datasets import DatasetsManager
 from .exceptions import (
@@ -113,7 +112,6 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
-    "ComponentSchema",
     # Project-path configuration
     "set_project_path",
     "get_project_path",
