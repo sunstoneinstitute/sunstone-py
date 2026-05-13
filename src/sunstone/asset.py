@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Iterable, cast
 
 from .errors import IncompatibleAssetKindError
 from .lineage import Metadata
@@ -12,6 +12,8 @@ from .lineage import Metadata
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
+
+    from .lineage import LineageMetadata
 
 
 class AssetKind(Enum):
@@ -73,3 +75,96 @@ class Asset:
         if self.kind is not AssetKind.TILES:
             raise IncompatibleAssetKindError(expected=AssetKind.TILES, actual=self.kind)
         return self.payload
+
+    def derive(
+        self,
+        payload: Any,
+        *,
+        slug: str | None = None,
+        name: str | None = None,
+        kind: "AssetKind | None" = None,
+        derived_from: "Iterable[Asset] | None" = None,
+        metadata_updates: dict[str, Any] | None = None,
+        extras_updates: dict[str, Any] | None = None,
+        inherit_custom_properties: bool = False,
+    ) -> "Asset":
+        """Return a new Asset derived from this one (and optionally additional
+        parents via `derived_from`).
+
+        Lineage records `prov:wasDerivedFrom` for each parent. See spec
+        `docs/superpowers/specs/2026-05-12-generic-format-handler-asset-envelope-design.md`
+        for full semantics.
+        """
+        import copy as _copy
+
+        from .derive_policies import apply_kind_derive_policy
+        from .lineage import Metadata as _Metadata
+
+        # 1. Fork metadata (no inheritance by default; slug/name clear).
+        child_meta = _Metadata(
+            slug=slug,
+            name=name,
+            description=None,
+            rdf_prefixes=(dict(self.metadata.rdf_prefixes) if self.metadata.rdf_prefixes else None),
+        )
+        if inherit_custom_properties and self.metadata.custom_properties:
+            child_meta.custom_properties = dict(self.metadata.custom_properties)
+        if metadata_updates:
+            for k, v in metadata_updates.items():
+                child_meta[k] = v
+
+        # 2. Build child lineage. Parents default to [self].
+        parents = list(derived_from) if derived_from is not None else [self]
+        child_meta.lineage = _build_child_lineage(parents)
+
+        # 3. Deep-copy extras then apply extras_updates.
+        child_extras: dict[str, Any] = _copy.deepcopy(self.extras)
+        if extras_updates:
+            child_extras.update(extras_updates)
+
+        child = Asset(
+            payload=payload,
+            kind=kind or self.kind,
+            metadata=child_meta,
+            extras=child_extras,
+        )
+
+        # 4. Apply per-kind derive policy (e.g., raster profile invalidation).
+        return apply_kind_derive_policy(self, child)
+
+
+def _build_child_lineage(parents: list["Asset"]) -> "LineageMetadata":
+    """Compose a child `LineageMetadata` from one or more parent assets.
+
+    For each parent with a slug, record a `DatasetMetadata` snapshot in
+    `lineage.sources` (this is the `prov:wasDerivedFrom` representation in
+    sunstone's existing model). For each parent without a slug, collapse:
+    inherit the parent's `lineage.sources` rather than recording the transient.
+    Activity chain is the union of all parents' activities (preserved for
+    transient-parent cases).
+    """
+    from .lineage import DatasetMetadata, LineageMetadata
+
+    sources: list[DatasetMetadata] = []
+    for parent in parents:
+        if parent.metadata.slug:
+            snapshot = DatasetMetadata(
+                name=parent.metadata.name or "",
+                slug=parent.metadata.slug,
+                location="",
+                description=parent.metadata.description,
+                dataset_type="input",
+                rdf_prefixes=(dict(parent.metadata.rdf_prefixes) if parent.metadata.rdf_prefixes else None),
+                custom_properties=(
+                    dict(parent.metadata.custom_properties) if parent.metadata.custom_properties else None
+                ),
+            )
+            if snapshot not in sources:
+                sources.append(snapshot)
+        else:
+            # Transient parent: collapse to its own sources.
+            for upstream in parent.metadata.lineage.sources:
+                if upstream not in sources:
+                    sources.append(upstream)
+
+    return LineageMetadata(sources=sources)

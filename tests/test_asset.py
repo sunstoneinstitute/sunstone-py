@@ -79,3 +79,113 @@ def test_as_tiles_returns_payload_when_kind_matches():
     pyramid = object()  # opaque tile-pyramid descriptor stand-in
     asset = Asset(payload=pyramid, kind=AssetKind.TILES, metadata=Metadata())
     assert asset.as_tiles() is pyramid
+
+
+def test_derive_returns_new_asset_with_new_payload():
+    parent_df = pd.DataFrame({"x": [1, 2, 3]})
+    parent = Asset(
+        payload=parent_df,
+        kind=AssetKind.TABULAR,
+        metadata=Metadata(slug="parent", name="Parent"),
+    )
+    new_df = pd.DataFrame({"x": [10, 20, 30]})
+    child = parent.derive(payload=new_df, slug="child", name="Child")
+    assert child is not parent
+    assert child.payload is new_df
+    assert child.kind is parent.kind
+    assert child.metadata.slug == "child"
+    assert child.metadata.name == "Child"
+
+
+def test_derive_clears_slug_and_name_when_not_provided():
+    parent = Asset(
+        payload=None,
+        kind=AssetKind.RASTER,
+        metadata=Metadata(slug="parent", name="Parent"),
+    )
+    child = parent.derive(payload=None)
+    assert child.metadata.slug is None
+    assert child.metadata.name is None
+
+
+def test_derive_does_not_inherit_custom_properties_by_default():
+    parent_meta = Metadata(slug="parent")
+    parent_meta["sosa:observedProperty"] = "surface-reflectance"
+    parent = Asset(payload=None, kind=AssetKind.RASTER, metadata=parent_meta)
+
+    child = parent.derive(payload=None)
+    assert child.metadata.custom_properties in (None, {})
+
+
+def test_derive_inherits_custom_properties_when_opted_in():
+    parent_meta = Metadata(slug="parent")
+    parent_meta["sosa:observedProperty"] = "surface-reflectance"
+    parent = Asset(payload=None, kind=AssetKind.RASTER, metadata=parent_meta)
+
+    child = parent.derive(payload=None, inherit_custom_properties=True)
+    assert child.metadata["sosa:observedProperty"] == "surface-reflectance"
+
+
+def test_derive_metadata_updates_overrides_individual_keys():
+    parent_meta = Metadata(slug="parent")
+    parent = Asset(payload=None, kind=AssetKind.RASTER, metadata=parent_meta)
+    child = parent.derive(
+        payload=None,
+        metadata_updates={"sosa:observedProperty": "ndvi"},
+    )
+    assert child.metadata["sosa:observedProperty"] == "ndvi"
+
+
+def test_derive_deep_copies_extras():
+    profile = {"count": 1, "dtype": "uint8"}
+    parent = Asset(
+        payload=np.zeros((1, 8, 8), dtype="uint8"),
+        kind=AssetKind.RASTER,
+        metadata=Metadata(slug="parent"),
+        extras={"profile": profile},
+    )
+    child = parent.derive(payload=np.zeros((1, 8, 8), dtype="uint8"))
+    # Mutating child must not affect parent.
+    child.extras["profile"]["count"] = 99
+    assert parent.extras["profile"]["count"] == 1
+
+
+def test_derive_applies_extras_updates_after_inheritance():
+    parent = Asset(
+        payload=np.zeros((1, 8, 8), dtype="uint8"),
+        kind=AssetKind.RASTER,
+        metadata=Metadata(slug="parent"),
+        extras={"profile": {"count": 1}, "crs": "EPSG:4326"},
+    )
+    child = parent.derive(
+        payload=np.zeros((1, 8, 8), dtype="uint8"),
+        extras_updates={"crs": "EPSG:3857"},
+    )
+    assert child.extras["crs"] == "EPSG:3857"
+    assert child.extras["profile"] == {"count": 1}  # untouched
+
+
+def test_derive_runs_kind_derive_policy():
+    # Raster policy drops stale profile fields when shape changes.
+    parent = Asset(
+        payload=np.zeros((4, 8, 8), dtype="uint16"),
+        kind=AssetKind.RASTER,
+        metadata=Metadata(slug="parent"),
+        extras={"profile": {"count": 4, "dtype": "uint16", "nodata": 0, "crs": "EPSG:4326"}},
+    )
+    child = parent.derive(payload=np.zeros((8, 8), dtype="float32"))
+    assert "count" not in child.extras["profile"]
+    assert "dtype" not in child.extras["profile"]
+    assert child.extras["profile"]["crs"] == "EPSG:4326"
+
+
+def test_derive_records_wasderivedfrom_for_slugged_parent():
+    parent = Asset(
+        payload=None,
+        kind=AssetKind.TABULAR,
+        metadata=Metadata(slug="parent-slug", name="Parent"),
+    )
+    child = parent.derive(payload=None, slug="child")
+    # Child's lineage.sources contains a snapshot referencing parent's slug.
+    source_slugs = [s.slug for s in child.metadata.lineage.sources]
+    assert "parent-slug" in source_slugs
