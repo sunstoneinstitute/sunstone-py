@@ -30,18 +30,25 @@ class TestErrorsReExport:
             assert hasattr(ss_errors, name), f"sunstone.errors.__all__ lists '{name}' but it's not accessible"
 
     def test_star_import_matches_pandas(self):
-        """Star-importing sunstone.errors should give the same names as pandas.errors."""
+        """Star-importing sunstone.errors should give the same names as pandas.errors, plus sunstone extensions."""
         pd_names = _star_import_names("pandas.errors")
         ss_names = _star_import_names("sunstone.errors")
-        assert pd_names == ss_names
+        # sunstone.errors extends pandas.errors with custom exceptions
+        ss_extensions = {"IncompatibleAssetKindError"}
+        assert pd_names | ss_extensions == ss_names
 
     def test_objects_are_identical(self):
-        """Re-exported objects should be the exact same objects, not copies."""
+        """Re-exported objects should be the exact same objects, not copies (except sunstone extensions)."""
         ss_names = _star_import_names("sunstone.errors")
+        ss_extensions = {"IncompatibleAssetKindError"}
         for name in ss_names:
-            assert getattr(ss_errors, name) is getattr(pd_errors, name), (
-                f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
-            )
+            if name in ss_extensions:
+                # sunstone-specific exceptions don't come from pandas
+                assert hasattr(ss_errors, name)
+            else:
+                assert getattr(ss_errors, name) is getattr(pd_errors, name), (
+                    f"sunstone.errors.{name} is not identical to pandas.errors.{name}"
+                )
 
     def test_import_specific_error(self):
         """Commonly used errors should be directly importable."""
@@ -50,6 +57,12 @@ class TestErrorsReExport:
         assert ParserError is pd_errors.ParserError
         assert EmptyDataError is pd_errors.EmptyDataError
         assert MergeError is pd_errors.MergeError
+
+    def test_import_incompatible_asset_kind_error(self):
+        """IncompatibleAssetKindError should be directly importable."""
+        from sunstone.errors import IncompatibleAssetKindError
+
+        assert IncompatibleAssetKindError is ss_errors.IncompatibleAssetKindError
 
     def test_accessible_via_sunstone_package(self):
         """sunstone.errors should be importable via the top-level package."""
