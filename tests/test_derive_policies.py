@@ -86,6 +86,30 @@ def test_raster_policy_preserves_profile_when_shape_unchanged():
     assert out.extras["profile"] == {"count": 1, "dtype": "uint8", "nodata": 0}
 
 
+def test_raster_policy_invalidates_profile_when_only_dtype_differs():
+    from sunstone.derive_policies import raster_invalidate_stale_profile
+
+    profile = {"count": 1, "dtype": "uint8", "nodata": 0, "crs": "EPSG:4326"}
+    parent = Asset(
+        payload=np.zeros((1, 8, 8), dtype="uint8"),
+        kind=AssetKind.RASTER,
+        metadata=Metadata(),
+        extras={"profile": profile.copy()},
+    )
+    child = Asset(
+        payload=np.zeros((1, 8, 8), dtype="float32"),  # same shape, new dtype
+        kind=AssetKind.RASTER,
+        metadata=Metadata(),
+        extras={"profile": profile.copy()},
+    )
+    out = raster_invalidate_stale_profile(parent, child)
+    assert "dtype" not in out.extras["profile"]
+    assert "count" not in out.extras["profile"]
+    assert "nodata" not in out.extras["profile"]
+    # Geographic field preserved.
+    assert out.extras["profile"]["crs"] == "EPSG:4326"
+
+
 def test_raster_policy_registered_in_global_registry():
     from sunstone.derive_policies import KIND_DERIVE_POLICIES, raster_invalidate_stale_profile
 
