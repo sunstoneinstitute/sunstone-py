@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     import pandas as pd
+    from .component import ComponentSchema
 
 
 # ---------------------------------------------------------------------------
@@ -583,6 +584,18 @@ class Metadata:
 
     name: str | None = None
     """Human-readable dataset name, used at write time."""
+
+    identity: str | None = None
+    """Globally stable URI template for this asset. Supports env-var
+    interpolation (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
+    `sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised into
+    the concrete `@id` at write time. None means the writer derives one from
+    the package + slug + version defaults."""
+
+    component_metadata: Dict[str, "ComponentSchema"] = field(default_factory=dict)
+    """Per-component metadata (columns, bands, variables, layers). The
+    canonical store; `field_metadata` is a typed view over the column entries
+    here for tabular kinds."""
 
     # Default JSON-LD context prefixes (class-level constant, not a dataclass field)
     _DEFAULT_PREFIXES: ClassVar[Dict[str, str]] = {
