@@ -67,3 +67,15 @@ def test_as_raster_as_array_as_tiles_round_trip():
         asset.as_array()
     with pytest.raises(IncompatibleAssetKindError):
         asset.as_tiles()
+
+
+def test_as_array_returns_payload_when_kind_matches():
+    arrays = {"band1": np.zeros((4, 4))}
+    asset = Asset(payload=arrays, kind=AssetKind.ARRAY, metadata=Metadata())
+    assert asset.as_array() is arrays
+
+
+def test_as_tiles_returns_payload_when_kind_matches():
+    pyramid = object()  # opaque tile-pyramid descriptor stand-in
+    asset = Asset(payload=pyramid, kind=AssetKind.TILES, metadata=Metadata())
+    assert asset.as_tiles() is pyramid
