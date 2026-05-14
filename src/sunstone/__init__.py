@@ -94,6 +94,16 @@ from .context import ExecutionContext, detect_execution_context
 from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
 from .session import DatasetRead, LineageSession, close_session, get_session
 
+
+def read(path: str, *, format: str | None = None, **kw: object) -> "Asset":
+    """Read any registered format into an `Asset`. Dispatches via the plugin
+    registry (which normalises DataFrame-returning handlers through the
+    adapter)."""
+    from .dataframe import _read_tabular_asset
+
+    return _read_tabular_asset(path, format=format, **kw)
+
+
 # Standard RDF and DCAT prefixes for automatic type properties
 STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
@@ -116,6 +126,8 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    # Top-level I/O
+    "read",
     # Asset envelope
     "Asset",
     "AssetKind",
