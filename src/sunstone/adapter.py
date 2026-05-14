@@ -58,3 +58,16 @@ class TabularDataFrameAdapter:
             embedded = df.attrs.pop("sunstone_metadata", None)
         meta = embedded if isinstance(embedded, Metadata) else Metadata()
         return Asset(payload=df, kind=AssetKind.TABULAR, metadata=meta)
+
+    # --- Write ---
+
+    def write(self, asset: Asset, stream: BinaryIO, **kw: Any) -> None:
+        df = asset.as_table()
+        if self.supports_sunstone_metadata_embedding():
+            df.attrs["sunstone_metadata"] = asset.metadata
+            try:
+                self._h.write(df, stream, **kw)  # type: ignore[attr-defined]
+            finally:
+                df.attrs.pop("sunstone_metadata", None)
+        else:
+            self._h.write(df, stream, **kw)  # type: ignore[attr-defined]

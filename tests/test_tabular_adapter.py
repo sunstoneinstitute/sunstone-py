@@ -1,6 +1,7 @@
 import io
 
 import pandas as pd
+import pytest
 
 from sunstone.adapter import TabularDataFrameAdapter
 from sunstone.asset import Asset, AssetKind
@@ -77,3 +78,59 @@ def test_adapter_supports_predicates_delegate_to_handler():
     # Native extraction is False for legacy tabular handlers (they don't
     # introspect schema beyond pandas inference).
     assert a.supports_native_metadata_extraction() is False
+
+
+def test_adapter_write_attaches_metadata_when_handler_supports_embedding():
+    seen: dict[str, object] = {}
+
+    class _CaptureHandler(_StubHandler):
+        def __init__(self):
+            super().__init__(supports_metadata=True)
+
+        def write(self, df, stream, **kw):
+            seen["attrs"] = dict(df.attrs)
+            super().write(df, stream)
+
+    adapter = TabularDataFrameAdapter(_CaptureHandler())
+    asset = Asset(
+        payload=pd.DataFrame({"x": [1]}),
+        kind=AssetKind.TABULAR,
+        metadata=Metadata(slug="out", name="Out"),
+    )
+    adapter.write(asset, io.BytesIO())
+    assert isinstance(seen["attrs"]["sunstone_metadata"], Metadata)
+    assert seen["attrs"]["sunstone_metadata"].slug == "out"
+
+
+def test_adapter_write_cleans_up_attrs_after_write_even_on_error():
+    class _RaisingHandler(_StubHandler):
+        def __init__(self):
+            super().__init__(supports_metadata=True)
+
+        def write(self, df, stream, **kw):
+            raise RuntimeError("boom")
+
+    adapter = TabularDataFrameAdapter(_RaisingHandler())
+    df = pd.DataFrame({"x": [1]})
+    asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata(slug="out"))
+    with pytest.raises(RuntimeError, match="boom"):
+        adapter.write(asset, io.BytesIO())
+    assert "sunstone_metadata" not in df.attrs
+
+
+def test_adapter_write_does_not_attach_metadata_when_handler_lacks_embedding():
+    seen: dict[str, object] = {}
+
+    class _NoMetaHandler(_StubHandler):
+        def write(self, df, stream, **kw):
+            seen["attrs"] = dict(df.attrs)
+            super().write(df, stream)
+
+    adapter = TabularDataFrameAdapter(_NoMetaHandler(supports_metadata=False))
+    asset = Asset(
+        payload=pd.DataFrame({"x": [1]}),
+        kind=AssetKind.TABULAR,
+        metadata=Metadata(slug="out"),
+    )
+    adapter.write(asset, io.BytesIO())
+    assert "sunstone_metadata" not in seen["attrs"]
