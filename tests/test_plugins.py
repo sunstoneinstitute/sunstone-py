@@ -884,12 +884,11 @@ def test_format_handler_protocol_has_capability_predicates():
     assert "supports_sunstone_metadata_embedding" in proto_attrs
 
 
-def test_legacy_handler_supports_metadata_maps_to_embedding():
-    """Old `supports_metadata()` answer maps to
-    `supports_sunstone_metadata_embedding()` via the adapter layer
-    (TabularDataFrameAdapter, tested separately). The plugin protocol
-    documents the rename but old handlers may still expose only the old name."""
-    # Sanity-only: the new names are present at the protocol level.
+def test_legacy_supports_metadata_alias_present_on_protocol():
+    """The legacy `supports_metadata()` predicate stays on the Protocol so
+    that pre-2.1 handlers remain structurally compatible. Real mapping from
+    legacy → `supports_sunstone_metadata_embedding()` is exercised by the
+    adapter tests in Task 2.2 (`tests/test_tabular_adapter.py`)."""
     from sunstone.plugins import FormatHandler
 
-    assert "supports_metadata" in dir(FormatHandler) or True  # legacy alias allowed
+    assert "supports_metadata" in dir(FormatHandler)

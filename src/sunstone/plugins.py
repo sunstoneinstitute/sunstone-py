@@ -240,6 +240,11 @@ class PluginRegistry:
         if isinstance(plugin, URLHandler):
             self._url_handlers.append(plugin)
             registered = True
+        # NOTE: legacy external FormatHandler plugins (those without the new
+        # supports_native_metadata_extraction / supports_sunstone_metadata_embedding
+        # predicates) fail this isinstance check. They will be picked up by
+        # Task 2.2's TabularDataFrameAdapter, which wraps them at the
+        # registry boundary before downstream code consults them.
         if isinstance(plugin, FormatHandler):
             self._format_handlers.append(plugin)
             registered = True
