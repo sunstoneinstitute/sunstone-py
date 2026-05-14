@@ -108,6 +108,13 @@ def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object)
     """Write an `Asset` to `path`. Dispatches via the plugin registry."""
     from .plugins import PluginRegistry
 
+    # Forward path/format into handler kwargs so legacy handlers that use them
+    # for extension-based format inference keep working when the caller
+    # omitted an explicit format. Symmetric with `_read_tabular_asset`.
+    kw.setdefault("path", path)
+    if format is not None:
+        kw.setdefault("format", format)
+
     registry = PluginRegistry.get()
     for handler in registry.get_asset_format_handlers():
         if hasattr(handler, "can_write") and handler.can_write(path, format):  # type: ignore[attr-defined]
