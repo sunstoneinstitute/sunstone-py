@@ -13,7 +13,6 @@ import tomllib
 from pathlib import Path
 from typing import BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
 
-import pandas as pd
 import typer
 from ruamel.yaml import YAML
 
@@ -52,26 +51,50 @@ class URLHandler(Protocol):
 
 @runtime_checkable
 class FormatHandler(Protocol):
-    """Reads and writes data formats."""
+    """Reads and writes data formats from/to a single byte stream.
 
+    A handler may carry the class attribute ``__sunstone_handler_protocol__ = 2``
+    to declare that ``read()`` returns a sunstone ``Asset`` rather than a
+    ``pd.DataFrame``. Plugins without the marker are wrapped by
+    ``TabularDataFrameAdapter`` and return ``Asset(kind=AssetKind.TABULAR, ...)``.
+    """
+
+    def supports_native_metadata_extraction(self) -> bool:
+        """True if this handler can extract format-native metadata (e.g.,
+        CRS/transform from a GeoTIFF, schema from a Parquet, EXIF from a PNG)
+        and populate the resulting Asset's metadata with it."""
+        ...
+
+    def supports_sunstone_metadata_embedding(self) -> bool:
+        """True if this handler can round-trip a full sunstone ``Metadata`` blob
+        into and out of the file format (e.g., Parquet: yes; PNG: no)."""
+        ...
+
+    # Legacy predicate kept as an optional alias for adapter compatibility.
     def supports_metadata(self) -> bool:
-        """Return True if this handler can embed/extract metadata in the file format."""
+        """Legacy alias for ``supports_sunstone_metadata_embedding()``.
+
+        Older handlers may only expose this method. The adapter layer maps
+        old answers onto the new capability predicates.
+        """
         ...
 
     def can_read(self, path: str, format: str | None) -> bool:
         """Return True if this handler can read the given format. path is used for extension detection."""
         ...
 
-    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
-        """Read stream into a pandas DataFrame."""
+    def read(self, stream: BinaryIO, **kwargs: object) -> object:
+        """Read stream into either a ``pd.DataFrame`` (legacy) or a sunstone
+        ``Asset`` (new). The registry normalises both via the adapter layer."""
         ...
 
     def can_write(self, path: str, format: str | None) -> bool:
         """Return True if this handler can write the given format. path is used for extension detection."""
         ...
 
-    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
-        """Write DataFrame to stream."""
+    def write(self, payload: object, stream: BinaryIO, **kwargs: object) -> None:
+        """Write payload to stream. The payload is either a ``pd.DataFrame``
+        (legacy) or a sunstone ``Asset`` (new)."""
         ...
 
 
@@ -199,8 +222,12 @@ class PluginRegistry:
         # Internal handlers last (fallback)
         from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
 
-        self._format_handlers.append(ParquetFormatHandler())
-        self._format_handlers.append(BuiltinFormatHandler())
+        # Legacy handlers narrow `write` to `pd.DataFrame`; they are still
+        # callable as FormatHandler at runtime via duck typing. Task 2.2 wraps
+        # these in the TabularDataFrameAdapter, which conforms to the wider
+        # Protocol exactly.
+        self._format_handlers.append(ParquetFormatHandler())  # type: ignore[arg-type]
+        self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         self._url_handlers.append(HttpURLHandler())
         # LocalFileHandler is always present (registered in __init__)
 
@@ -213,6 +240,11 @@ class PluginRegistry:
         if isinstance(plugin, URLHandler):
             self._url_handlers.append(plugin)
             registered = True
+        # NOTE: legacy external FormatHandler plugins (those without the new
+        # supports_native_metadata_extraction / supports_sunstone_metadata_embedding
+        # predicates) fail this isinstance check. They will be picked up by
+        # Task 2.2's TabularDataFrameAdapter, which wraps them at the
+        # registry boundary before downstream code consults them.
         if isinstance(plugin, FormatHandler):
             self._format_handlers.append(plugin)
             registered = True
@@ -233,6 +265,25 @@ class PluginRegistry:
     def get_format_handlers(self) -> list[FormatHandler]:
         """Return all registered format handlers."""
         return self._format_handlers
+
+    def get_asset_format_handlers(self) -> list[object]:
+        """Return all registered format handlers normalised to the
+        `Asset`-returning shape.
+
+        Native-style handlers (those carrying
+        `__sunstone_handler_protocol__ = 2`) are returned as-is. Legacy
+        DataFrame-returning handlers are wrapped in `TabularDataFrameAdapter`.
+        """
+        from .adapter import TabularDataFrameAdapter
+
+        out: list[object] = []
+        for h in self._format_handlers:
+            protocol = getattr(h, "__sunstone_handler_protocol__", None)
+            if isinstance(protocol, int) and protocol >= 2:
+                out.append(h)
+            else:
+                out.append(TabularDataFrameAdapter(h))
+        return out
 
     def get_cli_groups(self) -> list[tuple[str, typer.Typer]]:
         """Return all (name, typer_app) tuples from registered CLIProviders."""

@@ -69,6 +69,12 @@ class FakeFormatHandler:
     def supports_metadata(self):
         return False
 
+    def supports_native_metadata_extraction(self):
+        return False
+
+    def supports_sunstone_metadata_embedding(self):
+        return False
+
     def can_read(self, path, format):
         return str(path).endswith(".fake")
 
@@ -78,8 +84,8 @@ class FakeFormatHandler:
     def can_write(self, path, format):
         return str(path).endswith(".fake")
 
-    def write(self, df, stream, **kwargs):
-        df.to_csv(stream)
+    def write(self, payload, stream, **kwargs):
+        payload.to_csv(stream)
 
 
 class PartialFormatHandler:
@@ -229,6 +235,12 @@ def test_external_plugin_takes_priority_over_builtin():
         def supports_metadata(self):
             return False
 
+        def supports_native_metadata_extraction(self):
+            return False
+
+        def supports_sunstone_metadata_embedding(self):
+            return False
+
         def can_read(self, path, format):
             return str(path).endswith(".csv")
 
@@ -238,7 +250,7 @@ def test_external_plugin_takes_priority_over_builtin():
         def can_write(self, path, format):
             return str(path).endswith(".csv")
 
-        def write(self, df, stream, **kwargs):
+        def write(self, payload, stream, **kwargs):
             pass
 
     with patch(
@@ -861,3 +873,76 @@ def test_cli_provider_exception_does_not_hide_other_groups():
     groups = registry.get_cli_groups()
     assert len(groups) == 1
     assert groups[0][0] == "test"
+
+
+def test_format_handler_protocol_has_capability_predicates():
+    from sunstone.plugins import FormatHandler
+
+    # The Protocol must declare both predicates.
+    proto_attrs = set(dir(FormatHandler))
+    assert "supports_native_metadata_extraction" in proto_attrs
+    assert "supports_sunstone_metadata_embedding" in proto_attrs
+
+
+def test_legacy_supports_metadata_alias_present_on_protocol():
+    """The legacy `supports_metadata()` predicate stays on the Protocol so
+    that pre-2.1 handlers remain structurally compatible. Real mapping from
+    legacy → `supports_sunstone_metadata_embedding()` is exercised by the
+    adapter tests in Task 2.2 (`tests/test_tabular_adapter.py`)."""
+    from sunstone.plugins import FormatHandler
+
+    assert "supports_metadata" in dir(FormatHandler)
+
+
+def test_registry_wraps_legacy_handlers_in_adapter():
+    from sunstone.adapter import TabularDataFrameAdapter
+    from sunstone.plugins import PluginRegistry
+
+    # Built-in BuiltinFormatHandler is currently DataFrame-returning; the
+    # registry should expose it (or a wrapper of it) via the new accessor.
+    # Use .get() to ensure built-in handlers are registered via _discover().
+    registry = PluginRegistry.get()
+    handlers = registry.get_asset_format_handlers()
+    assert any(isinstance(h, TabularDataFrameAdapter) for h in handlers), (
+        f"Expected at least one TabularDataFrameAdapter in {handlers!r}"
+    )
+
+
+def test_registry_preserves_native_asset_handlers_unwrapped():
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.plugins import PluginRegistry
+
+    class _NativeAssetHandler:
+        __sunstone_handler_protocol__ = 2
+
+        def supports_native_metadata_extraction(self):
+            return True
+
+        def supports_sunstone_metadata_embedding(self):
+            return True
+
+        def can_read(self, path, format):
+            return False
+
+        def can_write(self, path, format):
+            return False
+
+        def read(self, stream, **kw):
+            return Asset(
+                payload=None,
+                kind=AssetKind.RASTER,
+                metadata=__import__("sunstone").lineage.Metadata(),
+            )
+
+        def write(self, asset, stream, **kw):
+            pass
+
+        def supported_kinds(self):
+            return (AssetKind.RASTER,)
+
+    registry = PluginRegistry()
+    native = _NativeAssetHandler()
+    registry._format_handlers.append(native)  # internal test inject
+
+    handlers = registry.get_asset_format_handlers()
+    assert native in handlers  # not wrapped — already Asset-returning
