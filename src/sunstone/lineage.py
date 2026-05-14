@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     import pandas as pd
+    from .component import ComponentSchema
 
 
 # ---------------------------------------------------------------------------
@@ -561,6 +562,18 @@ class Metadata:
     name: str | None = None
     """Human-readable dataset name, used at write time."""
 
+    identity: str | None = None
+    """Globally stable URI template for this asset. Supports env-var
+    interpolation (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
+    `sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised into
+    the concrete `@id` at write time. None means the writer derives one from
+    the package + slug + version defaults."""
+
+    component_metadata: Dict[str, "ComponentSchema"] = field(default_factory=dict)
+    """Per-component metadata (columns, bands, variables, layers). The
+    canonical store; `field_metadata` is a typed view over the column entries
+    here for tabular kinds."""
+
     # Default JSON-LD context prefixes (class-level constant, not a dataclass field)
     _DEFAULT_PREFIXES: ClassVar[Dict[str, str]] = {
         "dcat": "http://www.w3.org/ns/dcat#",
@@ -569,6 +582,31 @@ class Metadata:
         "si": "https://sunstone.institute/rdf/vocab#",
         "schema": "http://schema.org/",
     }
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if ":" not in key:
+            raise ValueError(
+                f"Metadata keys must be prefixed RDF names (contain ':'). "
+                f"Got bare key {key!r}. Use a regular attribute for non-RDF fields."
+            )
+        if self.custom_properties is None:
+            self.custom_properties = {}
+        self.custom_properties[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        if self.custom_properties is None or key not in self.custom_properties:
+            raise KeyError(key)
+        return self.custom_properties[key]
+
+    def __delitem__(self, key: str) -> None:
+        if self.custom_properties is None or key not in self.custom_properties:
+            raise KeyError(key)
+        del self.custom_properties[key]
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str) or self.custom_properties is None:
+            return False
+        return key in self.custom_properties
 
     def to_jsonld(self) -> Dict[str, Any]:
         """Serialize metadata to a JSON-LD document.

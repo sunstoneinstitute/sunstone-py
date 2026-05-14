@@ -889,3 +889,74 @@ class TestMetadataJsonLd:
         assert m.field_metadata == {}
         assert m.custom_properties is None
         assert m.rdf_prefixes is None
+
+
+class TestMetadataIdentityAndComponentMetadata:
+    """Tests for identity URI and component_metadata fields."""
+
+    def test_metadata_identity_defaults_to_none(self):
+        """Metadata.identity defaults to None."""
+        m = Metadata()
+        assert m.identity is None
+
+    def test_metadata_identity_accepts_uri_template(self):
+        """Metadata.identity accepts a URI template string."""
+        m = Metadata(identity="sunstone://acme/sales@1.0.0")
+        assert m.identity == "sunstone://acme/sales@1.0.0"
+
+    def test_metadata_component_metadata_defaults_to_empty_dict(self):
+        """Metadata.component_metadata defaults to an empty dict."""
+        m = Metadata()
+        assert m.component_metadata == {}
+
+    def test_metadata_component_metadata_per_instance(self):
+        """Each Metadata instance has its own component_metadata dict."""
+        from sunstone.component import ComponentSchema
+
+        a = Metadata()
+        b = Metadata()
+        a.component_metadata["b04"] = ComponentSchema(name="b04", component_kind="band")
+        assert "b04" not in b.component_metadata
+
+
+class TestMetadataMapping:
+    """Tests for __setitem__, __getitem__, __delitem__, __contains__ on Metadata."""
+
+    def test_metadata_setitem_lazy_inits_custom_properties(self):
+        m = Metadata()
+        assert m.custom_properties is None
+        m["sosa:observedProperty"] = "sosa:NDVI"
+        assert m.custom_properties == {"sosa:observedProperty": "sosa:NDVI"}
+
+    def test_metadata_getitem_reads_custom_property(self):
+        m = Metadata()
+        m["dcat:theme"] = "earth-observation"
+        assert m["dcat:theme"] == "earth-observation"
+
+    def test_metadata_getitem_missing_raises_keyerror(self):
+        m = Metadata()
+        with pytest.raises(KeyError):
+            _ = m["sosa:observedProperty"]
+
+    def test_metadata_delitem_removes_custom_property(self):
+        m = Metadata()
+        m["dcat:theme"] = "x"
+        del m["dcat:theme"]
+        assert "dcat:theme" not in (m.custom_properties or {})
+
+    def test_metadata_contains_reflects_custom_properties(self):
+        m = Metadata()
+        m["dcat:theme"] = "x"
+        assert "dcat:theme" in m
+        assert "dct:created" not in m
+
+    def test_metadata_setitem_bare_key_rejected(self):
+        m = Metadata()
+        with pytest.raises(ValueError, match="prefixed"):
+            m["theme"] = "x"
+
+    def test_metadata_setitem_full_iri_in_angle_brackets_allowed(self):
+        # A colon is sufficient — full URIs contain colons too (http://...).
+        m = Metadata()
+        m["http://purl.org/dc/terms/description"] = "x"
+        assert "http://purl.org/dc/terms/description" in m

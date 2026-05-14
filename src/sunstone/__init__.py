@@ -25,6 +25,8 @@ Example:
     ... )
 """
 
+from .asset import Asset, AssetKind
+from .component import ComponentSchema
 from .config import (
     clear_project_path,
     get_project_path,
@@ -33,6 +35,7 @@ from .config import (
 )
 from .dataframe import DataFrame
 from .datasets import DatasetsManager
+from .errors import IncompatibleAssetKindError
 from .exceptions import (
     DatasetNotFoundError,
     DatasetValidationError,
@@ -41,6 +44,7 @@ from .exceptions import (
     SunstoneError,
     UnitError,
 )
+from .rdf import IRI, LangString, TypedLiteral
 from .lineage import (
     Activity,
     ActivityRef,
@@ -112,6 +116,14 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    # Asset envelope
+    "Asset",
+    "AssetKind",
+    "ComponentSchema",
+    # RDF types
+    "IRI",
+    "LangString",
+    "TypedLiteral",
     # Project-path configuration
     "set_project_path",
     "get_project_path",
@@ -155,6 +167,7 @@ __all__ = [
     "StrictModeError",
     "LineageError",
     "UnitError",
+    "IncompatibleAssetKindError",
     # Context and session
     "ExecutionContext",
     "detect_execution_context",
