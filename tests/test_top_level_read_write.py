@@ -50,3 +50,24 @@ def test_top_level_write_raises_for_no_handler(tmp_path):
     )
     with pytest.raises(ValueError, match="handler"):
         sunstone.write(asset, str(tmp_path / "out.xyz"), format="xyz")
+
+
+def test_top_level_write_raises_incompatible_kind_when_handler_unsupported(tmp_path):
+    import pytest
+
+    import sunstone
+    from sunstone.errors import IncompatibleAssetKindError
+    from sunstone.lineage import Metadata
+
+    # The CSV handler only supports TABULAR. Build a RASTER asset addressed
+    # at a `.csv` path so dispatch picks the CSV handler but the kind check
+    # then rejects it.
+    asset = sunstone.Asset(
+        payload=None,
+        kind=sunstone.AssetKind.RASTER,
+        metadata=Metadata(slug="r"),
+    )
+    with pytest.raises(IncompatibleAssetKindError) as exc:
+        sunstone.write(asset, str(tmp_path / "out.csv"), format="csv")
+    assert "raster" in str(exc.value).lower()
+    assert "tabular" in str(exc.value).lower()

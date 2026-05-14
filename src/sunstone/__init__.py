@@ -105,7 +105,12 @@ def read(path: str, *, format: str | None = None, **kw: object) -> "Asset":
 
 
 def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
-    """Write an `Asset` to `path`. Dispatches via the plugin registry."""
+    """Write an `Asset` to `path`. Dispatches via the plugin registry.
+
+    Raises `IncompatibleAssetKindError` if the selected handler does not
+    support `asset.kind`.
+    """
+    from .errors import IncompatibleAssetKindError
     from .plugins import PluginRegistry
 
     # Forward path/format into handler kwargs so legacy handlers that use them
@@ -117,13 +122,20 @@ def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object)
 
     registry = PluginRegistry.get()
     for handler in registry.get_asset_format_handlers():
-        if hasattr(handler, "can_write") and handler.can_write(path, format):  # type: ignore[attr-defined]
-            url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
-            if url_handler is None:
-                raise FileNotFoundError(path)
-            with url_handler.open(path, "wb") as stream:
-                handler.write(asset, stream, **kw)  # type: ignore[attr-defined]
-            return
+        if not (hasattr(handler, "can_write") and handler.can_write(path, format)):  # type: ignore[attr-defined]
+            continue
+        supported = tuple(handler.supported_kinds())  # type: ignore[attr-defined]
+        if asset.kind not in supported:
+            raise IncompatibleAssetKindError(
+                expected=supported[0] if supported else asset.kind,
+                actual=asset.kind,
+            )
+        url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
+        if url_handler is None:
+            raise FileNotFoundError(path)
+        with url_handler.open(path, "wb") as stream:
+            handler.write(asset, stream, **kw)  # type: ignore[attr-defined]
+        return
     raise ValueError(f"No handler for path={path!r} format={format!r}")
 
 
