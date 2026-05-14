@@ -108,7 +108,17 @@ def _materialise_default_identity(asset: "Asset") -> None:
     """If `asset.metadata.identity` is None and the asset has a slug, fill in
     the default `sunstone://<package-name>/<slug>@<package-version>` URI using
     the active project's pyproject.toml. No-op otherwise — user-supplied
-    templates are preserved verbatim."""
+    templates are preserved verbatim.
+
+    Skipped entirely when no `pyproject.toml` is discoverable at the resolved
+    project path: otherwise the bare cwd fallback in `get_project_path()`
+    would invent identities from arbitrary directory names (e.g. a user's
+    home directory), leaking information into the asset and into downstream
+    JSON-LD emission.
+
+    Mutates `asset.metadata.identity` in place; subsequent writes of the
+    same asset reuse the materialised value.
+    """
     if asset.metadata.identity is not None:
         return
     if not asset.metadata.slug:
@@ -123,6 +133,10 @@ def _materialise_default_identity(asset: "Asset") -> None:
         # No project path configured — skip default identity.
         return
     if project_path is None:
+        return
+
+    # Refuse to invent an identity when there's no project declaration.
+    if not (project_path / "pyproject.toml").exists():
         return
 
     pkg_name = get_project_slug(project_path)
