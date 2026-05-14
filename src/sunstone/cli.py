@@ -60,6 +60,23 @@ def get_project_slug(project_path: Path) -> str:
     return project_path.name
 
 
+def get_project_version(project_path: Path) -> str | None:
+    """Read `[project].version` from `pyproject.toml`. Returns `None` if the
+    file or field is absent."""
+    pyproject_path = project_path / "pyproject.toml"
+    if not pyproject_path.exists():
+        return None
+    try:
+        with open(pyproject_path, "rb") as f:
+            pyproject = tomllib.load(f)
+        version = pyproject.get("project", {}).get("version")
+        if isinstance(version, str):
+            return version
+    except Exception:
+        return None
+    return None
+
+
 def expand_env_vars(text: str) -> str:
     """
     Expand environment variables in text using ${VAR} or ${VAR:-default} syntax.
@@ -888,7 +905,7 @@ def dataset_migrate(
                             if url_handler:
                                 with url_handler.open(str(abs_path), "rb") as stream:
                                     df = reader.read(stream, path=str(abs_path))
-                                entry["data_hash"] = compute_dataframe_hash(df)
+                                entry["data_hash"] = compute_dataframe_hash(df)  # type: ignore[arg-type]
                                 changed = True
                     except Exception as e:
                         typer.echo(f"  Warning: could not compute data_hash for '{slug}': {e}", err=True)
