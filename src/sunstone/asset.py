@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Iterable, cast
+from typing import TYPE_CHECKING, Any, Iterable, Sequence, cast
 
 from .errors import IncompatibleAssetKindError
 from .lineage import Metadata
@@ -133,7 +133,7 @@ class Asset:
         return apply_kind_derive_policy(self, child)
 
 
-def _build_child_lineage(parents: list["Asset"]) -> "LineageMetadata":
+def _build_child_lineage(parents: Sequence["Asset"]) -> "LineageMetadata":
     """Compose a child `LineageMetadata` from one or more parent assets.
 
     For each parent with a slug, record a `DatasetMetadata` snapshot in
