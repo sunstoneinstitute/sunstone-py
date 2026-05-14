@@ -960,3 +960,42 @@ class TestMetadataMapping:
         m = Metadata()
         m["http://purl.org/dc/terms/description"] = "x"
         assert "http://purl.org/dc/terms/description" in m
+
+
+def test_metadata_to_jsonld_round_trip_preserves_slug_name_description():
+    from sunstone.lineage import Metadata
+
+    m = Metadata(slug="x", name="X", description="d")
+    doc = m.to_jsonld()
+    m2 = Metadata.from_jsonld(doc)
+    assert m2.slug == "x"
+    assert m2.name == "X"
+    assert m2.description == "d"
+
+
+def test_metadata_to_jsonld_round_trip_preserves_rdf_prefixes():
+    from sunstone.lineage import Metadata
+
+    m = Metadata(slug="x", rdf_prefixes={"ex": "http://example.org/"})
+    m["ex:topic"] = "earth-observation"
+    doc = m.to_jsonld()
+    m2 = Metadata.from_jsonld(doc)
+    assert m2.rdf_prefixes is not None
+    assert m2.rdf_prefixes.get("ex") == "http://example.org/"
+    assert m2.custom_properties is not None
+    assert m2.custom_properties.get("ex:topic") == "earth-observation"
+
+
+def test_metadata_from_jsonld_ignores_unknown_keys():
+    """Round-trip must tolerate future JSON-LD fields (e.g., new prov/dcat
+    terms) without erroring."""
+    from sunstone.lineage import Metadata
+
+    doc = {
+        "@context": {"dct": "http://purl.org/dc/terms/"},
+        "@type": "dcat:Distribution",
+        "dct:identifier": "x",
+        "future:newField": "ignored-safely",
+    }
+    m = Metadata.from_jsonld(doc)
+    assert m.slug == "x"
