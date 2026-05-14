@@ -6,7 +6,7 @@ import os
 import warnings
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import pandas as pd
 
@@ -378,7 +378,7 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format=format, path=location, **kwargs)
+            df = cast(pd.DataFrame, format_handler.read(stream, format=format, path=location, **kwargs))
 
         # Extract embedded metadata if the format handler provided it
         embedded_metadata = df.attrs.pop("sunstone_metadata", None)
@@ -521,7 +521,7 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="csv", path=location, **kwargs)
+            df = cast(pd.DataFrame, format_handler.read(stream, format="csv", path=location, **kwargs))
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -635,7 +635,7 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="excel", path=location, **kwargs)
+            df = cast(pd.DataFrame, format_handler.read(stream, format="excel", path=location, **kwargs))
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
