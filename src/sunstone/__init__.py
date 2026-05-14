@@ -104,12 +104,40 @@ def read(path: str, *, format: str | None = None, **kw: object) -> "Asset":
     return _read_tabular_asset(path, format=format, **kw)
 
 
+def _materialise_default_identity(asset: "Asset") -> None:
+    """If `asset.metadata.identity` is None and the asset has a slug, fill in
+    the default `sunstone://<package-name>/<slug>@<package-version>` URI using
+    the active project's pyproject.toml. No-op otherwise — user-supplied
+    templates are preserved verbatim."""
+    if asset.metadata.identity is not None:
+        return
+    if not asset.metadata.slug:
+        return
+
+    from .cli import get_project_slug, get_project_version
+    from .config import get_project_path
+
+    try:
+        project_path = get_project_path()
+    except Exception:
+        # No project path configured — skip default identity.
+        return
+    if project_path is None:
+        return
+
+    pkg_name = get_project_slug(project_path)
+    pkg_version = get_project_version(project_path) or "0.0.0"
+    asset.metadata.identity = f"sunstone://{pkg_name}/{asset.metadata.slug}@{pkg_version}"
+
+
 def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
     """Write an `Asset` to `path`. Dispatches via the plugin registry.
 
     Raises `IncompatibleAssetKindError` if the selected handler does not
     support `asset.kind`.
     """
+    _materialise_default_identity(asset)
+
     from .errors import IncompatibleAssetKindError
     from .plugins import PluginRegistry
 
