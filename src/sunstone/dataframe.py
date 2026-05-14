@@ -1352,9 +1352,16 @@ def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -
     from .asset import Asset
     from .plugins import PluginRegistry
 
+    # Forward path/format into handler kwargs so legacy handlers that use them
+    # for extension-based format inference (e.g. BuiltinFormatHandler) keep
+    # working when the caller omitted an explicit format.
+    kw.setdefault("path", path)
+    if format is not None:
+        kw.setdefault("format", format)
+
     registry = PluginRegistry.get()
     for handler in registry.get_asset_format_handlers():
-        if hasattr(handler, "can_read") and handler.can_read(path, format):
+        if hasattr(handler, "can_read") and handler.can_read(path, format):  # type: ignore[attr-defined]
             url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
             if url_handler is None:
                 raise FileNotFoundError(path)

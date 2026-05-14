@@ -864,3 +864,31 @@ def test_read_tabular_asset_returns_asset(tmp_path):
     assert isinstance(asset, Asset)
     assert asset.kind is AssetKind.TABULAR
     assert list(asset.payload.columns) == ["x", "y"]
+
+
+def test_read_tabular_asset_infers_format_from_extension(tmp_path):
+    """When no explicit `format=` is passed, the helper must forward `path`
+    so that handlers using extension-based inference still work."""
+
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.dataframe import _read_tabular_asset
+
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("x,y\n1,2\n")
+
+    asset = _read_tabular_asset(str(csv))
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+
+
+def test_read_tabular_asset_raises_when_no_handler_matches(tmp_path):
+    """No handler accepts an unknown extension; the helper raises ValueError."""
+    import pytest
+
+    from sunstone.dataframe import _read_tabular_asset
+
+    unknown = tmp_path / "x.unknown-ext"
+    unknown.write_text("nope")
+
+    with pytest.raises(ValueError, match="No handler"):
+        _read_tabular_asset(str(unknown))
