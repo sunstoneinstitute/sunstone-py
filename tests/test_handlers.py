@@ -186,16 +186,39 @@ class TestParquetFormatHandler:
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        from sunstone.asset import Asset, AssetKind
+
         table = pa.table({"a": [1, 2, 3], "b": [4.0, 5.0, 6.0]})
         path = tmp_path / "test.parquet"
         pq.write_table(table, path)
 
         with open(path, "rb") as f:
-            df = handler.read(f)
+            asset = handler.read(f)
+        assert isinstance(asset, Asset)
+        assert asset.kind is AssetKind.TABULAR
+        df = asset.payload
         assert list(df.columns) == ["a", "b"]
         assert len(df) == 3
 
     def test_write_parquet_basic(self, handler, tmp_path):
+        import pyarrow.parquet as pq
+
+        from sunstone.asset import Asset, AssetKind
+        from sunstone.lineage import Metadata
+
+        df = pd.DataFrame({"x": [10, 20], "y": ["a", "b"]})
+        asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+        path = tmp_path / "out.parquet"
+        with open(path, "wb") as f:
+            handler.write(asset, f)
+
+        table = pq.read_table(path)
+        result = table.to_pandas()
+        assert list(result.columns) == ["x", "y"]
+        assert len(result) == 2
+
+    def test_write_parquet_accepts_bare_dataframe(self, handler, tmp_path):
+        """Polymorphic write — bare DataFrames are accepted for back-compat."""
         import pyarrow.parquet as pq
 
         df = pd.DataFrame({"x": [10, 20], "y": ["a", "b"]})
@@ -211,6 +234,7 @@ class TestParquetFormatHandler:
     def test_write_embeds_metadata(self, handler, tmp_path):
         import pyarrow.parquet as pq
 
+        from sunstone.asset import Asset, AssetKind
         from sunstone.lineage import Metadata
 
         meta = Metadata()
@@ -219,13 +243,34 @@ class TestParquetFormatHandler:
         meta.description = "A test"
 
         df = pd.DataFrame({"col": [1, 2, 3]})
-        df.attrs["sunstone_metadata"] = meta
+        asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=meta)
 
         path = tmp_path / "meta.parquet"
         with open(path, "wb") as f:
-            handler.write(df, f)
+            handler.write(asset, f)
 
         # Verify the b"sunstone" key exists in Parquet schema metadata
+        pf = pq.ParquetFile(path)
+        schema_meta = pf.schema_arrow.metadata
+        assert b"sunstone" in schema_meta
+
+    def test_write_embeds_metadata_via_legacy_attrs(self, handler, tmp_path):
+        """Back-compat: bare DataFrame + df.attrs["sunstone_metadata"]."""
+        import pyarrow.parquet as pq
+
+        from sunstone.lineage import Metadata
+
+        meta = Metadata()
+        meta.slug = "legacy-attrs"
+        meta.name = "Legacy"
+
+        df = pd.DataFrame({"col": [1, 2, 3]})
+        df.attrs["sunstone_metadata"] = meta
+
+        path = tmp_path / "legacy.parquet"
+        with open(path, "wb") as f:
+            handler.write(df, f)
+
         pf = pq.ParquetFile(path)
         schema_meta = pf.schema_arrow.metadata
         assert b"sunstone" in schema_meta
@@ -235,6 +280,7 @@ class TestParquetFormatHandler:
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        from sunstone.asset import Asset
         from sunstone.lineage import Metadata
 
         # Create metadata and serialize to JSON-LD
@@ -256,10 +302,10 @@ class TestParquetFormatHandler:
 
         # Read back via handler
         with open(path, "rb") as f:
-            df = handler.read(f)
+            asset = handler.read(f)
 
-        assert "sunstone_metadata" in df.attrs
-        restored = df.attrs["sunstone_metadata"]
+        assert isinstance(asset, Asset)
+        restored = asset.metadata
         assert isinstance(restored, Metadata)
         assert restored.slug == "round-trip"
         assert restored.name == "Round Trip"
@@ -268,13 +314,48 @@ class TestParquetFormatHandler:
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        from sunstone.asset import Asset
+        from sunstone.lineage import Metadata
+
         table = pa.table({"a": [1]})
         path = tmp_path / "plain.parquet"
         pq.write_table(table, path)
 
         with open(path, "rb") as f:
-            df = handler.read(f)
-        assert "sunstone_metadata" not in df.attrs
+            asset = handler.read(f)
+        assert isinstance(asset, Asset)
+        # No embedded metadata → empty default Metadata
+        assert isinstance(asset.metadata, Metadata)
+        assert asset.metadata.slug is None
+        assert asset.metadata.name is None
+
+
+def test_parquet_format_handler_round_trips_sunstone_metadata(tmp_path):
+    import pandas as pd
+
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.handlers import ParquetFormatHandler
+    from sunstone.lineage import Metadata
+
+    assert getattr(ParquetFormatHandler, "__sunstone_handler_protocol__", None) == 2
+
+    df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    h = ParquetFormatHandler()
+
+    meta_out = Metadata(slug="parquet-out", name="Parquet Out", description="round-trip test")
+    asset_out = Asset(payload=df, kind=AssetKind.TABULAR, metadata=meta_out)
+
+    p = tmp_path / "x.parquet"
+    with open(p, "wb") as f:
+        h.write(asset_out, f)
+
+    with open(p, "rb") as f:
+        asset_in = h.read(f)
+    assert isinstance(asset_in, Asset)
+    assert asset_in.kind is AssetKind.TABULAR
+    assert asset_in.metadata.slug == "parquet-out"
+    assert asset_in.metadata.name == "Parquet Out"
+    assert asset_in.metadata.description == "round-trip test"
 
 
 @pytest.fixture

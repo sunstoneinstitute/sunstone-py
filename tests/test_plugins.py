@@ -895,13 +895,34 @@ def test_legacy_supports_metadata_alias_present_on_protocol():
 
 
 def test_registry_wraps_legacy_handlers_in_adapter():
+    import pandas as pd
+
     from sunstone.adapter import TabularDataFrameAdapter
     from sunstone.plugins import PluginRegistry
 
-    # Built-in BuiltinFormatHandler is currently DataFrame-returning; the
-    # registry should expose it (or a wrapper of it) via the new accessor.
-    # Use .get() to ensure built-in handlers are registered via _discover().
-    registry = PluginRegistry.get()
+    # A legacy DataFrame-returning handler (protocol v1 / no protocol marker)
+    # must be wrapped by the registry in a TabularDataFrameAdapter when exposed
+    # via `get_asset_format_handlers()`.
+    class _LegacyDataFrameHandler:
+        def supports_metadata(self):
+            return False
+
+        def can_read(self, path, format):
+            return False
+
+        def can_write(self, path, format):
+            return False
+
+        def read(self, stream, **kw):
+            return pd.DataFrame()
+
+        def write(self, df, stream, **kw):
+            pass
+
+    registry = PluginRegistry()
+    legacy = _LegacyDataFrameHandler()
+    registry._format_handlers.append(legacy)  # internal test inject
+
     handlers = registry.get_asset_format_handlers()
     assert any(isinstance(h, TabularDataFrameAdapter) for h in handlers), (
         f"Expected at least one TabularDataFrameAdapter in {handlers!r}"

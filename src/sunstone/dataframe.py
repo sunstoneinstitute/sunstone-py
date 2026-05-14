@@ -423,10 +423,28 @@ class DataFrame:
         # Handlers may return either a bare DataFrame (legacy) or an Asset (v2+).
         from .asset import Asset as _Asset
 
-        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
-
-        # Extract embedded metadata if the format handler provided it
-        embedded_metadata = df.attrs.pop("sunstone_metadata", None)
+        embedded_metadata: Optional[Metadata]
+        if isinstance(result, _Asset):
+            df = cast(pd.DataFrame, result.payload)
+            # Prefer the Asset's metadata; fall back to df.attrs for handlers
+            # that still leak metadata via the legacy channel.
+            asset_meta = result.metadata
+            embedded_metadata = asset_meta if asset_meta is not None else df.attrs.pop("sunstone_metadata", None)
+            # An empty default Metadata() carries no useful info — treat as None.
+            if embedded_metadata is not None and isinstance(embedded_metadata, Metadata):
+                if (
+                    embedded_metadata.slug is None
+                    and embedded_metadata.name is None
+                    and embedded_metadata.description is None
+                    and not embedded_metadata.field_metadata
+                    and not embedded_metadata.rdf_prefixes
+                    and not embedded_metadata.custom_properties
+                ):
+                    embedded_metadata = None
+        else:
+            df = cast(pd.DataFrame, result)
+            # Extract embedded metadata if the format handler provided it
+            embedded_metadata = df.attrs.pop("sunstone_metadata", None)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -975,22 +993,27 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
-        # Attach metadata for format handlers that support it
-        if format_writer and registry.handler_supports_metadata(format_writer):
-            self.data.attrs["sunstone_metadata"] = self.metadata
+        # Wrap data in an Asset envelope so format handlers receive both the
+        # payload and the unified Metadata in a single argument (protocol v2).
+        # v1/legacy handlers that expect a bare DataFrame won't accept this,
+        # but the only built-in writer that supports metadata is the Parquet
+        # handler — which is now v2.
+        from .asset import Asset as _Asset
+        from .asset import AssetKind as _AssetKind
 
-        try:
-            if url_handler and format_writer:
-                with url_handler.open(location, "wb") as stream:
-                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-            elif format_writer:
-                with open(absolute_path, "wb") as stream:
-                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-            else:
-                self.data.to_parquet(absolute_path, **pandas_kwargs)
-        finally:
-            # Clean up transport copy
-            self.data.attrs.pop("sunstone_metadata", None)
+        if format_writer and registry.handler_supports_metadata(format_writer):
+            payload_for_write: object = _Asset(payload=self.data, kind=_AssetKind.TABULAR, metadata=self.metadata)
+        else:
+            payload_for_write = self.data
+
+        if url_handler and format_writer:
+            with url_handler.open(location, "wb") as stream:
+                format_writer.write(payload_for_write, stream, format=None, path=location, **pandas_kwargs)
+        elif format_writer:
+            with open(absolute_path, "wb") as stream:
+                format_writer.write(payload_for_write, stream, format=None, path=location, **pandas_kwargs)
+        else:
+            self.data.to_parquet(absolute_path, **pandas_kwargs)
 
         # Compute data hash for change detection
         data_hash = compute_dataframe_hash(self.data)
