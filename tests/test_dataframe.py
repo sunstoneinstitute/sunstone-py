@@ -848,3 +848,19 @@ class TestReadDatasetParquetMetadata:
         # User RDF prefixes from embedded should be present
         assert df.metadata.rdf_prefixes is not None
         assert "ex" in df.metadata.rdf_prefixes
+
+
+def test_read_tabular_asset_returns_asset(tmp_path):
+    """The internal helper unwraps DataFrame-returning handlers via the
+    adapter and produces an Asset directly."""
+
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.dataframe import _read_tabular_asset
+
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("x,y\n1,2\n")
+
+    asset = _read_tabular_asset(str(csv), format="csv")
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+    assert list(asset.payload.columns) == ["x", "y"]

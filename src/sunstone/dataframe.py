@@ -6,7 +6,7 @@ import os
 import warnings
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 import pandas as pd
 
@@ -14,6 +14,9 @@ from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+
+if TYPE_CHECKING:
+    from .asset import Asset
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -1335,3 +1338,26 @@ class DataFrame:
     def __iter__(self) -> Any:
         """Iterate over column names."""
         return iter(self.data)
+
+
+def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -> "Asset":
+    """Internal helper: resolve a path to a tabular `Asset`, going through the
+    plugin registry (which wraps DataFrame-returning handlers via
+    `TabularDataFrameAdapter`).
+
+    Used by `read_csv` / `read_excel` / `read_dataset` after this refactor.
+    Returns the raw asset; callers can `.payload` it back to a DataFrame or
+    keep it as an Asset.
+    """
+    from .asset import Asset
+    from .plugins import PluginRegistry
+
+    registry = PluginRegistry.get()
+    for handler in registry.get_asset_format_handlers():
+        if hasattr(handler, "can_read") and handler.can_read(path, format):
+            url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
+            if url_handler is None:
+                raise FileNotFoundError(path)
+            with url_handler.open(path, "rb") as stream:
+                return cast(Asset, handler.read(stream, **kw))  # type: ignore[attr-defined]
+    raise ValueError(f"No handler for path={path!r} format={format!r}")
