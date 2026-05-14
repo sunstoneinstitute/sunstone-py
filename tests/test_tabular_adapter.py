@@ -81,7 +81,7 @@ def test_adapter_supports_predicates_delegate_to_handler():
 
 
 def test_adapter_write_attaches_metadata_when_handler_supports_embedding():
-    seen: dict[str, object] = {}
+    seen: dict[str, dict[str, object]] = {}
 
     class _CaptureHandler(_StubHandler):
         def __init__(self):
@@ -119,7 +119,7 @@ def test_adapter_write_cleans_up_attrs_after_write_even_on_error():
 
 
 def test_adapter_write_does_not_attach_metadata_when_handler_lacks_embedding():
-    seen: dict[str, object] = {}
+    seen: dict[str, dict[str, object]] = {}
 
     class _NoMetaHandler(_StubHandler):
         def write(self, df, stream, **kw):
