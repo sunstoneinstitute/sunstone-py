@@ -278,7 +278,8 @@ class PluginRegistry:
 
         out: list[object] = []
         for h in self._format_handlers:
-            if getattr(h, "__sunstone_handler_protocol__", None) == 2:
+            protocol = getattr(h, "__sunstone_handler_protocol__", None)
+            if isinstance(protocol, int) and protocol >= 2:
                 out.append(h)
             else:
                 out.append(TabularDataFrameAdapter(h))
