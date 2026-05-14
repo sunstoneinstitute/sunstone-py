@@ -139,3 +139,23 @@ def test_top_level_write_skips_default_identity_when_slug_missing(tmp_path, monk
     except Exception:
         pass
     assert asset.metadata.identity is None
+
+
+def test_read_uses_datasets_yaml_format_field(tmp_path, monkeypatch):
+    """When a `datasets.yaml` entry declares `format: csv` for a path with a
+    misleading extension, dispatch should follow the declared format."""
+    import sunstone
+
+    project = tmp_path
+    (project / "datasets.yaml").write_text(
+        "inputs:\n  - name: Weird\n    slug: weird\n    location: inputs/data.bin\n    format: csv\n"
+    )
+    (project / "inputs").mkdir()
+    (project / "inputs" / "data.bin").write_text("x,y\n1,2\n")
+
+    monkeypatch.chdir(project)
+    sunstone.set_project_path(project)
+
+    asset = sunstone.read("inputs/data.bin")  # no explicit format=
+    assert asset.kind is sunstone.AssetKind.TABULAR
+    assert list(asset.payload.columns) == ["x", "y"]

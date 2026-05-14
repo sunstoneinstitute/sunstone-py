@@ -95,11 +95,46 @@ from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
 from .session import DatasetRead, LineageSession, close_session, get_session
 
 
-def read(path: str, *, format: str | None = None, **kw: object) -> "Asset":
-    """Read any registered format into an `Asset`. Dispatches via the plugin
-    registry (which normalises DataFrame-returning handlers through the
-    adapter)."""
+def read(
+    path: str,
+    *,
+    format: str | None = None,
+    kind: "AssetKind | None" = None,
+    **kw: object,
+) -> "Asset":
+    """Read any registered format into an `Asset`.
+
+    Dispatch order:
+      1. Explicit ``kind=`` / ``format=`` arguments.
+      2. ``datasets.yaml`` ``format`` field, if the path matches a registered
+         dataset entry.
+      3. Path extension / store classification by handler.
+    """
     from .dataframe import _read_tabular_asset
+    from .datasets import DatasetsManager
+    from .plugins import PluginRegistry
+    from .resource import ResourceLocation
+
+    # 2. Consult datasets.yaml when no explicit format was given.
+    if format is None:
+        try:
+            dm: DatasetsManager | None = DatasetsManager.from_project_path()
+        except Exception:
+            dm = None
+        if dm is not None:
+            entry = dm.find_entry_by_location(path)
+            if entry is not None:
+                format = entry.get("format")
+
+    # 3. Store-vs-stream classification.
+    loc = ResourceLocation(path=path)
+    registry = PluginRegistry.get()
+    if loc.is_dir():
+        handler = registry.find_store_format_reader(loc, format)
+        if handler is not None:
+            return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
+        # Fall through to stream path so single-file handlers can still claim
+        # directory-like paths via can_read.
 
     return _read_tabular_asset(path, format=format, **kw)
 
