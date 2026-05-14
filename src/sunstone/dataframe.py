@@ -419,7 +419,11 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = cast(pd.DataFrame, format_handler.read(stream, format=format, path=location, **kwargs))
+            result = format_handler.read(stream, format=format, path=location, **kwargs)
+        # Handlers may return either a bare DataFrame (legacy) or an Asset (v2+).
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Extract embedded metadata if the format handler provided it
         embedded_metadata = df.attrs.pop("sunstone_metadata", None)
@@ -562,7 +566,10 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = cast(pd.DataFrame, format_handler.read(stream, format="csv", path=location, **kwargs))
+            result = format_handler.read(stream, format="csv", path=location, **kwargs)
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -676,7 +683,10 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = cast(pd.DataFrame, format_handler.read(stream, format="excel", path=location, **kwargs))
+            result = format_handler.read(stream, format="excel", path=location, **kwargs)
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))

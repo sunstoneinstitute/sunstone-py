@@ -9,8 +9,11 @@ import ipaddress
 import logging
 import socket
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Callable, Literal, TextIO, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Literal, TextIO, overload
 from urllib.parse import urljoin, urlparse
+
+if TYPE_CHECKING:
+    from .asset import Asset
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
@@ -44,11 +47,30 @@ _WRITER_MAP: dict[str, str] = {
 
 
 class BuiltinFormatHandler:
-    """Handles CSV, JSON, Excel, and TSV formats using pandas."""
+    """Handles CSV, JSON, Excel, and TSV formats using pandas.
+
+    Returns/accepts `Asset` natively (protocol v2). The bare DataFrame I/O is
+    factored into `_read_to_dataframe` / `_write_dataframe` for internal reuse.
+    """
+
+    __sunstone_handler_protocol__ = 2
+
+    def supports_native_metadata_extraction(self) -> bool:
+        """These formats don't carry sunstone-native sidecar metadata."""
+        return False
+
+    def supports_sunstone_metadata_embedding(self) -> bool:
+        """These formats do not support embedding a full sunstone metadata blob."""
+        return False
 
     def supports_metadata(self) -> bool:
-        """Return False — these formats do not support embedded metadata."""
-        return False
+        """Legacy alias for ``supports_sunstone_metadata_embedding()``."""
+        return self.supports_sunstone_metadata_embedding()
+
+    def supported_kinds(self) -> tuple:
+        from .asset import AssetKind
+
+        return (AssetKind.TABULAR,)
 
     def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve a format string from explicit format or file extension."""
@@ -64,7 +86,7 @@ class BuiltinFormatHandler:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _READER_MAP
 
-    def read(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
+    def _read_to_dataframe(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
         # If stream is actually a Path (pre-Task-7 call site), use it for format detection
@@ -77,11 +99,18 @@ class BuiltinFormatHandler:
         reader = _READER_MAP[str(fmt)]
         return reader(stream, **kwargs)
 
+    def read(self, stream: BinaryIO | Path, **kwargs: object) -> "Asset":
+        from .asset import Asset, AssetKind
+        from .lineage import Metadata
+
+        df = self._read_to_dataframe(stream, **kwargs)
+        return Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+
     def can_write(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _WRITER_MAP
 
-    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+    def _write_dataframe(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
         if fmt is None and path is not None:
@@ -91,6 +120,10 @@ class BuiltinFormatHandler:
         method_name = _WRITER_MAP[str(fmt)]
         writer = getattr(df, method_name)
         writer(stream, **kwargs)
+
+    def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
+        df = asset.as_table() if hasattr(asset, "as_table") else asset
+        self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
 
 
 class ParquetFormatHandler:

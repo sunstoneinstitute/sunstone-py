@@ -74,42 +74,46 @@ class TestBuiltinFormatHandlerCanWrite:
 class TestBuiltinFormatHandlerRead:
     def test_read_csv(self, handler):
         stream = io.BytesIO(b"a,b\n1,2\n3,4\n")
-        df = handler.read(stream)
+        df = handler.read(stream).payload
         assert list(df.columns) == ["a", "b"]
         assert len(df) == 2
 
     def test_read_csv_with_format(self, handler):
         stream = io.BytesIO(b"a,b\n1,2\n3,4\n")
-        df = handler.read(stream, format="csv")
+        df = handler.read(stream, format="csv").payload
         assert list(df.columns) == ["a", "b"]
 
     def test_read_tsv_with_format(self, handler):
         stream = io.BytesIO(b"a\tb\n1\t2\n3\t4\n")
-        df = handler.read(stream, format="tsv")
+        df = handler.read(stream, format="tsv").payload
         assert list(df.columns) == ["a", "b"]
         assert len(df) == 2
 
     def test_read_json(self, handler):
         stream = io.BytesIO(b'[{"a": 1, "b": 2}]')
-        df = handler.read(stream, format="json")
+        df = handler.read(stream, format="json").payload
         assert list(df.columns) == ["a", "b"]
 
     def test_read_with_path_kwarg(self, handler):
         stream = io.BytesIO(b"a,b\n1,2\n3,4\n")
-        df = handler.read(stream, path="data.csv")
+        df = handler.read(stream, path="data.csv").payload
         assert list(df.columns) == ["a", "b"]
 
     def test_read_passes_kwargs(self, handler):
         stream = io.BytesIO(b"a,b\n1,2\n3,4\n")
-        df = handler.read(stream, format="csv", usecols=["a"])
+        df = handler.read(stream, format="csv", usecols=["a"]).payload
         assert list(df.columns) == ["a"]
 
 
 class TestBuiltinFormatHandlerWrite:
     def test_write_csv(self, handler):
+        from sunstone.asset import Asset, AssetKind
+        from sunstone.lineage import Metadata
+
         stream = io.BytesIO()
         df = pd.DataFrame({"x": [1, 2]})
-        handler.write(df, stream, index=False)
+        asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+        handler.write(asset, stream, index=False)
         stream.seek(0)
         result = pd.read_csv(stream)
         assert list(result.columns) == ["x"]
@@ -136,6 +140,21 @@ class TestSupportsMetadata:
 
     def test_parquet_supports_metadata(self) -> None:
         assert ParquetFormatHandler().supports_metadata() is True
+
+
+def test_builtin_format_handler_returns_asset_natively():
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.handlers import BuiltinFormatHandler
+
+    assert getattr(BuiltinFormatHandler, "__sunstone_handler_protocol__", None) == 2
+
+    h = BuiltinFormatHandler()
+    import io
+
+    asset = h.read(io.BytesIO(b"a,b\n1,2\n"), format="csv")
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+    assert list(asset.payload.columns) == ["a", "b"]
 
 
 class TestParquetFormatHandler:
