@@ -266,6 +266,24 @@ class PluginRegistry:
         """Return all registered format handlers."""
         return self._format_handlers
 
+    def get_asset_format_handlers(self) -> list[object]:
+        """Return all registered format handlers normalised to the
+        `Asset`-returning shape.
+
+        Native-style handlers (those carrying
+        `__sunstone_handler_protocol__ = 2`) are returned as-is. Legacy
+        DataFrame-returning handlers are wrapped in `TabularDataFrameAdapter`.
+        """
+        from .adapter import TabularDataFrameAdapter
+
+        out: list[object] = []
+        for h in self._format_handlers:
+            if getattr(h, "__sunstone_handler_protocol__", None) == 2:
+                out.append(h)
+            else:
+                out.append(TabularDataFrameAdapter(h))
+        return out
+
     def get_cli_groups(self) -> list[tuple[str, typer.Typer]]:
         """Return all (name, typer_app) tuples from registered CLIProviders."""
         groups: list[tuple[str, typer.Typer]] = []

@@ -892,3 +892,57 @@ def test_legacy_supports_metadata_alias_present_on_protocol():
     from sunstone.plugins import FormatHandler
 
     assert "supports_metadata" in dir(FormatHandler)
+
+
+def test_registry_wraps_legacy_handlers_in_adapter():
+    from sunstone.adapter import TabularDataFrameAdapter
+    from sunstone.plugins import PluginRegistry
+
+    # Built-in BuiltinFormatHandler is currently DataFrame-returning; the
+    # registry should expose it (or a wrapper of it) via the new accessor.
+    # Use .get() to ensure built-in handlers are registered via _discover().
+    registry = PluginRegistry.get()
+    handlers = registry.get_asset_format_handlers()
+    assert any(isinstance(h, TabularDataFrameAdapter) for h in handlers), (
+        f"Expected at least one TabularDataFrameAdapter in {handlers!r}"
+    )
+
+
+def test_registry_preserves_native_asset_handlers_unwrapped():
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.plugins import PluginRegistry
+
+    class _NativeAssetHandler:
+        __sunstone_handler_protocol__ = 2
+
+        def supports_native_metadata_extraction(self):
+            return True
+
+        def supports_sunstone_metadata_embedding(self):
+            return True
+
+        def can_read(self, path, format):
+            return False
+
+        def can_write(self, path, format):
+            return False
+
+        def read(self, stream, **kw):
+            return Asset(
+                payload=None,
+                kind=AssetKind.RASTER,
+                metadata=__import__("sunstone").lineage.Metadata(),
+            )
+
+        def write(self, asset, stream, **kw):
+            pass
+
+        def supported_kinds(self):
+            return (AssetKind.RASTER,)
+
+    registry = PluginRegistry()
+    native = _NativeAssetHandler()
+    registry._format_handlers.append(native)  # internal test inject
+
+    handlers = registry.get_asset_format_handlers()
+    assert native in handlers  # not wrapped — already Asset-returning
