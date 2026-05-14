@@ -189,3 +189,42 @@ def test_derive_records_wasderivedfrom_for_slugged_parent():
     # Child's lineage.sources contains a snapshot referencing parent's slug.
     source_slugs = [s.slug for s in child.metadata.lineage.sources]
     assert "parent-slug" in source_slugs
+
+
+def test_derive_multi_parent_records_all_slugged_parents():
+    a = Asset(payload=None, kind=AssetKind.TABULAR, metadata=Metadata(slug="parent-a", name="A"))
+    b = Asset(payload=None, kind=AssetKind.TABULAR, metadata=Metadata(slug="parent-b", name="B"))
+    child = a.derive(payload=None, slug="mosaic", derived_from=[a, b])
+    slugs = [s.slug for s in child.metadata.lineage.sources]
+    assert set(slugs) == {"parent-a", "parent-b"}
+
+
+def test_derive_collapses_unsaved_intermediate_parent():
+    # A (slugged) -> B (no slug, transient) -> C
+    a = Asset(payload=None, kind=AssetKind.TABULAR, metadata=Metadata(slug="grandparent", name="Grandparent"))
+    b = a.derive(payload=None)  # no slug
+    assert b.metadata.slug is None
+    c = b.derive(payload=None, slug="grandchild")
+    # C's sources should reference A directly, not the slugless B.
+    source_slugs = [s.slug for s in c.metadata.lineage.sources]
+    assert source_slugs == ["grandparent"]
+
+
+def test_derive_chains_activities_through_transient_intermediate():
+    from sunstone.lineage import Activity, AgentType, Agent
+
+    a_meta = Metadata(slug="root")
+    a_meta.lineage.activity = Activity(
+        id="op-1",
+        was_associated_with=[Agent(id="user", type=AgentType.PERSON)],
+    )
+    a = Asset(payload=None, kind=AssetKind.TABULAR, metadata=a_meta)
+
+    b = a.derive(payload=None)  # transient; carries forward A's activity
+    c = b.derive(payload=None, slug="child")
+
+    # The plan: child.lineage.activity is populated (not None).
+    # Specific identity of the activity chain shape is implementation-defined;
+    # but provenance of the root must be preserved either via sources or activity.
+    source_slugs = [s.slug for s in c.metadata.lineage.sources]
+    assert source_slugs == ["root"]

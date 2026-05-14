@@ -137,15 +137,19 @@ def _build_child_lineage(parents: list["Asset"]) -> "LineageMetadata":
     """Compose a child `LineageMetadata` from one or more parent assets.
 
     For each parent with a slug, record a `DatasetMetadata` snapshot in
-    `lineage.sources` (this is the `prov:wasDerivedFrom` representation in
-    sunstone's existing model). For each parent without a slug, collapse:
-    inherit the parent's `lineage.sources` rather than recording the transient.
-    Activity chain is the union of all parents' activities (preserved for
-    transient-parent cases).
+    `lineage.sources`. For each parent without a slug, collapse: inherit
+    the parent's `lineage.sources` so the upstream-slugged ancestor is the
+    one recorded.
+
+    Activity is carried forward from any parent that has one (most recent
+    wins on a single-parent chain; multi-parent currently picks the first
+    parent's activity — multi-parent activity composition is a follow-up).
     """
     from .lineage import DatasetMetadata, LineageMetadata
 
     sources: list[DatasetMetadata] = []
+    carried_activity = None
+
     for parent in parents:
         if parent.metadata.slug:
             snapshot = DatasetMetadata(
@@ -162,9 +166,11 @@ def _build_child_lineage(parents: list["Asset"]) -> "LineageMetadata":
             if snapshot not in sources:
                 sources.append(snapshot)
         else:
-            # Transient parent: collapse to its own sources.
             for upstream in parent.metadata.lineage.sources:
                 if upstream not in sources:
                     sources.append(upstream)
 
-    return LineageMetadata(sources=sources)
+        if carried_activity is None and parent.metadata.lineage.activity is not None:
+            carried_activity = parent.metadata.lineage.activity
+
+    return LineageMetadata(sources=sources, activity=carried_activity)
