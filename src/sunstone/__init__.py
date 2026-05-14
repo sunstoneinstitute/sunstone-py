@@ -104,6 +104,22 @@ def read(path: str, *, format: str | None = None, **kw: object) -> "Asset":
     return _read_tabular_asset(path, format=format, **kw)
 
 
+def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
+    """Write an `Asset` to `path`. Dispatches via the plugin registry."""
+    from .plugins import PluginRegistry
+
+    registry = PluginRegistry.get()
+    for handler in registry.get_asset_format_handlers():
+        if hasattr(handler, "can_write") and handler.can_write(path, format):  # type: ignore[attr-defined]
+            url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
+            if url_handler is None:
+                raise FileNotFoundError(path)
+            with url_handler.open(path, "wb") as stream:
+                handler.write(asset, stream, **kw)  # type: ignore[attr-defined]
+            return
+    raise ValueError(f"No handler for path={path!r} format={format!r}")
+
+
 # Standard RDF and DCAT prefixes for automatic type properties
 STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
@@ -128,6 +144,7 @@ __all__ = [
     "DatasetsManager",
     # Top-level I/O
     "read",
+    "write",
     # Asset envelope
     "Asset",
     "AssetKind",
