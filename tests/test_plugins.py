@@ -84,8 +84,8 @@ class FakeFormatHandler:
     def can_write(self, path, format):
         return str(path).endswith(".fake")
 
-    def write(self, df, stream, **kwargs):
-        df.to_csv(stream)
+    def write(self, payload, stream, **kwargs):
+        payload.to_csv(stream)
 
 
 class PartialFormatHandler:
@@ -250,7 +250,7 @@ def test_external_plugin_takes_priority_over_builtin():
         def can_write(self, path, format):
             return str(path).endswith(".csv")
 
-        def write(self, df, stream, **kwargs):
+        def write(self, payload, stream, **kwargs):
             pass
 
     with patch(
