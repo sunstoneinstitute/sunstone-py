@@ -228,3 +228,5 @@ def test_derive_chains_activities_through_transient_intermediate():
     # but provenance of the root must be preserved either via sources or activity.
     source_slugs = [s.slug for s in c.metadata.lineage.sources]
     assert source_slugs == ["root"]
+    assert c.metadata.lineage.activity is not None
+    assert c.metadata.lineage.activity.id == "op-1"
