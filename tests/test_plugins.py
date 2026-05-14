@@ -946,3 +946,77 @@ def test_registry_preserves_native_asset_handlers_unwrapped():
 
     handlers = registry.get_asset_format_handlers()
     assert native in handlers  # not wrapped — already Asset-returning
+
+
+def test_registry_classifies_store_format_handlers():
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.lineage import Metadata
+    from sunstone.plugins import PluginRegistry
+
+    class _ZarrLike:
+        __sunstone_handler_protocol__ = 2
+
+        def supports_native_metadata_extraction(self):
+            return True
+
+        def supports_sunstone_metadata_embedding(self):
+            return False
+
+        def can_read_store(self, location, format):
+            return False
+
+        def can_write_store(self, location, format):
+            return False
+
+        def read(self, location, **kw):
+            return Asset(payload=None, kind=AssetKind.ARRAY, metadata=Metadata())
+
+        def write(self, asset, location, **kw):
+            pass
+
+        def supported_kinds(self):
+            return (AssetKind.ARRAY,)
+
+    registry = PluginRegistry()
+    handler = _ZarrLike()
+    registry._register("zarr-like", handler)
+    assert handler in registry.get_store_format_handlers()
+
+
+def test_find_store_format_reader_returns_matching_handler(tmp_path):
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.lineage import Metadata
+    from sunstone.plugins import PluginRegistry
+    from sunstone.resource import ResourceLocation
+
+    class _DirReader:
+        __sunstone_handler_protocol__ = 2
+
+        def supports_native_metadata_extraction(self):
+            return False
+
+        def supports_sunstone_metadata_embedding(self):
+            return False
+
+        def can_read_store(self, location, format):
+            return location.is_dir()
+
+        def can_write_store(self, location, format):
+            return False
+
+        def read(self, location, **kw):
+            return Asset(payload=None, kind=AssetKind.ARRAY, metadata=Metadata())
+
+        def write(self, asset, location, **kw):
+            pass
+
+        def supported_kinds(self):
+            return (AssetKind.ARRAY,)
+
+    registry = PluginRegistry()
+    registry._register("dir-reader", _DirReader())
+
+    loc = ResourceLocation(path=str(tmp_path))
+    handler = registry.find_store_format_reader(loc, format=None)
+    assert handler is not None
+    assert isinstance(handler, _DirReader)

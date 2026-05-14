@@ -11,12 +11,15 @@ import os
 import shutil
 import tomllib
 from pathlib import Path
-from typing import BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
+from typing import TYPE_CHECKING, BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
 
 import typer
 from ruamel.yaml import YAML
 
 from .lineage import DatasetMetadata
+
+if TYPE_CHECKING:
+    from .resource import ResourceLocation
 
 _config_yaml = YAML()
 
@@ -172,6 +175,7 @@ class PluginRegistry:
 
         self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
+        self._store_format_handlers: list[object] = []
         self._cli_providers: list[CLIProvider] = []
 
     @classmethod
@@ -248,6 +252,11 @@ class PluginRegistry:
         if isinstance(plugin, FormatHandler):
             self._format_handlers.append(plugin)
             registered = True
+        from .resource import StoreFormatHandler
+
+        if isinstance(plugin, StoreFormatHandler):
+            self._store_format_handlers.append(plugin)
+            registered = True
         if isinstance(plugin, CLIProvider):
             self._cli_providers.append(plugin)
             registered = True
@@ -284,6 +293,21 @@ class PluginRegistry:
             else:
                 out.append(TabularDataFrameAdapter(h))
         return out
+
+    def get_store_format_handlers(self) -> list[object]:
+        return self._store_format_handlers
+
+    def find_store_format_reader(self, location: "ResourceLocation", format: str | None) -> object | None:
+        for h in self._store_format_handlers:
+            if h.can_read_store(location, format):  # type: ignore[attr-defined]
+                return h
+        return None
+
+    def find_store_format_writer(self, location: "ResourceLocation", format: str | None) -> object | None:
+        for h in self._store_format_handlers:
+            if h.can_write_store(location, format):  # type: ignore[attr-defined]
+                return h
+        return None
 
     def get_cli_groups(self) -> list[tuple[str, typer.Typer]]:
         """Return all (name, typer_app) tuples from registered CLIProviders."""
