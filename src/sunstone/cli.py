@@ -904,7 +904,13 @@ def dataset_migrate(
                             url_handler = registry.find_url_handler(str(abs_path))
                             if url_handler:
                                 with url_handler.open(str(abs_path), "rb") as stream:
-                                    df = reader.read(stream, path=str(abs_path))
+                                    result = reader.read(stream, path=str(abs_path))
+                                # Asset-returning handlers (protocol v2) wrap
+                                # the DataFrame in an Asset.payload; legacy
+                                # handlers return the DataFrame directly.
+                                from sunstone.asset import Asset as _Asset
+
+                                df = result.payload if isinstance(result, _Asset) else result
                                 entry["data_hash"] = compute_dataframe_hash(df)  # type: ignore[arg-type]
                                 changed = True
                     except Exception as e:

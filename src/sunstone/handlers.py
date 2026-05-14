@@ -9,8 +9,11 @@ import ipaddress
 import logging
 import socket
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Callable, Literal, TextIO, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Literal, TextIO, cast, overload
 from urllib.parse import urljoin, urlparse
+
+if TYPE_CHECKING:
+    from .asset import Asset
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
@@ -44,11 +47,30 @@ _WRITER_MAP: dict[str, str] = {
 
 
 class BuiltinFormatHandler:
-    """Handles CSV, JSON, Excel, and TSV formats using pandas."""
+    """Handles CSV, JSON, Excel, and TSV formats using pandas.
+
+    Returns/accepts `Asset` natively (protocol v2). The bare DataFrame I/O is
+    factored into `_read_to_dataframe` / `_write_dataframe` for internal reuse.
+    """
+
+    __sunstone_handler_protocol__ = 2
+
+    def supports_native_metadata_extraction(self) -> bool:
+        """These formats don't carry sunstone-native sidecar metadata."""
+        return False
+
+    def supports_sunstone_metadata_embedding(self) -> bool:
+        """These formats do not support embedding a full sunstone metadata blob."""
+        return False
 
     def supports_metadata(self) -> bool:
-        """Return False — these formats do not support embedded metadata."""
-        return False
+        """Legacy alias for ``supports_sunstone_metadata_embedding()``."""
+        return self.supports_sunstone_metadata_embedding()
+
+    def supported_kinds(self) -> tuple:
+        from .asset import AssetKind
+
+        return (AssetKind.TABULAR,)
 
     def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve a format string from explicit format or file extension."""
@@ -64,7 +86,7 @@ class BuiltinFormatHandler:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _READER_MAP
 
-    def read(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
+    def _read_to_dataframe(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
         # If stream is actually a Path (pre-Task-7 call site), use it for format detection
@@ -77,11 +99,18 @@ class BuiltinFormatHandler:
         reader = _READER_MAP[str(fmt)]
         return reader(stream, **kwargs)
 
+    def read(self, stream: BinaryIO | Path, **kwargs: object) -> "Asset":
+        from .asset import Asset, AssetKind
+        from .lineage import Metadata
+
+        df = self._read_to_dataframe(stream, **kwargs)
+        return Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+
     def can_write(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
         return fmt is not None and fmt in _WRITER_MAP
 
-    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+    def _write_dataframe(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
         if fmt is None and path is not None:
@@ -92,13 +121,37 @@ class BuiltinFormatHandler:
         writer = getattr(df, method_name)
         writer(stream, **kwargs)
 
+    def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
+        df = asset.as_table() if hasattr(asset, "as_table") else asset
+        self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
+
 
 class ParquetFormatHandler:
-    """Handles Parquet format with metadata embedding support via PyArrow."""
+    """Handles Parquet format with metadata embedding support via PyArrow.
+
+    Returns/accepts `Asset` natively (protocol v2). Round-trips sunstone
+    `Metadata` via Parquet file-level key/value metadata as a JSON-LD blob.
+    """
+
+    __sunstone_handler_protocol__ = 2
+    _METADATA_KEY = b"sunstone"
+
+    def supports_native_metadata_extraction(self) -> bool:
+        """Arrow schema metadata is real native sidecar metadata."""
+        return True
+
+    def supports_sunstone_metadata_embedding(self) -> bool:
+        """Parquet embeds the full sunstone Metadata blob as JSON-LD."""
+        return True
 
     def supports_metadata(self) -> bool:
-        """Return True — Parquet supports embedded metadata in file footer."""
-        return True
+        """Legacy alias for ``supports_sunstone_metadata_embedding()``."""
+        return self.supports_sunstone_metadata_embedding()
+
+    def supported_kinds(self) -> tuple:
+        from .asset import AssetKind
+
+        return (AssetKind.TABULAR,)
 
     def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve format from explicit format or file extension."""
@@ -115,10 +168,13 @@ class ParquetFormatHandler:
     def can_write(self, path: str, format: str | None) -> bool:
         return self._resolve_format(path, format) == "parquet"
 
-    def read(self, stream: BinaryIO, **kwargs: object) -> pd.DataFrame:
+    def read(self, stream: BinaryIO, **kwargs: object) -> "Asset":
         import json as _json
 
         import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+        from .asset import Asset, AssetKind
+        from .lineage import Metadata
 
         kwargs.pop("format", None)
         kwargs.pop("path", None)
@@ -126,18 +182,20 @@ class ParquetFormatHandler:
         table = pq.read_table(stream, **kwargs)
         df: pd.DataFrame = table.to_pandas()
 
-        # Extract sunstone metadata from Parquet schema metadata if present
+        # Extract sunstone Metadata blob from Parquet schema metadata if present
+        meta = Metadata()
         schema_meta = table.schema.metadata or {}
-        raw = schema_meta.get(b"sunstone")
+        raw = schema_meta.get(self._METADATA_KEY)
         if raw is not None:
-            from .lineage import Metadata
+            try:
+                doc = _json.loads(raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw)
+                meta = Metadata.from_jsonld(doc)
+            except Exception:
+                meta = Metadata()
 
-            doc = _json.loads(raw)
-            df.attrs["sunstone_metadata"] = Metadata.from_jsonld(doc)
+        return Asset(payload=df, kind=AssetKind.TABULAR, metadata=meta)
 
-        return df
-
-    def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
+    def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
         import json as _json
 
         import pyarrow as pa  # type: ignore[import-untyped]
@@ -146,16 +204,22 @@ class ParquetFormatHandler:
         kwargs.pop("format", None)
         kwargs.pop("path", None)
 
-        # Pop metadata before from_pandas() — pyarrow tries to JSON-serialize attrs
-        metadata_obj = df.attrs.pop("sunstone_metadata", None)
+        # Accept either an Asset (preferred, protocol v2) or a bare DataFrame
+        # (legacy call sites). When given a bare DataFrame, the legacy
+        # `df.attrs["sunstone_metadata"]` channel is honored as a fallback.
+        if hasattr(asset, "as_table"):
+            df = asset.as_table()  # type: ignore[attr-defined]
+            metadata_obj = getattr(asset, "metadata", None)
+        else:
+            df = cast(pd.DataFrame, asset)
+            metadata_obj = df.attrs.pop("sunstone_metadata", None)
 
         table = pa.Table.from_pandas(df)
 
-        # Embed sunstone metadata in Parquet schema metadata if present
         if metadata_obj is not None:
-            existing_meta = table.schema.metadata or {}
+            existing_meta = dict(table.schema.metadata or {})
             doc = metadata_obj.to_jsonld()
-            existing_meta[b"sunstone"] = _json.dumps(doc).encode("utf-8")
+            existing_meta[self._METADATA_KEY] = _json.dumps(doc).encode("utf-8")
             table = table.replace_schema_metadata(existing_meta)
 
         pq.write_table(table, stream, **kwargs)
