@@ -49,6 +49,10 @@ class DataFrame:
         """
         Initialize a Sunstone DataFrame.
 
+        Internally backed by an :class:`~sunstone.asset.Asset` of
+        ``kind=AssetKind.TABULAR``. ``df.metadata is df.asset.metadata``
+        and ``df.data is df.asset.payload``.
+
         Args:
             data: Data to wrap. Can be a pandas DataFrame or any data accepted
                  by pandas.DataFrame() constructor (dict, list of dicts, etc.).
@@ -68,22 +72,29 @@ class DataFrame:
             - Default is determined by SUNSTONE_DATAFRAME_STRICT env var
               ("1" or "true" -> strict mode, otherwise relaxed mode)
         """
-        # Convert data to pandas DataFrame if it isn't already
+        from .asset import Asset, AssetKind
+
+        # Normalise data into a pandas DataFrame payload
         if data is None:
-            self.data = pd.DataFrame(**kwargs)
+            payload = pd.DataFrame(**kwargs)
         elif isinstance(data, pd.DataFrame):
-            self.data = data
+            payload = data
         else:
             # data is some other type (dict, list, etc.) - pass to pandas
-            self.data = pd.DataFrame(data, **kwargs)
+            payload = pd.DataFrame(data, **kwargs)
 
         # Unified metadata container
         if metadata is not None:
-            self.metadata = metadata
+            meta = metadata
         elif lineage is not None:
-            self.metadata = Metadata(lineage=lineage)
+            meta = Metadata(lineage=lineage)
         else:
-            self.metadata = Metadata()
+            meta = Metadata()
+
+        # Construct the underlying Asset BEFORE any property setter is invoked.
+        # The .data and .metadata setters route through self._asset and would
+        # AttributeError if _asset isn't on the instance yet.
+        self._asset = Asset(payload=payload, kind=AssetKind.TABULAR, metadata=meta)
 
         # Determine strict mode
         if strict is None:
@@ -92,7 +103,7 @@ class DataFrame:
         else:
             self.strict_mode = strict
 
-        # Set project path
+        # Set project path (goes through self.metadata -> self._asset.metadata)
         if project_path is not None:
             self.metadata.lineage.project_path = str(Path(project_path).resolve())
         elif self.metadata.lineage.project_path is None:
@@ -100,6 +111,33 @@ class DataFrame:
 
         # Store datasets file override
         self._datasets_file = datasets_file
+
+    @property
+    def asset(self) -> "Asset":
+        """The underlying :class:`~sunstone.asset.Asset` (kind=TABULAR).
+
+        ``df.metadata is df.asset.metadata`` and ``df.data is df.asset.payload``
+        — facade and asset share the same metadata and payload references.
+        """
+        return self._asset
+
+    @property
+    def data(self) -> pd.DataFrame:
+        """The underlying pandas DataFrame payload."""
+        return cast(pd.DataFrame, self._asset.payload)
+
+    @data.setter
+    def data(self, value: pd.DataFrame) -> None:
+        self._asset.payload = value
+
+    @property
+    def metadata(self) -> Metadata:
+        """The unified :class:`~sunstone.lineage.Metadata` container."""
+        return self._asset.metadata
+
+    @metadata.setter
+    def metadata(self, value: Metadata) -> None:
+        self._asset.metadata = value
 
     @property
     def lineage(self) -> LineageMetadata:
@@ -1260,6 +1298,12 @@ class DataFrame:
         Returns:
             The attribute from the underlying DataFrame, wrapped if it's a method or DataFrame.
         """
+        # Guard against recursion during __init__/unpickling: if our internal
+        # `_asset` isn't on the instance yet, do NOT route through self.data
+        # (which would call __getattr__('_asset') -> infinite recursion).
+        if name == "_asset" or name.startswith("__"):
+            raise AttributeError(name)
+
         # Special handling for pandas indexers - return as-is
         if name in ("loc", "iloc", "at", "iat"):
             return getattr(self.data, name)
