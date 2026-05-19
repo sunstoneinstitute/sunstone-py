@@ -444,7 +444,7 @@ def env_show(ctx: typer.Context) -> None:
         all_envs = list_environments()
         if not all_envs and env is None:
             typer.echo("No environment configured.")
-            typer.echo("Run 'sunstone env add <name>' to create one.")
+            typer.echo("Run 'sunstone env add <name> KEY=VAL ...' to create one.")
             return
 
         if env:
@@ -456,11 +456,24 @@ def env_show(ctx: typer.Context) -> None:
         for name, defn in sorted(all_envs.items()):
             marker = "* " if env and name == env.name else "  "
             source = environment_source(name)
-            typer.echo(f"{marker}{name:<12} {defn.get('catalog_url', ''):<45} ({source})")
+            summary = _summarize_env_def(defn)
+            typer.echo(f"{marker}{name:<12} {summary:<45} ({source})")
     except (FileNotFoundError, KeyError, RuntimeError, ValueError) as e:
         message = e.args[0] if isinstance(e, KeyError) else str(e)
         typer.echo(f"Error: {message}", err=True)
         raise typer.Exit(1)
+
+
+def _summarize_env_def(defn: dict) -> str:
+    """Build a one-line summary: 'N keys, sections: foo, bar' or 'empty'."""
+    plain_keys = [k for k, v in defn.items() if not isinstance(v, dict)]
+    sections = sorted(k for k, v in defn.items() if isinstance(v, dict))
+    parts: list[str] = []
+    if plain_keys:
+        parts.append(f"{len(plain_keys)} key{'s' if len(plain_keys) != 1 else ''}")
+    if sections:
+        parts.append("sections: " + ", ".join(sections))
+    return ", ".join(parts) if parts else "empty"
 
 
 @env_app.command("use")

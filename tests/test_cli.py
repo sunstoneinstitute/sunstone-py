@@ -2651,3 +2651,39 @@ class TestEnvUnset:
         assert result.exit_code == 1
         assert "staging" in result.output
         assert "not found" in result.output.lower()
+
+
+class TestEnvShowGeneric:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_show_lists_envs_with_generic_summary(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            GIT_BRANCH = "main"
+
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            catalog_url = "https://data.dev.example.com"
+
+            [environments.prod]
+            GIT_BRANCH = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env"])
+        assert result.exit_code == 0, result.output
+        assert "Active: dev" in result.output
+        assert "dev" in result.output
+        assert "prod" in result.output
+        # Summary mentions section names rather than catalog_url specifically.
+        assert "data-platform" in result.output
