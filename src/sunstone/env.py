@@ -205,6 +205,16 @@ def _resolve_credential(value: str | None) -> str | None:
     return None
 
 
+def _apply_credential(value: str) -> str:
+    """Apply credential resolution to a single value.
+
+    Returns the resolved secret when `_resolve_credential` returns a
+    non-None result (including the empty string), otherwise the original.
+    """
+    resolved = _resolve_credential(value)
+    return value if resolved is None else resolved
+
+
 def _resolve_op_reference(ref: str) -> str:
     """Resolve a 1Password CLI reference.
 
@@ -248,8 +258,15 @@ def _flatten_env_def(env_def: dict) -> tuple[dict[str, str], dict[str, dict]]:
             subtables[key] = value
             section_prefix = key.upper().replace("-", "_")
             for sub_key, sub_value in value.items():
+                if isinstance(sub_value, (dict, list)):
+                    raise ValueError(
+                        f"Environment subtable '{key}' key '{sub_key}': "
+                        "nested tables and arrays are not supported in env vars"
+                    )
                 flat_key = f"{section_prefix}_{sub_key.upper().replace('-', '_')}"
                 vars_map[flat_key] = str(sub_value)
+        elif isinstance(value, list):
+            raise ValueError(f"Environment key '{key}': arrays are not supported in env vars")
         else:
             flat_key = key.upper().replace("-", "_")
             vars_map[flat_key] = str(value)
@@ -315,7 +332,7 @@ def resolve_environment(
         source = str(sys_path)
 
     vars_map, subtables = _flatten_env_def(env_def)
-    vars_map = {k: _resolve_credential(v) or v for k, v in vars_map.items()}
+    vars_map = {k: _apply_credential(v) for k, v in vars_map.items()}
 
     sections = _build_sections(active_name, subtables)
 

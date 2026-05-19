@@ -999,7 +999,7 @@ class TestResolveEnvironmentGeneric:
         assert env.vars["CATALOG_URL"] == "https://data.dev.example.com"
         assert env.vars["GIT_BRANCH"] == "main"
 
-    def test_uppercases_and_hyphenates_top_level_keys(self, tmp_path, monkeypatch):
+    def test_uppercases_and_converts_hyphens_to_underscores(self, tmp_path, monkeypatch):
         cfg = self._write_user_config(
             tmp_path,
             """
@@ -1061,3 +1061,75 @@ class TestResolveEnvironmentGeneric:
             project_config=tmp_path / "missing-project.toml",
         )
         assert env is None
+
+    def test_op_resolution_preserves_empty_secret(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            BLANK = "op://Engineering/dev/empty"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with patch("sunstone.env._resolve_op_reference", return_value=""):
+            env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["BLANK"] == ""  # not the original op:// reference
+
+    def test_rejects_nested_subtable_value(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform".nested]
+            deep = "value"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="nested tables"):
+            resolve_environment(user_config=cfg)
+
+    def test_rejects_list_value(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            TAGS = ["a", "b"]
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="arrays"):
+            resolve_environment(user_config=cfg)
+
+    def test_raises_when_active_env_is_unknown(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "missing"
+
+            [environments.dev]
+            K = "v"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="missing"):
+            resolve_environment(user_config=cfg)
+
+    def test_sunstone_data_env_sets_source_label(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            [environments.dev]
+            CATALOG_URL = "x"
+            """,
+        )
+        monkeypatch.setenv("SUNSTONE_DATA_ENV", "dev")
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.name == "dev"
+        assert env.source == "SUNSTONE_DATA_ENV"
