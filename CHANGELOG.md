@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: active-environment keys flow into `os.environ`, so `${VAR}` substitution in `publish.as:` / `publish.to:` resolves to them.
 - Added: `sunstone.activate_environment()` helper for notebook/library use.
 - Added: `sunstone env set` and `sunstone env unset` accept `KEY=VAL` (dotted keys target plugin subtables).
+- Added: `--scope user|project|system` on `sunstone env add`/`set`/`unset`/`remove` (default user) to target any config layer.
 - Changed: `sunstone env add` takes positional `KEY=VAL` entries (dotted keys write to plugin subtables).
 - Removed: `DataEnvironment.{catalog_url,s3_endpoint,s3_access_key,s3_secret_key,auth}` (now a deprecated alias for `Environment`).
 - Removed: `SUNSTONE_DATA_CATALOG_URL` and `SUNSTONE_DATA_S3_*` per-field env-var overrides.
