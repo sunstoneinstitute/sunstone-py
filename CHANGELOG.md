@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (closes #67).
 - Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
 
 ## [1.11.0] - 2026-05-19

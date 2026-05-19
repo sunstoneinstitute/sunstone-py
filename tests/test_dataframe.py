@@ -119,6 +119,70 @@ class TestReadExcel:
         assert isinstance(df, sunstone.DataFrame)
 
 
+class TestReadJson:
+    """Tests for reading JSON files."""
+
+    def test_read_json_by_path(self, project_path: Path) -> None:
+        """Test reading a JSON file by path."""
+        df = sunstone.DataFrame.read_json(
+            "inputs/un_member_states_sample.json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert len(df.data.columns) > 0
+        assert len(df.metadata.lineage.sources) > 0
+        assert "Member State" in df.data.columns
+
+    def test_read_json_by_slug(self, project_path: Path) -> None:
+        """Test reading a JSON file by slug."""
+        df = sunstone.DataFrame.read_json(
+            "un-member-states-sample-json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert len(df.metadata.lineage.sources) > 0
+
+    def test_read_json_preserves_lineage(self, project_path: Path) -> None:
+        """Test that read_json tracks lineage correctly."""
+        df = sunstone.DataFrame.read_json(
+            "inputs/un_member_states_sample.json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df.metadata.lineage.sources[0].slug == "un-member-states-sample-json"
+
+    def test_read_json_not_found(self, project_path: Path) -> None:
+        """Test that read_json raises error for unregistered file."""
+        from sunstone.exceptions import DatasetNotFoundError
+
+        with pytest.raises(DatasetNotFoundError):
+            sunstone.DataFrame.read_json(
+                "inputs/nonexistent.json",
+                project_path=project_path,
+                strict=True,
+            )
+
+    def test_read_json_via_pandas_module(self, project_path: Path) -> None:
+        """Test read_json via sunstone.pandas module."""
+        from sunstone import pandas as spd
+
+        df = spd.read_json(
+            "un-member-states-sample-json",
+            project_path=project_path,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert isinstance(df, sunstone.DataFrame)
+
+
 class TestDataFrameMerge:
     """Tests for DataFrame merge operations."""
 

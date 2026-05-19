@@ -66,6 +66,16 @@ inputs:
         type: string
       - name: Russian
         type: string
+  - name: UN Member States Sample (JSON)
+    slug: un-member-states-sample-json
+    location: inputs/un_member_states_sample.json
+    fields:
+      - name: Member State
+        type: string
+      - name: ISO Code
+        type: string
+      - name: M49 Code
+        type: string
   - name: UN Member States Sample (Excel)
     slug: un-member-states-sample-excel
     location: inputs/un_member_states_sample.xlsx
