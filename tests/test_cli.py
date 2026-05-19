@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import shutil
+import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -2492,9 +2493,6 @@ class TestMigrateHashes:
         assert "Migrated hashes" in result.output
 
 
-import tomllib  # noqa: E402
-
-
 class TestEnvAddGeneric:
     def _fake_user_config_path(self, monkeypatch, path):
         # Force _USER_CONFIG to point at our tmp file.
@@ -2565,7 +2563,7 @@ class TestEnvAddGeneric:
 
         runner = CliRunner()
         result = runner.invoke(app, ["env", "add", "dev", "BARE_KEY_NO_VALUE"])
-        assert result.exit_code != 0
+        assert result.exit_code == 2
         assert "BARE_KEY_NO_VALUE" in result.output
 
     def test_env_add_rejects_existing_without_overwrite(self, tmp_path, monkeypatch):
@@ -2604,3 +2602,16 @@ class TestEnvAddGeneric:
             data = tomllib.load(f)
         env = data["environments"]["dev"]
         assert env == {"NEW_KEY": "z"}
+
+    def test_env_add_with_no_entries_creates_empty_environment(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {}

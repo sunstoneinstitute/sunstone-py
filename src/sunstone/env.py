@@ -526,6 +526,9 @@ def add_environment(
         user_config: Override path for user config.
         overwrite: Replace any existing entry with the same name.
 
+    Passing empty/None `plain` and `sections` creates an empty environment
+    entry (useful to reserve the name; populate later with `env set`).
+
     Returns:
         Path to the config file that was written.
 
