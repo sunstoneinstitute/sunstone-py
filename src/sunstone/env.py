@@ -611,6 +611,64 @@ def remove_environment(
     return usr_path
 
 
+def update_environment(
+    name: str,
+    *,
+    plain: dict[str, str] | None = None,
+    sections: dict[str, dict[str, str]] | None = None,
+    user_config: Path | None = None,
+) -> tuple[Path, str | None]:
+    """Merge plain / sections into an existing environment in user config.
+
+    Returns:
+        Tuple of (user config path, source-of-shadowing if any). The second
+        item is the path of a project/system config that also defines this
+        env (and will therefore shadow the update at resolve time).
+
+    Raises:
+        KeyError: If the environment is not present in the user config.
+    """
+    usr_path = _get_user_config_path(user_config, required=True)
+    user_data = _load_toml(usr_path)
+    user_envs = user_data.get("environments", {})
+    if name not in user_envs:
+        # Surface a clearer error when the env exists elsewhere in the cascade.
+        prj_path = _find_project_config()
+        if prj_path:
+            project_data = _load_toml(prj_path)
+            if name in project_data.get("environments", {}):
+                raise KeyError(
+                    f"Environment '{name}' is defined in project config ({prj_path}); env set only modifies user config"
+                )
+        system_data = _load_toml(_SYSTEM_CONFIG)
+        if name in system_data.get("environments", {}):
+            raise KeyError(
+                f"Environment '{name}' is defined in system config ({_SYSTEM_CONFIG}); "
+                "env set only modifies user config"
+            )
+        raise KeyError(f"Environment '{name}' not found in {usr_path}")
+
+    entry = user_envs[name]
+    if plain:
+        entry.update(plain)
+    if sections:
+        for section_name, sub_entries in sections.items():
+            existing = entry.get(section_name)
+            if not isinstance(existing, dict):
+                entry[section_name] = {}
+            entry[section_name].update(sub_entries)
+
+    user_data["environments"] = user_envs
+    _write_config(usr_path, user_data)
+
+    # Detect shadowing for the warning.
+    prj_path = _find_project_config()
+    project_data = _load_toml(prj_path) if prj_path else {}
+    if name in project_data.get("environments", {}):
+        return usr_path, str(prj_path)
+    return usr_path, None
+
+
 def _write_config(path: Path, data: dict) -> None:
     """Write a config dict as TOML, creating parent directories as needed."""
     path.parent.mkdir(parents=True, exist_ok=True)

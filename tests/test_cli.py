@@ -2171,112 +2171,6 @@ def test_env_remove_deletes_environment(tmp_path):
     assert "Removed environment 'dev'" in result.output
 
 
-def test_env_update_modifies_environment(tmp_path):
-    """sunstone env update modifies an existing environment."""
-    user_config = tmp_path / "user.toml"
-    user_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=None),
-    ):
-        result = runner.invoke(
-            app,
-            [
-                "env",
-                "update",
-                "dev",
-                "--catalog-url",
-                "http://newhost:19120/api/v1",
-            ],
-        )
-    assert result.exit_code == 0
-    assert "Updated environment 'dev'" in result.output
-    config_text = user_config.read_text()
-    assert "http://newhost:19120/api/v1" in config_text
-
-
-def test_env_update_reports_project_scoped_environment(tmp_path):
-    """sunstone env update explains when the env exists only in project config."""
-    user_config = tmp_path / "user.toml"
-    project_config = tmp_path / ".sunstone" / "data_platform.toml"
-    project_config.parent.mkdir(parents=True)
-    project_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=project_config),
-    ):
-        result = runner.invoke(
-            app,
-            [
-                "env",
-                "update",
-                "dev",
-                "--catalog-url",
-                "http://newhost:19120/api/v1",
-            ],
-        )
-    assert result.exit_code == 1
-    assert "defined in project config" in result.output
-
-
-def test_env_update_requires_at_least_one_field(tmp_path):
-    """sunstone env update refuses no-op invocations without rewriting the file."""
-    user_config = tmp_path / "user.toml"
-    original = (
-        "# keep me\n"
-        "[environments.dev]\n"
-        'catalog_url = "http://localhost:19120/api/v1"\n'
-        's3_endpoint = "http://localhost:9000"\n'
-    )
-    user_config.write_text(original)
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=None),
-    ):
-        result = runner.invoke(app, ["env", "update", "dev"])
-    assert result.exit_code == 1
-    assert "No fields to update" in result.output
-    assert user_config.read_text() == original
-
-
-def test_env_update_warns_when_project_config_shadows_user(tmp_path):
-    """sunstone env update warns when project config will shadow the updated user env."""
-    user_config = tmp_path / "user.toml"
-    user_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-    project_config = tmp_path / ".sunstone" / "data_platform.toml"
-    project_config.parent.mkdir(parents=True)
-    project_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://project-dev"\ns3_endpoint = "http://localhost:9001"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=project_config),
-    ):
-        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://new-user-dev"])
-    assert result.exit_code == 0
-    assert "Updated environment 'dev'" in result.output
-    assert "project config values will shadow this update" in result.output
-    assert "http://new-user-dev" in user_config.read_text()
-
-
 def test_env_use_reports_write_errors():
     """sunstone env use reports config write failures cleanly."""
     runner = CliRunner()
@@ -2312,8 +2206,8 @@ def test_env_remove_reports_write_errors():
     assert "read-only filesystem" in result.output
 
 
-def test_env_update_reports_write_errors(tmp_path):
-    """sunstone env update reports config write failures cleanly."""
+def test_env_set_reports_write_errors(tmp_path):
+    """sunstone env set reports config write failures cleanly."""
     user_config = tmp_path / "user.toml"
     user_config.write_text(
         '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
@@ -2326,7 +2220,7 @@ def test_env_update_reports_write_errors(tmp_path):
         patch("sunstone.env._find_project_config", return_value=None),
         patch("sunstone.env._write_config", side_effect=PermissionError("permission denied")),
     ):
-        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://newhost:19120/api/v1"])
+        result = runner.invoke(app, ["env", "set", "dev", "CATALOG_URL=http://newhost:19120/api/v1"])
     assert result.exit_code == 1
     assert "permission denied" in result.output
 
@@ -2615,3 +2509,54 @@ class TestEnvAddGeneric:
         with open(user_cfg, "rb") as f:
             data = tomllib.load(f)
         assert data["environments"]["dev"] == {}
+
+
+class TestEnvSet:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_env_set_merges_with_existing_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            GIT_BRANCH = "main"
+
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "set", "dev", "CATALOG_URL=https://x", "data-platform.catalog_url=https://y"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["GIT_BRANCH"] == "main"  # preserved
+        assert env["CATALOG_URL"] == "https://x"  # added
+        assert env["data-platform"]["warehouse"] == "main"  # preserved
+        assert env["data-platform"]["catalog_url"] == "https://y"  # added
+
+    def test_env_set_fails_on_unknown_environment(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "set", "missing", "CATALOG_URL=x"])
+        assert result.exit_code != 0
+        assert "missing" in result.output.lower()
+
+    def test_env_update_command_is_gone(self):
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "update", "--help"])
+        # Typer prints "No such command" or similar; exit code != 0
+        assert result.exit_code != 0

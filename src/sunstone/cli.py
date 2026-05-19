@@ -530,86 +530,40 @@ def env_remove(
         raise typer.Exit(1)
 
 
-@env_app.command("update")
-def env_update(
-    name: str = typer.Argument(..., help="Environment name to update"),
-    catalog_url: str | None = typer.Option(None, "--catalog-url", help="Nessie catalog URL"),
-    s3_endpoint: str | None = typer.Option(None, "--s3-endpoint", help="S3/MinIO endpoint URL"),
-    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
-    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
-    auth: str | None = typer.Option(None, "--auth", help="Auth method"),
+@env_app.command("set")
+def env_set(
+    name: str = typer.Argument(..., help="Environment name"),
+    entries: list[str] = typer.Argument(
+        ...,
+        help=(
+            "KEY=VAL entries to merge into the environment. Dotted keys "
+            "(e.g. data-platform.warehouse=main) target plugin subtables."
+        ),
+    ),
 ) -> None:
-    """Update fields on an existing environment in user config."""
-    from sunstone.env import (
-        _SYSTEM_CONFIG,
-        _find_project_config,
-        _get_user_config_path,
-        _load_toml,
-        _write_config,
-    )
+    """Merge KEY=VAL entries into an existing environment in user config.
+
+    Existing keys not touched by this invocation are preserved. Use
+    'env unset' to remove keys.
+    """
+    from sunstone.env import update_environment
 
     try:
-        user_config = _get_user_config_path(required=True)
-    except RuntimeError as e:
+        plain, sections = _parse_kv_entries(entries)
+    except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(2)
 
-    user_data = _load_toml(user_config)
-    user_envs = user_data.get("environments", {})
-    project_config = _find_project_config()
-    project_data = _load_toml(project_config) if project_config else {}
-    system_data = _load_toml(_SYSTEM_CONFIG)
-
-    if name not in user_envs:
-        if name in project_data.get("environments", {}):
-            typer.echo(
-                f"Error: Environment '{name}' is defined in project config ({project_config}); "
-                "env update only modifies user config",
-                err=True,
-            )
-            raise typer.Exit(1)
-        if name in system_data.get("environments", {}):
-            typer.echo(
-                f"Error: Environment '{name}' is defined in system config ({_SYSTEM_CONFIG}); "
-                "env update only modifies user config",
-                err=True,
-            )
-            raise typer.Exit(1)
-        typer.echo(f"Error: Environment '{name}' not found in {user_config}", err=True)
-        raise typer.Exit(1)
-
-    if all(value is None for value in (catalog_url, s3_endpoint, s3_access_key, s3_secret_key, auth)):
-        typer.echo(
-            "Error: No fields to update. Use --catalog-url, --s3-endpoint, --s3-access-key, "
-            "--s3-secret-key, or --auth.",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-    shadowed_by_project = name in project_data.get("environments", {})
-
-    if catalog_url is not None:
-        user_envs[name]["catalog_url"] = catalog_url
-    if s3_endpoint is not None:
-        user_envs[name]["s3_endpoint"] = s3_endpoint
-    if s3_access_key is not None:
-        user_envs[name]["s3_access_key"] = s3_access_key
-    if s3_secret_key is not None:
-        user_envs[name]["s3_secret_key"] = s3_secret_key
-    if auth is not None:
-        user_envs[name]["auth"] = auth
-
-    user_data["environments"] = user_envs
     try:
-        _write_config(user_config, user_data)
-    except OSError as e:
+        path, shadowed_by = update_environment(name, plain=plain, sections=sections)
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    typer.echo(f"Updated environment '{name}' in {user_config}")
-    if shadowed_by_project:
+    typer.echo(f"Updated environment '{name}' in {path}")
+    if shadowed_by:
         typer.echo(
-            f"Warning: Environment '{name}' is also defined in project config ({project_config}); "
-            "project config values will shadow this update",
+            f"Warning: environment '{name}' is also defined in {shadowed_by}; "
+            "values in that file will shadow this update",
             err=True,
         )
 
