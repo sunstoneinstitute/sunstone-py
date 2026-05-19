@@ -700,11 +700,13 @@ def unset_environment_keys(
     *,
     keys: list[str],
     user_config: Path | None = None,
-) -> Path:
+) -> tuple[Path, int]:
     """Remove top-level and dotted keys from an env in user config.
 
     Returns:
-        Path to the user config that was written.
+        Tuple of (path written, count of keys actually removed). The
+        count is zero when every requested key was already absent
+        (the file is still rewritten unchanged).
 
     Raises:
         KeyError: If the environment is not present in the user config.
@@ -716,20 +718,24 @@ def unset_environment_keys(
         raise KeyError(f"Environment '{name}' not found in {usr_path}")
 
     entry = user_envs[name]
+    removed = 0
     for key in keys:
         if "." in key:
             section, sub_key = key.split(".", 1)
             section_entry = entry.get(section)
-            if isinstance(section_entry, dict):
-                section_entry.pop(sub_key, None)
+            if isinstance(section_entry, dict) and sub_key in section_entry:
+                section_entry.pop(sub_key)
+                removed += 1
                 if not section_entry:
                     entry.pop(section, None)
         else:
-            entry.pop(key, None)
+            if key in entry:
+                entry.pop(key)
+                removed += 1
 
     data["environments"] = user_envs
     _write_config(usr_path, data)
-    return usr_path
+    return usr_path, removed
 
 
 # Deprecated alias for the old class name. Will be removed in the next

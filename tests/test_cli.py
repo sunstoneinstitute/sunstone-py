@@ -2640,3 +2640,14 @@ class TestEnvUnset:
         runner = CliRunner()
         result = runner.invoke(app, ["env", "unset", "dev", "MISSING"])
         assert result.exit_code == 0  # silent no-op
+
+    def test_unset_unknown_env_exits_nonzero(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text('[environments.dev]\nKEEP = "k"\n')
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "staging", "KEEP"])
+        assert result.exit_code == 1
+        assert "staging" in result.output
+        assert "not found" in result.output.lower()

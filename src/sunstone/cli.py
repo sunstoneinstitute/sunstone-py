@@ -582,11 +582,15 @@ def env_unset(
     from sunstone.env import unset_environment_keys
 
     try:
-        path = unset_environment_keys(name, keys=keys)
+        path, removed = unset_environment_keys(name, keys=keys)
     except (OSError, RuntimeError, KeyError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    typer.echo(f"Updated environment '{name}' in {path}")
+    if removed == 0:
+        typer.echo(f"No matching keys to remove from environment '{name}' ({path})")
+    else:
+        noun = "key" if removed == 1 else "keys"
+        typer.echo(f"Removed {removed} {noun} from environment '{name}' in {path}")
 
 
 # =============================================================================
