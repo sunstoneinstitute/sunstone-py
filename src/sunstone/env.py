@@ -185,6 +185,38 @@ def _find_project_config(start: Path | None = None) -> Path | None:
     return None
 
 
+def _scope_to_target_path(
+    scope: str,
+    *,
+    user_config: Path | None = None,
+    project_config: Path | None = None,
+    system_config: Path | None = None,
+) -> Path:
+    """Return the TOML path to write for the requested scope.
+
+    - "user"    -> user_config or default user path (must be available).
+    - "project" -> project_config, else nearest .sunstone/data_platform.toml
+                   walking up from cwd, else cwd / .sunstone/data_platform.toml
+                   (caller is responsible for creating the directory on write).
+    - "system"  -> system_config or default system path.
+
+    Raises:
+        ValueError: If scope is not one of the three recognised values.
+    """
+    if scope == "user":
+        return _get_user_config_path(user_config, required=True)
+    if scope == "project":
+        if project_config is not None:
+            return project_config
+        found = _find_project_config()
+        if found is not None:
+            return found
+        return Path.cwd() / _PROJECT_CONFIG_NAME
+    if scope == "system":
+        return system_config or _SYSTEM_CONFIG
+    raise ValueError(f"Unknown scope {scope!r}; expected one of: user, project, system")
+
+
 def _resolve_credential(value: str | None) -> str | None:
     """Resolve a credential value, or return None to indicate 'unchanged'.
 
@@ -514,16 +546,22 @@ def add_environment(
     *,
     plain: dict[str, str] | None = None,
     sections: dict[str, dict[str, str]] | None = None,
+    scope: str = "user",
     user_config: Path | None = None,
+    project_config: Path | None = None,
+    system_config: Path | None = None,
     overwrite: bool = False,
 ) -> Path:
-    """Add an environment to user config.
+    """Add an environment to the specified config layer.
 
     Args:
         name: Environment name.
         plain: Top-level key/value entries.
         sections: Plugin-namespaced subtable entries (section_name -> dict).
+        scope: Which config layer to write to: "user" (default), "project", or "system".
         user_config: Override path for user config.
+        project_config: Override path for project config.
+        system_config: Override path for system config.
         overwrite: Replace any existing entry with the same name.
 
     Passing empty/None `plain` and `sections` creates an empty environment
@@ -533,9 +571,15 @@ def add_environment(
         Path to the config file that was written.
 
     Raises:
-        ValueError: If the environment already exists and `overwrite` is False.
+        ValueError: If the environment already exists and `overwrite` is False,
+            or if scope is not a recognised value.
     """
-    usr_path = _get_user_config_path(user_config, required=True)
+    usr_path = _scope_to_target_path(
+        scope,
+        user_config=user_config,
+        project_config=project_config,
+        system_config=system_config,
+    )
     data = _load_toml(usr_path)
     data.setdefault("environments", {})
 
@@ -557,14 +601,16 @@ def add_environment(
 def remove_environment(
     name: str,
     *,
+    scope: str = "user",
     user_config: Path | None = None,
     system_config: Path | None = None,
     project_config: Path | None = None,
 ) -> Path:
-    """Remove an environment from user config.
+    """Remove an environment from the specified config layer.
 
     Args:
         name: Environment name to remove.
+        scope: Which config layer to remove from: "user" (default), "project", or "system".
         user_config: Override path for user config.
         system_config: Override path for system config.
         project_config: Override path for project config (default: auto-discovered).
@@ -573,42 +619,63 @@ def remove_environment(
         Path to the config file that was modified.
 
     Raises:
-        ValueError: If the environment is only in system config or doesn't exist.
+        ValueError: If the environment is only in a different layer, or doesn't exist
+            in the targeted layer.
     """
-    usr_path = _get_user_config_path(user_config, required=True)
     sys_path = system_config or _SYSTEM_CONFIG
     prj_path = project_config or _find_project_config()
 
-    user_data = _load_toml(usr_path)
-    user_envs = user_data.get("environments", {})
+    if scope == "user":
+        usr_path = _get_user_config_path(user_config, required=True)
 
-    if name not in user_envs:
-        system_data = _load_toml(sys_path)
-        system_envs = system_data.get("environments", {})
-        if name in system_envs:
-            raise ValueError(
-                f"Environment '{name}' is defined in system config ({sys_path}), cannot remove from user config"
-            )
+        user_data = _load_toml(usr_path)
+        user_envs = user_data.get("environments", {})
+
+        if name not in user_envs:
+            system_data = _load_toml(sys_path)
+            system_envs = system_data.get("environments", {})
+            if name in system_envs:
+                raise ValueError(
+                    f"Environment '{name}' is defined in system config ({sys_path}), cannot remove from user config"
+                )
+            if prj_path:
+                project_data = _load_toml(prj_path)
+                if name in project_data.get("environments", {}):
+                    raise ValueError(
+                        f"Environment '{name}' is defined in project config ({prj_path}), cannot remove from user config"
+                    )
+            raise ValueError(f"Environment '{name}' not found in user config")
+
+        del user_data["environments"][name]
+        if user_data.get("active") == name:
+            del user_data["active"]
+        _write_config(usr_path, user_data)
+
         if prj_path:
             project_data = _load_toml(prj_path)
-            if name in project_data.get("environments", {}):
-                raise ValueError(
-                    f"Environment '{name}' is defined in project config ({prj_path}), cannot remove from user config"
-                )
-        raise ValueError(f"Environment '{name}' not found in user config")
+            if project_data.get("active") == name:
+                del project_data["active"]
+                _write_config(prj_path, project_data)
 
-    del user_data["environments"][name]
-    if user_data.get("active") == name:
-        del user_data["active"]
-    _write_config(usr_path, user_data)
+        return usr_path
 
-    if prj_path:
-        project_data = _load_toml(prj_path)
-        if project_data.get("active") == name:
-            del project_data["active"]
-            _write_config(prj_path, project_data)
+    target = _scope_to_target_path(
+        scope,
+        user_config=user_config,
+        project_config=project_config,
+        system_config=system_config,
+    )
+    data = _load_toml(target)
+    envs = data.get("environments", {})
 
-    return usr_path
+    if name not in envs:
+        raise ValueError(f"Environment '{name}' not found in {scope} config ({target})")
+
+    del data["environments"][name]
+    if data.get("active") == name:
+        del data["active"]
+    _write_config(target, data)
+    return target
 
 
 def update_environment(
@@ -616,44 +683,67 @@ def update_environment(
     *,
     plain: dict[str, str] | None = None,
     sections: dict[str, dict[str, str]] | None = None,
+    scope: str = "user",
     user_config: Path | None = None,
+    project_config: Path | None = None,
+    system_config: Path | None = None,
 ) -> tuple[Path, str | None]:
-    """Merge plain / sections into an existing environment in user config.
+    """Merge plain / sections into an existing environment in the specified config layer.
 
     If an existing key with the section name is a non-dict scalar, it is
     silently replaced with a fresh subtable before the new sub-entries are
     merged. This is rare in practice (TOML enforces types at write time)
     and should not happen unless the file was hand-edited.
 
+    Args:
+        name: Environment name.
+        plain: Top-level key/value entries to merge.
+        sections: Plugin-namespaced subtable entries to merge.
+        scope: Which config layer to write to: "user" (default), "project", or "system".
+        user_config: Override path for user config.
+        project_config: Override path for project config.
+        system_config: Override path for system config.
+
     Returns:
-        Tuple of (user config path, source-of-shadowing if any). The second
-        item is the path of a project/system config that also defines this
-        env (and will therefore shadow the update at resolve time).
+        Tuple of (target config path, source-of-shadowing if any). The second
+        item is the path of a higher-precedence config that also defines this
+        env (and will therefore shadow the update at resolve time). For
+        "project" scope, shadowing is not applicable (project is top of cascade),
+        so the second item is always None.
 
     Raises:
-        KeyError: If the environment is not present in the user config.
+        KeyError: If the environment is not present in the targeted config layer.
     """
-    usr_path = _get_user_config_path(user_config, required=True)
-    user_data = _load_toml(usr_path)
-    user_envs = user_data.get("environments", {})
-    if name not in user_envs:
-        # Surface a clearer error when the env exists elsewhere in the cascade.
-        prj_path = _find_project_config()
-        if prj_path:
-            project_data = _load_toml(prj_path)
-            if name in project_data.get("environments", {}):
-                raise KeyError(
-                    f"Environment '{name}' is defined in project config ({prj_path}); env set only modifies user config"
-                )
-        system_data = _load_toml(_SYSTEM_CONFIG)
-        if name in system_data.get("environments", {}):
-            raise KeyError(
-                f"Environment '{name}' is defined in system config ({_SYSTEM_CONFIG}); "
-                "env set only modifies user config"
-            )
-        raise KeyError(f"Environment '{name}' not found in {usr_path}")
+    target = _scope_to_target_path(
+        scope,
+        user_config=user_config,
+        project_config=project_config,
+        system_config=system_config,
+    )
+    target_data = _load_toml(target)
+    target_envs = target_data.get("environments", {})
 
-    entry = user_envs[name]
+    if name not in target_envs:
+        if scope == "user":
+            # Surface a clearer error when the env exists elsewhere in the cascade.
+            prj_path = _find_project_config()
+            if prj_path:
+                project_data = _load_toml(prj_path)
+                if name in project_data.get("environments", {}):
+                    raise KeyError(
+                        f"Environment '{name}' is defined in project config ({prj_path}); env set only modifies user config"
+                    )
+            sys_path = system_config or _SYSTEM_CONFIG
+            system_data = _load_toml(sys_path)
+            if name in system_data.get("environments", {}):
+                raise KeyError(
+                    f"Environment '{name}' is defined in system config ({sys_path}); env set only modifies user config"
+                )
+        elif scope == "system":
+            raise KeyError(f"Environment '{name}' not found in system config ({target})")
+        raise KeyError(f"Environment '{name}' not found in {target}")
+
+    entry = target_envs[name]
     if plain:
         entry.update(plain)
     if sections:
@@ -663,19 +753,39 @@ def update_environment(
                 entry[section_name] = {}
             entry[section_name].update(sub_entries)
 
-    user_data["environments"] = user_envs
-    _write_config(usr_path, user_data)
+    target_data["environments"] = target_envs
+    _write_config(target, target_data)
 
     # Detect shadowing for the warning.
-    prj_path = _find_project_config()
+    if scope == "project":
+        # Project is top of cascade — nothing shadows it.
+        return target, None
+
+    if scope == "system":
+        # Both project and user can shadow system; project takes precedence.
+        prj_path = project_config or _find_project_config()
+        if prj_path:
+            project_data = _load_toml(prj_path)
+            if name in project_data.get("environments", {}):
+                return target, str(prj_path)
+        usr_path = _get_user_config_path(user_config)
+        if usr_path:
+            user_data = _load_toml(usr_path)
+            if name in user_data.get("environments", {}):
+                return target, str(usr_path)
+        return target, None
+
+    # scope == "user": detect project/system shadows (existing behaviour).
+    prj_path = project_config or _find_project_config()
     if prj_path:
         project_data = _load_toml(prj_path)
         if name in project_data.get("environments", {}):
-            return usr_path, str(prj_path)
-    system_data = _load_toml(_SYSTEM_CONFIG)
+            return target, str(prj_path)
+    sys_path = system_config or _SYSTEM_CONFIG
+    system_data = _load_toml(sys_path)
     if name in system_data.get("environments", {}):
-        return usr_path, str(_SYSTEM_CONFIG)
-    return usr_path, None
+        return target, str(sys_path)
+    return target, None
 
 
 def _write_config(path: Path, data: dict) -> None:
@@ -699,9 +809,21 @@ def unset_environment_keys(
     name: str,
     *,
     keys: list[str],
+    scope: str = "user",
     user_config: Path | None = None,
+    project_config: Path | None = None,
+    system_config: Path | None = None,
 ) -> tuple[Path, int]:
-    """Remove top-level and dotted keys from an env in user config.
+    """Remove top-level and dotted keys from an env in the specified config layer.
+
+    Args:
+        name: Environment name.
+        keys: List of keys to remove. Use dotted notation (e.g. "section.key")
+            for subtable keys.
+        scope: Which config layer to write to: "user" (default), "project", or "system".
+        user_config: Override path for user config.
+        project_config: Override path for project config.
+        system_config: Override path for system config.
 
     Returns:
         Tuple of (path written, count of keys actually removed). The
@@ -709,9 +831,14 @@ def unset_environment_keys(
         (the file is still rewritten unchanged).
 
     Raises:
-        KeyError: If the environment is not present in the user config.
+        KeyError: If the environment is not present in the targeted config layer.
     """
-    usr_path = _get_user_config_path(user_config, required=True)
+    usr_path = _scope_to_target_path(
+        scope,
+        user_config=user_config,
+        project_config=project_config,
+        system_config=system_config,
+    )
     data = _load_toml(usr_path)
     user_envs = data.get("environments", {})
     if name not in user_envs:

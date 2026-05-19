@@ -1196,3 +1196,137 @@ class TestActivateEnvironmentHelper:
         applied = sunstone.activate_environment(user_config=cfg)
         assert applied == {}
         assert os.environ["MY_CATALOG_URL"] == "from-shell"
+
+
+# ---------------------------------------------------------------------------
+# Scoped writes (Task 14)
+# ---------------------------------------------------------------------------
+
+
+class TestScopedWrites:
+    def _write_config(self, path, body):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+
+    def test_add_environment_to_project_scope(self, tmp_path):
+        from sunstone.env import add_environment
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        path = add_environment(
+            "dev",
+            plain={"CATALOG_URL": "https://x"},
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        import tomllib
+
+        with open(prj_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+
+    def test_add_environment_to_system_scope(self, tmp_path):
+        from sunstone.env import add_environment
+
+        sys_cfg = tmp_path / "etc" / "sunstone" / "data_platform.toml"
+        path = add_environment(
+            "dev",
+            plain={"K": "v"},
+            scope="system",
+            system_config=sys_cfg,
+        )
+        assert path == sys_cfg
+
+    def test_update_environment_project_scope_merges(self, tmp_path):
+        from sunstone.env import update_environment
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(
+            prj_cfg,
+            """
+            [environments.dev]
+            EXISTING = "y"
+            """,
+        )
+        path, shadow = update_environment(
+            "dev",
+            plain={"NEW": "z"},
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        assert shadow is None  # project is top of cascade
+
+    def test_unset_environment_keys_project_scope(self, tmp_path):
+        from sunstone.env import unset_environment_keys
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(
+            prj_cfg,
+            """
+            [environments.dev]
+            KEEP = "k"
+            DROP = "d"
+            """,
+        )
+        path, removed = unset_environment_keys(
+            "dev",
+            keys=["DROP"],
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        assert removed == 1
+
+    def test_remove_environment_from_system_scope(self, tmp_path):
+        from sunstone.env import remove_environment
+
+        sys_cfg = tmp_path / "etc" / "sunstone" / "data_platform.toml"
+        self._write_config(
+            sys_cfg,
+            """
+            [environments.dev]
+            X = "y"
+            """,
+        )
+        path = remove_environment(
+            "dev",
+            scope="system",
+            system_config=sys_cfg,
+        )
+        assert path == sys_cfg
+        import tomllib
+
+        with open(sys_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert "dev" not in data.get("environments", {})
+
+    def test_unknown_scope_raises(self):
+        from sunstone.env import add_environment
+
+        with pytest.raises(ValueError, match="Unknown scope"):
+            add_environment("dev", plain={"K": "v"}, scope="bogus")
+
+    def test_update_environment_system_scope_warns_project_and_user_shadow(self, tmp_path, monkeypatch):
+        from sunstone.env import update_environment
+
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        usr_cfg = tmp_path / "user" / "data_platform.toml"
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(sys_cfg, '[environments.dev]\nX = "y"\n')
+        self._write_config(usr_cfg, '[environments.dev]\nX = "y"\n')
+        self._write_config(prj_cfg, '[environments.dev]\nX = "y"\n')
+
+        # Patch the auto-discovery so _find_project_config returns prj_cfg.
+        monkeypatch.setattr("sunstone.env._find_project_config", lambda: prj_cfg)
+
+        path, shadow = update_environment(
+            "dev",
+            plain={"NEW": "z"},
+            scope="system",
+            system_config=sys_cfg,
+            user_config=usr_cfg,
+        )
+        assert path == sys_cfg
+        # Project shadows over system; report project path.
+        assert shadow == str(prj_cfg)
