@@ -174,7 +174,8 @@ but formatted like this:
 `<one-liner>` is a single sentence (preferrably) describing something that's changelog-worthy
 
 **IMPORTANT**: every time you make a commit, consider whether the change is changelog-worthy, and
-if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
+if so add an entry to the "[Unreleased]" section of CHANGELOG.md. The changelog is meant for
+users, so housekeeping changes (CI, agent instructions, readme, etc) should not go in there.
 
 ##### Updating CHANGELOG.md
 
