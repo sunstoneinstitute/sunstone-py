@@ -48,6 +48,7 @@ nav:
       - Quick Start: quickstart.md
       - CLI Guide: cli.md
       - Core Concepts: concepts.md
+      - File Formats: formats.md
   - API Reference: api.md
   - Examples: examples.md
   - Data Package Standard:

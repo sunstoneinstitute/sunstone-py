@@ -4,17 +4,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown, HTML).
-- Added: `sunstone.licenses` module with embedded SPDX registry and compatibility checks (closes #13).
-- Added: per-output `license:` field in `datasets.yaml` (falls back to `package.license`).
-- Added: write-time license compatibility enforcement on `to_csv` / `to_parquet`; pass `license=` to override.
-- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
-- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-* still accepted).
-- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license registry.
-- Added: denormalize source `attributedTo` and `license` into `datasets.lock.yaml` for self-contained lineage (closes #15).
-- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
-- Added: docs for license commands, compatibility rules, and `check_license=` enforcement.
-- Changed: writers auto-derive a missing output license from sources (single inherits; multiple picks most restrictive); incompatible sources now raise instead of warn.
+- Added: SPDX license registry and per-output `license:` field with write-time
+  compatibility checks on `to_csv`/`to_parquet` (closes #13).
+- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands
+  (with `--json`).
+- Added: writers auto-derive a missing output license from sources (most restrictive wins);
+  incompatible sources now raise instead of warn.
+- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license
+  registry.
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-*
+  still accepted).
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown,
+  HTML); source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for
+  self-contained lineage (closes #15).
+- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv`
+  reads and writes.
+- Added: `docs/formats.md` documenting supported file formats, metadata strategy, and the CSV
+  dialect block.
 
 ## [1.10.0] - 2026-05-06
 
