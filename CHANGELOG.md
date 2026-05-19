@@ -4,23 +4,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: SPDX license registry and per-output `license:` field with write-time
-  compatibility checks on `to_csv`/`to_parquet` (closes #13).
-- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands
-  (with `--json`).
-- Added: writers auto-derive a missing output license from sources (most restrictive wins);
-  incompatible sources now raise instead of warn.
-- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license
-  registry.
-- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-*
-  still accepted).
-- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown,
-  HTML); source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for
-  self-contained lineage (closes #15).
-- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv`
-  reads and writes.
-- Added: `docs/formats.md` documenting supported file formats, metadata strategy, and the CSV
-  dialect block.
+- Added: SPDX license registry and per-output `license:` field with write-time compatibility checks on `to_csv`/`to_parquet` (closes #13).
+- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
+- Added: writers auto-derive a missing output license from sources (most restrictive wins); incompatible sources now raise instead of warn.
+- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license registry.
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-* still accepted).
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown, HTML); source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage (closes #15).
+- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
+- Added: `docs/formats.md` documenting supported file formats, metadata strategy, and the CSV dialect block.
+- Changed: environments are a generic key-value bag; plugins register typed sections via `EnvSectionProvider`.
+- Added: active-environment keys flow into `os.environ`, so `${VAR}` substitution in `publish.as:` / `publish.to:` resolves to them.
+- Added: `sunstone.activate_environment()` helper for notebook/library use.
+- Added: `sunstone env set` and `sunstone env unset` accept `KEY=VAL` (dotted keys target plugin subtables).
+- Changed: `sunstone env add` takes positional `KEY=VAL` entries (dotted keys write to plugin subtables).
+- Removed: `DataEnvironment.{catalog_url,s3_endpoint,s3_access_key,s3_secret_key,auth}` (now a deprecated alias for `Environment`).
+- Removed: `SUNSTONE_DATA_CATALOG_URL` and `SUNSTONE_DATA_S3_*` per-field env-var overrides.
+- Removed: `--catalog-url`/`--s3-endpoint`/`--s3-*`/`--auth` flags on `env add`.
+- Removed: `sunstone env update` (use `env set`).
 
 ## [1.10.0] - 2026-05-06
 
