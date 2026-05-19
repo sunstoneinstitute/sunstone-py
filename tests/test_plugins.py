@@ -894,6 +894,9 @@ def test_registry_discovers_env_section_provider():
             assert len(providers) == 1
             assert isinstance(providers[0], EnvSectionProvider)
             assert providers[0].env_section_name() == "fake-platform"
+            model_cls = providers[0].env_section_model()
+            instance = model_cls(key="val")
+            assert instance.kwargs == {"key": "val"}
 
 
 def test_registry_multi_protocol_with_env_section():

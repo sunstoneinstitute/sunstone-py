@@ -11,7 +11,7 @@ import os
 import shutil
 import tomllib
 from pathlib import Path
-from typing import BinaryIO, Literal, Protocol, TextIO, overload, runtime_checkable
+from typing import Any, BinaryIO, Callable, Literal, Protocol, TextIO, overload, runtime_checkable
 
 import pandas as pd
 import typer
@@ -97,7 +97,7 @@ class EnvSectionProvider(Protocol):
         """Return the TOML subtable key (e.g. 'data-platform')."""
         ...
 
-    def env_section_model(self) -> type:
+    def env_section_model(self) -> Callable[..., Any]:
         """Return a callable that accepts the subtable as **kwargs."""
         ...
 
