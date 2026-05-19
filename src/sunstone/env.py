@@ -380,8 +380,10 @@ def activate_environment(
 ) -> dict[str, str]:
     """Convenience: resolve the active environment and call `.activate()`.
 
-    Returns the dict of keys this call actually set in os.environ
-    (an empty dict if no active environment is configured).
+    Pre-existing environment variables are not overwritten (real env vars
+    always win over config-file values). Returns the dict of keys this call
+    actually set in os.environ (an empty dict if no active environment is
+    configured or all keys were already set).
     """
     env = resolve_environment(
         system_config=system_config,

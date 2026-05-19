@@ -1151,3 +1151,22 @@ class TestActivateEnvironmentHelper:
             project_config=tmp_path / "missing-prj.toml",
         )
         assert applied == {}
+
+    def test_module_helper_does_not_overwrite_real_env_vars(self, tmp_path, monkeypatch):
+        import sunstone
+
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CATALOG_URL = "from-config"
+            """
+        )
+        monkeypatch.setenv("MY_CATALOG_URL", "from-shell")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(user_config=cfg)
+        assert applied == {}
+        assert os.environ["MY_CATALOG_URL"] == "from-shell"
