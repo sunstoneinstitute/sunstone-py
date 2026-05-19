@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -877,3 +878,71 @@ class TestWriteConfig:
 
         assert path.read_text() == original
         assert not any(candidate.suffix == ".tmp" for candidate in tmp_path.iterdir())
+
+
+# ---------------------------------------------------------------------------
+# Environment dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironment:
+    def test_frozen(self):
+        from sunstone.env import Environment
+
+        env = Environment(name="dev", source="/etc/sunstone/data_platform.toml", vars={}, sections={})
+        with pytest.raises(FrozenInstanceError):
+            env.name = "other"  # type: ignore[misc]
+
+    def test_vars_and_sections_are_mappings(self):
+        from sunstone.env import Environment
+
+        env = Environment(
+            name="dev",
+            source="user",
+            vars={"FOO": "bar"},
+            sections={"plug": object()},
+        )
+        assert dict(env.vars) == {"FOO": "bar"}
+        assert "plug" in env.sections
+
+    def test_activate_sets_unset_keys(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "https://example.com"}, sections={})
+        applied = env.activate()
+        assert applied == {"MY_CATALOG_URL": "https://example.com"}
+        assert os.environ["MY_CATALOG_URL"] == "https://example.com"
+
+    def test_activate_does_not_overwrite_real_env_vars(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.setenv("MY_CATALOG_URL", "from-shell")
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "from-config"}, sections={})
+        applied = env.activate()
+        assert applied == {}
+        assert os.environ["MY_CATALOG_URL"] == "from-shell"
+
+    def test_activate_is_idempotent(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "x"}, sections={})
+        first = env.activate()
+        second = env.activate()
+        assert first == {"MY_CATALOG_URL": "x"}
+        assert second == {}  # already set on second call
+
+    def test_section_returns_typed_instance(self):
+        from sunstone.env import Environment
+
+        section = object()
+        env = Environment(name="dev", source="user", vars={}, sections={"data-platform": section})
+        assert env.section("data-platform") is section
+
+    def test_section_raises_keyerror_for_unknown(self):
+        from sunstone.env import Environment
+
+        env = Environment(name="dev", source="user", vars={}, sections={})
+        with pytest.raises(KeyError):
+            env.section("missing")

@@ -19,7 +19,7 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, overload
+from typing import Any, Literal, Mapping, overload
 
 import tomli_w
 
@@ -75,6 +75,46 @@ class DataEnvironment:
     s3_secret_key: str | None
     auth: str | None
     source: str
+
+
+@dataclass(frozen=True)
+class Environment:
+    """Resolved environment configuration.
+
+    `vars` is the flattened set of keys (uppercase, hyphens->underscores)
+    from both top-level scalars and plugin-namespaced subtables. `sections`
+    holds typed models from registered EnvSectionProviders.
+    """
+
+    name: str
+    source: str
+    vars: Mapping[str, str]
+    sections: Mapping[str, Any]
+
+    def activate(self) -> dict[str, str]:
+        """Layer `vars` onto os.environ. Real env vars win.
+
+        Returns the dict of keys this call actually set (useful for tests
+        and verbose CLI output).
+        """
+        applied: dict[str, str] = {}
+        for key, value in self.vars.items():
+            if key not in os.environ:
+                os.environ[key] = value
+                applied[key] = value
+        return applied
+
+    def section(self, name: str) -> Any:
+        """Return the typed model registered for `name`.
+
+        Raises:
+            KeyError: if no `EnvSectionProvider` is registered for `name`
+                or the active environment did not declare that subtable.
+        """
+        try:
+            return self.sections[name]
+        except KeyError as e:
+            raise KeyError(f"No env section '{name}' on environment '{self.name}'") from e
 
 
 def _load_toml(path: Path) -> dict:
