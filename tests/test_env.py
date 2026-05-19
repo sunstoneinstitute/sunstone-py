@@ -12,7 +12,6 @@ from unittest.mock import patch
 import pytest
 
 from sunstone.env import (
-    DataEnvironment,
     _find_project_config,
     _load_toml,
     _merge_environments,
@@ -1097,7 +1096,7 @@ class TestLegacyEnvVarOverridesRemoved:
 
 class TestDataEnvironmentDeprecationAlias:
     def test_old_name_is_alias_for_environment(self):
-        from sunstone.env import Environment
+        from sunstone.env import DataEnvironment, Environment
 
         assert DataEnvironment is Environment
 
