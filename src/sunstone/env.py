@@ -1,14 +1,17 @@
-"""Environment configuration for the Sunstone data platform.
+"""Environment configuration for sunstone-py.
 
-Resolves data platform environment settings from cascading TOML config
-files and environment variables.
+Resolves environment settings from cascading TOML config files and applies
+them as os.environ overlays via Environment.activate(). All keys are
+generic; plugins own typed schemas for their subtables via EnvSectionProvider.
 
-Config file precedence (highest wins):
-    1. Individual env vars (SUNSTONE_DATA_CATALOG_URL, etc.)
-    2. SUNSTONE_DATA_ENV env var (selects active environment name)
-    3. .sunstone/data_platform.toml (project config, walked up from cwd)
-    4. ~/.config/sunstone/data_platform.toml (user config)
-    5. /etc/sunstone/data_platform.toml (system config)
+Config file precedence (highest wins for active-environment selection):
+    1. SUNSTONE_DATA_ENV env var (selects active environment name)
+    2. .sunstone/data_platform.toml (project, walked up from cwd)
+    3. ~/.config/sunstone/data_platform.toml (user)
+    4. /etc/sunstone/data_platform.toml (system)
+
+Within a single environment definition, field-level merging follows the
+same precedence (project > user > system).
 """
 
 from __future__ import annotations

@@ -1287,3 +1287,31 @@ class TestEnvironmentSections:
         assert env is not None
         assert env.section("dup").tag == "second"
         assert any("Duplicate EnvSectionProvider" in rec.message for rec in caplog.records)
+
+
+class TestLegacyEnvVarOverridesRemoved:
+    """SUNSTONE_DATA_CATALOG_URL / SUNSTONE_DATA_S3_* used to override
+    individual fields on the resolved environment. They are removed; the
+    replacement is to set the bare env var (CATALOG_URL=...) directly or
+    via the section-flattened name (DATA_PLATFORM_CATALOG_URL=...). Real
+    env vars still win over config-file values via Environment.activate().
+    """
+
+    def test_old_overrides_have_no_effect(self, tmp_path, monkeypatch):
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "from-config"
+            """
+        )
+        monkeypatch.setenv("SUNSTONE_DATA_CATALOG_URL", "from-old-override")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        # The old override env var must NOT bleed into resolved vars.
+        assert env.vars["CATALOG_URL"] == "from-config"
+        assert "SUNSTONE_DATA_CATALOG_URL" not in env.vars
