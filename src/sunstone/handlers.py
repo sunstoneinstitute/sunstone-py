@@ -129,6 +129,8 @@ class BuiltinFormatHandler:
             fmt = "csv"
         if fmt == "csv" and isinstance(dialect, CsvDialect):
             kwargs = _apply_csv_dialect_write(kwargs, dialect)
+        if fmt == "csv":
+            kwargs.setdefault("lineterminator", "\n")
         method_name = _WRITER_MAP[str(fmt)]
         writer = getattr(df, method_name)
         writer(stream, **kwargs)

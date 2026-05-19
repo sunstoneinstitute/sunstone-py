@@ -4,14 +4,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: SPDX license registry and per-output `license:` field with write-time compatibility checks on `to_csv`/`to_parquet` (closes #13).
-- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
-- Added: writers auto-derive a missing output license from sources (most restrictive wins); incompatible sources now raise instead of warn.
-- Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license registry.
-- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (LicenseRef-* still accepted).
-- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text, markdown, HTML); source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage (closes #15).
-- Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
-- Added: `docs/formats.md` documenting supported file formats, metadata strategy, and the CSV dialect block.
 - Changed: environments are a generic key-value bag; plugins register typed sections via `EnvSectionProvider`.
 - Added: active-environment keys flow into `os.environ`, so `${VAR}` substitution in `publish.as:` / `publish.to:` resolves to them.
 - Added: `sunstone.activate_environment()` helper for notebook/library use.
@@ -22,6 +14,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Removed: `SUNSTONE_DATA_CATALOG_URL` and `SUNSTONE_DATA_S3_*` per-field env-var overrides.
 - Removed: `--catalog-url`/`--s3-endpoint`/`--s3-*`/`--auth` flags on `env add`.
 - Removed: `sunstone env update` (use `env set`).
+
+## [1.11.0] - 2026-05-19
+
+- Added: SPDX license registry and per-output `license:` field with write-time compatibility checks (#13).
+- Added: `sunstone license check` / `sunstone license list` CLI commands (with `--json`).
+- Added: writers auto-derive a missing output license from sources (most restrictive wins).
+- Added: license registry entries for `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO`.
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text/markdown/HTML) (#15).
+- Added: per-dataset `dialect:` block (delimiter, quoteChar, header) for CSV reads and writes.
+- Added: identity URI template and `component_metadata` for compositional dataset metadata.
+- Added: `Metadata` mapping sugar — `metadata['key']` proxies to `custom_properties`.
+- Added: `docs/formats.md` covering supported formats, metadata strategy, and the CSV dialect block.
+- Changed: incompatible source licenses now raise `LicenseCompatibilityError` instead of warning.
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (`LicenseRef-*` still accepted).
+- Changed: source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage.
+- Fixed: default to `\n` CSV line terminators on Windows for stable data hashes.
 
 ## [1.10.0] - 2026-05-06
 
