@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO` to the license registry.
 - Added: denormalize source `attributedTo` and `license` into `datasets.lock.yaml` for self-contained lineage (closes #15).
 - Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
+- Added: docs for license commands, compatibility rules, and `check_license=` enforcement.
 
 ## [1.10.0] - 2026-05-06
 

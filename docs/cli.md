@@ -339,6 +339,79 @@ sunstone package push -d "gs://${BUCKET}/datasets/${PROJECT}/"
 ✓ Package pushed to: gs://my-bucket/datasets/countries/
 ```
 
+## License Commands
+
+`sunstone license` inspects and audits the licenses declared in `datasets.yaml`. Use it alongside the lint rules `R005` (missing license) and `R006` (unrecognised SPDX identifier) — lint catches *missing* and *malformed* licenses, the `license` subcommand catches *incompatible* ones.
+
+The compatibility engine is rules-based and consults an embedded registry of common research-data licenses (CC family, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, and US-PD `LicenseRef-*` entries). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
+
+### List Licenses
+
+Show every license referenced in the project and which datasets declare it:
+
+```bash
+# Default datasets.yaml in current directory
+sunstone license list
+
+# Custom file or project directory
+sunstone license list -f path/to/datasets.yaml
+
+# Machine-readable output
+sunstone license list --json
+```
+
+**Example output:**
+
+```
+CC-BY-4.0
+  - input:un-members
+  - input:world-bank-gdp
+CC-BY-SA-4.0
+  - output:enriched-members
+```
+
+Output licenses are resolved to their *effective* license — explicit `license:` on the dataset, otherwise the matching `packages[]` entry, otherwise the top-level `package.license`.
+
+### Check License Compatibility
+
+Verify that each output's declared license is compatible with the licenses of every source dataset in its `wasDerivedFrom` chain:
+
+```bash
+# Check every output
+sunstone license check
+
+# Check a single output
+sunstone license check enriched-members
+
+# Machine-readable output (for CI)
+sunstone license check --json
+```
+
+Exits non-zero if any output has a conflict, so it slots into CI alongside `sunstone lint` and `sunstone dataset validate`.
+
+**Example output (compatible):**
+
+```
+enriched-members: target=CC-BY-SA-4.0 status=compatible
+public-summary: target=CC-BY-4.0 status=compatible
+```
+
+**Example output (conflict):**
+
+```
+nc-derived: target=CC-BY-4.0 status=conflict
+  conflict: CC-BY-NC-4.0 is NonCommercial: derivatives must also be NonCommercial, not CC-BY-4.0
+  suggestions: CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-NC-3.0-IGO
+```
+
+**Skipped outputs:**
+
+The check is skipped (status `skipped`) for an output when it has no source licenses to consider, or when no effective target license can be resolved. Skipped outputs do not fail the command.
+
+**Unknown licenses:**
+
+A `LicenseRef-*` identifier that is not in the embedded registry is reported as an *unknown source* on the JSON result and excluded from rules-based comparisons — callers (or reviewers) must decide how to treat it.
+
 ## Common Workflows
 
 ### Pre-commit Validation

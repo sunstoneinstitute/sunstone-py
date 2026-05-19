@@ -398,6 +398,71 @@ df.set_field_metadata('distance_miles', unit='mile')
 
 Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles. The original URI is stored in `FieldSchema.unit_source` so it round-trips without loss.
 
+## License Compatibility
+
+sunstone-py treats licenses as a first-class part of lineage: every input declares a `source.license`, every output declares an effective license (its own, its `packages[]` entry, or the top-level `package.license`), and the compatibility between them is checked automatically at write time.
+
+There are three layers of license handling, intentionally graded from soft to hard:
+
+1. **Lint (`sunstone lint`)** — `R005` flags a dataset that has no license at all; `R006` flags a license string that isn't a recognised SPDX identifier or `LicenseRef-*` form.
+2. **CLI audit (`sunstone license check`)** — runs the compatibility engine across every output's `wasDerivedFrom` chain and exits non-zero on conflict. Use it in CI. See the [CLI Guide](cli.md#license-commands).
+3. **Write-time enforcement** — `to_csv()` / `to_parquet()` raise [`LicenseCompatibilityError`](errors.md#licensecompatibilityerror) when the target license is incompatible with a source license in the current session lineage. Pass `check_license=False` to skip on a specific write.
+
+### How the Compatibility Engine Works
+
+Each license in the embedded registry is described by four boolean properties — `public_domain`, `attribution`, `share_alike`, `non_commercial` — plus a `family` tag for ShareAlike. A `(source → target)` pair is checked against this rule set:
+
+| Source property | Constraint on target |
+|---|---|
+| `public_domain` | None — compatible with anything. |
+| `share_alike` | Target must also be `share_alike` **and** share the same `family`. (`CC-BY-SA-4.0` and `CC-BY-SA-3.0` are *different* families on purpose — Creative Commons treats them as one-way upgradable, not mutually equivalent.) |
+| `non_commercial` | Target must also be `non_commercial`. |
+| `attribution` (without SA/NC) | Target must be `attribution` *or* `share_alike` (SA implies attribution). |
+
+A check fails as soon as any source/target pair violates the rules; the resulting `LicenseCompatibilityResult` lists every conflict and a `suggestions` list of registry licenses that *would* satisfy all known sources. The most-restrictive ordering — used by `get_most_restrictive_license()` and by suggestion ranking — is `ShareAlike > NonCommercial > Attribution > Public Domain`.
+
+### Embedded License Registry
+
+The registry is intentionally focused on common research-data licenses. Anything outside it must use a `LicenseRef-*` identifier; unregistered `LicenseRef-*` ids pass lint `R006` but are reported as `unknown_sources` by the compatibility engine and excluded from the rule check.
+
+| SPDX id | Class |
+|---|---|
+| `CC0-1.0`, `PDDL-1.0`, `LicenseRef-US-PD` | Public domain |
+| `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-3.0-IGO` | Attribution only |
+| `ODC-By-1.0`, `LicenseRef-OGL-3.0`, `NLOD-1.0`, `NLOD-2.0` | Attribution only |
+| `CC-BY-SA-4.0`, `CC-BY-SA-3.0`, `ODbL-1.0` | Attribution + ShareAlike (each is its own family) |
+| `CC-BY-NC-4.0`, `CC-BY-NC-3.0-IGO` | Attribution + NonCommercial |
+| `CC-BY-NC-SA-4.0`, `CC-BY-NC-SA-3.0`, `CC-BY-NC-SA-3.0-IGO` | Attribution + NonCommercial + ShareAlike (each is its own family) |
+
+Adding a license is a one-line append to `_REGISTRY_ENTRIES` in `src/sunstone/licenses.py`. The full set is also available programmatically via `sunstone.licenses.known_licenses()`.
+
+### Worked Example
+
+A source `un-members` is licensed `CC-BY-NC-4.0`. You merge it with a `CC-BY-4.0` input and try to publish under `CC-BY-4.0`:
+
+```python
+result.to_csv(
+    "outputs/derived.csv",
+    slug="derived",
+    name="Derived Data",
+    license="CC-BY-4.0",
+)
+# raises LicenseCompatibilityError:
+#   CC-BY-NC-4.0 is NonCommercial: derivatives must also be NonCommercial, not CC-BY-4.0
+#   Suggested compatible target licenses: CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-NC-3.0-IGO
+```
+
+The fix is to widen the output to a NonCommercial license — or, if you have rights to do so, to remove the NC source from the lineage. The engine does not let you "wash out" a NonCommercial source by mixing it with a permissive one; that is the correct behaviour under Creative Commons.
+
+### Missing vs. Conflicting Licenses
+
+The two failure modes are handled differently:
+
+- **Missing target license, but sources have licenses** → `UserWarning` only. The intent is to keep exploratory writes unblocked while still surfacing the gap.
+- **Target license incompatible with sources** → `LicenseCompatibilityError`. This is a hard failure because silently publishing under the wrong license can be a legal problem.
+
+Combine `sunstone lint --warnings-as-errors` (catches missing licenses) with `sunstone license check` (catches conflicts) in CI to make both classes hard failures before publish.
+
 ## Dataset Metadata
 
 Every dataset in `datasets.yaml` has rich metadata:
