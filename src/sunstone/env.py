@@ -695,6 +695,43 @@ def _write_config(path: Path, data: dict) -> None:
         raise
 
 
+def unset_environment_keys(
+    name: str,
+    *,
+    keys: list[str],
+    user_config: Path | None = None,
+) -> Path:
+    """Remove top-level and dotted keys from an env in user config.
+
+    Returns:
+        Path to the user config that was written.
+
+    Raises:
+        KeyError: If the environment is not present in the user config.
+    """
+    usr_path = _get_user_config_path(user_config, required=True)
+    data = _load_toml(usr_path)
+    user_envs = data.get("environments", {})
+    if name not in user_envs:
+        raise KeyError(f"Environment '{name}' not found in {usr_path}")
+
+    entry = user_envs[name]
+    for key in keys:
+        if "." in key:
+            section, sub_key = key.split(".", 1)
+            section_entry = entry.get(section)
+            if isinstance(section_entry, dict):
+                section_entry.pop(sub_key, None)
+                if not section_entry:
+                    entry.pop(section, None)
+        else:
+            entry.pop(key, None)
+
+    data["environments"] = user_envs
+    _write_config(usr_path, data)
+    return usr_path
+
+
 # Deprecated alias for the old class name. Will be removed in the next
 # minor release. The catalog_url / s3_endpoint / auth attributes no longer
 # exist; callers that read them directly will fail explicitly.

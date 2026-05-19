@@ -2560,3 +2560,83 @@ class TestEnvSet:
         result = runner.invoke(app, ["env", "update", "--help"])
         # Typer prints "No such command" or similar; exit code != 0
         assert result.exit_code != 0
+
+
+class TestEnvUnset:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_unset_removes_top_level_key(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            KEEP = "k"
+            DROP = "d"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "DROP"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env == {"KEEP": "k"}
+
+    def test_unset_dotted_removes_subtable_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            catalog_url = "https://x"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "data-platform.catalog_url"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["data-platform"] == {"warehouse": "main"}
+
+    def test_unset_removes_empty_subtable(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "data-platform.warehouse"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert "data-platform" not in env
+
+    def test_unset_unknown_key_is_no_op(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            KEEP = "k"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "MISSING"])
+        assert result.exit_code == 0  # silent no-op

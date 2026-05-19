@@ -568,6 +568,27 @@ def env_set(
         )
 
 
+@env_app.command("unset")
+def env_unset(
+    name: str = typer.Argument(..., help="Environment name"),
+    keys: list[str] = typer.Argument(..., help="Keys to remove (dotted = subtable)"),
+) -> None:
+    """Remove KEYs from an environment in user config.
+
+    Dotted keys (e.g. data-platform.catalog_url) remove an entry from a
+    plugin subtable; the subtable is deleted if it ends up empty. Missing
+    keys are silently ignored.
+    """
+    from sunstone.env import unset_environment_keys
+
+    try:
+        path = unset_environment_keys(name, keys=keys)
+    except (OSError, RuntimeError, KeyError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Updated environment '{name}' in {path}")
+
+
 # =============================================================================
 # Dataset commands
 # =============================================================================
