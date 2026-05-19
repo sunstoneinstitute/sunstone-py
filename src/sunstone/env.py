@@ -72,19 +72,6 @@ def _get_user_config_path(user_config: Path | None = None, *, required: bool = F
 
 
 @dataclass(frozen=True)
-class DataEnvironment:
-    """Resolved data platform environment configuration."""
-
-    name: str
-    catalog_url: str
-    s3_endpoint: str
-    s3_access_key: str | None
-    s3_secret_key: str | None
-    auth: str | None
-    source: str
-
-
-@dataclass(frozen=True)
 class Environment:
     """Resolved environment configuration.
 
@@ -623,3 +610,9 @@ def _write_config(path: Path, data: dict) -> None:
         except FileNotFoundError:
             pass
         raise
+
+
+# Deprecated alias for the old class name. Will be removed in the next
+# minor release. The catalog_url / s3_endpoint / auth attributes no longer
+# exist; callers that read them directly will fail explicitly.
+DataEnvironment = Environment

@@ -29,40 +29,6 @@ from sunstone.env import (
 )
 
 
-# ---------------------------------------------------------------------------
-# DataEnvironment dataclass
-# ---------------------------------------------------------------------------
-
-
-class TestDataEnvironment:
-    def test_frozen(self):
-        env = DataEnvironment(
-            name="test",
-            catalog_url="http://localhost:19120",
-            s3_endpoint="http://localhost:9000",
-            s3_access_key="key",
-            s3_secret_key="secret",
-            auth=None,
-            source="test",
-        )
-        with pytest.raises(FrozenInstanceError):
-            env.name = "other"  # type: ignore[misc]
-
-    def test_fields(self):
-        env = DataEnvironment(
-            name="prod",
-            catalog_url="https://nessie.prod.example.com",
-            s3_endpoint="https://s3.prod.example.com",
-            s3_access_key=None,
-            s3_secret_key=None,
-            auth="gcloud-adc",
-            source="/etc/sunstone/data_platform.toml",
-        )
-        assert env.name == "prod"
-        assert env.auth == "gcloud-adc"
-        assert env.s3_access_key is None
-
-
 def test_import_env_tolerates_missing_home(monkeypatch):
     """Reloading sunstone.env should not fail when Path.home() is unavailable."""
     import sunstone.env as env_mod
@@ -333,199 +299,6 @@ def _write_toml(path: Path, content: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     return path
-
-
-class TestResolveEnvironmentLegacy:
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_full_cascade(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.prod]\ncatalog_url = "http://sys-prod"\ns3_endpoint = "http://sys-s3"\n',
-        )
-        user = _write_toml(
-            tmp_path / "user.toml",
-            'active = "prod"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=user,
-                project_config=tmp_path / "nonexistent.toml",
-            )
-
-        assert env is not None
-        assert env.name == "prod"
-        assert env.catalog_url == "http://sys-prod"  # type: ignore[attr-defined]
-        assert env.s3_endpoint == "http://sys-s3"  # type: ignore[attr-defined]
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_env_var_field_overrides(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\n',
-        )
-
-        overrides = {
-            "SUNSTONE_DATA_CATALOG_URL": "http://overridden",
-            "SUNSTONE_DATA_S3_ENDPOINT": "http://overridden-s3",
-            "SUNSTONE_DATA_S3_ACCESS_KEY": "env-key",
-            "SUNSTONE_DATA_S3_SECRET_KEY": "env-secret",
-        }
-        with patch.dict("os.environ", overrides, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "none.toml",
-                project_config=tmp_path / "none2.toml",
-            )
-
-        assert env is not None
-        assert env.catalog_url == "http://overridden"  # type: ignore[attr-defined]
-        assert env.s3_endpoint == "http://overridden-s3"  # type: ignore[attr-defined]
-        assert env.s3_access_key == "env-key"  # type: ignore[attr-defined]
-        assert env.s3_secret_key == "env-secret"  # type: ignore[attr-defined]
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_empty_env_vars_do_not_override_config(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\ns3_access_key = "configured-key"\ns3_secret_key = "configured-secret"\n',
-        )
-
-        overrides = {
-            "SUNSTONE_DATA_CATALOG_URL": "",
-            "SUNSTONE_DATA_S3_ENDPOINT": "",
-            "SUNSTONE_DATA_S3_ACCESS_KEY": "",
-            "SUNSTONE_DATA_S3_SECRET_KEY": "",
-        }
-        with patch.dict("os.environ", overrides, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "none.toml",
-                project_config=tmp_path / "none2.toml",
-            )
-
-        assert env is not None
-        assert env.catalog_url == "http://original"  # type: ignore[attr-defined]
-        assert env.s3_endpoint == "http://original-s3"  # type: ignore[attr-defined]
-        assert env.s3_access_key == "configured-key"  # type: ignore[attr-defined]
-        assert env.s3_secret_key == "configured-secret"  # type: ignore[attr-defined]
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_returns_none_when_nothing_configured(self, tmp_path: Path):
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=tmp_path / "no.toml",
-                user_config=tmp_path / "no2.toml",
-                project_config=tmp_path / "no3.toml",
-            )
-        assert env is None
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_raises_for_unknown_active_env(self, tmp_path: Path):
-        config = _write_toml(
-            tmp_path / "user.toml",
-            'active = "nonexistent"\n',
-        )
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="nonexistent"):
-                resolve_environment(
-                    system_config=tmp_path / "no.toml",
-                    user_config=config,
-                    project_config=tmp_path / "no2.toml",
-                )
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_env_var_selects_environment(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.staging]\ncatalog_url = "http://staging"\ns3_endpoint = "http://staging-s3"\n',
-        )
-
-        with patch.dict("os.environ", {"SUNSTONE_DATA_ENV": "staging"}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "no.toml",
-                project_config=tmp_path / "no2.toml",
-            )
-
-        assert env is not None
-        assert env.name == "staging"
-        assert env.source == "SUNSTONE_DATA_ENV"
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_project_config_environments(self, tmp_path: Path):
-        project = _write_toml(
-            tmp_path / ".sunstone" / "data_platform.toml",
-            'active = "local"\n'
-            "[environments.local]\n"
-            'catalog_url = "http://localhost:19120"\n'
-            's3_endpoint = "http://localhost:9000"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=tmp_path / "no.toml",
-                user_config=tmp_path / "no2.toml",
-                project_config=project,
-            )
-
-        assert env is not None
-        assert env.name == "local"
-        assert env.catalog_url == "http://localhost:19120"  # type: ignore[attr-defined]
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_field_level_merge_across_layers(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.dev]\nauth = "basic"\ns3_endpoint = "http://sys-s3"\n',
-        )
-        user = _write_toml(
-            tmp_path / "user.toml",
-            'active = "dev"\n[environments.dev]\ns3_access_key = "user-key"\n',
-        )
-        project = _write_toml(
-            tmp_path / "project.toml",
-            '[environments.dev]\ncatalog_url = "http://project-dev"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=user,
-                project_config=project,
-            )
-
-        assert env is not None
-        assert env.name == "dev"
-        assert env.catalog_url == "http://project-dev"  # type: ignore[attr-defined]
-        assert env.s3_endpoint == "http://sys-s3"  # type: ignore[attr-defined]
-        assert env.s3_access_key == "user-key"  # type: ignore[attr-defined]
-        assert env.auth == "basic"  # type: ignore[attr-defined]
-
-    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
-    def test_credential_resolution(self, tmp_path: Path):
-        config = _write_toml(
-            tmp_path / "config.toml",
-            'active = "test"\n'
-            "[environments.test]\n"
-            'catalog_url = "http://test"\n'
-            's3_endpoint = "http://test-s3"\n'
-            's3_access_key = "op://vault/item/key"\n'
-            's3_secret_key = "literal-secret"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            with patch("sunstone.env._resolve_op_reference", return_value="resolved-key"):
-                env = resolve_environment(
-                    system_config=config,
-                    user_config=tmp_path / "no.toml",
-                    project_config=tmp_path / "no2.toml",
-                )
-
-        assert env is not None
-        assert env.s3_access_key == "resolved-key"  # type: ignore[attr-defined]
-        assert env.s3_secret_key == "literal-secret"  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -1315,3 +1088,32 @@ class TestLegacyEnvVarOverridesRemoved:
         # The old override env var must NOT bleed into resolved vars.
         assert env.vars["CATALOG_URL"] == "from-config"
         assert "SUNSTONE_DATA_CATALOG_URL" not in env.vars
+
+
+# ---------------------------------------------------------------------------
+# DataEnvironment deprecation alias (Task 6)
+# ---------------------------------------------------------------------------
+
+
+class TestDataEnvironmentDeprecationAlias:
+    def test_old_name_is_alias_for_environment(self):
+        from sunstone.env import Environment
+
+        assert DataEnvironment is Environment
+
+    def test_old_typed_attrs_are_gone(self, tmp_path, monkeypatch):
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "x"
+            """
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert not hasattr(env, "catalog_url")
+        assert not hasattr(env, "s3_endpoint")
+        assert not hasattr(env, "auth")
