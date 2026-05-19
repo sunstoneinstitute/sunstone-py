@@ -2729,9 +2729,9 @@ class TestCallbackActivates:
         monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
 
     def test_callback_activates_environment_for_non_env_commands(self, tmp_path, monkeypatch):
-        # We use --version (a no-op that still runs the callback) as the
-        # smoke test: by the time the callback returns, os.environ should
-        # have picked up the active env vars.
+        # Smoke test: invoke a non-env subcommand (here `dataset list`); by
+        # the time the callback returns, os.environ should have picked up
+        # the active env vars regardless of the command's own exit status.
         user_cfg = tmp_path / "user.toml"
         user_cfg.write_text(
             """
@@ -2742,6 +2742,9 @@ class TestCallbackActivates:
             """
         )
         self._fake_user_config_path(monkeypatch, user_cfg)
+        # Set then clear to prove the assertion catches the activation
+        # side-effect, not a leftover from a prior test.
+        monkeypatch.setenv("MY_CALLBACK_VAR", "this-should-be-overwritten-or-cleared")
         monkeypatch.delenv("MY_CALLBACK_VAR", raising=False)
         monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
 
