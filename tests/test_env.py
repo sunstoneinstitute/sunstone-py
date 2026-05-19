@@ -1133,3 +1133,109 @@ class TestResolveEnvironmentGeneric:
         assert env is not None
         assert env.name == "dev"
         assert env.source == "SUNSTONE_DATA_ENV"
+
+
+# ---------------------------------------------------------------------------
+# _build_sections — typed sections from EnvSectionProviders (Task 4)
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironmentSections:
+    def _write_user_config(self, tmp_path: Path, body: str) -> Path:
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(body)
+        return cfg
+
+    def test_registered_provider_with_matching_subtable_builds_section(self, tmp_path, monkeypatch):
+        from sunstone.plugins import PluginRegistry
+
+        class FakeSection:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class FakeSectionProvider:
+            def env_section_name(self):
+                return "data-platform"
+
+            def env_section_model(self):
+                return FakeSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            catalog_url = "https://data.dev.example.com"
+            warehouse = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        # Patch the registry's getter so resolve_environment picks up our provider.
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[FakeSectionProvider()],
+        ):
+            env = resolve_environment(user_config=cfg)
+
+        assert env is not None
+        section = env.section("data-platform")
+        assert isinstance(section, FakeSection)
+        assert section.kwargs == {
+            "catalog_url": "https://data.dev.example.com",
+            "warehouse": "main",
+        }
+
+    def test_unregistered_subtable_keys_still_flatten(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."unknown-plugin"]
+            foo = "bar"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["UNKNOWN_PLUGIN_FOO"] == "bar"
+        with pytest.raises(KeyError):
+            env.section("unknown-plugin")
+
+    def test_section_validation_error_wraps_with_context(self, tmp_path, monkeypatch):
+        from sunstone.plugins import PluginRegistry
+
+        class StrictSection:
+            def __init__(self, *, required_only: str):
+                self.required_only = required_only
+
+        class StrictProvider:
+            def env_section_name(self):
+                return "strict"
+
+            def env_section_model(self):
+                return StrictSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."strict"]
+            unexpected = "x"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[StrictProvider()],
+        ):
+            with pytest.raises(ValueError) as exc:
+                resolve_environment(user_config=cfg)
+        assert "environment 'dev'" in str(exc.value).lower()
+        assert "section 'strict'" in str(exc.value).lower()

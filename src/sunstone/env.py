@@ -13,6 +13,7 @@ Config file precedence (highest wins):
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import tempfile
@@ -23,6 +24,8 @@ from types import MappingProxyType
 from typing import Any, Literal, Mapping, overload
 
 import tomli_w
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_CONFIG = Path("/etc/sunstone/data_platform.toml")
 _PROJECT_CONFIG_NAME = ".sunstone/data_platform.toml"
@@ -273,10 +276,34 @@ def _flatten_env_def(env_def: dict) -> tuple[dict[str, str], dict[str, dict]]:
     return vars_map, subtables
 
 
-def _build_sections(env_name: str, subtables: dict[str, dict]) -> dict:
-    """Construct typed section models from registered EnvSectionProviders."""
-    # Section building is implemented in Task 4. For now, return empty.
-    return {}
+def _build_sections(env_name: str, subtables: dict[str, dict]) -> dict[str, Any]:
+    """Construct typed section models from registered EnvSectionProviders.
+
+    Providers whose section is absent from the active env are omitted from
+    the result. Subtables without a matching provider are skipped (their
+    flattened keys still appear in `vars`).
+    """
+    from sunstone.plugins import PluginRegistry
+
+    providers = PluginRegistry.get().get_env_section_providers()
+    by_name = {p.env_section_name(): p for p in providers}
+
+    sections: dict[str, Any] = {}
+    for section_name, subtable in subtables.items():
+        provider = by_name.get(section_name)
+        if provider is None:
+            logger.debug(
+                "No EnvSectionProvider registered for subtable '%s' in environment '%s'",
+                section_name,
+                env_name,
+            )
+            continue
+        try:
+            model_cls = provider.env_section_model()
+            sections[section_name] = model_cls(**subtable)
+        except Exception as e:
+            raise ValueError(f"Environment '{env_name}' section '{section_name}': {e}") from e
+    return sections
 
 
 def resolve_environment(
