@@ -77,26 +77,39 @@ Plugins own:
 # Plain keys: exported to os.environ uppercase-as-written.
 [environments.dev]
 GIT_BRANCH = "main"
+CMS_BUCKET = "payloadcms-dev"
 
 # Plugin-namespaced subtable: keys flatten to <PLUGIN>_<KEY>.
 [environments.dev."data-platform"]
-catalog_url = "https://nessie.dev.sunstoneinstitute.ai"
+catalog_url = "https://data.dev.sunstoneinstitute.ai"
 warehouse = "main"
-storage_endpoint = "https://s3.dev.sunstoneinstitute.ai"
-s3_access_key = "op://Engineering/dev-data/access_key"
+storage_backend = "gcs"
+storage_bucket = "sunstone-data-dev"
+auth = "gcloud-adc"
 
 [environments.prod."data-platform"]
-catalog_url = "https://nessie.prod.sunstoneinstitute.ai"
+catalog_url = "https://data.prod.sunstoneinstitute.ai"
 warehouse = "main"
+storage_backend = "gcs"
+storage_bucket = "sunstone-data-prod"
+auth = "gcloud-adc"
 ```
+
+GCS is the production storage backend; S3-compatible storage is also
+supported (e.g. for local MinIO development) by switching
+`storage_backend = "s3"` and adding `s3_access_key` / `s3_secret_key`
+entries — `op://` references are resolved transparently. The set of
+recognised keys is owned by the `data-platform` plugin's section model,
+not by `sunstone-py`.
 
 On resolve, the `[environments.dev."data-platform"]` table flattens to:
 
 ```
-DATA_PLATFORM_CATALOG_URL=https://nessie.dev.sunstoneinstitute.ai
+DATA_PLATFORM_CATALOG_URL=https://data.dev.sunstoneinstitute.ai
 DATA_PLATFORM_WAREHOUSE=main
-DATA_PLATFORM_STORAGE_ENDPOINT=https://s3.dev.sunstoneinstitute.ai
-DATA_PLATFORM_S3_ACCESS_KEY=<resolved from 1Password>
+DATA_PLATFORM_STORAGE_BACKEND=gcs
+DATA_PLATFORM_STORAGE_BUCKET=sunstone-data-dev
+DATA_PLATFORM_AUTH=gcloud-adc
 ```
 
 Plain `GIT_BRANCH` flattens to `GIT_BRANCH` (uppercased; hyphens →
