@@ -465,7 +465,7 @@ def env_show(ctx: typer.Context) -> None:
 
 
 def _summarize_env_def(defn: dict) -> str:
-    """Build a one-line summary: 'N keys, sections: foo, bar' or 'empty'."""
+    """Build a one-line summary: 'N key(s), sections: foo, bar' or 'empty'."""
     plain_keys = [k for k, v in defn.items() if not isinstance(v, dict)]
     sections = sorted(k for k, v in defn.items() if isinstance(v, dict))
     parts: list[str] = []

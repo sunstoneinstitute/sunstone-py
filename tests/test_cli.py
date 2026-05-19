@@ -2687,3 +2687,36 @@ class TestEnvShowGeneric:
         assert "prod" in result.output
         # Summary mentions section names rather than catalog_url specifically.
         assert "data-platform" in result.output
+
+
+class TestSummarizeEnvDef:
+    def test_empty(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({}) == "empty"
+
+    def test_plain_keys_singular(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1"}) == "1 key"
+
+    def test_plain_keys_plural(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1", "B": "2"}) == "2 keys"
+
+    def test_sections_only(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"s": {"x": 1}}) == "sections: s"
+
+    def test_mixed(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1", "s": {"x": 1}}) == "1 key, sections: s"
+
+    def test_sections_are_sorted(self):
+        from sunstone.cli import _summarize_env_def
+
+        result = _summarize_env_def({"zebra": {"x": 1}, "apple": {"y": 2}})
+        assert result == "sections: apple, zebra"
