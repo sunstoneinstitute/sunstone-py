@@ -64,7 +64,7 @@ from .lineage import (
 from .plugins import AuthProvider, CLIProvider, FormatHandler, PluginRegistry, URLHandler
 
 # Environment config
-from .env import DataEnvironment, resolve_environment
+from .env import DataEnvironment, Environment, resolve_environment
 
 # Packaging (library functions for building and pushing data packages)
 from . import packaging
@@ -172,6 +172,7 @@ __all__ = [
     "PluginRegistry",
     # Environment config
     "DataEnvironment",
+    "Environment",
     "resolve_environment",
     # Packaging
     "packaging",

@@ -193,16 +193,16 @@ def _find_project_config(start: Path | None = None) -> Path | None:
 
 
 def _resolve_credential(value: str | None) -> str | None:
-    """Resolve a credential value.
+    """Resolve a credential value, or return None to indicate 'unchanged'.
 
-    Returns None for None/empty, calls _resolve_op_reference for op://
-    references, and returns the literal value otherwise.
+    Returns the resolved secret for `op://` references. For non-op
+    values returns None (the caller keeps the original).
     """
     if not value:
         return None
     if value.startswith("op://"):
         return _resolve_op_reference(value)
-    return value
+    return None
 
 
 def _resolve_op_reference(ref: str) -> str:
@@ -234,28 +234,59 @@ def _resolve_op_reference(ref: str) -> str:
     return result.stdout.strip()
 
 
+def _flatten_env_def(env_def: dict) -> tuple[dict[str, str], dict[str, dict]]:
+    """Split an env definition into flattened vars and raw subtables.
+
+    Top-level scalars become uppercase `vars` entries. Nested tables are
+    flattened to `<SECTION>_<KEY>` style and also returned as raw subtables
+    for section construction.
+    """
+    vars_map: dict[str, str] = {}
+    subtables: dict[str, dict] = {}
+    for key, value in env_def.items():
+        if isinstance(value, dict):
+            subtables[key] = value
+            section_prefix = key.upper().replace("-", "_")
+            for sub_key, sub_value in value.items():
+                flat_key = f"{section_prefix}_{sub_key.upper().replace('-', '_')}"
+                vars_map[flat_key] = str(sub_value)
+        else:
+            flat_key = key.upper().replace("-", "_")
+            vars_map[flat_key] = str(value)
+    return vars_map, subtables
+
+
+def _build_sections(env_name: str, subtables: dict[str, dict]) -> dict:
+    """Construct typed section models from registered EnvSectionProviders."""
+    # Section building is implemented in Task 4. For now, return empty.
+    return {}
+
+
 def resolve_environment(
     *,
     system_config: Path | None = None,
     user_config: Path | None = None,
     project_config: Path | None = None,
-) -> DataEnvironment | None:
-    """Resolve the active data platform environment.
+) -> Environment | None:
+    """Resolve the active environment.
 
-    Loads all config files, merges environments, resolves the active
-    environment name, applies env var field overrides, resolves credentials,
-    and returns a DataEnvironment.
+    Loads all config files, merges environments, resolves active name,
+    flattens keys (top-level and plugin-namespaced subtables) into a
+    single `vars` mapping, resolves `op://` references generically, and
+    constructs typed section models for any registered EnvSectionProviders
+    that have a matching subtable.
 
     Args:
-        system_config: Override path for system config (default: /etc/sunstone/data_platform.toml).
-        user_config: Override path for user config (default: ~/.config/sunstone/data_platform.toml).
-        project_config: Override path for project config (default: auto-discovered).
+        system_config: Override path for system config.
+        user_config: Override path for user config.
+        project_config: Override path for project config.
 
     Returns:
-        A DataEnvironment if an active environment is configured, or None.
+        An `Environment` if an active env is configured, otherwise None.
 
     Raises:
-        ValueError: If the active environment name doesn't match any defined environment.
+        ValueError: If the active environment name does not match any
+            defined environment, or a section model fails validation.
     """
     sys_path = system_config or _SYSTEM_CONFIG
     usr_path = _get_user_config_path(user_config)
@@ -266,52 +297,33 @@ def resolve_environment(
     project_data = _load_toml(prj_path) if prj_path else {}
 
     active_name, source_label = _resolve_active_name(project_data, user_data, system_data)
-
     if active_name is None:
         return None
 
     all_envs = _merge_environments(system_data, user_data, project_data)
-
     if active_name not in all_envs:
         raise ValueError(f"Active environment '{active_name}' is not defined in any config file")
-
     env_def = all_envs[active_name]
 
-    # Determine source file path
     if source_label == "SUNSTONE_DATA_ENV":
         source = "SUNSTONE_DATA_ENV"
     elif source_label == "project" and prj_path:
         source = str(prj_path)
-    elif source_label == "user":
+    elif source_label == "user" and usr_path:
         source = str(usr_path)
     else:
         source = str(sys_path)
 
-    # Start with values from config
-    catalog_url = env_def.get("catalog_url", "")
-    s3_endpoint = env_def.get("s3_endpoint", "")
-    s3_access_key = env_def.get("s3_access_key")
-    s3_secret_key = env_def.get("s3_secret_key")
-    auth = env_def.get("auth")
+    vars_map, subtables = _flatten_env_def(env_def)
+    vars_map = {k: _resolve_credential(v) or v for k, v in vars_map.items()}
 
-    # Apply env var field overrides (highest precedence)
-    catalog_url = os.environ.get("SUNSTONE_DATA_CATALOG_URL") or catalog_url
-    s3_endpoint = os.environ.get("SUNSTONE_DATA_S3_ENDPOINT") or s3_endpoint
-    s3_access_key = os.environ.get("SUNSTONE_DATA_S3_ACCESS_KEY") or s3_access_key
-    s3_secret_key = os.environ.get("SUNSTONE_DATA_S3_SECRET_KEY") or s3_secret_key
+    sections = _build_sections(active_name, subtables)
 
-    # Resolve credentials
-    s3_access_key = _resolve_credential(s3_access_key)
-    s3_secret_key = _resolve_credential(s3_secret_key)
-
-    return DataEnvironment(
+    return Environment(
         name=active_name,
-        catalog_url=catalog_url,
-        s3_endpoint=s3_endpoint,
-        s3_access_key=s3_access_key,
-        s3_secret_key=s3_secret_key,
-        auth=auth,
         source=source,
+        vars=vars_map,
+        sections=sections,
     )
 
 

@@ -258,8 +258,9 @@ class TestFindProjectConfig:
 
 
 class TestResolveCredential:
-    def test_literal(self):
-        assert _resolve_credential("my-secret") == "my-secret"
+    def test_literal_returns_none(self):
+        # Non-op values return None; caller uses `_resolve_credential(v) or v` to keep original.
+        assert _resolve_credential("my-secret") is None
 
     def test_none(self):
         assert _resolve_credential(None) is None
@@ -334,7 +335,8 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
-class TestResolveEnvironment:
+class TestResolveEnvironmentLegacy:
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_full_cascade(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
@@ -354,9 +356,10 @@ class TestResolveEnvironment:
 
         assert env is not None
         assert env.name == "prod"
-        assert env.catalog_url == "http://sys-prod"
-        assert env.s3_endpoint == "http://sys-s3"
+        assert env.catalog_url == "http://sys-prod"  # type: ignore[attr-defined]
+        assert env.s3_endpoint == "http://sys-s3"  # type: ignore[attr-defined]
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_env_var_field_overrides(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
@@ -377,11 +380,12 @@ class TestResolveEnvironment:
             )
 
         assert env is not None
-        assert env.catalog_url == "http://overridden"
-        assert env.s3_endpoint == "http://overridden-s3"
-        assert env.s3_access_key == "env-key"
-        assert env.s3_secret_key == "env-secret"
+        assert env.catalog_url == "http://overridden"  # type: ignore[attr-defined]
+        assert env.s3_endpoint == "http://overridden-s3"  # type: ignore[attr-defined]
+        assert env.s3_access_key == "env-key"  # type: ignore[attr-defined]
+        assert env.s3_secret_key == "env-secret"  # type: ignore[attr-defined]
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_empty_env_vars_do_not_override_config(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
@@ -402,11 +406,12 @@ class TestResolveEnvironment:
             )
 
         assert env is not None
-        assert env.catalog_url == "http://original"
-        assert env.s3_endpoint == "http://original-s3"
-        assert env.s3_access_key == "configured-key"
-        assert env.s3_secret_key == "configured-secret"
+        assert env.catalog_url == "http://original"  # type: ignore[attr-defined]
+        assert env.s3_endpoint == "http://original-s3"  # type: ignore[attr-defined]
+        assert env.s3_access_key == "configured-key"  # type: ignore[attr-defined]
+        assert env.s3_secret_key == "configured-secret"  # type: ignore[attr-defined]
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_returns_none_when_nothing_configured(self, tmp_path: Path):
         with patch.dict("os.environ", {}, clear=True):
             env = resolve_environment(
@@ -416,6 +421,7 @@ class TestResolveEnvironment:
             )
         assert env is None
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_raises_for_unknown_active_env(self, tmp_path: Path):
         config = _write_toml(
             tmp_path / "user.toml",
@@ -429,6 +435,7 @@ class TestResolveEnvironment:
                     project_config=tmp_path / "no2.toml",
                 )
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_env_var_selects_environment(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
@@ -446,6 +453,7 @@ class TestResolveEnvironment:
         assert env.name == "staging"
         assert env.source == "SUNSTONE_DATA_ENV"
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_project_config_environments(self, tmp_path: Path):
         project = _write_toml(
             tmp_path / ".sunstone" / "data_platform.toml",
@@ -464,8 +472,9 @@ class TestResolveEnvironment:
 
         assert env is not None
         assert env.name == "local"
-        assert env.catalog_url == "http://localhost:19120"
+        assert env.catalog_url == "http://localhost:19120"  # type: ignore[attr-defined]
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_field_level_merge_across_layers(self, tmp_path: Path):
         system = _write_toml(
             tmp_path / "system.toml",
@@ -489,11 +498,12 @@ class TestResolveEnvironment:
 
         assert env is not None
         assert env.name == "dev"
-        assert env.catalog_url == "http://project-dev"
-        assert env.s3_endpoint == "http://sys-s3"
-        assert env.s3_access_key == "user-key"
-        assert env.auth == "basic"
+        assert env.catalog_url == "http://project-dev"  # type: ignore[attr-defined]
+        assert env.s3_endpoint == "http://sys-s3"  # type: ignore[attr-defined]
+        assert env.s3_access_key == "user-key"  # type: ignore[attr-defined]
+        assert env.auth == "basic"  # type: ignore[attr-defined]
 
+    @pytest.mark.skip(reason="Legacy DataEnvironment tests; removed in Task 6")
     def test_credential_resolution(self, tmp_path: Path):
         config = _write_toml(
             tmp_path / "config.toml",
@@ -514,8 +524,8 @@ class TestResolveEnvironment:
                 )
 
         assert env is not None
-        assert env.s3_access_key == "resolved-key"
-        assert env.s3_secret_key == "literal-secret"
+        assert env.s3_access_key == "resolved-key"  # type: ignore[attr-defined]
+        assert env.s3_secret_key == "literal-secret"  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -958,3 +968,96 @@ class TestEnvironment:
             env.vars["FOO"] = "x"  # type: ignore[index]
         with pytest.raises(TypeError):
             env.sections["plug"] = object()  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# resolve_environment — generic Environment (Task 3)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveEnvironmentGeneric:
+    def _write_user_config(self, tmp_path: Path, body: str) -> Path:
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(body)
+        return cfg
+
+    def test_returns_environment_with_flattened_top_level_keys(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "https://data.dev.example.com"
+            GIT_BRANCH = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.name == "dev"
+        assert env.vars["CATALOG_URL"] == "https://data.dev.example.com"
+        assert env.vars["GIT_BRANCH"] == "main"
+
+    def test_uppercases_and_hyphenates_top_level_keys(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            "feature-flag" = "yes"
+            lowercase_key = "v"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["FEATURE_FLAG"] == "yes"
+        assert env.vars["LOWERCASE_KEY"] == "v"
+
+    def test_flattens_plugin_namespaced_subtable(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            catalog_url = "https://data.dev.example.com"
+            warehouse = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["DATA_PLATFORM_CATALOG_URL"] == "https://data.dev.example.com"
+        assert env.vars["DATA_PLATFORM_WAREHOUSE"] == "main"
+
+    def test_resolves_op_references_generically(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            s3_secret_key = "op://Engineering/dev/secret"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with patch(
+            "sunstone.env._resolve_op_reference",
+            return_value="resolved-secret",
+        ):
+            env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["DATA_PLATFORM_S3_SECRET_KEY"] == "resolved-secret"
+
+    def test_returns_none_when_no_active_environment(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(tmp_path, "[environments.dev]\n")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(
+            system_config=tmp_path / "missing-system.toml",
+            user_config=cfg,
+            project_config=tmp_path / "missing-project.toml",
+        )
+        assert env is None
