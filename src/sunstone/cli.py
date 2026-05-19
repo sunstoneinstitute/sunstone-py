@@ -421,9 +421,22 @@ _mount_plugin_cli_groups()
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(False, "--version", callback=_version_callback, is_eager=True, help="Show version"),
 ) -> None:
     """Sunstone dataset and package management CLI."""
+    # Best-effort: layer active-environment vars onto os.environ so that
+    # ${VAR} substitution in publish.as: / publish.to: and other places
+    # picks them up. Env subcommands must remain usable even when
+    # resolution fails (so the user can fix the config).
+    skip_activation = ctx.invoked_subcommand == "env"
+    if not skip_activation:
+        try:
+            from sunstone.env import activate_environment
+
+            activate_environment()
+        except Exception as e:
+            logger.debug("activate_environment failed during CLI startup: %s", e)
 
 
 # =============================================================================

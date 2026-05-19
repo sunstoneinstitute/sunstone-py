@@ -2720,3 +2720,58 @@ class TestSummarizeEnvDef:
 
         result = _summarize_env_def({"zebra": {"x": 1}, "apple": {"y": 2}})
         assert result == "sections: apple, zebra"
+
+
+class TestCallbackActivates:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_callback_activates_environment_for_non_env_commands(self, tmp_path, monkeypatch):
+        # We use --version (a no-op that still runs the callback) as the
+        # smoke test: by the time the callback returns, os.environ should
+        # have picked up the active env vars.
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CALLBACK_VAR = "callback-wired"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        monkeypatch.delenv("MY_CALLBACK_VAR", raising=False)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        # `dataset list` (or any non-env command) should trigger activation.
+        # We expect the os.environ side-effect; the command itself may
+        # exit non-zero if the project isn't set up — only the side-effect
+        # matters here.
+        runner.invoke(app, ["dataset", "list"])
+        assert os.environ.get("MY_CALLBACK_VAR") == "callback-wired"
+
+    def test_callback_does_not_break_env_subcommands_when_resolve_fails(self, tmp_path, monkeypatch):
+        """Even if activation would fail, env subcommands must remain usable
+        so the user can fix the config."""
+        user_cfg = tmp_path / "user.toml"
+        # Active env points to one that does not exist — resolve raises.
+        user_cfg.write_text(
+            """
+            active = "missing"
+
+            [environments.dev]
+            X = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env"])
+        assert result.exit_code != 0 or "missing" in result.output.lower()
+        # `env add` must still succeed (does not call resolve).
+        result_add = runner.invoke(app, ["env", "add", "newenv", "K=v"])
+        assert result_add.exit_code == 0, result_add.output
