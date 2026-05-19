@@ -1235,7 +1235,55 @@ class TestEnvironmentSections:
             "get_env_section_providers",
             return_value=[StrictProvider()],
         ):
-            with pytest.raises(ValueError) as exc:
+            with pytest.raises(ValueError, match=r"Environment 'dev' section 'strict':"):
                 resolve_environment(user_config=cfg)
-        assert "environment 'dev'" in str(exc.value).lower()
-        assert "section 'strict'" in str(exc.value).lower()
+
+    def test_duplicate_providers_log_warning_and_last_wins(self, tmp_path, monkeypatch, caplog):
+        from sunstone.plugins import PluginRegistry
+
+        class FirstSection:
+            def __init__(self, **kwargs):
+                self.tag = "first"
+                self.kwargs = kwargs
+
+        class SecondSection:
+            def __init__(self, **kwargs):
+                self.tag = "second"
+                self.kwargs = kwargs
+
+        class FirstProvider:
+            def env_section_name(self):
+                return "dup"
+
+            def env_section_model(self):
+                return FirstSection
+
+        class SecondProvider:
+            def env_section_name(self):
+                return "dup"
+
+            def env_section_model(self):
+                return SecondSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."dup"]
+            foo = "bar"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[FirstProvider(), SecondProvider()],
+        ):
+            with caplog.at_level("WARNING", logger="sunstone.env"):
+                env = resolve_environment(user_config=cfg)
+
+        assert env is not None
+        assert env.section("dup").tag == "second"
+        assert any("Duplicate EnvSectionProvider" in rec.message for rec in caplog.records)

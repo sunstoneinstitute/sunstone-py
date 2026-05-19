@@ -283,10 +283,21 @@ def _build_sections(env_name: str, subtables: dict[str, dict]) -> dict[str, Any]
     the result. Subtables without a matching provider are skipped (their
     flattened keys still appear in `vars`).
     """
-    from sunstone.plugins import PluginRegistry
+    from sunstone.plugins import EnvSectionProvider, PluginRegistry  # local to avoid circular import
 
     providers = PluginRegistry.get().get_env_section_providers()
-    by_name = {p.env_section_name(): p for p in providers}
+    by_name: dict[str, EnvSectionProvider] = {}
+    for p in providers:
+        name = p.env_section_name()
+        if name in by_name:
+            logger.warning(
+                "Duplicate EnvSectionProvider for section %r (%r overrides %r); "
+                "only the last-registered provider is used",
+                name,
+                p,
+                by_name[name],
+            )
+        by_name[name] = p
 
     sections: dict[str, Any] = {}
     for section_name, subtable in subtables.items():
