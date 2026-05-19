@@ -2778,3 +2778,121 @@ class TestCallbackActivates:
         # `env add` must still succeed (does not call resolve).
         result_add = runner.invoke(app, ["env", "add", "newenv", "K=v"])
         assert result_add.exit_code == 0, result_add.output
+
+
+class TestEnvScopeFlag:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def _fake_system_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_SYSTEM_CONFIG", path, raising=False)
+
+    def test_env_add_to_project_scope(self, tmp_path, monkeypatch):
+        # Run from inside tmp_path so the auto-discovery falls back to cwd.
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "project", "CATALOG_URL=https://x"],
+        )
+        assert result.exit_code == 0, result.output
+
+        prj_path = tmp_path / ".sunstone" / "data_platform.toml"
+        assert prj_path.exists()
+        with open(prj_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+
+    def test_env_add_to_system_scope(self, tmp_path, monkeypatch):
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        self._fake_system_config_path(monkeypatch, sys_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "system", "K=v"],
+        )
+        assert result.exit_code == 0, result.output
+        assert sys_cfg.exists()
+
+    def test_env_set_project_scope_merges_in_project_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        prj_dir = tmp_path / ".sunstone"
+        prj_dir.mkdir()
+        (prj_dir / "data_platform.toml").write_text('[environments.dev]\nA = "1"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "set", "dev", "--scope", "project", "B=2"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(prj_dir / "data_platform.toml", "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {"A": "1", "B": "2"}
+
+    def test_env_unset_project_scope_removes_key(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        prj_dir = tmp_path / ".sunstone"
+        prj_dir.mkdir()
+        (prj_dir / "data_platform.toml").write_text('[environments.dev]\nKEEP = "k"\nDROP = "d"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "unset", "dev", "--scope", "project", "DROP"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(prj_dir / "data_platform.toml", "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {"KEEP": "k"}
+
+    def test_env_remove_system_scope(self, tmp_path, monkeypatch):
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        sys_cfg.parent.mkdir(parents=True)
+        sys_cfg.write_text('[environments.dev]\nX = "y"\n')
+        self._fake_system_config_path(monkeypatch, sys_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "remove", "dev", "--scope", "system"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(sys_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert "dev" not in data.get("environments", {})
+
+    def test_invalid_scope_rejected(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "bogus", "K=v"],
+        )
+        assert result.exit_code == 2
+        assert "scope" in result.output.lower()
+
+    def test_default_scope_is_user(self, tmp_path, monkeypatch):
+        # No --scope flag should still write to user config (regression guard).
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "K=v"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["K"] == "v"

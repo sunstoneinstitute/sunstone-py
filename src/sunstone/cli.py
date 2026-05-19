@@ -505,6 +505,12 @@ def env_use(
         raise typer.Exit(1)
 
 
+def _validate_scope(scope: str) -> None:
+    if scope not in ("user", "project", "system"):
+        typer.echo(f"Error: --scope must be one of user, project, system (got {scope!r})", err=True)
+        raise typer.Exit(2)
+
+
 @env_app.command("add")
 def env_add(
     name: str = typer.Argument(..., help="Environment name"),
@@ -513,6 +519,11 @@ def env_add(
         help=("KEY=VAL entries. Dotted keys (e.g. data-platform.warehouse=main) write to plugin-namespaced subtables."),
     ),
     overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing entry"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
     """Add a new environment to user config.
 
@@ -521,6 +532,8 @@ def env_add(
         sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
     """
     from sunstone.env import add_environment
+
+    _validate_scope(scope)
 
     try:
         plain, sections = _parse_kv_entries(entries or [])
@@ -534,6 +547,7 @@ def env_add(
             plain=plain,
             sections=sections,
             overwrite=overwrite,
+            scope=scope,
         )
         typer.echo(f"Added environment '{name}' to {path}")
     except (OSError, RuntimeError, ValueError) as e:
@@ -544,12 +558,19 @@ def env_add(
 @env_app.command("remove")
 def env_remove(
     name: str = typer.Argument(..., help="Environment name to remove"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
     """Remove an environment from user config."""
     from sunstone.env import remove_environment
 
+    _validate_scope(scope)
+
     try:
-        path = remove_environment(name)
+        path = remove_environment(name, scope=scope)
         typer.echo(f"Removed environment '{name}' from {path}")
     except (OSError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
@@ -566,6 +587,11 @@ def env_set(
             "(e.g. data-platform.warehouse=main) target plugin subtables."
         ),
     ),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
     """Merge KEY=VAL entries into an existing environment in user config.
 
@@ -574,6 +600,8 @@ def env_set(
     """
     from sunstone.env import update_environment
 
+    _validate_scope(scope)
+
     try:
         plain, sections = _parse_kv_entries(entries)
     except ValueError as e:
@@ -581,7 +609,7 @@ def env_set(
         raise typer.Exit(2)
 
     try:
-        path, shadowed_by = update_environment(name, plain=plain, sections=sections)
+        path, shadowed_by = update_environment(name, plain=plain, sections=sections, scope=scope)
     except (OSError, RuntimeError, ValueError, KeyError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -598,6 +626,11 @@ def env_set(
 def env_unset(
     name: str = typer.Argument(..., help="Environment name"),
     keys: list[str] = typer.Argument(..., help="Keys to remove (dotted = subtable)"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
     """Remove KEYs from an environment in user config.
 
@@ -607,8 +640,10 @@ def env_unset(
     """
     from sunstone.env import unset_environment_keys
 
+    _validate_scope(scope)
+
     try:
-        path, removed = unset_environment_keys(name, keys=keys)
+        path, removed = unset_environment_keys(name, keys=keys, scope=scope)
     except (OSError, RuntimeError, KeyError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
