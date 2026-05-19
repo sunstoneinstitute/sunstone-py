@@ -11,6 +11,7 @@ import typer
 from sunstone.plugins import (
     AuthProvider,
     CLIProvider,
+    EnvSectionProvider,
     FormatHandler,
     URLHandler,
     PluginRegistry,
@@ -861,3 +862,58 @@ def test_cli_provider_exception_does_not_hide_other_groups():
     groups = registry.get_cli_groups()
     assert len(groups) == 1
     assert groups[0][0] == "test"
+
+
+# --- EnvSectionProvider tests ---
+
+
+class FakeEnvSection:
+    """Validated model returned by FakeEnvSectionProvider."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+class FakeEnvSectionProvider:
+    def env_section_name(self):
+        return "fake-platform"
+
+    def env_section_model(self):
+        return FakeEnvSection
+
+
+def test_registry_discovers_env_section_provider():
+
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("fake-section", FakeEnvSectionProvider)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            providers = registry.get_env_section_providers()
+            assert len(providers) == 1
+            assert isinstance(providers[0], EnvSectionProvider)
+            assert providers[0].env_section_name() == "fake-platform"
+
+
+def test_registry_multi_protocol_with_env_section():
+    """A single plugin can implement EnvSectionProvider plus other protocols."""
+
+    class MultiPlugin:
+        def authenticate(self, url, headers, dataset):
+            return headers
+
+        def env_section_name(self):
+            return "multi"
+
+        def env_section_model(self):
+            return FakeEnvSection
+
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("multi", MultiPlugin)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            assert len(registry.get_auth_providers()) == 1
+            assert len(registry.get_env_section_providers()) == 1

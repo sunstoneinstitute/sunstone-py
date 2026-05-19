@@ -84,6 +84,24 @@ class CLIProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class EnvSectionProvider(Protocol):
+    """Owns a typed slice of environment configuration.
+
+    Plugins implement this to claim a TOML subtable name and return a
+    callable (dataclass/Pydantic class/factory) that validates the
+    subtable's keys and returns a typed model.
+    """
+
+    def env_section_name(self) -> str:
+        """Return the TOML subtable key (e.g. 'data-platform')."""
+        ...
+
+    def env_section_model(self) -> type:
+        """Return a callable that accepts the subtable as **kwargs."""
+        ...
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -150,6 +168,7 @@ class PluginRegistry:
         self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
         self._cli_providers: list[CLIProvider] = []
+        self._env_section_providers: list[EnvSectionProvider] = []
 
     @classmethod
     def get(cls, project_path: Path | str | None = None) -> PluginRegistry:
@@ -219,6 +238,9 @@ class PluginRegistry:
         if isinstance(plugin, CLIProvider):
             self._cli_providers.append(plugin)
             registered = True
+        if isinstance(plugin, EnvSectionProvider):
+            self._env_section_providers.append(plugin)
+            registered = True
         if not registered:
             logger.warning("Plugin '%s' does not implement any known plugin protocol", name)
 
@@ -243,6 +265,10 @@ class PluginRegistry:
             except Exception:
                 logger.exception("Failed to get CLI groups from provider %r", provider)
         return groups
+
+    def get_env_section_providers(self) -> list[EnvSectionProvider]:
+        """Return all registered env section providers."""
+        return self._env_section_providers
 
     def handler_supports_metadata(self, handler: FormatHandler) -> bool:
         """Check if a format handler supports metadata embedding.
