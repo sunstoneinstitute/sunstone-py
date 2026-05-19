@@ -620,6 +620,11 @@ def update_environment(
 ) -> tuple[Path, str | None]:
     """Merge plain / sections into an existing environment in user config.
 
+    If an existing key with the section name is a non-dict scalar, it is
+    silently replaced with a fresh subtable before the new sub-entries are
+    merged. This is rare in practice (TOML enforces types at write time)
+    and should not happen unless the file was hand-edited.
+
     Returns:
         Tuple of (user config path, source-of-shadowing if any). The second
         item is the path of a project/system config that also defines this
@@ -663,9 +668,13 @@ def update_environment(
 
     # Detect shadowing for the warning.
     prj_path = _find_project_config()
-    project_data = _load_toml(prj_path) if prj_path else {}
-    if name in project_data.get("environments", {}):
-        return usr_path, str(prj_path)
+    if prj_path:
+        project_data = _load_toml(prj_path)
+        if name in project_data.get("environments", {}):
+            return usr_path, str(prj_path)
+    system_data = _load_toml(_SYSTEM_CONFIG)
+    if name in system_data.get("environments", {}):
+        return usr_path, str(_SYSTEM_CONFIG)
     return usr_path, None
 
 

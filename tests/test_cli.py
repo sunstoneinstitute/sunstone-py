@@ -2553,7 +2553,7 @@ class TestEnvSet:
         runner = CliRunner()
         result = runner.invoke(app, ["env", "set", "missing", "CATALOG_URL=x"])
         assert result.exit_code != 0
-        assert "missing" in result.output.lower()
+        assert "not found" in result.output.lower()
 
     def test_env_update_command_is_gone(self):
         runner = CliRunner()
