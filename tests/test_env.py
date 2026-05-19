@@ -1116,3 +1116,38 @@ class TestDataEnvironmentDeprecationAlias:
         assert not hasattr(env, "catalog_url")
         assert not hasattr(env, "s3_endpoint")
         assert not hasattr(env, "auth")
+
+
+class TestActivateEnvironmentHelper:
+    def test_module_helper_resolves_and_activates(self, tmp_path, monkeypatch):
+        import sunstone
+
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CATALOG_URL = "https://data.dev.example.com"
+            """
+        )
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(user_config=cfg)
+        assert applied == {"MY_CATALOG_URL": "https://data.dev.example.com"}
+        assert os.environ["MY_CATALOG_URL"] == "https://data.dev.example.com"
+
+    def test_module_helper_returns_empty_dict_when_no_active_env(self, tmp_path, monkeypatch):
+        import sunstone
+
+        empty = tmp_path / "data_platform.toml"
+        empty.write_text("")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(
+            system_config=tmp_path / "missing-sys.toml",
+            user_config=empty,
+            project_config=tmp_path / "missing-prj.toml",
+        )
+        assert applied == {}

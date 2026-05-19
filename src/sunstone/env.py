@@ -372,6 +372,27 @@ def resolve_environment(
     )
 
 
+def activate_environment(
+    *,
+    system_config: Path | None = None,
+    user_config: Path | None = None,
+    project_config: Path | None = None,
+) -> dict[str, str]:
+    """Convenience: resolve the active environment and call `.activate()`.
+
+    Returns the dict of keys this call actually set in os.environ
+    (an empty dict if no active environment is configured).
+    """
+    env = resolve_environment(
+        system_config=system_config,
+        user_config=user_config,
+        project_config=project_config,
+    )
+    if env is None:
+        return {}
+    return env.activate()
+
+
 def list_environments(
     *,
     system_config: Path | None = None,
