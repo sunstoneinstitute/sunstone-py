@@ -944,5 +944,17 @@ class TestEnvironment:
         from sunstone.env import Environment
 
         env = Environment(name="dev", source="user", vars={}, sections={})
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match="No env section 'missing' on environment 'dev'"):
             env.section("missing")
+
+    def test_vars_and_sections_are_immutable_after_construction(self):
+        from sunstone.env import Environment
+        from types import MappingProxyType
+
+        env = Environment(name="dev", source="user", vars={"FOO": "bar"}, sections={"plug": object()})
+        assert isinstance(env.vars, MappingProxyType)
+        assert isinstance(env.sections, MappingProxyType)
+        with pytest.raises(TypeError):
+            env.vars["FOO"] = "x"  # type: ignore[index]
+        with pytest.raises(TypeError):
+            env.sections["plug"] = object()  # type: ignore[index]

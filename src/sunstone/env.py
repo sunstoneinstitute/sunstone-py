@@ -19,6 +19,7 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal, Mapping, overload
 
 import tomli_w
@@ -90,6 +91,12 @@ class Environment:
     source: str
     vars: Mapping[str, str]
     sections: Mapping[str, Any]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.vars, MappingProxyType):
+            object.__setattr__(self, "vars", MappingProxyType(dict(self.vars)))
+        if not isinstance(self.sections, MappingProxyType):
+            object.__setattr__(self, "sections", MappingProxyType(dict(self.sections)))
 
     def activate(self) -> dict[str, str]:
         """Layer `vars` onto os.environ. Real env vars win.
