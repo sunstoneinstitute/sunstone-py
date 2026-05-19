@@ -365,3 +365,37 @@ def get_most_restrictive_license(licenses: Iterable[str]) -> Optional[str]:
     if not known:
         return None
     return max(known, key=_restrictiveness).spdx
+
+
+def derive_compatible_target(source_licenses: Iterable[str]) -> Optional[str]:
+    """Derive a target license that satisfies every source license.
+
+    Used to auto-assign an output license when none has been declared. The
+    target is always picked from the *source* licenses themselves — we never
+    add restrictions (e.g., ShareAlike) that no source actually required:
+
+    * Single unique source license — return it (the output inherits it).
+    * Multiple unique source licenses — return the most restrictive one
+      that is compatible with every other source.
+    * Returns ``None`` when no source license satisfies the others (mutually
+      incompatible ShareAlike families, conflicting NC/non-NC, etc.), or
+      when unknown identifiers prevent verification among multiples.
+    """
+    deduped = _dedupe_preserving_order(source_licenses)
+    if not deduped:
+        return None
+    if len(deduped) == 1:
+        return deduped[0]
+
+    source_props: list[LicenseProperties] = []
+    for ident in deduped:
+        props = get_properties(ident)
+        if props is None:
+            return None
+        source_props.append(props)
+
+    candidate = max(source_props, key=_restrictiveness)
+    for src in source_props:
+        if _check_pair(src, candidate) is not None:
+            return None
+    return candidate.spdx

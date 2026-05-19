@@ -237,12 +237,19 @@ class DataFrame:
     ) -> None:
         """Check the proposed write against source licenses.
 
+        When no target license is declared, auto-derives one from the source
+        licenses (the single source's license, or the most restrictive license
+        that satisfies every source) and persists it to the output dataset.
+
         Raises :class:`LicenseCompatibilityError` if the target license is
-        incompatible with any source license collected from the current session.
-        Warns if there are source licenses to check but no target license
-        could be determined.
+        incompatible with any source license — or if no compatible default
+        can be derived (e.g., mutually incompatible ShareAlike families).
         """
-        from .licenses import LicenseCompatibilityError, check_compatibility
+        from .licenses import (
+            LicenseCompatibilityError,
+            check_compatibility,
+            derive_compatible_target,
+        )
         from .session import get_session
 
         source_slugs = get_session().current_source_slugs()
@@ -262,15 +269,18 @@ class DataFrame:
             return
 
         if target_license is None:
-            warnings.warn(
-                f"Output '{dataset_slug}' has source datasets with declared licenses "
-                f"({source_licenses}) but no target license is declared "
-                f"(set 'license:' on the dataset, on a package, or pass license= to the writer). "
-                f"Skipping license compatibility check.",
-                UserWarning,
-                stacklevel=3,
-            )
-            return
+            derived = derive_compatible_target(source_licenses)
+            if derived is None:
+                unique = sorted(set(source_licenses))
+                raise LicenseCompatibilityError(
+                    f"Output '{dataset_slug}' has source datasets with licenses "
+                    f"{unique} but no compatible default license can be derived "
+                    f"(mutually incompatible or contains unknown identifiers). "
+                    f"Set 'license:' on the dataset, on a package, or pass "
+                    f"license= to the writer."
+                )
+            manager.update_output_dataset(slug=dataset_slug, license=derived)
+            target_license = derived
 
         result = check_compatibility(source_licenses, target_license)
         if result.compatible:

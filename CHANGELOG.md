@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: denormalize source `attributedTo` and `license` into `datasets.lock.yaml` for self-contained lineage (closes #15).
 - Added: per-dataset `dialect:` block (`delimiter`, `quoteChar`, `header`) for `text/csv` reads and writes.
 - Added: docs for license commands, compatibility rules, and `check_license=` enforcement.
+- Changed: writers auto-derive a missing output license from sources (single inherits; multiple picks most restrictive); incompatible sources now raise instead of warn.
 
 ## [1.10.0] - 2026-05-06
 

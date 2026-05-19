@@ -406,7 +406,7 @@ There are three layers of license handling, intentionally graded from soft to ha
 
 1. **Lint (`sunstone lint`)** — `R005` flags a dataset that has no license at all; `R006` flags a license string that isn't a recognised SPDX identifier or `LicenseRef-*` form.
 2. **CLI audit (`sunstone license check`)** — runs the compatibility engine across every output's `wasDerivedFrom` chain and exits non-zero on conflict. Use it in CI. See the [CLI Guide](cli.md#license-commands).
-3. **Write-time enforcement** — `to_csv()` / `to_parquet()` raise [`LicenseCompatibilityError`](errors.md#licensecompatibilityerror) when the target license is incompatible with a source license in the current session lineage. Pass `check_license=False` to skip on a specific write.
+3. **Write-time enforcement** — `to_csv()` / `to_parquet()` raise [`LicenseCompatibilityError`](errors.md#licensecompatibilityerror) when the target license is incompatible with a source license in the current session lineage. When no target license is declared, one is auto-derived from the sources (inheriting a single source's license, or picking the most restrictive license that satisfies all sources) and persisted to `datasets.yaml`. Pass `check_license=False` to skip on a specific write.
 
 ### How the Compatibility Engine Works
 
@@ -454,14 +454,19 @@ result.to_csv(
 
 The fix is to widen the output to a NonCommercial license — or, if you have rights to do so, to remove the NC source from the lineage. The engine does not let you "wash out" a NonCommercial source by mixing it with a permissive one; that is the correct behaviour under Creative Commons.
 
-### Missing vs. Conflicting Licenses
+### Auto-Derived Target Licenses
 
-The two failure modes are handled differently:
+When the output has source licenses but no declared target (no `license:` on the dataset, no `packages[].license` / `package.license` covering it, and no `license=` argument to the writer), the writer derives a target automatically:
 
-- **Missing target license, but sources have licenses** → `UserWarning` only. The intent is to keep exploratory writes unblocked while still surfacing the gap.
-- **Target license incompatible with sources** → `LicenseCompatibilityError`. This is a hard failure because silently publishing under the wrong license can be a legal problem.
+- **One unique source license** — the output inherits it.
+- **Multiple compatible source licenses** — the writer picks the most restrictive license that satisfies every source (e.g., `CC-BY-4.0` + `CC-BY-NC-4.0` → `CC-BY-NC-4.0`).
+- **Mutually incompatible sources, or unknown licenses among multiples** — `LicenseCompatibilityError`. The writer refuses to guess; declare an explicit `license:` to proceed.
 
-Combine `sunstone lint --warnings-as-errors` (catches missing licenses) with `sunstone license check` (catches conflicts) in CI to make both classes hard failures before publish.
+Any auto-derived license is persisted to `datasets.yaml` so future reads and `sunstone license check` runs see it as declared.
+
+### Conflicting Licenses
+
+An explicitly declared target license that is incompatible with a source license is always a hard failure (`LicenseCompatibilityError`) — silently publishing under the wrong license can be a legal problem. Combine `sunstone lint --warnings-as-errors` (catches missing licenses at lint time) with `sunstone license check` (catches conflicts) in CI to make both classes hard failures before publish.
 
 ## Dataset Metadata
 

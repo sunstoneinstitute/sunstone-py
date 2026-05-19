@@ -79,9 +79,12 @@ result.to_csv(
 )
 ```
 
-When no target license can be determined for an output that has source
-licenses, the writer emits a `UserWarning` instead of raising — so a missing
-license is a soft signal, but a conflicting license is hard.
+When no target license is declared for an output that has source licenses,
+the writer derives one automatically — inheriting a single source's license,
+or picking the most restrictive license that satisfies every source — and
+persists it to `datasets.yaml`. `LicenseCompatibilityError` is raised only
+when the sources are mutually incompatible (or contain unknown identifiers
+among multiples) and no explicit `license:` has been set.
 
 See [License Compatibility](concepts.md#license-compatibility) for the rule
 reference and [`sunstone license check`](cli.md#check-license-compatibility)

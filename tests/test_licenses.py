@@ -17,6 +17,7 @@ from sunstone.cli import app
 from sunstone.licenses import (
     LicenseCompatibilityError,
     check_compatibility,
+    derive_compatible_target,
     get_most_restrictive_license,
     get_properties,
     is_valid_spdx,
@@ -197,6 +198,31 @@ class TestMostRestrictive:
         assert result == "CC-BY-4.0"
 
 
+class TestDeriveCompatibleTarget:
+    """Tests for derive_compatible_target()."""
+
+    def test_single_source_is_inherited(self):
+        assert derive_compatible_target(["CC-BY-4.0"]) == "CC-BY-4.0"
+
+    def test_duplicates_collapse_to_single(self):
+        assert derive_compatible_target(["CC-BY-4.0", "CC-BY-4.0"]) == "CC-BY-4.0"
+
+    def test_single_unknown_source_is_inherited(self):
+        assert derive_compatible_target(["LicenseRef-Custom-Foo"]) == "LicenseRef-Custom-Foo"
+
+    def test_multiple_compatible_picks_most_restrictive(self):
+        assert derive_compatible_target(["CC-BY-4.0", "CC-BY-NC-4.0"]) == "CC-BY-NC-4.0"
+
+    def test_mutually_incompatible_share_alike_families_returns_none(self):
+        assert derive_compatible_target(["CC-BY-SA-4.0", "CC-BY-SA-3.0"]) is None
+
+    def test_unknown_among_multiple_returns_none(self):
+        assert derive_compatible_target(["CC-BY-4.0", "LicenseRef-Custom-Foo"]) is None
+
+    def test_empty_returns_none(self):
+        assert derive_compatible_target([]) is None
+
+
 # ---------------------------------------------------------------------------
 # Write-time enforcement on DataFrame
 # ---------------------------------------------------------------------------
@@ -340,7 +366,7 @@ class TestWriteTimeEnforcement:
         )
         assert "license: CC-BY-NC-SA-4.0" in (project_with_inputs / "datasets.yaml").read_text()
 
-    def test_no_target_license_warns_when_sources_have_licenses(self, project_with_inputs: Path):
+    def test_no_target_license_inherits_single_source(self, project_with_inputs: Path):
         _write_yaml(
             project_with_inputs,
             """
@@ -362,8 +388,88 @@ class TestWriteTimeEnforcement:
         from sunstone import pandas as spd
 
         df = spd.read_csv("inputs/raw.csv")
-        with pytest.warns(UserWarning, match="no target license is declared"):
-            df.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        df.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        assert "license: CC-BY-4.0" in (project_with_inputs / "datasets.yaml").read_text()
+
+    def test_no_target_multiple_sources_picks_most_restrictive(self, project_with_inputs: Path):
+        (project_with_inputs / "inputs" / "raw2.csv").write_text("a,b\n5,6\n")
+        _write_yaml(
+            project_with_inputs,
+            """
+            inputs:
+              - name: Raw
+                slug: raw
+                location: inputs/raw.csv
+                source:
+                  name: Raw
+                  attributedTo: Org
+                  license: CC-BY-4.0
+                  acquiredAt: "2026-01-01"
+                  acquisitionMethod: manual-download
+                  location:
+                    data: https://example.org/raw.csv
+              - name: Raw2
+                slug: raw2
+                location: inputs/raw2.csv
+                source:
+                  name: Raw2
+                  attributedTo: Org
+                  license: CC-BY-NC-4.0
+                  acquiredAt: "2026-01-01"
+                  acquisitionMethod: manual-download
+                  location:
+                    data: https://example.org/raw2.csv
+            """,
+        )
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df1 = spd.read_csv("inputs/raw.csv")
+        df2 = spd.read_csv("inputs/raw2.csv")
+        merged = df1.merge(df2, on="a")
+        merged.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        # CC-BY + CC-BY-NC → most restrictive that satisfies both is CC-BY-NC
+        assert "license: CC-BY-NC-4.0" in (project_with_inputs / "datasets.yaml").read_text()
+
+    def test_incompatible_sources_no_explicit_raises(self, project_with_inputs: Path):
+        (project_with_inputs / "inputs" / "raw2.csv").write_text("a,b\n5,6\n")
+        _write_yaml(
+            project_with_inputs,
+            """
+            inputs:
+              - name: Raw
+                slug: raw
+                location: inputs/raw.csv
+                source:
+                  name: Raw
+                  attributedTo: Org
+                  license: CC-BY-SA-4.0
+                  acquiredAt: "2026-01-01"
+                  acquisitionMethod: manual-download
+                  location:
+                    data: https://example.org/raw.csv
+              - name: Raw2
+                slug: raw2
+                location: inputs/raw2.csv
+                source:
+                  name: Raw2
+                  attributedTo: Org
+                  license: CC-BY-SA-3.0
+                  acquiredAt: "2026-01-01"
+                  acquisitionMethod: manual-download
+                  location:
+                    data: https://example.org/raw2.csv
+            """,
+        )
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df1 = spd.read_csv("inputs/raw.csv")
+        df2 = spd.read_csv("inputs/raw2.csv")
+        merged = df1.merge(df2, on="a")
+        with pytest.raises(LicenseCompatibilityError) as excinfo:
+            merged.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        assert "no compatible default license" in str(excinfo.value)
 
     def test_no_sources_no_warning_no_check(self, project_with_inputs: Path, recwarn):
         _write_yaml(project_with_inputs, "outputs: []\n")
@@ -411,6 +517,7 @@ def cli_project(tmp_path: Path):
     return tmp_path
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestLicenseListCommand:
     def test_list_groups_by_license(self, cli_project: Path):
         runner = CliRunner()
@@ -432,6 +539,7 @@ class TestLicenseListCommand:
         assert "CC-BY-NC-4.0" in payload
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestLicenseCheckCommand:
     def test_check_reports_conflict(self, cli_project: Path):
         runner = CliRunner()
