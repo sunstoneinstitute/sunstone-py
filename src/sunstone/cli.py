@@ -84,6 +84,33 @@ def expand_env_vars(text: str) -> str:
     return ENV_VAR_PATTERN.sub(replace_var, text)
 
 
+def _parse_kv_entries(entries: list[str]) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    """Parse `KEY=VAL` tokens into (plain, sections).
+
+    A token with no `=` raises ValueError. A KEY containing one or more
+    `.` is treated as `<section>.<sub-key>`; the part before the first
+    `.` becomes the section name (verbatim, no case change), the rest is
+    the sub-key.
+    """
+    plain: dict[str, str] = {}
+    sections: dict[str, dict[str, str]] = {}
+    for token in entries:
+        if "=" not in token:
+            raise ValueError(f"Expected KEY=VAL, got {token!r}")
+        key, value = token.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Empty key in {token!r}")
+        if "." in key:
+            section, sub_key = key.split(".", 1)
+            if not section or not sub_key:
+                raise ValueError(f"Invalid dotted key {key!r}")
+            sections.setdefault(section, {})[sub_key] = value
+        else:
+            plain[key] = value
+    return plain, sections
+
+
 def expand_rdf_prefixes(value: str, prefixes: dict[str, str]) -> str:
     """
     Expand RDF prefix in a value.
@@ -455,23 +482,32 @@ def env_use(
 @env_app.command("add")
 def env_add(
     name: str = typer.Argument(..., help="Environment name"),
-    catalog_url: str = typer.Option(..., "--catalog-url", help="Nessie catalog URL"),
-    s3_endpoint: str = typer.Option(..., "--s3-endpoint", help="S3/MinIO endpoint URL"),
-    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
-    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
-    auth: str | None = typer.Option(None, "--auth", help="Auth method (e.g. gcloud-adc)"),
+    entries: list[str] = typer.Argument(
+        None,
+        help=("KEY=VAL entries. Dotted keys (e.g. data-platform.warehouse=main) write to plugin-namespaced subtables."),
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing entry"),
 ) -> None:
-    """Add a new environment to user config."""
+    """Add a new environment to user config.
+
+    Examples:
+        sunstone env add dev CATALOG_URL=https://data.dev.example.com
+        sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
+    """
     from sunstone.env import add_environment
+
+    try:
+        plain, sections = _parse_kv_entries(entries or [])
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(2)
 
     try:
         path = add_environment(
             name,
-            catalog_url=catalog_url,
-            s3_endpoint=s3_endpoint,
-            s3_access_key=s3_access_key,
-            s3_secret_key=s3_secret_key,
-            auth=auth,
+            plain=plain,
+            sections=sections,
+            overwrite=overwrite,
         )
         typer.echo(f"Added environment '{name}' to {path}")
     except (OSError, RuntimeError, ValueError) as e:

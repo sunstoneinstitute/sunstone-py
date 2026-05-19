@@ -512,51 +512,41 @@ def set_active(
 def add_environment(
     name: str,
     *,
-    catalog_url: str,
-    s3_endpoint: str,
-    s3_access_key: str | None = None,
-    s3_secret_key: str | None = None,
-    auth: str | None = None,
+    plain: dict[str, str] | None = None,
+    sections: dict[str, dict[str, str]] | None = None,
     user_config: Path | None = None,
+    overwrite: bool = False,
 ) -> Path:
     """Add an environment to user config.
 
     Args:
         name: Environment name.
-        catalog_url: Nessie catalog URL.
-        s3_endpoint: S3-compatible endpoint URL.
-        s3_access_key: S3 access key or op:// reference.
-        s3_secret_key: S3 secret key or op:// reference.
-        auth: Authentication method (e.g. "gcloud-adc").
+        plain: Top-level key/value entries.
+        sections: Plugin-namespaced subtable entries (section_name -> dict).
         user_config: Override path for user config.
+        overwrite: Replace any existing entry with the same name.
 
     Returns:
         Path to the config file that was written.
 
     Raises:
-        ValueError: If the environment already exists.
+        ValueError: If the environment already exists and `overwrite` is False.
     """
     usr_path = _get_user_config_path(user_config, required=True)
     data = _load_toml(usr_path)
+    data.setdefault("environments", {})
 
-    if "environments" not in data:
-        data["environments"] = {}
-
-    if name in data.get("environments", {}):
+    if name in data["environments"] and not overwrite:
         raise ValueError(f"Environment '{name}' already exists in {usr_path}")
 
-    env_def: dict[str, str] = {
-        "catalog_url": catalog_url,
-        "s3_endpoint": s3_endpoint,
-    }
-    if s3_access_key is not None:
-        env_def["s3_access_key"] = s3_access_key
-    if s3_secret_key is not None:
-        env_def["s3_secret_key"] = s3_secret_key
-    if auth is not None:
-        env_def["auth"] = auth
+    entry: dict[str, Any] = {}
+    if plain:
+        entry.update(plain)
+    if sections:
+        for section_name, sub_entries in sections.items():
+            entry[section_name] = dict(sub_entries)
 
-    data["environments"][name] = env_def
+    data["environments"][name] = entry
     _write_config(usr_path, data)
     return usr_path
 

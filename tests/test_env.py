@@ -360,33 +360,59 @@ class TestAddEnvironment:
 
         result = add_environment(
             "dev",
-            catalog_url="http://dev",
-            s3_endpoint="http://dev-s3",
-            s3_access_key="key",
-            auth="gcloud-adc",
+            plain={"CATALOG_URL": "http://dev", "AUTH": "gcloud-adc", "ACCESS_KEY": "key"},
             user_config=user,
         )
 
         assert result == user
         data = _load_toml(user)
-        assert data["environments"]["dev"]["catalog_url"] == "http://dev"
-        assert data["environments"]["dev"]["auth"] == "gcloud-adc"
-        assert data["environments"]["dev"]["s3_access_key"] == "key"
+        assert data["environments"]["dev"]["CATALOG_URL"] == "http://dev"
+        assert data["environments"]["dev"]["AUTH"] == "gcloud-adc"
+        assert data["environments"]["dev"]["ACCESS_KEY"] == "key"
         assert "s3_secret_key" not in data["environments"]["dev"]
+
+    def test_adds_sections(self, tmp_path: Path):
+        user = tmp_path / "user.toml"
+
+        result = add_environment(
+            "dev",
+            sections={"data-platform": {"catalog_url": "http://dev", "warehouse": "main"}},
+            user_config=user,
+        )
+
+        assert result == user
+        data = _load_toml(user)
+        assert data["environments"]["dev"]["data-platform"]["catalog_url"] == "http://dev"
+        assert data["environments"]["dev"]["data-platform"]["warehouse"] == "main"
 
     def test_rejects_duplicates(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
-            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
+            '[environments.dev]\nCATALOG_URL = "http://dev"\n',
         )
 
         with pytest.raises(ValueError, match="already exists"):
             add_environment(
                 "dev",
-                catalog_url="http://other",
-                s3_endpoint="http://other-s3",
+                plain={"CATALOG_URL": "http://other"},
                 user_config=user,
             )
+
+    def test_overwrite_replaces_entry(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            '[environments.dev]\nOLD_KEY = "y"\n',
+        )
+
+        add_environment(
+            "dev",
+            plain={"NEW_KEY": "z"},
+            user_config=user,
+            overwrite=True,
+        )
+
+        data = _load_toml(user)
+        assert data["environments"]["dev"] == {"NEW_KEY": "z"}
 
 
 # ---------------------------------------------------------------------------

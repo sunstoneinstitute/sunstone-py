@@ -2141,13 +2141,11 @@ def test_env_add_creates_environment(tmp_path):
                 "env",
                 "add",
                 "dev",
-                "--catalog-url",
-                "http://localhost:19120/api/v1",
-                "--s3-endpoint",
-                "http://localhost:9000",
+                "CATALOG_URL=http://localhost:19120/api/v1",
+                "S3_ENDPOINT=http://localhost:9000",
             ],
         )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Added environment 'dev'" in result.output
     config_text = user_config.read_text()
     assert "dev" in config_text
@@ -2297,10 +2295,7 @@ def test_env_add_reports_write_errors():
                 "env",
                 "add",
                 "dev",
-                "--catalog-url",
-                "http://localhost:19120/api/v1",
-                "--s3-endpoint",
-                "http://localhost:9000",
+                "CATALOG_URL=http://localhost:19120/api/v1",
             ],
         )
     assert result.exit_code == 1
@@ -2495,3 +2490,117 @@ class TestMigrateHashes:
         assert "content_hash" not in input_entry
         assert input_entry["file_hash"] == f"sha256:{bare_hex}"
         assert "Migrated hashes" in result.output
+
+
+import tomllib  # noqa: E402
+
+
+class TestEnvAddGeneric:
+    def _fake_user_config_path(self, monkeypatch, path):
+        # Force _USER_CONFIG to point at our tmp file.
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_env_add_with_plain_keys(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "CATALOG_URL=https://x", "GIT_BRANCH=main"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+        assert data["environments"]["dev"]["GIT_BRANCH"] == "main"
+
+    def test_env_add_with_dotted_keys_creates_subtable(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "data-platform.catalog_url=https://data.dev.example.com",
+                "data-platform.warehouse=main",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["data-platform"]["catalog_url"] == "https://data.dev.example.com"
+        assert env["data-platform"]["warehouse"] == "main"
+
+    def test_env_add_mixed_plain_and_dotted(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "GIT_BRANCH=main", "data-platform.warehouse=main"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["GIT_BRANCH"] == "main"
+        assert env["data-platform"]["warehouse"] == "main"
+
+    def test_env_add_rejects_token_without_equals(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "BARE_KEY_NO_VALUE"])
+        assert result.exit_code != 0
+        assert "BARE_KEY_NO_VALUE" in result.output
+
+    def test_env_add_rejects_existing_without_overwrite(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            EXISTING = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "CATALOG_URL=z"])
+        assert result.exit_code != 0
+        assert "already exists" in result.output.lower()
+
+    def test_env_add_overwrite_replaces_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            OLD_KEY = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--overwrite", "NEW_KEY=z"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env == {"NEW_KEY": "z"}
