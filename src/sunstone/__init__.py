@@ -25,6 +25,13 @@ Example:
     ... )
 """
 
+from .config import (
+    clear_project_path,
+    get_project_path,
+    set_project_path,
+    use_project_path,
+)
+from .component import ComponentSchema
 from .dataframe import DataFrame
 from .datasets import DatasetsManager
 from .exceptions import (
@@ -76,6 +83,9 @@ from .validation import (
     validate_project_notebooks,
 )
 
+# Linter
+from .lint import LintReport, Severity as LintSeverity, Violation, lint_project
+
 # Lineage tracking modules
 from .context import ExecutionContext, detect_execution_context
 from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
@@ -103,6 +113,12 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    "ComponentSchema",
+    # Project-path configuration
+    "set_project_path",
+    "get_project_path",
+    "clear_project_path",
+    "use_project_path",
     # Pandas-like interface
     "pandas",
     # Errors (re-exported from pandas.errors)
@@ -112,6 +128,11 @@ __all__ = [
     "check_notebook_imports",
     "check_script_imports",
     "validate_project_notebooks",
+    # Linter
+    "LintReport",
+    "LintSeverity",
+    "Violation",
+    "lint_project",
     # Lineage classes
     "Contributor",
     "LineageMetadata",

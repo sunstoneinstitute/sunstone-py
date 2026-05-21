@@ -14,9 +14,44 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
+from sunstone.lineage import CsvDialect
 from sunstone.ssrf import is_public_url
 
 import pandas as pd
+
+
+def _apply_csv_dialect_read(kwargs: dict, dialect: CsvDialect | None) -> dict:
+    """Translate a ``CsvDialect`` into pandas ``read_csv`` kwargs.
+
+    Caller-supplied kwargs always win — the dialect only fills in keys the
+    user didn't already set.
+    """
+    if dialect is None:
+        return kwargs
+    out = dict(kwargs)
+    if "sep" not in out and "delimiter" not in out:
+        out["sep"] = dialect.delimiter
+    out.setdefault("quotechar", dialect.quote_char)
+    if "header" not in out and not dialect.header:
+        # pandas default is 'infer' (assumes a header row); only override when
+        # the dialect explicitly says there isn't one.
+        out["header"] = None
+    return out
+
+
+def _apply_csv_dialect_write(kwargs: dict, dialect: CsvDialect | None) -> dict:
+    """Translate a ``CsvDialect`` into pandas ``to_csv`` kwargs.
+
+    Caller-supplied kwargs always win.
+    """
+    if dialect is None:
+        return kwargs
+    out = dict(kwargs)
+    if "sep" not in out:
+        out["sep"] = dialect.delimiter
+    out.setdefault("quotechar", dialect.quote_char)
+    out.setdefault("header", dialect.header)
+    return out
 
 
 # Extension -> format string mapping
@@ -67,6 +102,7 @@ class BuiltinFormatHandler:
     def read(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
+        dialect = kwargs.pop("dialect", None)
         # If stream is actually a Path (pre-Task-7 call site), use it for format detection
         if isinstance(stream, Path) and path is None:
             path = stream
@@ -74,6 +110,8 @@ class BuiltinFormatHandler:
             fmt = self._resolve_format(str(path), None)
         if fmt is None:
             fmt = "csv"  # safe default
+        if fmt == "csv" and isinstance(dialect, CsvDialect):
+            kwargs = _apply_csv_dialect_read(kwargs, dialect)
         reader = _READER_MAP[str(fmt)]
         return reader(stream, **kwargs)
 
@@ -84,10 +122,15 @@ class BuiltinFormatHandler:
     def write(self, df: pd.DataFrame, stream: BinaryIO, **kwargs: object) -> None:
         fmt = kwargs.pop("format", None)
         path = kwargs.pop("path", None)
+        dialect = kwargs.pop("dialect", None)
         if fmt is None and path is not None:
             fmt = self._resolve_format(str(path), None)
         if fmt is None:
             fmt = "csv"
+        if fmt == "csv" and isinstance(dialect, CsvDialect):
+            kwargs = _apply_csv_dialect_write(kwargs, dialect)
+        if fmt == "csv":
+            kwargs.setdefault("lineterminator", "\n")
         method_name = _WRITER_MAP[str(fmt)]
         writer = getattr(df, method_name)
         writer(stream, **kwargs)
@@ -122,6 +165,7 @@ class ParquetFormatHandler:
 
         kwargs.pop("format", None)
         kwargs.pop("path", None)
+        kwargs.pop("dialect", None)
 
         table = pq.read_table(stream, **kwargs)
         df: pd.DataFrame = table.to_pandas()

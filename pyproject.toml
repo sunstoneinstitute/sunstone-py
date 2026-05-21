@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sunstone-py"
-version = "1.9.0"
+version = "1.11.0"
 description = "Python library for managing datasets with lineage tracking in Sunstone projects"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -84,6 +84,7 @@ disallow_untyped_defs = true
 check_untyped_defs = false
 exclude = [
     "^tests/testdata/",
+    "^templates/",
 ]
 overrides = [
     { module = "tests.*", disallow_untyped_defs = false },
@@ -94,6 +95,7 @@ overrides = [
 addopts = "--cov=sunstone --cov-report=term-missing"
 norecursedirs = [
     ".worktrees",
+    ".claude",
 ]
 
 [tool.coverage.run]

@@ -106,6 +106,100 @@ sunstone dataset unlock
 ✓ Unlocked 1 dataset(s): school-data
 ```
 
+## Lint Command
+
+`sunstone lint` checks `datasets.yaml` against the Sunstone Minimum Viable Metadata recommendations. It complements `sunstone dataset validate` (which checks structure and types) by flagging missing metadata that hurts reproducibility and discoverability.
+
+```bash
+# Lint the current project
+sunstone lint
+
+# Lint a project at a specific path
+sunstone lint -p path/to/project
+
+# Use a non-default datasets file
+sunstone lint -f config/my-datasets.yaml
+
+# Run only specific rules
+sunstone lint --rules R005,R104
+
+# Treat warnings as errors (useful in CI)
+sunstone lint --warnings-as-errors
+
+# Machine-readable output
+sunstone lint --json
+```
+
+### Rules
+
+| ID | Severity | Title |
+|------|----------|-------|
+| R001 | error | Dataset missing `name` |
+| R002 | error | Dataset missing `slug` |
+| R003 | error | Dataset missing `location` |
+| R004 | error | Dataset missing `description` |
+| R005 | error | Dataset missing license (input: `source.license`; output: dataset, `package.license`, or matching `packages[]` entry) |
+| R006 | error | License is not a recognised SPDX or allow-list identifier |
+| R007 | error | Field missing `name` |
+| R008 | error | Field missing `type` |
+| R009 | error | Malformed `lint.disable` entry (cannot itself be suppressed) |
+| R101 | warning | Input missing `source` block |
+| R102 | warning | Source block malformed or missing required keys |
+| R103 | warning | Numeric field missing `unit` |
+| R104 | warning | Slug not in kebab-case |
+| R105 | warning | Published output field missing `description` |
+| R201 | info | Generic field name (`total`, `value`, ...) without a substantive description |
+| R202 | info | Generic dataset name (`data`, `output`, ...) |
+
+R001–R009 are errors (exit non-zero), R101–R105 are warnings (exit zero unless `--warnings-as-errors`), R201–R202 are informational.
+
+### Suppressing Rules
+
+Specific findings can be suppressed in `datasets.yaml` with a written justification:
+
+```yaml
+lint:
+  disable:
+    R104: "Slug mirrors the upstream UN identifier 'A_HRC_RES'"
+    R103: "Pure-count column, unit would be misleading"
+```
+
+Suppressed findings stay in the report under a separate `suppressed` list so reviewers can audit the reasons later. R009 itself cannot be suppressed — it's the rule that catches malformed suppressions.
+
+### Programmatic Use
+
+```python
+from sunstone import lint_project
+
+report = lint_project('/path/to/project')
+
+if report.errors:
+    for v in report.errors:
+        print(f"{v.rule_id} {v.location}: {v.message}")
+
+# Suppressed findings (still tracked for audit)
+for v in report.suppressed:
+    reason = report.suppressions.get(v.rule_id, "")
+    print(f"  [{v.rule_id}] suppressed because: {reason}")
+```
+
+### Example Output
+
+```
+[R005] ERROR inputs[0].source.license: missing license
+    hint: Add an SPDX license identifier (e.g. 'CC-BY-4.0', 'MIT').
+[R103] WARNING outputs[0].fields[2]: numeric field 'enrollment' has no unit
+    hint: Add a 'unit:' (e.g. 'meter', 'USD'), or accept the lock-file unit if derived from arithmetic.
+[R104] WARNING inputs[1].slug: slug 'School_Data' is not kebab-case
+    hint: Use lowercase ASCII letters/digits separated by single hyphens.
+
+Suppressed by lint.disable (1):
+  [R201] outputs[0].fields[0]: generic field name 'value' without a substantive description
+      reason: Column name fixed by upstream contract
+
+Summary: 1 error(s), 2 warning(s), 0 info, 1 suppressed
+```
+
 ## Package Commands
 
 ### Build Data Package
@@ -244,6 +338,79 @@ sunstone package push -d "gs://${BUCKET}/datasets/${PROJECT}/"
 
 ✓ Package pushed to: gs://my-bucket/datasets/countries/
 ```
+
+## License Commands
+
+`sunstone license` inspects and audits the licenses declared in `datasets.yaml`. Use it alongside the lint rules `R005` (missing license) and `R006` (unrecognised SPDX identifier) — lint catches *missing* and *malformed* licenses, the `license` subcommand catches *incompatible* ones.
+
+The compatibility engine is rules-based and consults an embedded registry of common research-data licenses (CC family, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, and US-PD `LicenseRef-*` entries). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
+
+### List Licenses
+
+Show every license referenced in the project and which datasets declare it:
+
+```bash
+# Default datasets.yaml in current directory
+sunstone license list
+
+# Custom file or project directory
+sunstone license list -f path/to/datasets.yaml
+
+# Machine-readable output
+sunstone license list --json
+```
+
+**Example output:**
+
+```
+CC-BY-4.0
+  - input:un-members
+  - input:world-bank-gdp
+CC-BY-SA-4.0
+  - output:enriched-members
+```
+
+Output licenses are resolved to their *effective* license — explicit `license:` on the dataset, otherwise the matching `packages[]` entry, otherwise the top-level `package.license`.
+
+### Check License Compatibility
+
+Verify that each output's declared license is compatible with the licenses of every source dataset in its `wasDerivedFrom` chain:
+
+```bash
+# Check every output
+sunstone license check
+
+# Check a single output
+sunstone license check enriched-members
+
+# Machine-readable output (for CI)
+sunstone license check --json
+```
+
+Exits non-zero if any output has a conflict, so it slots into CI alongside `sunstone lint` and `sunstone dataset validate`.
+
+**Example output (compatible):**
+
+```
+enriched-members: target=CC-BY-SA-4.0 status=compatible
+public-summary: target=CC-BY-4.0 status=compatible
+```
+
+**Example output (conflict):**
+
+```
+nc-derived: target=CC-BY-4.0 status=conflict
+  conflict: CC-BY-NC-4.0 is NonCommercial: derivatives must also be NonCommercial, not CC-BY-4.0
+  suggestions: CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-NC-3.0-IGO
+```
+
+**Skipped outputs:**
+
+The check is skipped (status `skipped`) for an output when it has no source licenses to consider, or when no effective target license can be resolved. Skipped outputs do not fail the command.
+
+**Unknown licenses:**
+
+A `LicenseRef-*` identifier that is not in the embedded registry is reported as an *unknown source* on the JSON result and excluded from rules-based comparisons — callers (or reviewers) must decide how to treat it.
 
 ## Common Workflows
 

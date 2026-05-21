@@ -4,7 +4,50 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Fixed: `to_csv()` and `to_parquet()` now fall back to session-accumulated sources when the DataFrame has empty lineage (e.g. constructed from extracted scalar values)
+- Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
+
+## [1.11.0] - 2026-05-19
+
+- Added: SPDX license registry and per-output `license:` field with write-time compatibility checks (#13).
+- Added: `sunstone license check` / `sunstone license list` CLI commands (with `--json`).
+- Added: writers auto-derive a missing output license from sources (most restrictive wins).
+- Added: license registry entries for `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO`.
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text/markdown/HTML) (#15).
+- Added: per-dataset `dialect:` block (delimiter, quoteChar, header) for CSV reads and writes.
+- Added: identity URI template and `component_metadata` for compositional dataset metadata.
+- Added: `Metadata` mapping sugar — `metadata['key']` proxies to `custom_properties`.
+- Added: `docs/formats.md` covering supported formats, metadata strategy, and the CSV dialect block.
+- Changed: incompatible source licenses now raise `LicenseCompatibilityError` instead of warning.
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (`LicenseRef-*` still accepted).
+- Changed: source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage.
+- Fixed: default to `
+` CSV line terminators on Windows for stable data hashes.
+
+## [1.10.0] - 2026-05-06
+
+- Added: `sunstone.set_project_path()`, `get_project_path()`, `clear_project_path()`, and
+  `use_project_path()` context manager — set the default project path once instead of passing
+  `project_path=` to every `read_csv`/`read_excel`/`read_dataset` call
+- Added: `sunstone lint` CLI command and `sunstone.lint_project()` API for checking
+  `datasets.yaml` against the Sunstone Minimum Viable Metadata recommendations (closes #59).
+  Rules R001–R008 (errors) cover required metadata; R101–R105 (warnings) cover recommended
+  provenance, units, slug case, and field descriptions; R201–R202 (info) flag generic names.
+  Supports `--rules`, `--warnings-as-errors`, and `--json`.
+- Added: `lint.disable` block in `datasets.yaml` to suppress lint rules with a written
+  justification (e.g. `lint: { disable: { R104: "Slug mirrors upstream UN identifier" } }`).
+  Suppressed findings are kept in a separate `suppressed` list in the report so reviewers
+  can audit reasons. New rule R009 flags malformed suppressions (unknown rule IDs, empty
+  justifications, attempts to suppress R009 itself); R009 cannot itself be suppressed.
+- Fixed: `sunstone lint` now accepts the same `datasets.yaml` forms used elsewhere —
+  boolean `publish: true`, package-level license and publish flags under `packages:`
+  (output license can be inherited from a `packages` entry; outputs listed in a
+  published package count as published), and per-dataset `publish: { enabled: false }`
+  overriding a top-level publish. R102 now also flags non-mapping `source` values
+  instead of silently passing.
+
+## [1.9.1] - 2026-05-05
+
+- Fixed: `datasets.lock.yaml` no longer accumulates a duplicate auto-generated header comment on each save
 
 ## [1.9.0] - 2026-04-29
 

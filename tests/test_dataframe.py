@@ -498,10 +498,10 @@ class TestContentHashLineage:
         assert lock_output is not None
         assert "sources" in lock_output
 
-        # Sources should be a list of dicts with just slug
+        # Sources should be a list of dicts with slug (and optionally attributedTo/license)
         sources = lock_output["sources"]
         assert len(sources) > 0
-        assert sources[0] == {"slug": source_slug}
+        assert sources[0]["slug"] == source_slug
 
     def test_sources_updated_on_existing_output(self, project_copy: Path) -> None:
         """Test that sources are updated when writing to an existing output."""
@@ -848,3 +848,71 @@ class TestReadDatasetParquetMetadata:
         # User RDF prefixes from embedded should be present
         assert df.metadata.rdf_prefixes is not None
         assert "ex" in df.metadata.rdf_prefixes
+
+
+class TestCsvDialectEndToEnd:
+    """End-to-end: a registered text/csv dataset with a dialect block is read
+    and written through sunstone's pandas API using that dialect."""
+
+    def _write_project(self, root: Path, dialect_block: str = "") -> Path:
+        (root / "inputs").mkdir()
+        (root / "outputs").mkdir()
+        (root / "inputs" / "semi.csv").write_text("a;b\n1;2\n3;4\n")
+        (root / "datasets.yaml").write_text(
+            f"""
+inputs:
+  - name: Semi
+    slug: semi
+    location: inputs/semi.csv
+    {dialect_block}
+outputs:
+  - name: Semi Out
+    slug: semi-out
+    location: outputs/semi_out.csv
+    {dialect_block}
+    fields:
+      - name: a
+        type: integer
+      - name: b
+        type: integer
+"""
+        )
+        return root
+
+    def test_read_csv_with_dialect_uses_delimiter(self, tmp_path: Path) -> None:
+        project = self._write_project(
+            tmp_path,
+            dialect_block='dialect:\n      delimiter: ";"\n      quoteChar: \'"\'\n      header: true',
+        )
+        df = sunstone.DataFrame.read_csv("semi", project_path=project)
+        assert list(df.data.columns) == ["a", "b"]
+        assert df.data.iloc[0, 0] == 1
+
+    def test_read_csv_without_dialect_defaults_to_comma(self, tmp_path: Path) -> None:
+        """Backwards compatibility: no dialect block → pandas default behavior."""
+        (tmp_path / "inputs").mkdir()
+        (tmp_path / "inputs" / "comma.csv").write_text("a,b\n1,2\n3,4\n")
+        (tmp_path / "datasets.yaml").write_text(
+            """
+inputs:
+  - name: Comma
+    slug: comma
+    location: inputs/comma.csv
+outputs: []
+"""
+        )
+        df = sunstone.DataFrame.read_csv("comma", project_path=tmp_path)
+        assert list(df.data.columns) == ["a", "b"]
+        assert df.data.iloc[0, 0] == 1
+
+    def test_to_csv_with_dialect_uses_delimiter(self, tmp_path: Path) -> None:
+        project = self._write_project(
+            tmp_path,
+            dialect_block='dialect:\n      delimiter: ";"\n      quoteChar: \'"\'\n      header: true',
+        )
+        df = sunstone.DataFrame.read_csv("semi", project_path=project)
+        df.to_csv("outputs/semi_out.csv", index=False)
+
+        # Read raw bytes to verify the delimiter was honored on write
+        written = (project / "outputs" / "semi_out.csv").read_text()
+        assert written == "a;b\n1;2\n3;4\n"

@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
@@ -92,7 +93,7 @@ class DataFrame:
         if project_path is not None:
             self.metadata.lineage.project_path = str(Path(project_path).resolve())
         elif self.metadata.lineage.project_path is None:
-            self.metadata.lineage.project_path = str(Path.cwd())
+            self.metadata.lineage.project_path = str(get_project_path())
 
         # Store datasets file override
         self._datasets_file = datasets_file
@@ -228,6 +229,71 @@ class DataFrame:
             datasets_file=self._datasets_file,
         )
 
+    def _enforce_license_compatibility(
+        self,
+        manager: DatasetsManager,
+        dataset_slug: str,
+        target_license: Optional[str],
+    ) -> None:
+        """Check the proposed write against source licenses.
+
+        When no target license is declared, auto-derives one from the source
+        licenses (the single source's license, or the most restrictive license
+        that satisfies every source) and persists it to the output dataset.
+
+        Raises :class:`LicenseCompatibilityError` if the target license is
+        incompatible with any source license — or if no compatible default
+        can be derived (e.g., mutually incompatible ShareAlike families).
+        """
+        from .licenses import (
+            LicenseCompatibilityError,
+            check_compatibility,
+            derive_compatible_target,
+        )
+        from .session import get_session
+
+        source_slugs = get_session().current_source_slugs()
+        source_licenses: list[str] = []
+        for slug in source_slugs:
+            ds = manager.find_dataset_by_slug(slug)
+            if ds is None:
+                continue
+            if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
+                source_licenses.append(ds.source.license)
+            elif ds.dataset_type == "output":
+                eff = manager.effective_license_for(slug)
+                if eff:
+                    source_licenses.append(eff)
+
+        if not source_licenses:
+            return
+
+        if target_license is None:
+            derived = derive_compatible_target(source_licenses)
+            if derived is None:
+                unique = sorted(set(source_licenses))
+                raise LicenseCompatibilityError(
+                    f"Output '{dataset_slug}' has source datasets with licenses "
+                    f"{unique} but no compatible default license can be derived "
+                    f"(mutually incompatible or contains unknown identifiers). "
+                    f"Set 'license:' on the dataset, on a package, or pass "
+                    f"license= to the writer."
+                )
+            manager.update_output_dataset(slug=dataset_slug, license=derived)
+            target_license = derived
+
+        result = check_compatibility(source_licenses, target_license)
+        if result.compatible:
+            return
+
+        message_lines = [f"License compatibility check failed for output '{dataset_slug}' (target: {target_license})."]
+        message_lines.extend(f"  - {c}" for c in result.conflicts)
+        if result.suggestions:
+            message_lines.append("Suggested compatible target licenses: " + ", ".join(result.suggestions))
+        if result.unknown_sources:
+            message_lines.append("Unknown source licenses (not validated): " + ", ".join(result.unknown_sources))
+        raise LicenseCompatibilityError("\n".join(message_lines))
+
     @classmethod
     def read_dataset(
         cls,
@@ -277,7 +343,7 @@ class DataFrame:
             >>> df = DataFrame.read_dataset('my-data', format='json', project_path='/path/to/project')
         """
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 
@@ -322,7 +388,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format=format, path=location, **kwargs)
+            df = format_handler.read(
+                stream,
+                format=format,
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
 
         # Extract embedded metadata if the format handler provided it
         embedded_metadata = df.attrs.pop("sunstone_metadata", None)
@@ -422,7 +494,7 @@ class DataFrame:
 
         # File path - handle with original logic
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 
@@ -465,7 +537,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="csv", path=location, **kwargs)
+            df = format_handler.read(
+                stream,
+                format="csv",
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -536,7 +614,7 @@ class DataFrame:
 
         # File path - handle with original logic
         if project_path is None:
-            project_path = Path.cwd()
+            project_path = get_project_path()
 
         manager = DatasetsManager(project_path)
 
@@ -611,6 +689,8 @@ class DataFrame:
         publish: bool = False,
         transformation_params: Optional[dict] = None,
         track: bool = True,
+        license: Optional[str] = None,
+        check_license: bool = True,
         sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
@@ -627,11 +707,21 @@ class DataFrame:
             publish: Reserved for future use (publishing to data catalog).
             track: If False, write the CSV directly without lineage tracking
                 or dataset registration. Useful for tests and exploratory work.
+            license: SPDX license identifier for the output. Persisted to
+                datasets.yaml and used for compatibility checking against
+                source licenses. Falls back to the dataset's existing license
+                or ``package.license`` when omitted.
+            check_license: If True (default), raise
+                :class:`~sunstone.licenses.LicenseCompatibilityError` when
+                the target license is incompatible with any source license
+                in the current session lineage.
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
             StrictModeError: In strict mode, if dataset not registered.
             ValueError: In relaxed mode, if slug/name not provided for new dataset.
+            LicenseCompatibilityError: If ``check_license`` is True and the
+                target license conflicts with a source license.
         """
         # Filter out any Sunstone-specific kwargs that might have slipped through
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
@@ -689,7 +779,15 @@ class DataFrame:
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,
                     custom_properties=self.metadata.custom_properties,
+                    license=license,
                 )
+        elif license is not None and dataset.license != license:
+            # Persist explicit override on a pre-registered dataset
+            dataset = manager.update_output_dataset(slug=dataset.slug, license=license)
+
+        if check_license:
+            target_license = license or manager.effective_license_for(dataset.slug)
+            self._enforce_license_compatibility(manager, dataset.slug, target_license)
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)
@@ -702,12 +800,13 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
+        dialect = dataset.dialect if dataset is not None else None
         if url_handler and format_writer:
             with url_handler.open(location, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         elif format_writer:
             with open(absolute_path, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 
@@ -752,6 +851,8 @@ class DataFrame:
         publish: bool = False,
         transformation_params: Optional[dict] = None,
         track: bool = True,
+        license: Optional[str] = None,
+        check_license: bool = True,
         sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
@@ -768,11 +869,21 @@ class DataFrame:
             publish: Reserved for future use (publishing to data catalog).
             track: If False, write the Parquet directly without lineage tracking
                 or dataset registration. Useful for tests and exploratory work.
+            license: SPDX license identifier for the output. Persisted to
+                datasets.yaml and used for compatibility checking against
+                source licenses. Falls back to the dataset's existing license
+                or ``package.license`` when omitted.
+            check_license: If True (default), raise
+                :class:`~sunstone.licenses.LicenseCompatibilityError` when
+                the target license is incompatible with any source license
+                in the current session lineage.
             **kwargs: Additional arguments passed to pandas.to_parquet.
 
         Raises:
             StrictModeError: In strict mode, if dataset not registered.
             ValueError: In relaxed mode, if slug/name not provided for new dataset.
+            LicenseCompatibilityError: If ``check_license`` is True and the
+                target license conflicts with a source license.
         """
         # Filter out any Sunstone-specific kwargs that might have slipped through
         pandas_kwargs = {k: v for k, v in kwargs.items() if k not in self._SUNSTONE_KWARGS}
@@ -830,7 +941,15 @@ class DataFrame:
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,
                     custom_properties=self.metadata.custom_properties,
+                    license=license,
                 )
+        elif license is not None and dataset.license != license:
+            # Persist explicit override on a pre-registered dataset
+            dataset = manager.update_output_dataset(slug=dataset.slug, license=license)
+
+        if check_license:
+            target_license = license or manager.effective_license_for(dataset.slug)
+            self._enforce_license_compatibility(manager, dataset.slug, target_license)
 
         # Write the data
         absolute_path = manager.get_absolute_path(dataset.location)

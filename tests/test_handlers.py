@@ -116,6 +116,65 @@ class TestBuiltinFormatHandlerWrite:
         assert len(result) == 2
 
 
+class TestBuiltinFormatHandlerCsvDialect:
+    """Dialect translation for text/csv read and write."""
+
+    def test_read_uses_dialect_delimiter(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        stream = io.BytesIO(b"a;b\n1;2\n3;4\n")
+        df = handler.read(stream, format="csv", dialect=CsvDialect(delimiter=";"))
+        assert list(df.columns) == ["a", "b"]
+        assert len(df) == 2
+
+    def test_read_dialect_header_false_skips_header_row(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        stream = io.BytesIO(b"1,2\n3,4\n")
+        df = handler.read(stream, format="csv", dialect=CsvDialect(header=False))
+        assert list(df.columns) == [0, 1]
+        assert len(df) == 2
+
+    def test_read_explicit_kwargs_win_over_dialect(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        stream = io.BytesIO(b"a,b\n1,2\n")
+        df = handler.read(stream, format="csv", sep=",", dialect=CsvDialect(delimiter=";"))
+        assert list(df.columns) == ["a", "b"]
+
+    def test_read_dialect_is_ignored_for_non_csv(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        # JSON path must ignore dialect entirely (no kwarg leak to pd.read_json)
+        stream = io.BytesIO(b'[{"a": 1, "b": 2}]')
+        df = handler.read(stream, format="json", dialect=CsvDialect(delimiter=";"))
+        assert list(df.columns) == ["a", "b"]
+
+    def test_write_uses_dialect_delimiter(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        stream = io.BytesIO()
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        handler.write(stream=stream, df=df, format="csv", index=False, dialect=CsvDialect(delimiter=";"))
+        stream.seek(0)
+        assert stream.read() == b"a;b\n1;3\n2;4\n"
+
+    def test_write_dialect_header_false_omits_header(self, handler):
+        from sunstone.lineage import CsvDialect
+
+        stream = io.BytesIO()
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        handler.write(stream=stream, df=df, format="csv", index=False, dialect=CsvDialect(header=False))
+        stream.seek(0)
+        assert stream.read() == b"1,3\n2,4\n"
+
+    def test_dialect_none_is_no_op(self, handler):
+        # Passing dialect=None must not change default pandas behavior
+        stream = io.BytesIO(b"a,b\n1,2\n")
+        df = handler.read(stream, format="csv", dialect=None)
+        assert list(df.columns) == ["a", "b"]
+
+
 class TestBuiltinFormatHandlerParquetNoLongerHandled:
     """Verify that BuiltinFormatHandler no longer handles Parquet."""
 
@@ -615,6 +674,7 @@ class TestLocalFileHandlerOpen:
         assert f.read_bytes() == b"data"
 
 
+@pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")
 def test_fetch_from_url_delegates_auth_to_http_handler(tmp_path):
     """Auth providers set headers on the HttpURLHandler before fetch."""
     datasets_yaml = tmp_path / "datasets.yaml"

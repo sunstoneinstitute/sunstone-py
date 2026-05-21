@@ -1,0 +1,57 @@
+# Each entry below intentionally exercises one or more lint rules.
+publish:
+  enabled: true
+  to: gs://example-bucket/lint-fixture/
+
+inputs:
+  # R001 missing name, R002 missing slug, R003 missing location, R004 missing
+  # description, R101 missing source.
+  - foo: bar
+  # R005 license missing on source.
+  - name: No License Input
+    slug: no-license-input
+    location: inputs/x.csv
+    description: Has a source but the source lacks a license.
+    source:
+      name: Some Provider
+      location:
+        data: https://example.com/x.csv
+      attributedTo: Example Org
+      acquiredAt: 2026-01-01
+      acquisitionMethod: manual-download
+  # R006 license is not a recognised identifier.
+  - name: Bad License Input
+    slug: bad-license-input
+    location: inputs/y.csv
+    description: License value is not on the SPDX or allow-list.
+    source:
+      name: Provider
+      location:
+        data: https://example.com/y.csv
+      attributedTo: Example Org
+      acquiredAt: 2026-01-01
+      acquisitionMethod: manual-download
+      license: free
+  # R102 source block missing required keys, R104 slug not kebab-case.
+  - name: Sloppy Source
+    slug: Sloppy_Source
+    location: inputs/z.csv
+    description: Slug is wrong-case and source is incomplete.
+    source:
+      name: Provider
+      location: {}
+
+outputs:
+  # R007 field missing name, R008 field missing type, R103 numeric without
+  # unit, R105 published field with no description, R201 generic field name
+  # without description, R202 generic dataset name.
+  - name: Output
+    slug: bare-output
+    location: outputs/bare.csv
+    description: Generic name, generic field, missing types.
+    license: CC-BY-4.0
+    fields:
+      - type: string
+      - name: total
+        type: number
+      - name: value

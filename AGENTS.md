@@ -86,12 +86,15 @@ The `sunstone-py` package provides:
 
 ```python
 from sunstone import pandas as pd
+import sunstone
 from pathlib import Path
 
-PROJECT_PATH = Path.cwd()
+# Configure the project path once. read_csv/read_excel/read_dataset
+# pick this up automatically — no need to pass project_path everywhere.
+sunstone.set_project_path(Path.cwd())
 
 # Load data (must be in datasets.yaml)
-df = pd.read_csv('input.csv', project_path=PROJECT_PATH)
+df = pd.read_csv('input.csv')
 
 # Transform using familiar pandas operations
 result = df[df['value'] > 100].groupby('category').sum()
@@ -107,7 +110,7 @@ result.to_csv(
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: `read_csv()`, `read_excel()`, and `read_json()` require `project_path` parameter
+1. **Project path**: `read_csv()`, `read_excel()`, and `read_json()` resolve paths against a project directory containing `datasets.yaml`. Set it once with `sunstone.set_project_path(...)` (recommended for notebooks/scripts), pass it explicitly via the `project_path=` argument, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for scoped overrides.
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
@@ -171,7 +174,20 @@ but formatted like this:
 `<one-liner>` is a single sentence (preferrably) describing something that's changelog-worthy
 
 **IMPORTANT**: every time you make a commit, consider whether the change is changelog-worthy, and
-if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
+if so add an entry to the "[Unreleased]" section of CHANGELOG.md. The changelog is meant for
+users, so housekeeping changes (CI, agent instructions, readme, etc) should not go in there.
+
+##### Updating CHANGELOG.md
+
+**Keep it tight.** Each entry is one short line — ideally under ~140 characters. Write for a
+user skimming the release page, not for an engineer who wants the full story. Rules:
+
+- One line, one sentence. No subclauses piling up rationale, mechanism, edge cases, and follow-ups.
+- Lead with the user-visible change. Skip implementation detail (file paths, internal flags,
+  "now patches X at package time") unless it changes how the user interacts with the thing.
+- If an existing `[Unreleased]` entry is verbose, rewrite it — don't just copy it forward.
+- Details belong in commit messages, `docs/`, `CONTRIBUTORS.md`, etc. The changelog may point
+  at them, it doesn't replace them.
 
 #### Make a Release
 

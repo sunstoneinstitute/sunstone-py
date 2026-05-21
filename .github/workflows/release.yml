@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: Install uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -21,7 +21,7 @@ jobs:
       run: uv build
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: dist
         path: dist/
@@ -34,13 +34,13 @@ jobs:
       id-token: write
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         name: dist
         path: dist/
 
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+      uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
 
   docs:
     needs: publish
@@ -48,7 +48,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         fetch-depth: 0
 
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: Install uv
       uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -87,25 +87,37 @@ jobs:
         uv sync
         url="${{ secrets.GOOGLE_CHAT_WEBHOOK_URL }}"
         version="${GITHUB_REF#refs/tags/v}"
-        message="New release of sunstone-py available: $version"
+        title="New release of sunstone-py available: $version"
         changelog=$(sed -ne "/## \[$version\]/,/## \[/p" CHANGELOG.md | sed '1d;$d' | uv run markdown_py)
         pypi_url="https://pypi.org/project/sunstone-py/${version}/"
         docs_url="https://sunstoneinstitute.github.io/sunstone-py/${version}/"
-        jq -n --arg message "$message" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
-          text: $message,
-          cards: [{
-            sections: [{
-              widgets: [{
-                textParagraph: {
-                  text: "<b>Changelog</b><br>\($changelog)"
-                }
+        # Single-message card with a collapsible changelog section.
+        # The card header is always visible; the section collapses by default
+        # because uncollapsibleWidgetsCount=0.
+        jq -n --arg title "$title" --arg version "$version" --arg changelog "$changelog" --arg pypi_url "$pypi_url" --arg docs_url "$docs_url" '{
+          cardsV2: [{
+            cardId: ("release-" + $version),
+            card: {
+              header: {
+                title: $title
               },
-              {
-                textParagraph: {
-                  text: "<b>Links</b><br><a href=\"\($pypi_url)\">PyPI</a> · <a href=\"\($docs_url)\">Documentation</a>"
-                }
+              sections: [{
+                collapsible: true,
+                uncollapsibleWidgetsCount: 0,
+                widgets: [
+                  {
+                    textParagraph: {
+                      text: ("<b>Changelog</b><br>" + $changelog)
+                    }
+                  },
+                  {
+                    textParagraph: {
+                      text: ("<a href=\"" + $pypi_url + "\">PyPI</a> · <a href=\"" + $docs_url + "\">Documentation</a>")
+                    }
+                  }
+                ]
               }]
-            }]
+            }
           }]
         }' | curl -X POST -H 'Content-Type: application/json' -d @- "$url"
 
@@ -115,7 +127,7 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: Extract version from tag
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_ENV"

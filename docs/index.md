@@ -77,13 +77,15 @@ dependencies = [
 ## Quick Example
 
 ```python
+import sunstone
 from sunstone import pandas as pd
 from pathlib import Path
 
-PROJECT_PATH = Path.cwd()
+# Configure the default project path once
+sunstone.set_project_path(Path.cwd())
 
 # Read data - lineage automatically tracked
-schools = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
+schools = pd.read_csv('data/schools.csv')
 
 # Transform using familiar pandas operations
 summary = schools[schools['enrollment'] > 100].groupby('district').sum()
@@ -168,6 +170,9 @@ sunstone dataset list
 
 # Validate datasets.yaml structure
 sunstone dataset validate
+
+# Lint datasets.yaml against metadata recommendations
+sunstone lint
 
 # Enable strict mode for production
 sunstone dataset strict

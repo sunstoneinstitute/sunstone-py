@@ -7,11 +7,15 @@ Understanding the key concepts behind sunstone-py's data management and lineage 
 sunstone-py provides a drop-in replacement for pandas that adds lineage tracking:
 
 ```python
+import sunstone
 from sunstone import pandas as pd
 
+# Configure the default project path once
+sunstone.set_project_path('/path/to/project')
+
 # Works like pandas, but tracks lineage
-df = pd.read_csv('input.csv', project_path='/path/to/project')
-df2 = pd.read_csv('input2.csv', project_path='/path/to/project')
+df = pd.read_csv('input.csv')
+df2 = pd.read_csv('input2.csv')
 
 # All pandas operations work
 filtered = df[df['value'] > 100]
@@ -24,7 +28,7 @@ concatenated = pd.concat([df, df2])
 
 ### Key Differences from Plain Pandas
 
-1. **Explicit project_path required**: All read operations need a `project_path` parameter pointing to where `datasets.yaml` lives
+1. **Project path configuration**: Reads resolve paths against a project directory containing `datasets.yaml`. Set it once with `sunstone.set_project_path(...)`, pass `project_path=` per call, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for a scoped override.
 2. **Dataset registration**: All reads and writes must correspond to entries in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: Write operations require `slug` and `name` for dataset registration
@@ -76,7 +80,7 @@ result.to_csv(
 
 ```python
 # Per-operation
-df = pd.read_csv('data.csv', project_path=PROJECT_PATH, strict=True)
+df = pd.read_csv('data.csv', strict=True)
 
 # Globally via environment variable
 import os
@@ -394,6 +398,76 @@ df.set_field_metadata('distance_miles', unit='mile')
 
 Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles. The original URI is stored in `FieldSchema.unit_source` so it round-trips without loss.
 
+## License Compatibility
+
+sunstone-py treats licenses as a first-class part of lineage: every input declares a `source.license`, every output declares an effective license (its own, its `packages[]` entry, or the top-level `package.license`), and the compatibility between them is checked automatically at write time.
+
+There are three layers of license handling, intentionally graded from soft to hard:
+
+1. **Lint (`sunstone lint`)** — `R005` flags a dataset that has no license at all; `R006` flags a license string that isn't a recognised SPDX identifier or `LicenseRef-*` form.
+2. **CLI audit (`sunstone license check`)** — runs the compatibility engine across every output's `wasDerivedFrom` chain and exits non-zero on conflict. Use it in CI. See the [CLI Guide](cli.md#license-commands).
+3. **Write-time enforcement** — `to_csv()` / `to_parquet()` raise [`LicenseCompatibilityError`](errors.md#licensecompatibilityerror) when the target license is incompatible with a source license in the current session lineage. When no target license is declared, one is auto-derived from the sources (inheriting a single source's license, or picking the most restrictive license that satisfies all sources) and persisted to `datasets.yaml`. Pass `check_license=False` to skip on a specific write.
+
+### How the Compatibility Engine Works
+
+Each license in the embedded registry is described by four boolean properties — `public_domain`, `attribution`, `share_alike`, `non_commercial` — plus a `family` tag for ShareAlike. A `(source → target)` pair is checked against this rule set:
+
+| Source property | Constraint on target |
+|---|---|
+| `public_domain` | None — compatible with anything. |
+| `share_alike` | Target must also be `share_alike` **and** share the same `family`. (`CC-BY-SA-4.0` and `CC-BY-SA-3.0` are *different* families on purpose — Creative Commons treats them as one-way upgradable, not mutually equivalent.) |
+| `non_commercial` | Target must also be `non_commercial`. |
+| `attribution` (without SA/NC) | Target must be `attribution` *or* `share_alike` (SA implies attribution). |
+
+A check fails as soon as any source/target pair violates the rules; the resulting `LicenseCompatibilityResult` lists every conflict and a `suggestions` list of registry licenses that *would* satisfy all known sources. The most-restrictive ordering — used by `get_most_restrictive_license()` and by suggestion ranking — is `ShareAlike > NonCommercial > Attribution > Public Domain`.
+
+### Embedded License Registry
+
+The registry is intentionally focused on common research-data licenses. Anything outside it must use a `LicenseRef-*` identifier; unregistered `LicenseRef-*` ids pass lint `R006` but are reported as `unknown_sources` by the compatibility engine and excluded from the rule check.
+
+| SPDX id | Class |
+|---|---|
+| `CC0-1.0`, `PDDL-1.0`, `LicenseRef-US-PD` | Public domain |
+| `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-3.0-IGO` | Attribution only |
+| `ODC-By-1.0`, `LicenseRef-OGL-3.0`, `NLOD-1.0`, `NLOD-2.0` | Attribution only |
+| `CC-BY-SA-4.0`, `CC-BY-SA-3.0`, `ODbL-1.0` | Attribution + ShareAlike (each is its own family) |
+| `CC-BY-NC-4.0`, `CC-BY-NC-3.0-IGO` | Attribution + NonCommercial |
+| `CC-BY-NC-SA-4.0`, `CC-BY-NC-SA-3.0`, `CC-BY-NC-SA-3.0-IGO` | Attribution + NonCommercial + ShareAlike (each is its own family) |
+
+Adding a license is a one-line append to `_REGISTRY_ENTRIES` in `src/sunstone/licenses.py`. The full set is also available programmatically via `sunstone.licenses.known_licenses()`.
+
+### Worked Example
+
+A source `un-members` is licensed `CC-BY-NC-4.0`. You merge it with a `CC-BY-4.0` input and try to publish under `CC-BY-4.0`:
+
+```python
+result.to_csv(
+    "outputs/derived.csv",
+    slug="derived",
+    name="Derived Data",
+    license="CC-BY-4.0",
+)
+# raises LicenseCompatibilityError:
+#   CC-BY-NC-4.0 is NonCommercial: derivatives must also be NonCommercial, not CC-BY-4.0
+#   Suggested compatible target licenses: CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-NC-3.0-IGO
+```
+
+The fix is to widen the output to a NonCommercial license — or, if you have rights to do so, to remove the NC source from the lineage. The engine does not let you "wash out" a NonCommercial source by mixing it with a permissive one; that is the correct behaviour under Creative Commons.
+
+### Auto-Derived Target Licenses
+
+When the output has source licenses but no declared target (no `license:` on the dataset, no `packages[].license` / `package.license` covering it, and no `license=` argument to the writer), the writer derives a target automatically:
+
+- **One unique source license** — the output inherits it.
+- **Multiple compatible source licenses** — the writer picks the most restrictive license that satisfies every source (e.g., `CC-BY-4.0` + `CC-BY-NC-4.0` → `CC-BY-NC-4.0`).
+- **Mutually incompatible sources, or unknown licenses among multiples** — `LicenseCompatibilityError`. The writer refuses to guess; declare an explicit `license:` to proceed.
+
+Any auto-derived license is persisted to `datasets.yaml` so future reads and `sunstone license check` runs see it as declared.
+
+### Conflicting Licenses
+
+An explicitly declared target license that is incompatible with a source license is always a hard failure (`LicenseCompatibilityError`) — silently publishing under the wrong license can be a legal problem. Combine `sunstone lint --warnings-as-errors` (catches missing licenses at lint time) with `sunstone license check` (catches conflicts) in CI to make both classes hard failures before publish.
+
 ## Dataset Metadata
 
 Every dataset in `datasets.yaml` has rich metadata:
@@ -521,6 +595,61 @@ for path, result in results.items():
 - No direct pandas imports in data processing code
 - Proper usage of `project_path` parameter
 
+## Project Path Configuration
+
+`read_csv`, `read_excel`, `read_json`, `read_dataset`, and the `DataFrame` constructor all need to know which project's `datasets.yaml` to consult. They accept a `project_path=` argument; when none is given, they fall back to a process-wide default, and finally to `Path.cwd()`.
+
+```python
+import sunstone
+from sunstone import pandas as pd
+from pathlib import Path
+
+# 1. Set once for the entire process (recommended in notebooks/scripts)
+sunstone.set_project_path(Path(__file__).parent)
+df = pd.read_csv('inputs/data.csv')          # uses configured path
+
+# 2. Pass explicitly per call (overrides the default)
+df = pd.read_csv('inputs/data.csv', project_path='/other/project')
+
+# 3. Scoped override
+with sunstone.use_project_path('/temporary/project'):
+    df = pd.read_csv('inputs/other.csv')
+# default is restored after the with block
+
+# Read or clear the configured default
+print(sunstone.get_project_path())
+sunstone.clear_project_path()
+```
+
+The configured value is held in a `contextvars.ContextVar`, so it is safe across threads and async tasks.
+
+## Organizing Datasets Across Files
+
+For projects with many datasets, `datasets.yaml` can pull in additional files via an `include:` directive:
+
+```yaml
+# datasets.yaml
+package:
+  name: my-project
+  license: CC-BY-4.0
+
+include:
+  - datasets/inputs.yaml
+  - datasets/outputs.yaml
+
+# Top-level inputs/outputs/packages here are still allowed
+inputs: []
+outputs: []
+```
+
+Each included file may declare its own `inputs:`, `outputs:`, and `packages:` lists. Top-level configuration that affects the whole project (`defaults`, `rdfPrefixes`, `package`, `publish`, `min_sunstone_version`) is not allowed in included files — only in the main `datasets.yaml`.
+
+Other rules:
+
+- Includes are not nested — an included file cannot itself contain an `include:` key.
+- Slug collisions across files are an error: every dataset slug and every package name must be unique across the merged set.
+- Paths are relative to the file containing the `include:` directive.
+
 ## Environment Variables
 
 ### SUNSTONE_DATAFRAME_STRICT
@@ -535,7 +664,7 @@ export SUNSTONE_DATAFRAME_STRICT=true
 
 ```python
 # Now all operations are strict by default
-df = pd.read_csv('input.csv', project_path=PROJECT_PATH)  # strict=True implied
+df = pd.read_csv('input.csv')  # strict=True implied
 ```
 
 ## Best Practices
@@ -545,6 +674,10 @@ df = pd.read_csv('input.csv', project_path=PROJECT_PATH)  # strict=True implied
 1. **Development**: Use relaxed mode for exploration
 2. **Refinement**: Review auto-generated `datasets.yaml` entries
 3. **Production**: Lock datasets with `sunstone dataset lock`
+
+### Lint Before You Ship
+
+Run `sunstone lint` to catch missing licenses, units, descriptions, and slugs that don't follow project conventions before publishing. In CI, use `sunstone lint --warnings-as-errors` to make recommended-but-not-required metadata mandatory. See the [CLI Guide](cli.md#lint-command) for the full rule list.
 
 ### Document Sources Thoroughly
 

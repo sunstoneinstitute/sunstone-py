@@ -8,21 +8,22 @@ Sunstone includes these built-in prefixes that are always available (no need to 
 
 | Prefix | Namespace | Purpose |
 |--------|-----------|---------|
-| `rdf:` | `http://www.w3.org/1999/02/22-rdf-syntax-ns#` | RDF syntax |
 | `dcat:` | `http://www.w3.org/ns/dcat#` | Data Catalog Vocabulary |
+| `dct:` | `http://purl.org/dc/terms/` | Dublin Core Terms |
+| `dwc:` | `http://rs.tdwg.org/dwc/terms/` | Darwin Core (biodiversity) |
+| `gtio-i:` | `https://sunstone.institute/rdf/gtio/0.3/interventions#` | GTIO interventions vocabulary |
+| `gtio-t:` | `https://sunstone.institute/rdf/gtio/0.3/threats#` | GTIO threats vocabulary |
+| `prov:` | `http://www.w3.org/ns/prov#` | W3C Provenance Ontology |
+| `qudt:` | `http://qudt.org/schema/qudt/` | Quantities, Units, Dimensions |
+| `rdf:` | `http://www.w3.org/1999/02/22-rdf-syntax-ns#` | RDF syntax |
+| `rdfs:` | `http://www.w3.org/2000/01/rdf-schema#` | RDF Schema |
+| `schema:` | `http://schema.org/` | Schema.org vocabulary |
 | `si:` | `https://sunstone.institute/rdf/vocab#` | Sunstone-specific properties |
 | `si30:` | `https://sunstone.institute/rdf/threat/` | Sunstone threat references |
-
-Additional common prefixes you may want to declare:
-
-| Prefix | Namespace | Purpose |
-|--------|-----------|---------|
-| `schema:` | `http://schema.org/` | Schema.org vocabulary |
-| `prov:` | `http://www.w3.org/ns/prov#` | W3C Provenance Ontology |
 | `skos:` | `http://www.w3.org/2004/02/skos/core#` | Simple Knowledge Organization |
-| `dwc:` | `http://rs.tdwg.org/dwc/terms/` | Darwin Core (biodiversity) |
 | `sosa:` | `http://www.w3.org/ns/sosa/` | Sensor, Observation, Sample, Actuator |
-| `qudt:` | `http://qudt.org/schema/qudt/` | Quantities, Units, Dimensions |
+
+The full set is exported as `sunstone.STANDARD_RDF_PREFIXES` for programmatic use.
 
 ## Defining Prefixes
 

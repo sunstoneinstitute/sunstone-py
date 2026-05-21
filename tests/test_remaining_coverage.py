@@ -113,6 +113,7 @@ class TestPandasConcatEmpty:
             spd.concat([])
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestQueryLineageDefaultProjectPath:
     """Tests for queries.get_upstream with default project_path."""
 
@@ -124,6 +125,7 @@ class TestQueryLineageDefaultProjectPath:
         assert node.sources[0].slug == "raw-data"
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestQueryLineageDepthLimit:
     """Tests for _build_node depth limit."""
 

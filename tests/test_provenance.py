@@ -353,6 +353,7 @@ class TestSourceAgent:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestDatasetsYamlRoundTrip:
     @pytest.fixture
     def project_with_output(self, tmp_path: Path) -> Path:
@@ -612,6 +613,7 @@ class TestFieldDerivationPropagation:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestLineageNodeActivity:
     def test_lineage_node_with_activity(self, tmp_path: Path) -> None:
         """get_upstream should populate activity on LineageNode."""
