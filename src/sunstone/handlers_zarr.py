@@ -119,7 +119,10 @@ class ZarrStoreHandler:
         if raw is not None:
             try:
                 doc = json.loads(raw) if isinstance(raw, str) else raw
-                meta = Metadata.from_jsonld(doc)
+                if isinstance(doc, dict):
+                    meta = Metadata.from_jsonld(doc)
+                else:
+                    meta = Metadata()
             except Exception:
                 meta = Metadata()
         else:
@@ -136,10 +139,12 @@ class ZarrStoreHandler:
             if name in meta.component_metadata:
                 continue
             var_attrs = dict(arr.attrs)
-            units = var_attrs.get("units")
-            long_name = var_attrs.get("long_name")
-            description = var_attrs.get("description") or long_name
-            if units is None and description is None and long_name is None:
+            raw_units = var_attrs.get("units")
+            raw_long_name = var_attrs.get("long_name")
+            raw_description = var_attrs.get("description") or raw_long_name
+            units = raw_units if isinstance(raw_units, str) else None
+            description = raw_description if isinstance(raw_description, str) else None
+            if units is None and description is None:
                 continue
             meta.component_metadata[name] = ComponentSchema(
                 name=name,
