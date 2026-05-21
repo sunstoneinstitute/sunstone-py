@@ -5,13 +5,28 @@ Tests for attribution chain traversal and statement generation (queries.py).
 import textwrap
 from pathlib import Path
 
+import yaml
+
 from sunstone.queries import generate_attribution_statement, get_full_attribution
 
 
 def _write_datasets_yaml(tmp_path: Path, content: str) -> Path:
-    """Helper to write a datasets.yaml file in a temp directory."""
-    yaml_path = tmp_path / "datasets.yaml"
-    yaml_path.write_text(textwrap.dedent(content))
+    """Write a fixture to ``tmp_path``, splitting inline ``lineage:`` blocks
+    out to ``datasets.lock.yaml`` (the canonical store since 1.7.0)."""
+    parsed = yaml.safe_load(textwrap.dedent(content)) or {}
+
+    lock_outputs: list[dict] = []
+    for output in parsed.get("outputs", []) or []:
+        lineage = output.pop("lineage", None)
+        if lineage is None:
+            continue
+        lock_entry: dict = {"slug": output["slug"]}
+        lock_entry.update(lineage)
+        lock_outputs.append(lock_entry)
+
+    (tmp_path / "datasets.yaml").write_text(yaml.safe_dump(parsed, sort_keys=False))
+    if lock_outputs:
+        (tmp_path / "datasets.lock.yaml").write_text(yaml.safe_dump({"outputs": lock_outputs}, sort_keys=False))
     return tmp_path
 
 

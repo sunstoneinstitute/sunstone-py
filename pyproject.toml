@@ -100,7 +100,7 @@ overrides = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--cov=sunstone --cov-report=term-missing"
+addopts = "--cov=sunstone --cov-report=term"
 norecursedirs = [
     ".worktrees",
     ".claude",

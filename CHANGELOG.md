@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
 - Changed: env config refactored to generic schema with plugin-owned sections; `DataEnvironment` retained as deprecated alias (#68).
 - Added: `sunstone.activate_environment()` helper and `--scope user|project|system` flag on `sunstone env add`/`set`/`unset`/`remove` (#68).
+- Fixed: `get_full_attribution()` now reads lineage from `datasets.lock.yaml`; previously it only saw the deprecated inline `lineage:` blocks in `datasets.yaml`.
 
 ## [1.11.0] - 2026-05-19
 

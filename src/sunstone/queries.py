@@ -132,7 +132,18 @@ def _build_node(
 
 
 def _find_output_data(slug: str, mgr: DatasetsManager) -> Optional[dict[str, Any]]:
-    """Find raw output data dict by slug from DatasetsManager._data."""
+    """Find raw output data dict by slug.
+
+    Canonical lineage source since 1.7.0 is ``datasets.lock.yaml`` — the lock
+    entry's top-level ``sources`` / ``activity`` keys ARE the lineage payload,
+    so we rewrap them under ``lineage:`` for the downstream code path that
+    still understands the inline shape. Falls back to inline ``lineage:`` in
+    ``datasets.yaml`` for projects that have not yet migrated.
+    """
+    for lock_entry in mgr._lock_data.get("outputs", []):
+        if lock_entry.get("slug") == slug:
+            return {"slug": slug, "lineage": dict(lock_entry)}
+
     for output_data in mgr._data.get("outputs", []):
         if output_data.get("slug") == slug:
             return dict(output_data)
