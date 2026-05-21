@@ -8,8 +8,8 @@ is `dict[str, numpy.ndarray]` keyed by variable name.
 - **AssetKind:** `AssetKind.ARRAY`
 - **Payload:** `dict[str, numpy.ndarray]`
 - **Typed accessor:** `Asset.as_array() -> dict[str, numpy.ndarray]`
-- **Status:** Asset envelope ready. NumPy `.npz` and Zarr (local
-  directory store) are supported today; NetCDF/HDF5 is on the roadmap.
+- **Status:** Asset envelope ready. NumPy `.npz`, Zarr (local
+  directory store), and HDF5 / NetCDF-4 are all supported today.
 
 ## Why a dict, not a single ndarray
 
@@ -42,12 +42,20 @@ ARRAY is for many.
   variable's `units` / `long_name` / `description` onto the array's
   `.attrs` for ecosystem interop (xarray, Panoply, ncview, ...).
   Works with both zarr v2 (`>=2.18`) and zarr v3.
+- **HDF5 / NetCDF-4 handler** (`sunstone.handlers_hdf5.Hdf5StoreHandler`)
+  round-trips `dict[str, numpy.ndarray]` payloads plus the full
+  sunstone `Metadata` blob (stored as JSON-LD in the root HDF5
+  attribute `sunstone`). Supports `.h5`, `.hdf5`, `.he5`, `.nc`,
+  `.nc4` extensions. Install with `sunstone-py[hdf5]`. NetCDF-3
+  (classic) is out of scope — only NetCDF-4, which is HDF5
+  underneath, is supported. Per-variable `ComponentSchema.units`
+  and `ComponentSchema.description` are also written as CF-style
+  HDF5 attributes (`units`, `long_name`, `description`) so xarray,
+  ncdump, Panoply, MATLAB and other CF-aware tools read the same
+  file without sunstone in the loop.
 
 ## What's coming
 
-- **NetCDF** / HDF5 — single-file with random-access semantics;
-  handler choice depends on whether the underlying library is
-  stream-friendly.
 - **Remote Zarr stores** (`gs://`, `s3://`) — the v1 Zarr handler is
   local-directory only. Object-store routing through the URLHandler
   registry is planned.
