@@ -31,6 +31,9 @@ extra:
     provider: mike
     default: latest
 
+hooks:
+  - mkdocs_hooks.py
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
