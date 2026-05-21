@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: Zarr store-format handler for `AssetKind.ARRAY` via the `[zarr]` extra (#65).
 - Added: NumPy `.npz` format handler for `AssetKind.ARRAY` (#64).
 - Added: Asset envelope — generic format handler protocol supporting non-tabular kinds (raster/array/tile).
 - Added: `sunstone.read()` / `sunstone.write()` top-level entry points returning/accepting `Asset`.

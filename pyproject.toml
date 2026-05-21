@@ -46,6 +46,9 @@ s3 = [
 qudt = [
     "ontopint>=0.1",
 ]
+zarr = [
+    "zarr>=2.18",
+]
 
 [project.license]
 text = "MIT"

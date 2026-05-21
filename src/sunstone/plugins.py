@@ -223,6 +223,14 @@ class PluginRegistry:
         except ImportError:
             pass  # boto3 not installed
 
+        # Optional store-format handlers
+        try:
+            from .handlers_zarr import ZarrStoreHandler
+
+            self._store_format_handlers.append(ZarrStoreHandler())
+        except ImportError:
+            pass  # zarr not installed
+
         # Internal handlers last (fallback)
         from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
 
