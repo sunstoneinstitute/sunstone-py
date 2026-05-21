@@ -25,15 +25,17 @@ Example:
     ... )
 """
 
+from .asset import Asset, AssetKind
+from .component import ComponentSchema
 from .config import (
     clear_project_path,
     get_project_path,
     set_project_path,
     use_project_path,
 )
-from .component import ComponentSchema
 from .dataframe import DataFrame
 from .datasets import DatasetsManager
+from .errors import IncompatibleAssetKindError
 from .exceptions import (
     DatasetNotFoundError,
     DatasetValidationError,
@@ -42,6 +44,7 @@ from .exceptions import (
     SunstoneError,
     UnitError,
 )
+from .rdf import IRI, LangString, TypedLiteral
 from .lineage import (
     Activity,
     ActivityRef,
@@ -91,6 +94,128 @@ from .context import ExecutionContext, detect_execution_context
 from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
 from .session import DatasetRead, LineageSession, close_session, get_session
 
+
+def read(
+    path: str,
+    *,
+    format: str | None = None,
+    kind: "AssetKind | None" = None,
+    **kw: object,
+) -> "Asset":
+    """Read any registered format into an `Asset`.
+
+    Dispatch order:
+      1. Explicit ``kind=`` / ``format=`` arguments.
+      2. ``datasets.yaml`` ``format`` field, if the path matches a registered
+         dataset entry.
+      3. Path extension / store classification by handler.
+    """
+    from .dataframe import _read_tabular_asset
+    from .datasets import DatasetsManager
+    from .plugins import PluginRegistry
+    from .resource import ResourceLocation
+
+    # 2. Consult datasets.yaml when no explicit format was given.
+    if format is None:
+        try:
+            dm: DatasetsManager | None = DatasetsManager.from_project_path()
+        except Exception:
+            dm = None
+        if dm is not None:
+            entry = dm.find_entry_by_location(path)
+            if entry is not None:
+                format = entry.get("format")
+
+    # 3. Store-vs-stream classification.
+    loc = ResourceLocation(path=path)
+    registry = PluginRegistry.get()
+    if loc.is_dir():
+        handler = registry.find_store_format_reader(loc, format)
+        if handler is not None:
+            return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
+        # Fall through to stream path so single-file handlers can still claim
+        # directory-like paths via can_read.
+
+    return _read_tabular_asset(path, format=format, **kw)
+
+
+def _materialise_default_identity(asset: "Asset") -> None:
+    """If `asset.metadata.identity` is None and the asset has a slug, fill in
+    the default `sunstone://<package-name>/<slug>@<package-version>` URI using
+    the active project's pyproject.toml. No-op otherwise — user-supplied
+    templates are preserved verbatim.
+
+    Skipped entirely when no `pyproject.toml` is discoverable at the resolved
+    project path: otherwise the bare cwd fallback in `get_project_path()`
+    would invent identities from arbitrary directory names (e.g. a user's
+    home directory), leaking information into the asset and into downstream
+    JSON-LD emission.
+
+    Mutates `asset.metadata.identity` in place; subsequent writes of the
+    same asset reuse the materialised value.
+    """
+    if asset.metadata.identity is not None:
+        return
+    if not asset.metadata.slug:
+        return
+
+    from .cli import get_project_slug, get_project_version
+    from .config import get_project_path
+
+    try:
+        project_path = get_project_path()
+    except Exception:
+        # No project path configured — skip default identity.
+        return
+    if project_path is None:
+        return
+
+    # Refuse to invent an identity when there's no project declaration.
+    if not (project_path / "pyproject.toml").exists():
+        return
+
+    pkg_name = get_project_slug(project_path)
+    pkg_version = get_project_version(project_path) or "0.0.0"
+    asset.metadata.identity = f"sunstone://{pkg_name}/{asset.metadata.slug}@{pkg_version}"
+
+
+def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
+    """Write an `Asset` to `path`. Dispatches via the plugin registry.
+
+    Raises `IncompatibleAssetKindError` if the selected handler does not
+    support `asset.kind`.
+    """
+    _materialise_default_identity(asset)
+
+    from .errors import IncompatibleAssetKindError
+    from .plugins import PluginRegistry
+
+    # Forward path/format into handler kwargs so legacy handlers that use them
+    # for extension-based format inference keep working when the caller
+    # omitted an explicit format. Symmetric with `_read_tabular_asset`.
+    kw.setdefault("path", path)
+    if format is not None:
+        kw.setdefault("format", format)
+
+    registry = PluginRegistry.get()
+    for handler in registry.get_asset_format_handlers():
+        if not (hasattr(handler, "can_write") and handler.can_write(path, format)):  # type: ignore[attr-defined]
+            continue
+        supported = tuple(handler.supported_kinds())  # type: ignore[attr-defined]
+        if asset.kind not in supported:
+            raise IncompatibleAssetKindError(
+                expected=supported[0] if supported else asset.kind,
+                actual=asset.kind,
+            )
+        url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
+        if url_handler is None:
+            raise FileNotFoundError(path)
+        with url_handler.open(path, "wb") as stream:
+            handler.write(asset, stream, **kw)  # type: ignore[attr-defined]
+        return
+    raise ValueError(f"No handler for path={path!r} format={format!r}")
+
+
 # Standard RDF and DCAT prefixes for automatic type properties
 STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
@@ -113,7 +238,17 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    # Top-level I/O
+    "read",
+    "write",
+    # Asset envelope
+    "Asset",
+    "AssetKind",
     "ComponentSchema",
+    # RDF types
+    "IRI",
+    "LangString",
+    "TypedLiteral",
     # Project-path configuration
     "set_project_path",
     "get_project_path",
@@ -157,6 +292,7 @@ __all__ = [
     "StrictModeError",
     "LineageError",
     "UnitError",
+    "IncompatibleAssetKindError",
     # Context and session
     "ExecutionContext",
     "detect_execution_context",

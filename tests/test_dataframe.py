@@ -914,6 +914,81 @@ class TestReadDatasetParquetMetadata:
         assert "ex" in df.metadata.rdf_prefixes
 
 
+def test_read_tabular_asset_returns_asset(tmp_path):
+    """The internal helper unwraps DataFrame-returning handlers via the
+    adapter and produces an Asset directly."""
+
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.dataframe import _read_tabular_asset
+
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("x,y\n1,2\n")
+
+    asset = _read_tabular_asset(str(csv), format="csv")
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+    assert list(asset.payload.columns) == ["x", "y"]
+
+
+def test_read_tabular_asset_infers_format_from_extension(tmp_path):
+    """When no explicit `format=` is passed, the helper must forward `path`
+    so that handlers using extension-based inference still work."""
+
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.dataframe import _read_tabular_asset
+
+    csv = tmp_path / "tiny.csv"
+    csv.write_text("x,y\n1,2\n")
+
+    asset = _read_tabular_asset(str(csv))
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+
+
+def test_read_tabular_asset_raises_when_no_handler_matches(tmp_path):
+    """No handler accepts an unknown extension; the helper raises ValueError."""
+    import pytest
+
+    from sunstone.dataframe import _read_tabular_asset
+
+    unknown = tmp_path / "x.unknown-ext"
+    unknown.write_text("nope")
+
+    with pytest.raises(ValueError, match="No handler"):
+        _read_tabular_asset(str(unknown))
+
+
+def test_sunstone_dataframe_is_facade_over_asset():
+    import pandas as pd
+
+    from sunstone import DataFrame as SDF
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.lineage import Metadata
+
+    pdf = pd.DataFrame({"x": [1, 2, 3]})
+    sdf = SDF(pdf, metadata=Metadata(slug="tabular", name="T"))
+
+    # The facade exposes the underlying Asset for code that wants it.
+    asset = sdf.asset
+    assert isinstance(asset, Asset)
+    assert asset.kind is AssetKind.TABULAR
+    assert asset.payload is pdf
+
+    # df.metadata and asset.metadata refer to the same instance, not a copy.
+    assert sdf.metadata is asset.metadata
+    sdf.metadata.description = "set via facade"
+    assert asset.metadata.description == "set via facade"
+
+
+def test_sunstone_dataframe_data_returns_pandas_dataframe():
+    import pandas as pd
+
+    from sunstone import DataFrame as SDF
+
+    pdf = pd.DataFrame({"x": [1]})
+    assert SDF(pdf).data is pdf
+
+
 class TestCsvDialectEndToEnd:
     """End-to-end: a registered text/csv dataset with a dialect block is read
     and written through sunstone's pandas API using that dialect."""

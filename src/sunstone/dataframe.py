@@ -6,7 +6,7 @@ import os
 import warnings
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 import pandas as pd
 
@@ -14,6 +14,9 @@ from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+
+if TYPE_CHECKING:
+    from .asset import Asset
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -46,6 +49,10 @@ class DataFrame:
         """
         Initialize a Sunstone DataFrame.
 
+        Internally backed by an :class:`~sunstone.asset.Asset` of
+        ``kind=AssetKind.TABULAR``. ``df.metadata is df.asset.metadata``
+        and ``df.data is df.asset.payload``.
+
         Args:
             data: Data to wrap. Can be a pandas DataFrame or any data accepted
                  by pandas.DataFrame() constructor (dict, list of dicts, etc.).
@@ -65,22 +72,29 @@ class DataFrame:
             - Default is determined by SUNSTONE_DATAFRAME_STRICT env var
               ("1" or "true" -> strict mode, otherwise relaxed mode)
         """
-        # Convert data to pandas DataFrame if it isn't already
+        from .asset import Asset, AssetKind
+
+        # Normalise data into a pandas DataFrame payload
         if data is None:
-            self.data = pd.DataFrame(**kwargs)
+            payload = pd.DataFrame(**kwargs)
         elif isinstance(data, pd.DataFrame):
-            self.data = data
+            payload = data
         else:
             # data is some other type (dict, list, etc.) - pass to pandas
-            self.data = pd.DataFrame(data, **kwargs)
+            payload = pd.DataFrame(data, **kwargs)
 
         # Unified metadata container
         if metadata is not None:
-            self.metadata = metadata
+            meta = metadata
         elif lineage is not None:
-            self.metadata = Metadata(lineage=lineage)
+            meta = Metadata(lineage=lineage)
         else:
-            self.metadata = Metadata()
+            meta = Metadata()
+
+        # Construct the underlying Asset BEFORE any property setter is invoked.
+        # The .data and .metadata setters route through self._asset and would
+        # AttributeError if _asset isn't on the instance yet.
+        self._asset = Asset(payload=payload, kind=AssetKind.TABULAR, metadata=meta)
 
         # Determine strict mode
         if strict is None:
@@ -89,7 +103,7 @@ class DataFrame:
         else:
             self.strict_mode = strict
 
-        # Set project path
+        # Set project path (goes through self.metadata -> self._asset.metadata)
         if project_path is not None:
             self.metadata.lineage.project_path = str(Path(project_path).resolve())
         elif self.metadata.lineage.project_path is None:
@@ -97,6 +111,33 @@ class DataFrame:
 
         # Store datasets file override
         self._datasets_file = datasets_file
+
+    @property
+    def asset(self) -> "Asset":
+        """The underlying :class:`~sunstone.asset.Asset` (kind=TABULAR).
+
+        ``df.metadata is df.asset.metadata`` and ``df.data is df.asset.payload``
+        — facade and asset share the same metadata and payload references.
+        """
+        return self._asset
+
+    @property
+    def data(self) -> pd.DataFrame:
+        """The underlying pandas DataFrame payload."""
+        return cast(pd.DataFrame, self._asset.payload)
+
+    @data.setter
+    def data(self, value: pd.DataFrame) -> None:
+        self._asset.payload = value
+
+    @property
+    def metadata(self) -> Metadata:
+        """The unified :class:`~sunstone.lineage.Metadata` container."""
+        return self._asset.metadata
+
+    @metadata.setter
+    def metadata(self, value: Metadata) -> None:
+        self._asset.metadata = value
 
     @property
     def lineage(self) -> LineageMetadata:
@@ -388,16 +429,38 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(
+            result = format_handler.read(
                 stream,
                 format=format,
                 path=location,
                 dialect=dataset.dialect,
                 **kwargs,
             )
+        # Handlers may return either a bare DataFrame (legacy) or an Asset (v2+).
+        from .asset import Asset as _Asset
 
-        # Extract embedded metadata if the format handler provided it
-        embedded_metadata = df.attrs.pop("sunstone_metadata", None)
+        embedded_metadata: Optional[Metadata]
+        if isinstance(result, _Asset):
+            df = cast(pd.DataFrame, result.payload)
+            # Prefer the Asset's metadata; fall back to df.attrs for handlers
+            # that still leak metadata via the legacy channel.
+            asset_meta = result.metadata
+            embedded_metadata = asset_meta if asset_meta is not None else df.attrs.pop("sunstone_metadata", None)
+            # An empty default Metadata() carries no useful info — treat as None.
+            if embedded_metadata is not None and isinstance(embedded_metadata, Metadata):
+                if (
+                    embedded_metadata.slug is None
+                    and embedded_metadata.name is None
+                    and embedded_metadata.description is None
+                    and not embedded_metadata.field_metadata
+                    and not embedded_metadata.rdf_prefixes
+                    and not embedded_metadata.custom_properties
+                ):
+                    embedded_metadata = None
+        else:
+            df = cast(pd.DataFrame, result)
+            # Extract embedded metadata if the format handler provided it
+            embedded_metadata = df.attrs.pop("sunstone_metadata", None)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -537,13 +600,16 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(
+            result = format_handler.read(
                 stream,
                 format="csv",
                 path=location,
                 dialect=dataset.dialect,
                 **kwargs,
             )
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -657,7 +723,10 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="excel", path=location, **kwargs)
+            result = format_handler.read(stream, format="excel", path=location, **kwargs)
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -771,7 +840,10 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            df = format_handler.read(stream, format="json", path=location, **kwargs)
+            result = format_handler.read(stream, format="json", path=location, **kwargs)
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
@@ -1076,22 +1148,27 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
-        # Attach metadata for format handlers that support it
-        if format_writer and registry.handler_supports_metadata(format_writer):
-            self.data.attrs["sunstone_metadata"] = self.metadata
+        # Wrap data in an Asset envelope so format handlers receive both the
+        # payload and the unified Metadata in a single argument (protocol v2).
+        # v1/legacy handlers that expect a bare DataFrame won't accept this,
+        # but the only built-in writer that supports metadata is the Parquet
+        # handler — which is now v2.
+        from .asset import Asset as _Asset
+        from .asset import AssetKind as _AssetKind
 
-        try:
-            if url_handler and format_writer:
-                with url_handler.open(location, "wb") as stream:
-                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-            elif format_writer:
-                with open(absolute_path, "wb") as stream:
-                    format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
-            else:
-                self.data.to_parquet(absolute_path, **pandas_kwargs)
-        finally:
-            # Clean up transport copy
-            self.data.attrs.pop("sunstone_metadata", None)
+        if format_writer and registry.handler_supports_metadata(format_writer):
+            payload_for_write: object = _Asset(payload=self.data, kind=_AssetKind.TABULAR, metadata=self.metadata)
+        else:
+            payload_for_write = self.data
+
+        if url_handler and format_writer:
+            with url_handler.open(location, "wb") as stream:
+                format_writer.write(payload_for_write, stream, format=None, path=location, **pandas_kwargs)
+        elif format_writer:
+            with open(absolute_path, "wb") as stream:
+                format_writer.write(payload_for_write, stream, format=None, path=location, **pandas_kwargs)
+        else:
+            self.data.to_parquet(absolute_path, **pandas_kwargs)
 
         # Compute data hash for change detection
         data_hash = compute_dataframe_hash(self.data)
@@ -1422,6 +1499,12 @@ class DataFrame:
         Returns:
             The attribute from the underlying DataFrame, wrapped if it's a method or DataFrame.
         """
+        # Guard against recursion during __init__/unpickling: if our internal
+        # `_asset` isn't on the instance yet, do NOT route through self.data
+        # (which would call __getattr__('_asset') -> infinite recursion).
+        if name == "_asset" or name.startswith("__"):
+            raise AttributeError(name)
+
         # Special handling for pandas indexers - return as-is
         if name in ("loc", "iloc", "at", "iat"):
             return getattr(self.data, name)
@@ -1500,3 +1583,33 @@ class DataFrame:
     def __iter__(self) -> Any:
         """Iterate over column names."""
         return iter(self.data)
+
+
+def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -> "Asset":
+    """Internal helper: resolve a path to a tabular `Asset`, going through the
+    plugin registry (which wraps DataFrame-returning handlers via
+    `TabularDataFrameAdapter`).
+
+    Used by `read_csv` / `read_excel` / `read_dataset` after this refactor.
+    Returns the raw asset; callers can `.payload` it back to a DataFrame or
+    keep it as an Asset.
+    """
+    from .asset import Asset
+    from .plugins import PluginRegistry
+
+    # Forward path/format into handler kwargs so legacy handlers that use them
+    # for extension-based format inference (e.g. BuiltinFormatHandler) keep
+    # working when the caller omitted an explicit format.
+    kw.setdefault("path", path)
+    if format is not None:
+        kw.setdefault("format", format)
+
+    registry = PluginRegistry.get()
+    for handler in registry.get_asset_format_handlers():
+        if hasattr(handler, "can_read") and handler.can_read(path, format):  # type: ignore[attr-defined]
+            url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
+            if url_handler is None:
+                raise FileNotFoundError(path)
+            with url_handler.open(path, "rb") as stream:
+                return cast(Asset, handler.read(stream, **kw))  # type: ignore[attr-defined]
+    raise ValueError(f"No handler for path={path!r} format={format!r}")

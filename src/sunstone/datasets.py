@@ -693,6 +693,55 @@ class DatasetsManager:
             dialect=_parse_dialect(dataset_data.get("dialect")),
         )
 
+    @classmethod
+    def from_project_path(cls) -> "DatasetsManager":
+        """Construct a `DatasetsManager` rooted at the currently configured
+        project path (``sunstone.config.get_project_path()``).
+
+        Raises ``FileNotFoundError`` if the resolved project path has no
+        ``datasets.yaml``.
+        """
+        from .config import get_project_path
+
+        return cls(get_project_path())
+
+    def find_entry_by_location(self, location: str) -> Optional[Dict[str, Any]]:
+        """Return the raw dict for the input/output entry whose ``location``
+        matches the given path.
+
+        Match strategies, in order:
+          1. Exact string match against the entry's configured ``location``.
+          2. ``Path.resolve()`` equality, with relative entry locations
+             resolved against ``self.project_path``.
+
+        Returns ``None`` if no matching entry is found.
+        """
+        import pathlib
+
+        try:
+            target = pathlib.Path(location).resolve()
+        except Exception:
+            target = None
+
+        for section in ("inputs", "outputs"):
+            for entry in self._data.get(section) or []:
+                loc = entry.get("location")
+                if loc is None:
+                    continue
+                if loc == location:
+                    return dict(entry)
+                if target is None:
+                    continue
+                try:
+                    candidate = pathlib.Path(loc)
+                    if not candidate.is_absolute():
+                        candidate = self.project_path / candidate
+                    if candidate.resolve() == target:
+                        return dict(entry)
+                except Exception:
+                    continue
+        return None
+
     def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
         """
         Find a dataset by its file location.

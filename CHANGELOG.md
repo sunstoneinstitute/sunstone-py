@@ -4,6 +4,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: Asset envelope — generic format handler protocol supporting non-tabular kinds (raster/array/tile).
+- Added: `sunstone.read()` / `sunstone.write()` top-level entry points returning/accepting `Asset`.
+- Added: `Asset.derive()` for explicit provenance with single- and multi-parent `prov:wasDerivedFrom`.
+- Added: `IRI`, `LangString`, `TypedLiteral` RDF value wrappers (`sunstone.rdf`).
+- Added: `StoreFormatHandler` protocol and `ResourceLocation` for store-based formats (tile pyramids, partitioned Parquet, Zarr).
+- Added: `Metadata.identity` URI template with default `sunstone://<pkg>/<slug>@<version>` materialisation at write time.
+- Changed: `sunstone.DataFrame` is now a thin facade over an `Asset` of `kind=AssetKind.TABULAR` — no behaviour change.
+- Changed: `BuiltinFormatHandler` and `ParquetFormatHandler` return `Asset` natively; Parquet round-trips full `Metadata` via JSON-LD.
 - Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (closes #67).
 - Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
 
