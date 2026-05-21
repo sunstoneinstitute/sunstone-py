@@ -14,6 +14,8 @@ from urllib.parse import urljoin, urlparse
 
 if TYPE_CHECKING:
     from .asset import Asset
+    from .lineage import Metadata
+    from .plugins import SidecarResource, URLHandler
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
@@ -167,6 +169,74 @@ class BuiltinFormatHandler:
     def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
         df = asset.as_table() if hasattr(asset, "as_table") else asset
         self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
+
+    # -- SidecarMetadataProvider implementation -------------------------------
+    #
+    # CSV / TSV carry no in-file metadata of their own; the format-native
+    # convention is a CSVW JSON sidecar (see ``sunstone._csvw``). The
+    # SidecarMetadataProvider methods are exposed here unconditionally because
+    # the sidecar implementation is JSON-only and adds no runtime deps. They
+    # no-op cleanly for non-text-table extensions (Excel, JSON), so it is safe
+    # for this handler to also be picked up by the registry's
+    # ``isinstance(handler, SidecarMetadataProvider)`` check for all formats
+    # it owns.
+
+    @staticmethod
+    def _ext(data_path: str) -> str:
+        parsed = urlparse(data_path)
+        path_str = parsed.path if parsed.scheme else data_path
+        return PurePosixPath(path_str).suffix.lower()
+
+    def read_metadata(self, data_path: str, url_handler: "URLHandler") -> "Metadata | None":
+        """Read a CSVW sidecar describing ``data_path``, if one exists."""
+        if self._ext(data_path) not in (".csv", ".tsv"):
+            return None
+        from . import _csvw
+
+        if not _csvw.available():
+            return None
+        result = _csvw.find_sidecar(Path(data_path), url_handler)
+        if result is None:
+            return None
+        _sidecar_path, table = result
+        return _csvw.csvw_to_metadata(table)
+
+    def write_metadata(
+        self,
+        data_path: str,
+        metadata: "Metadata",
+        url_handler: "URLHandler",
+        *,
+        target: str | None = None,
+    ) -> str | None:
+        """Write a CSVW sidecar describing ``data_path``.
+
+        With ``target=None`` the canonical sibling sidecar
+        ``<data_path>-metadata.json`` is written. Passing an explicit
+        ``target`` path (typically used for shared multi-CSV csvm sidecars)
+        upserts an entry for ``data_path`` into that file.
+        """
+        if self._ext(data_path) not in (".csv", ".tsv"):
+            return None
+        from . import _csvw
+
+        if not _csvw.available():
+            return None
+        sidecar_path = Path(target) if target is not None else Path(str(data_path) + "-metadata.json")
+        table = _csvw.metadata_to_csvw_table(Path(data_path), metadata)
+        _csvw.upsert_table_in_sidecar(sidecar_path, Path(data_path), table, url_handler)
+        return str(sidecar_path)
+
+    def list_metadata_resources(self, data_paths: list[str]) -> list["SidecarResource"]:
+        """Enumerate CSVW sidecars covering the CSV/TSV files in ``data_paths``."""
+        from . import _csvw
+
+        if not _csvw.available():
+            return []
+        csv_paths = [Path(p) for p in data_paths if self._ext(p) in (".csv", ".tsv")]
+        if not csv_paths:
+            return []
+        return _csvw.enumerate_sidecars_for(csv_paths)
 
 
 class ParquetFormatHandler:
