@@ -4,23 +4,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: HDF5 / NetCDF-4 store-format handler for `AssetKind.ARRAY` via the `[hdf5]` extra (#66).
-- Changed: `sunstone.read()` dispatches single-file paths to store-format handlers, enabling HDF5/NetCDF-4 routing.
-- Added: Zarr store-format handler for `AssetKind.ARRAY` via the `[zarr]` extra (#65).
-- Added: NumPy `.npz` format handler for `AssetKind.ARRAY` (#64).
-- Added: Asset envelope — generic format handler protocol supporting non-tabular kinds (raster/array/tile).
-- Added: `sunstone.read()` / `sunstone.write()` top-level entry points returning/accepting `Asset`.
+## [1.12.0] - 2026-05-21
+
+- Added: Asset envelope — generic format handler protocol for non-tabular kinds (raster/array/tile).
+- Added: `sunstone.read()` / `sunstone.write()` top-level entry points returning/accepting `Asset`, dispatching single-file paths to store-format handlers.
+- Added: `StoreFormatHandler` protocol and `ResourceLocation` for store-based formats.
 - Added: `Asset.derive()` for explicit provenance with single- and multi-parent `prov:wasDerivedFrom`.
-- Added: `IRI`, `LangString`, `TypedLiteral` RDF value wrappers (`sunstone.rdf`).
-- Added: `StoreFormatHandler` protocol and `ResourceLocation` for store-based formats (tile pyramids, partitioned Parquet, Zarr).
-- Added: `Metadata.identity` URI template with default `sunstone://<pkg>/<slug>@<version>` materialisation at write time.
-- Changed: `sunstone.DataFrame` is now a thin facade over an `Asset` of `kind=AssetKind.TABULAR` — no behaviour change.
-- Changed: `BuiltinFormatHandler` and `ParquetFormatHandler` return `Asset` natively; Parquet round-trips full `Metadata` via JSON-LD.
-- Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (closes #67).
-- Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
-- Changed: env config refactored to generic schema with plugin-owned sections; `DataEnvironment` retained as deprecated alias (#68).
-- Added: `sunstone.activate_environment()` helper and `--scope user|project|system` flag on `sunstone env add`/`set`/`unset`/`remove` (#68).
-- Fixed: `get_full_attribution()` now reads lineage from `datasets.lock.yaml`; previously it only saw the deprecated inline `lineage:` blocks in `datasets.yaml`.
+- Added: `IRI`, `LangString`, `TypedLiteral` RDF value wrappers in `sunstone.rdf`.
+- Added: `Metadata.identity` URI template, defaulting to `sunstone://<pkg>/<slug>@<version>` at write time.
+- Added: NumPy `.npz` format handler for `AssetKind.ARRAY` (#64).
+- Added: Zarr store-format handler for `AssetKind.ARRAY` via the `[zarr]` extra (#65).
+- Added: HDF5 / NetCDF-4 store-format handler for `AssetKind.ARRAY` via the `[hdf5]` extra (#66).
+- Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (#67).
+- Added: `sunstone.activate_environment()` and `--scope user|project|system` flag on `sunstone env` commands (#68).
+- Changed: `sunstone.DataFrame` is now a thin facade over a `TABULAR` `Asset` — no behaviour change.
+- Changed: format handlers return `Asset` natively; Parquet round-trips full `Metadata` via JSON-LD.
+- Changed: env config refactored to a generic schema with plugin-owned sections; `DataEnvironment` kept as deprecated alias (#68).
+- Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when lineage is empty (#19).
+- Fixed: `get_full_attribution()` reads lineage from `datasets.lock.yaml`, not the deprecated inline blocks in `datasets.yaml`.
 
 ## [1.11.0] - 2026-05-19
 
