@@ -8,8 +8,8 @@ is `dict[str, numpy.ndarray]` keyed by variable name.
 - **AssetKind:** `AssetKind.ARRAY`
 - **Payload:** `dict[str, numpy.ndarray]`
 - **Typed accessor:** `Asset.as_array() -> dict[str, numpy.ndarray]`
-- **Status:** Asset envelope ready; format handlers (NumPy `.npz`,
-  Zarr, NetCDF) are on the roadmap.
+- **Status:** Asset envelope ready. NumPy `.npz` is supported today;
+  Zarr and NetCDF handlers are on the roadmap.
 
 ## Why a dict, not a single ndarray
 
@@ -31,32 +31,37 @@ ARRAY is for many.
 - Per-variable metadata flows through `Metadata.component_metadata`
   with `component_kind="variable"` — same shape as for tabular
   columns, raster bands, and tile layers.
+- **NumPy `.npz`** — single-file zip of `.npy` arrays. Stream-based
+  `FormatHandler` that round-trips the sunstone `Metadata` blob (slug,
+  name, description, RDF prefixes, custom properties, and per-variable
+  `component_metadata`) inside the archive under a reserved key.
 
 ## What's coming
 
-Three planned handlers cover the common formats:
+Two further handlers cover the rest of the common formats:
 
-1. **NumPy `.npz`** — single-file zip of `.npy` arrays. Uses the
-   stream-based `FormatHandler` protocol.
-2. **Zarr** — chunked, compressed n-D arrays in a directory or cloud
+1. **Zarr** — chunked, compressed n-D arrays in a directory or cloud
    store. Uses `StoreFormatHandler` because the data is spread across
    many objects and is opened, not streamed.
-3. **NetCDF** / HDF5 — single-file but with random access semantics;
+2. **NetCDF** / HDF5 — single-file but with random access semantics;
    handler choice depends on whether the underlying library is
    stream-friendly.
 
-## Reading a tensor (planned API)
+## Reading a tensor
 
 ```python
 import sunstone as ss
 
-asset = ss.read("inputs/era5_2024.zarr")
+asset = ss.read("inputs/era5_2024.npz")
 assert asset.kind is ss.AssetKind.ARRAY
 
 vars = asset.as_array()
 temp = vars["temperature"]   # ndarray, shape (time, lat, lon)
 pressure = vars["pressure"]
 ```
+
+Zarr and NetCDF use the same dispatch — once those handlers land, swap
+the extension and the rest of the code is unchanged.
 
 ## Writing a derived tensor
 
@@ -72,7 +77,7 @@ child = source.derive(
     slug="era5-2024-monthly",
     name="ERA5 2024, monthly means",
 )
-ss.write(child, "outputs/era5_monthly.zarr")
+ss.write(child, "outputs/era5_monthly.npz")
 ```
 
 ## Component metadata per variable
