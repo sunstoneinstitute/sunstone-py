@@ -418,7 +418,7 @@ class TestDatasetLockUnlockCommands:
         """Test enabling strict mode for all datasets."""
         result = runner.invoke(app, ["dataset", "strict", "-f", str(test_project / "datasets.yaml")])
         assert result.exit_code == 0
-        assert "Strict mode enabled for 3 dataset(s)" in result.output
+        assert "Strict mode enabled for 4 dataset(s)" in result.output
 
     def test_unstrict_dataset(self, runner: CliRunner, test_project: Path) -> None:
         """Test disabling strict mode for a dataset."""

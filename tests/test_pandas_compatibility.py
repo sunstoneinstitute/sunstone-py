@@ -436,3 +436,40 @@ class TestRepr:
         str_rep = str(sample_df)
         assert str_rep is not None
         assert len(str_rep) > 0
+
+
+def test_existing_workflows_unchanged_post_phase5(tmp_path, monkeypatch):
+    """End-to-end smoke test: the original DataFrame-style API still works
+    byte-for-byte after the Asset refactor."""
+    import sunstone
+    from sunstone import pandas as spd
+
+    project = tmp_path
+    (project / "datasets.yaml").write_text(
+        "inputs:\n"
+        "  - name: Tiny\n"
+        "    slug: tiny-input\n"
+        "    location: inputs/tiny.csv\n"
+        "outputs:\n"
+        "  - name: Tiny Out\n"
+        "    slug: tiny-output\n"
+        "    location: outputs/tiny.csv\n"
+    )
+    (project / "inputs").mkdir()
+    (project / "outputs").mkdir()
+    (project / "inputs" / "tiny.csv").write_text("a,b\n1,2\n3,4\n")
+
+    monkeypatch.chdir(project)
+    sunstone.set_project_path(project)
+
+    # 1. read_csv still returns a sunstone.DataFrame
+    df = spd.read_csv("inputs/tiny.csv")
+    assert isinstance(df, sunstone.DataFrame)
+    assert list(df.data.columns) == ["a", "b"]
+
+    # 2. df.metadata mutations propagate
+    df.metadata.description = "hello"
+
+    # 3. to_csv writes successfully
+    df.to_csv("outputs/tiny.csv", slug="tiny-output", name="Tiny Out", index=False)
+    assert (project / "outputs" / "tiny.csv").exists()

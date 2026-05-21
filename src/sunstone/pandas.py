@@ -48,6 +48,7 @@ Series = _pd.Series  # Re-export pandas Series
 __all__ = [
     "read_csv",
     "read_excel",
+    "read_json",
     "read_dataset",
     "merge",
     "concat",
@@ -225,6 +226,56 @@ def read_excel(
         >>> df = pd.read_excel('data.xlsx', project_path='/path/to/project')
     """
     return DataFrame.read_excel(
+        filepath_or_buffer=filepath_or_buffer,
+        project_path=project_path,
+        strict=strict,
+        fetch_from_url=fetch_from_url,
+        **kwargs,
+    )
+
+
+def read_json(
+    filepath_or_buffer: str | Path,
+    project_path: str | Path | None = None,
+    strict: bool | None = None,
+    fetch_from_url: bool = True,
+    **kwargs: Any,
+) -> DataFrame:
+    """
+    Read a JSON file into a Sunstone DataFrame with lineage tracking.
+
+    This function provides a pandas-like interface while ensuring the dataset
+    is registered in datasets.yaml and lineage is tracked.
+
+    Args:
+        filepath_or_buffer: Path to JSON file or dataset slug.
+                          If it's a slug (e.g., 'my-json-data'),
+                          the dataset will be looked up in datasets.yaml.
+        project_path: Path to project directory containing datasets.yaml.
+                     Defaults to current working directory.
+        strict: Whether to operate in strict mode. If None, reads from
+               SUNSTONE_DATAFRAME_STRICT environment variable.
+        fetch_from_url: If True and dataset has a source URL but no local file,
+                      automatically fetch from URL.
+        **kwargs: Additional arguments passed to pandas.read_json.
+
+    Returns:
+        A Sunstone DataFrame with lineage metadata.
+
+    Raises:
+        DatasetNotFoundError: If dataset not found in datasets.yaml.
+        FileNotFoundError: If datasets.yaml doesn't exist.
+
+    Examples:
+        >>> from sunstone import pandas as pd
+        >>>
+        >>> # Load by slug (recommended, uses cwd as project path)
+        >>> df = pd.read_json('my-json-data')
+        >>>
+        >>> # Load by file path with explicit project path
+        >>> df = pd.read_json('data.json', project_path='/path/to/project')
+    """
+    return DataFrame.read_json(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,
         strict=strict,

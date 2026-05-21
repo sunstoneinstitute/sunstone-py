@@ -31,6 +31,9 @@ extra:
     provider: mike
     default: latest
 
+hooks:
+  - mkdocs_hooks.py
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
@@ -49,6 +52,12 @@ nav:
       - CLI Guide: cli.md
       - Core Concepts: concepts.md
       - File Formats: formats.md
+  - Data Kinds:
+      - pandas: pandas.md
+      - polars: polars.md
+      - Images: images.md
+      - Tile pyramids (nbtiles): nbtiles.md
+      - Tensors: tensors.md
   - API Reference: api.md
   - Examples: examples.md
   - Data Package Standard:

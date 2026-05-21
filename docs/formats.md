@@ -23,7 +23,7 @@ sidecar and still describe itself.
 
 ## Reading and writing
 
-The pandas-compatible wrapper exposes three readers, all of which dispatch
+The pandas-compatible wrapper exposes four readers, all of which dispatch
 to the right format handler by extension (or by an explicit `format=` for
 `read_dataset`):
 
@@ -32,6 +32,7 @@ from sunstone import pandas as pd
 
 df = pd.read_csv('inputs/data.csv')      # csv, tsv (via .tsv/.txt)
 df = pd.read_excel('inputs/data.xlsx')   # xlsx, xls
+df = pd.read_json('inputs/data.json')    # json
 df = pd.read_dataset('my-slug')          # any format; uses datasets.yaml location
 ```
 
@@ -149,7 +150,7 @@ Format detection follows this order:
 2. The file extension (`.csv` → csv, `.tsv`/`.txt` → tsv, `.json` →
    json, `.xlsx`/`.xls` → excel, `.parquet` → parquet).
 3. For `read_csv` the format is always `csv`; for `read_excel` always
-   `excel`.
+   `excel`; for `read_json` always `json`.
 
 URLs are supported wherever local paths are — the URL handler reads the
 bytes, then the format handler parses them.
