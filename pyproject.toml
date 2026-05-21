@@ -46,6 +46,9 @@ s3 = [
 qudt = [
     "ontopint>=0.1",
 ]
+zarr = [
+    "zarr>=2.18",
+]
 
 [project.license]
 text = "MIT"
@@ -89,6 +92,7 @@ exclude = [
 overrides = [
     { module = "tests.*", disallow_untyped_defs = false },
     { module = "ontopint", ignore_missing_imports = true },
+    { module = "zarr", ignore_missing_imports = true },
 ]
 
 [tool.pytest.ini_options]
