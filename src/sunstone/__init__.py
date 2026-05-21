@@ -135,6 +135,14 @@ def read(
             return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
         # Fall through to stream path so single-file handlers can still claim
         # directory-like paths via can_read.
+    else:
+        # Single-file store handlers (HDF5, NetCDF-4, ...) live behind the
+        # store-format protocol because their libraries need a real path, not
+        # a stream. Give them a shot before falling through to the tabular
+        # stream path.
+        handler = registry.find_store_format_reader(loc, format)
+        if handler is not None:
+            return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
 
     return _read_tabular_asset(path, format=format, **kw)
 

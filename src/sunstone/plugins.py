@@ -231,6 +231,13 @@ class PluginRegistry:
         except ImportError:
             pass  # zarr not installed
 
+        try:
+            from .handlers_hdf5 import Hdf5StoreHandler
+
+            self._store_format_handlers.append(Hdf5StoreHandler())
+        except ImportError:
+            pass  # h5py extra not installed
+
         # Internal handlers last (fallback)
         from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
 
