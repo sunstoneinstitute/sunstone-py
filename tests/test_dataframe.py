@@ -1055,3 +1055,354 @@ outputs: []
         # Read raw bytes to verify the delimiter was honored on write
         written = (project / "outputs" / "semi_out.csv").read_text()
         assert written == "a;b\n1;2\n3;4\n"
+
+
+# ---------------------------------------------------------------------------
+# CSVW sidecar integration (PR #58 — Option A protocol redesign)
+# ---------------------------------------------------------------------------
+
+
+class TestReadCsvSidecarIntegration:
+    def test_sidecar_metadata_fills_gaps_in_datasets_yaml(self, tmp_path):
+        """When datasets.yaml has no field metadata, sidecar populates it."""
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n  - name: Sidecar Test\n    slug: sidecar-test\n    location: data.csv\n"
+        )
+        csv = tmp_path / "data.csv"
+        csv.write_text("x,y\n1,2\n3,4\n")
+        sidecar = tmp_path / "data.csv-metadata.json"
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "data.csv",
+                    "dc:description": "from sidecar",
+                    "tableSchema": {
+                        "columns": [
+                            {"name": "x", "datatype": "integer", "dc:description": "ex axis"},
+                            {"name": "y", "datatype": "integer"},
+                        ]
+                    },
+                }
+            )
+        )
+
+        df = pd.read_csv("data.csv", project_path=tmp_path)
+        # datasets.yaml had no description — sidecar fills it
+        assert df.metadata.description == "from sidecar"
+        # datasets.yaml had no field metadata — sidecar fills both
+        assert df.metadata.field_metadata["x"].description == "ex axis"
+        assert df.metadata.field_metadata["x"].type == "integer"
+        assert df.metadata.field_metadata["y"].type == "integer"
+
+    def test_datasets_yaml_wins_on_conflict(self, tmp_path):
+        """When both sources define the same field, datasets.yaml wins."""
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: Conflict Test\n"
+            "    slug: conflict-test\n"
+            "    location: data.csv\n"
+            "    description: from yaml\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: integer\n"
+            "        description: yaml says x\n"
+        )
+        csv = tmp_path / "data.csv"
+        csv.write_text("x\n1\n")
+        sidecar = tmp_path / "data.csv-metadata.json"
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "data.csv",
+                    "dc:description": "sidecar says hello",
+                    "tableSchema": {
+                        "columns": [
+                            {"name": "x", "dc:description": "sidecar says x"},
+                        ]
+                    },
+                }
+            )
+        )
+
+        df = pd.read_csv("data.csv", project_path=tmp_path)
+        assert df.metadata.description == "from yaml"
+        assert df.metadata.field_metadata["x"].description == "yaml says x"
+
+    def test_sidecar_metadata_works_when_reading_by_slug(self, tmp_path):
+        """The sidecar merge also runs when read_csv delegates to read_dataset
+        via the slug path (no '/', no '\\', no extension)."""
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n  - name: Slug Sidecar\n    slug: slug-sidecar\n    location: data.csv\n"
+        )
+        csv = tmp_path / "data.csv"
+        csv.write_text("x\n1\n")
+        sidecar = tmp_path / "data.csv-metadata.json"
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "data.csv",
+                    "dct:description": "from sidecar via slug",
+                    "tableSchema": {
+                        "columns": [
+                            {"name": "x", "datatype": "integer"},
+                        ]
+                    },
+                }
+            )
+        )
+
+        # Read by SLUG (no path separator, no extension)
+        df = pd.read_csv("slug-sidecar", project_path=tmp_path)
+        assert df.metadata.description == "from sidecar via slug"
+        assert df.metadata.field_metadata["x"].type == "integer"
+
+
+class TestToCsvSidecar:
+    def test_default_writes_sibling_sidecar(self, tmp_path):
+        """W3C convention: out.csv -> out.csv-metadata.json."""
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1, 2], "y": [3, 4]}, project_path=tmp_path)
+        df.metadata.description = "default sidecar test"
+
+        out = tmp_path / "out.csv"
+        df.to_csv(str(out), slug="default-sidecar", name="Default Sidecar")
+
+        sidecar = tmp_path / "out.csv-metadata.json"
+        assert sidecar.exists(), f"Expected {sidecar}, found: {list(tmp_path.iterdir())}"
+        doc = json.loads(sidecar.read_text())
+        assert doc["tables"][0]["url"] == "out.csv"
+        assert doc["tables"][0]["dct:description"] == "default sidecar test"
+
+    def test_csvw_metadata_false_skips_sidecar(self, tmp_path):
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+
+        out = tmp_path / "out.csv"
+        df.to_csv(str(out), slug="no-sidecar", name="No Sidecar", csvw_metadata=False)
+
+        # No sidecar of any tier-1 name
+        for suffix in (".csv-metadata.json", "-metadata.json", ".csvm.json"):
+            assert not (out.parent / (out.stem + suffix)).exists()
+            assert not (out.parent / (out.name + suffix)).exists()
+
+    def test_csvw_metadata_explicit_path(self, tmp_path):
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+
+        explicit = tmp_path / "explicit.csvm.json"
+        out = tmp_path / "out.csv"
+        df.to_csv(
+            str(out),
+            slug="explicit",
+            name="Explicit",
+            csvw_metadata=str(explicit),
+        )
+
+        assert explicit.exists()
+        doc = json.loads(explicit.read_text())
+        urls = [t["url"] for t in doc["tables"]]
+        assert "out.csv" in urls or str(out) in urls
+
+    def test_shared_csvm_accumulates_across_calls(self, tmp_path):
+        import json
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df_a = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+        df_b = pd.DataFrame({"y": [2]}, project_path=tmp_path)
+
+        shared = tmp_path / "shared.csvm.json"
+        df_a.to_csv(str(tmp_path / "a.csv"), slug="a", name="A", csvw_metadata=str(shared))
+        df_b.to_csv(str(tmp_path / "b.csv"), slug="b", name="B", csvw_metadata=str(shared))
+
+        doc = json.loads(shared.read_text())
+        urls = sorted(t["url"] for t in doc["tables"])
+        # Match by basename to be flexible about absolute vs relative urls
+        assert "a.csv" in urls or any(u.endswith("a.csv") for u in urls)
+        assert "b.csv" in urls or any(u.endswith("b.csv") for u in urls)
+
+    def test_csvw_metadata_kwarg_not_passed_to_pandas(self, tmp_path):
+        """Smoke: csvw_metadata is filtered out before pandas.to_csv sees it."""
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+        # If the kwarg leaked, pandas would raise TypeError
+        df.to_csv(str(tmp_path / "out.csv"), slug="x", name="X", csvw_metadata=False)
+
+    def test_csvw_metadata_rejects_path_traversal(self, tmp_path):
+        """A csvw_metadata path that escapes the project root raises."""
+        from sunstone import pandas as pd
+        from sunstone.packaging import PathTraversalError
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+
+        with pytest.raises(PathTraversalError):
+            df.to_csv(
+                str(tmp_path / "out.csv"),
+                slug="t",
+                name="T",
+                csvw_metadata="../../escape.csvm.json",
+            )
+
+    def test_relative_csvw_metadata_lands_in_project_root(self, tmp_path, monkeypatch):
+        """Relative csvw_metadata path is resolved against the project,
+        not the caller's cwd, so notebooks run from anywhere produce a
+        sidecar in the right place."""
+
+        from sunstone import pandas as pd
+
+        (tmp_path / "datasets.yaml").write_text("outputs: []\n")
+        df = pd.DataFrame({"x": [1]}, project_path=tmp_path)
+
+        # Run from a subdirectory != project root
+        subdir = tmp_path / "deeper"
+        subdir.mkdir()
+        monkeypatch.chdir(subdir)
+
+        df.to_csv(
+            str(tmp_path / "out.csv"),
+            slug="rel",
+            name="REL",
+            csvw_metadata="shared.csvm.json",
+        )
+
+        # Sidecar should land in the PROJECT root, not the cwd
+        assert (tmp_path / "shared.csvm.json").exists()
+        assert not (subdir / "shared.csvm.json").exists()
+
+
+class TestCsvwRoundTrip:
+    def test_to_csv_then_read_csv_recovers_field_metadata(self, tmp_path):
+        """Write a DataFrame with field metadata to CSV; read it back via
+        pandas.read_csv; verify the field metadata flows through the
+        sidecar (no datasets.yaml field schemas defined)."""
+        from sunstone import pandas as pd
+
+        # Project with a registered output but no field schemas
+        (tmp_path / "datasets.yaml").write_text("outputs:\n  - name: RT\n    slug: rt\n    location: out.csv\n")
+
+        df = pd.DataFrame(
+            {"x": [1, 2, 3], "y": [10.5, 20.5, 30.5]},
+            project_path=tmp_path,
+        )
+        df.metadata.description = "round-trip test"
+        df.set_field_metadata("x", type="integer", description="counts")
+        df.set_field_metadata("y", type="decimal", description="values")
+
+        df.to_csv(str(tmp_path / "out.csv"), slug="rt", name="RT")
+
+        # Move datasets.yaml to a fresh state with NO field schemas — the
+        # sidecar should be the sole source of truth for the round-trip.
+        (tmp_path / "datasets.yaml").write_text("inputs:\n  - name: RT\n    slug: rt\n    location: out.csv\n")
+
+        df2 = pd.read_csv("out.csv", project_path=tmp_path)
+        assert df2.metadata.description == "round-trip test"
+        assert df2.metadata.field_metadata["x"].description == "counts"
+        assert df2.metadata.field_metadata["x"].type == "integer"
+        assert df2.metadata.field_metadata["y"].description == "values"
+
+
+class TestSidecarProtocolOptional:
+    """Verify that a handler that does NOT implement SidecarMetadataProvider
+    still works for plain reads/writes — the protocol is genuinely optional."""
+
+    def test_non_provider_handler_read_skips_sidecar(self, tmp_path):
+        """If the registry returns a handler without SidecarMetadataProvider
+        methods, read_csv must still work (and just not merge sidecar data)."""
+        import json
+
+        from sunstone import pandas as pd
+        from sunstone.plugins import PluginRegistry
+
+        class MinimalHandler:
+            """A minimal v2-protocol handler that does NOT implement
+            SidecarMetadataProvider."""
+
+            __sunstone_handler_protocol__ = 2
+
+            def supports_metadata(self) -> bool:
+                return False
+
+            def supports_native_metadata_extraction(self) -> bool:
+                return False
+
+            def supports_sunstone_metadata_embedding(self) -> bool:
+                return False
+
+            def can_read(self, path, format):
+                return str(path).endswith(".csv")
+
+            def can_write(self, path, format):
+                return str(path).endswith(".csv")
+
+            def read(self, stream, **kwargs):
+                import pandas as _pd
+
+                kwargs.pop("format", None)
+                kwargs.pop("path", None)
+                kwargs.pop("dialect", None)
+                from sunstone.asset import Asset, AssetKind
+                from sunstone.lineage import Metadata
+
+                return Asset(payload=_pd.read_csv(stream, **kwargs), kind=AssetKind.TABULAR, metadata=Metadata())
+
+            def write(self, asset, stream, **kwargs):
+                kwargs.pop("format", None)
+                kwargs.pop("path", None)
+                kwargs.pop("dialect", None)
+                df = asset.as_table() if hasattr(asset, "as_table") else asset
+                df.to_csv(stream, **kwargs)
+
+        (tmp_path / "datasets.yaml").write_text("inputs:\n  - name: T\n    slug: t\n    location: data.csv\n")
+        (tmp_path / "data.csv").write_text("x\n1\n2\n")
+        # Even though a sidecar exists, the minimal handler doesn't know
+        # how to read it, so the merge is skipped silently.
+        (tmp_path / "data.csv-metadata.json").write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "data.csv",
+                    "dc:description": "would have been merged",
+                    "tableSchema": {"columns": [{"name": "x"}]},
+                }
+            )
+        )
+
+        registry = PluginRegistry.get(tmp_path)
+        registry._format_handlers.insert(0, MinimalHandler())
+        try:
+            df = pd.read_csv("data.csv", project_path=tmp_path)
+        finally:
+            registry._format_handlers.pop(0)
+
+        assert list(df.data.columns) == ["x"]
+        # Sidecar was NOT merged because the handler lacks the protocol
+        assert df.metadata.description is None

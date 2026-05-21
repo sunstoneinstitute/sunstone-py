@@ -537,3 +537,210 @@ def test_push_group_allows_normal_in_project_paths(tmp_path: Path) -> None:
 
     assert len(uploaded) == 2
     assert uploaded[1] == "outputs/result.csv"
+
+
+# ---------------------------------------------------------------------------
+# CSVW sidecar integration (PR #58)
+# ---------------------------------------------------------------------------
+
+
+class TestPushGroupCsvwSidecars:
+    def _make_push_args(self, manager, datasets, project_slug):
+        """Helper: build the kwargs push_group needs."""
+        from sunstone.cli import build_resource_dict
+        from sunstone.lineage import PublishConfig
+
+        return dict(
+            datasets=datasets,
+            manager=manager,
+            project_slug=project_slug,
+            publish_config=PublishConfig(enabled=True, to="file:///tmp/test"),
+            build_resource_dict_fn=build_resource_dict,
+            package_metadata_fn=lambda: None,
+            rdf_prefixes={},
+            top_level_props={},
+            methodology_files=[],
+            allow_outside_project=True,
+        )
+
+    def test_per_csv_sidecar_appears_in_resources_with_cross_ref(self, tmp_path, monkeypatch):
+        """A per-CSV sidecar gets added as a resource and the CSV gets the cross-ref."""
+        import json
+
+        from sunstone.datasets import DatasetsManager
+        from sunstone.packaging import push_group
+
+        (tmp_path / "datasets.yaml").write_text(
+            "outputs:\n"
+            "  - name: A\n"
+            "    slug: a\n"
+            "    location: a.csv\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: integer\n"
+        )
+        (tmp_path / "a.csv").write_text("x\n1\n")
+        sidecar = tmp_path / "a.csv-metadata.json"
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "a.csv",
+                    "tableSchema": {"columns": [{"name": "x"}]},
+                }
+            )
+        )
+
+        manager = DatasetsManager(tmp_path)
+        datasets = manager.get_all_outputs()
+
+        # Capture writes via a fake URLHandler
+        written: dict[str, bytes] = {}
+
+        class FakeHandler:
+            def can_handle(self, url):
+                return url.startswith("file://")
+
+            def open(self, url, mode):
+                from io import BytesIO, StringIO
+
+                if "w" in mode:
+                    if "b" in mode:
+                        buf = BytesIO()
+                    else:
+                        buf = StringIO()
+
+                    class _Writer:
+                        def __enter__(self_inner):
+                            return buf
+
+                        def __exit__(self_inner, *exc):
+                            written[url] = (
+                                buf.getvalue().encode() if isinstance(buf.getvalue(), str) else buf.getvalue()
+                            )
+                            return False
+
+                    return _Writer()
+                raise NotImplementedError
+
+        from sunstone.plugins import PluginRegistry
+
+        registry = PluginRegistry.get(tmp_path)
+        registry._url_handlers.insert(0, FakeHandler())
+
+        try:
+            push_group(
+                dest_url="file:///tmp/test",
+                **self._make_push_args(manager, datasets, "test"),
+            )
+        finally:
+            registry._url_handlers.pop(0)
+
+        # datapackage.json was written
+        dp_url = "file:///tmp/test/datapackage.json"
+        assert dp_url in written
+        dp = json.loads(written[dp_url])
+
+        # Sidecar appears as a resource
+        sidecar_resources = [r for r in dp["resources"] if r.get("path") == "a.csv-metadata.json"]
+        assert len(sidecar_resources) == 1
+
+        # CSV resource has the cross-reference property
+        csv_resources = [r for r in dp["resources"] if r.get("path") == "a.csv"]
+        assert len(csv_resources) == 1
+        assert "https://sunstone.institute/rdf/vocab#csvwMetadata" in csv_resources[0]
+        assert csv_resources[0]["https://sunstone.institute/rdf/vocab#csvwMetadata"] == "a.csv-metadata.json"
+
+    def test_per_csv_sidecar_cross_ref_under_flatten_mode(self, tmp_path):
+        """Cross-ref still applies when publish_config.flatten=True and the
+        CSV is in a subdirectory."""
+        import json
+
+        from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import PublishConfig
+        from sunstone.packaging import push_group
+        from sunstone.plugins import PluginRegistry
+
+        # Project layout: outputs/a.csv + outputs/a.csv-metadata.json
+        outputs = tmp_path / "outputs"
+        outputs.mkdir()
+        (tmp_path / "datasets.yaml").write_text(
+            "outputs:\n"
+            "  - name: A\n"
+            "    slug: a\n"
+            "    location: outputs/a.csv\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: integer\n"
+        )
+        (outputs / "a.csv").write_text("x\n1\n")
+        sidecar = outputs / "a.csv-metadata.json"
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "@context": "http://www.w3.org/ns/csvw",
+                    "url": "a.csv",
+                    "tableSchema": {"columns": [{"name": "x"}]},
+                }
+            )
+        )
+
+        manager = DatasetsManager(tmp_path)
+        datasets = manager.get_all_outputs()
+
+        written: dict[str, bytes] = {}
+
+        class FakeHandler:
+            def can_handle(self, url):
+                return url.startswith("file://")
+
+            def open(self, url, mode):
+                from io import BytesIO, StringIO
+
+                if "w" in mode:
+                    if "b" in mode:
+                        buf = BytesIO()
+                    else:
+                        buf = StringIO()
+
+                    class _Writer:
+                        def __enter__(self_inner):
+                            return buf
+
+                        def __exit__(self_inner, *exc):
+                            written[url] = (
+                                buf.getvalue().encode() if isinstance(buf.getvalue(), str) else buf.getvalue()
+                            )
+                            return False
+
+                    return _Writer()
+                raise NotImplementedError
+
+        registry = PluginRegistry.get(tmp_path)
+        registry._url_handlers.insert(0, FakeHandler())
+
+        try:
+            push_group(
+                dest_url="file:///tmp/test",
+                datasets=datasets,
+                manager=manager,
+                project_slug="flatten-test",
+                publish_config=PublishConfig(enabled=True, to="file:///tmp/test", flatten=True),
+                build_resource_dict_fn=__import__("sunstone.cli", fromlist=["build_resource_dict"]).build_resource_dict,
+                package_metadata_fn=lambda: None,
+                rdf_prefixes={},
+                top_level_props={},
+                methodology_files=[],
+                allow_outside_project=True,
+            )
+        finally:
+            registry._url_handlers.pop(0)
+
+        dp = json.loads(written["file:///tmp/test/datapackage.json"])
+        # Under flatten, paths are basenames
+        csv_resources = [r for r in dp["resources"] if r.get("path") == "a.csv"]
+        assert len(csv_resources) == 1
+        # Cross-ref MUST be present even under flatten
+        assert "https://sunstone.institute/rdf/vocab#csvwMetadata" in csv_resources[0], (
+            f"cross-ref missing in flatten mode: {csv_resources[0]}"
+        )
