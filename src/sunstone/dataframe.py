@@ -17,6 +17,27 @@ from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, co
 
 if TYPE_CHECKING:
     from .asset import Asset
+    from .plugins import URLHandler
+
+
+def _read_sidecar_metadata(format_handler: Any, location: str, url_handler: "URLHandler") -> Optional[Metadata]:
+    """Read external sidecar metadata if the handler implements
+    ``SidecarMetadataProvider``.
+
+    Returns ``None`` when the handler does not implement the protocol or
+    when no sidecar is found.
+    """
+    from .plugins import SidecarMetadataProvider
+
+    if not isinstance(format_handler, SidecarMetadataProvider):
+        return None
+    try:
+        return format_handler.read_metadata(location, url_handler)
+    except AttributeError:
+        # Defensive: some duck-typed mocks may declare the methods via Protocol
+        # membership without implementing them. Treat as no-op.
+        return None
+
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -462,34 +483,23 @@ class DataFrame:
             # Extract embedded metadata if the format handler provided it
             embedded_metadata = df.attrs.pop("sunstone_metadata", None)
 
+        # Read external sidecar metadata if the handler implements
+        # SidecarMetadataProvider (CSVW for CSV/TSV; no-op for others).
+        sidecar_metadata = _read_sidecar_metadata(format_handler, location, url_handler)
+
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), slug)
 
-        # Merge embedded metadata (datasets.yaml wins on conflicts)
-        if embedded_metadata is not None:
-            # Description: datasets.yaml wins if set
-            if metadata.description is None and embedded_metadata.description is not None:
-                metadata.description = embedded_metadata.description
-            # Field metadata: datasets.yaml fields override, embedded fills gaps
-            for col, field_schema in embedded_metadata.field_metadata.items():
-                if col not in metadata.field_metadata:
-                    metadata.field_metadata[col] = field_schema
-            # RDF prefixes: merge, datasets.yaml wins on duplicate
-            if embedded_metadata.rdf_prefixes:
-                if metadata.rdf_prefixes is None:
-                    metadata.rdf_prefixes = {}
-                merged = dict(embedded_metadata.rdf_prefixes)
-                merged.update(metadata.rdf_prefixes)
-                metadata.rdf_prefixes = merged
-            # Custom properties: merge, datasets.yaml wins on duplicate
-            if embedded_metadata.custom_properties:
-                if metadata.custom_properties is None:
-                    metadata.custom_properties = {}
-                merged_props = dict(embedded_metadata.custom_properties)
-                merged_props.update(metadata.custom_properties)
-                metadata.custom_properties = merged_props
+        # Merge metadata sources with precedence:
+        # datasets.yaml > embedded (Parquet etc.) > sidecar (CSVW).
+        cls._merge_read_metadata(
+            metadata,
+            dataset,
+            embedded_metadata=embedded_metadata,
+            sidecar_metadata=sidecar_metadata,
+        )
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -498,6 +508,68 @@ class DataFrame:
 
         # Return wrapped DataFrame
         return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
+
+    @staticmethod
+    def _merge_read_metadata(
+        metadata: "Metadata",
+        dataset: Any,
+        embedded_metadata: "Optional[Metadata]" = None,
+        sidecar_metadata: "Optional[Metadata]" = None,
+    ) -> None:
+        """Apply read-time precedence to ``metadata`` in-place.
+
+        Precedence (highest first):
+            1. ``dataset`` (datasets.yaml)
+            2. ``embedded_metadata`` (Parquet schema metadata or similar)
+            3. ``sidecar_metadata`` (CSVW sidecar or similar external metadata)
+
+        Each lower-precedence source fills only the gaps left by the
+        higher-precedence ones.
+        """
+        # 1. datasets.yaml wins — apply unconditionally
+        if dataset is not None:
+            if getattr(dataset, "description", None) is not None:
+                metadata.description = dataset.description
+            ds_fields = getattr(dataset, "fields", None)
+            if ds_fields:
+                for fs in ds_fields:
+                    metadata.field_metadata[fs.name] = fs
+            ds_prefixes = getattr(dataset, "rdf_prefixes", None)
+            if ds_prefixes:
+                metadata.rdf_prefixes = dict(ds_prefixes)
+            ds_props = getattr(dataset, "custom_properties", None)
+            if ds_props:
+                metadata.custom_properties = dict(ds_props)
+
+        # 2. Embedded metadata fills gaps left by datasets.yaml
+        if embedded_metadata is not None:
+            if metadata.description is None and embedded_metadata.description is not None:
+                metadata.description = embedded_metadata.description
+            for col, fs in embedded_metadata.field_metadata.items():
+                metadata.field_metadata.setdefault(col, fs)
+            if embedded_metadata.rdf_prefixes:
+                merged = dict(embedded_metadata.rdf_prefixes)
+                merged.update(metadata.rdf_prefixes or {})
+                metadata.rdf_prefixes = merged
+            if embedded_metadata.custom_properties:
+                merged_props = dict(embedded_metadata.custom_properties)
+                merged_props.update(metadata.custom_properties or {})
+                metadata.custom_properties = merged_props
+
+        # 3. Sidecar metadata fills any remaining gaps
+        if sidecar_metadata is not None:
+            if metadata.description is None and sidecar_metadata.description is not None:
+                metadata.description = sidecar_metadata.description
+            for col, fs in sidecar_metadata.field_metadata.items():
+                metadata.field_metadata.setdefault(col, fs)
+            if sidecar_metadata.rdf_prefixes:
+                merged = dict(sidecar_metadata.rdf_prefixes)
+                merged.update(metadata.rdf_prefixes or {})
+                metadata.rdf_prefixes = merged
+            if sidecar_metadata.custom_properties:
+                merged_props = dict(sidecar_metadata.custom_properties)
+                merged_props.update(metadata.custom_properties or {})
+                metadata.custom_properties = merged_props
 
     @classmethod
     def read_csv(
@@ -611,10 +683,22 @@ class DataFrame:
 
         df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
 
+        # Read external sidecar metadata if the handler supports it.
+        sidecar_metadata = _read_sidecar_metadata(format_handler, location, url_handler)
+
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
+
+        # Merge metadata sources with precedence:
+        # datasets.yaml > embedded > sidecar.
+        cls._merge_read_metadata(
+            metadata,
+            dataset,
+            embedded_metadata=None,  # CSVs don't embed sunstone metadata
+            sidecar_metadata=sidecar_metadata,
+        )
 
         # Record read in lineage session
         from .session import DatasetRead, get_session
@@ -865,7 +949,7 @@ class DataFrame:
         return env_strict in ("1", "true")
 
     # Sunstone-specific kwargs that should not be passed to pandas
-    _SUNSTONE_KWARGS = {"publish", "transformation_params", "sources"}
+    _SUNSTONE_KWARGS = {"publish", "transformation_params", "sources", "csvw_metadata"}
 
     def to_csv(
         self,
@@ -878,6 +962,7 @@ class DataFrame:
         license: Optional[str] = None,
         check_license: bool = True,
         sources: Optional[List[DatasetMetadata]] = None,
+        csvw_metadata: Union[bool, str, Path] = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -893,6 +978,8 @@ class DataFrame:
             publish: Reserved for future use (publishing to data catalog).
             track: If False, write the CSV directly without lineage tracking
                 or dataset registration. Useful for tests and exploratory work.
+                When False, ``csvw_metadata`` is also ignored — no sidecar is
+                written.
             license: SPDX license identifier for the output. Persisted to
                 datasets.yaml and used for compatibility checking against
                 source licenses. Falls back to the dataset's existing license
@@ -901,6 +988,14 @@ class DataFrame:
                 :class:`~sunstone.licenses.LicenseCompatibilityError` when
                 the target license is incompatible with any source license
                 in the current session lineage.
+            csvw_metadata: Controls CSVW sidecar emission for the written CSV.
+
+                - ``True`` (default): write a sibling sidecar at
+                  ``<csv-filename>-metadata.json`` (W3C canonical convention).
+                - ``False``: do not write a sidecar.
+                - ``str`` or ``Path``: write to (and share) that explicit
+                  sidecar path. Multiple ``to_csv`` calls with the same path
+                  accumulate tables into a single multi-CSV csvm sidecar.
             **kwargs: Additional arguments passed to pandas.to_csv.
 
         Raises:
@@ -999,6 +1094,18 @@ class DataFrame:
         # Compute data hash for change detection
         data_hash = compute_dataframe_hash(self.data)
 
+        # CSVW sidecar emission. The writer either picks the canonical
+        # sibling path (csvw_metadata=True) or honours an explicit target
+        # path/Path (str or Path). False disables sidecar emission entirely.
+        if csvw_metadata is not False and format_writer is not None:
+            self._write_csvw_sidecar(
+                csvw_metadata=csvw_metadata,
+                absolute_path=absolute_path,
+                project_root=manager.project_path,
+                format_writer=format_writer,
+                url_handler=url_handler,
+            )
+
         # Flush session lineage with execution context
         from .session import get_session
 
@@ -1027,6 +1134,63 @@ class DataFrame:
             context=lineage_data.get("context"),
             transformation_params=lineage_data.get("transformation_params"),
             activity=lineage_data.get("_activity"),
+        )
+
+    def _write_csvw_sidecar(
+        self,
+        *,
+        csvw_metadata: Union[bool, str, Path],
+        absolute_path: Path,
+        project_root: Path,
+        format_writer: Any,
+        url_handler: Optional[Any],
+    ) -> None:
+        """Emit a CSVW sidecar via the format writer if it supports the
+        ``SidecarMetadataProvider`` protocol.
+
+        ``csvw_metadata=True`` lets the writer pick its canonical sibling
+        path; a ``str`` or ``Path`` selects an explicit target, validated
+        for path containment and resolved against the project root so that
+        a relative path lands in the project regardless of the caller's
+        current working directory.
+        """
+        from .plugins import SidecarMetadataProvider
+
+        if not isinstance(format_writer, SidecarMetadataProvider):
+            return
+
+        sidecar_target: Optional[str]
+        if csvw_metadata is True:
+            sidecar_target = None  # use the format default sibling path
+        else:
+            sidecar_target = str(csvw_metadata)
+            # Path-traversal safety: ensure explicit path resolves within project
+            from .packaging import _validate_path_containment
+
+            _validate_path_containment(
+                sidecar_target,
+                project_root,
+                context="csvw sidecar path",
+                allow_absolute=True,
+            )
+            # Resolve relative target against project root so the sidecar
+            # lands in the project regardless of caller cwd.
+            _target_path = Path(sidecar_target)
+            if not _target_path.is_absolute():
+                sidecar_target = str((project_root / _target_path).resolve())
+
+        # Ensure a url_handler is available for the sidecar write
+        sidecar_url_handler = url_handler
+        if sidecar_url_handler is None:
+            from .handlers import LocalFileHandler
+
+            sidecar_url_handler = LocalFileHandler()
+
+        format_writer.write_metadata(
+            str(absolute_path),
+            self.metadata,
+            sidecar_url_handler,
+            target=sidecar_target,
         )
 
     def to_parquet(

@@ -37,3 +37,15 @@ class UnitError(SunstoneError):
     """Raised when a unit operation fails (incompatible dimensions, unparseable unit, etc.)."""
 
     pass
+
+
+class CSVWSidecarError(DatasetValidationError):
+    """A CSVW sidecar file exists but cannot be parsed or used."""
+
+    pass
+
+
+class PackageValidationError(DatasetValidationError):
+    """A datapackage cannot be built due to a structural validation failure."""
+
+    pass

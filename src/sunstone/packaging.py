@@ -31,31 +31,41 @@ def _validate_path_containment(
     project_root: Path,
     *,
     context: str = "file",
+    allow_absolute: bool = False,
 ) -> None:
     """Validate that a path resolves to within the project root.
 
-    Rejects absolute paths and paths that escape the project root via ``..``
-    traversal. This prevents package build/push from accessing files outside
-    the project directory.
+    Rejects paths that escape the project root via ``..`` traversal.
+    By default also rejects absolute paths (Unix and Windows-style),
+    matching the original packaging-time semantics. Pass
+    ``allow_absolute=True`` to accept absolute paths whose resolved form
+    is still within the project root — used by callers like
+    ``DataFrame.to_csv``'s ``csvw_metadata=`` where in-project absolute
+    paths are common (e.g. ``str(tmp_path / "shared.csvm.json")``).
 
     Args:
-        path: The relative path string to validate (e.g. dataset location).
+        path: The path string to validate.
         project_root: The resolved project root directory.
-        context: Human-readable label for error messages (e.g. "dataset location").
+        context: Human-readable label for error messages.
+        allow_absolute: If True, accept absolute paths within the project.
 
     Raises:
-        PathTraversalError: If the path is absolute or resolves outside the
-            project root.
+        PathTraversalError: If the path is rejected.
     """
     from pathlib import PurePosixPath as _PP
 
-    # Reject absolute paths (Unix and Windows-style)
-    if _PP(path).is_absolute() or (len(path) >= 2 and path[1] == ":"):
+    is_unix_absolute = _PP(path).is_absolute()
+    is_windows_drive = len(path) >= 2 and path[1] == ":"
+
+    if not allow_absolute and (is_unix_absolute or is_windows_drive):
         raise PathTraversalError(
             f"Refusing to publish {context} with absolute path. All paths must be relative to the project root."
         )
 
-    resolved = (project_root / path).resolve()
+    if is_unix_absolute or is_windows_drive:
+        resolved = Path(path).resolve()
+    else:
+        resolved = (project_root / path).resolve()
     resolved_root = project_root.resolve()
 
     # Check that resolved path is under project root
@@ -191,6 +201,74 @@ def push_group(
         resources.append(resource_dict)
         data_files.append((data_path, remote_path, resource_path))
 
+    # Sidecar resources from format handlers that implement
+    # ``SidecarMetadataProvider`` (CSVW for CSV/TSV; no-op for other
+    # formats). Add each returned sidecar as its own resource and apply
+    # the cross-ref RDF property on each covered data resource.
+    sidecar_resource_files: list[tuple[Path, str, str]] = []
+    cross_refs_to_apply: dict[str, dict[str, str]] = {}  # resource_path -> {prop: value}
+
+    registry = PluginRegistry.get(manager.project_path)
+
+    # Group data paths by their format handler
+    from .plugins import SidecarMetadataProvider
+
+    handler_to_paths: dict[Any, list[Path]] = {}
+    for ds in datasets:
+        ds_data_path = manager.get_absolute_path(ds.location)
+        fmt_handler = registry.find_format_writer(str(ds_data_path), None)
+        if fmt_handler is None:
+            continue
+        if not isinstance(fmt_handler, SidecarMetadataProvider):
+            continue
+        handler_to_paths.setdefault(fmt_handler, []).append(ds_data_path)
+
+    for fmt_handler, paths in handler_to_paths.items():
+        sidecar_resources = fmt_handler.list_metadata_resources([str(p) for p in paths])
+        for sr in sidecar_resources:
+            sidecar_abs = sr.path if sr.path.is_absolute() else (project_root / sr.path)
+            try:
+                sidecar_rel = sidecar_abs.relative_to(project_root).as_posix()
+            except ValueError:
+                if not allow_outside_project:
+                    raise PathTraversalError(
+                        f"Refusing to publish sidecar that resolves outside the project root: {sidecar_abs}"
+                    )
+                sidecar_rel = sidecar_abs.name  # flatten outside-project sidecars
+
+            # LFS pointer guard
+            if is_lfs_pointer(sidecar_abs):
+                raise ValueError(
+                    f"Sidecar file is a Git LFS pointer, not actual content: {sidecar_rel}. "
+                    f"Run 'git lfs pull' to download the actual files before pushing."
+                )
+
+            if publish_config.flatten:
+                sidecar_remote = base_dir + sidecar_abs.name
+                sidecar_resource_path = sidecar_abs.name
+            else:
+                sidecar_remote = base_dir + sidecar_rel
+                sidecar_resource_path = sidecar_rel
+
+            resources.append({"path": sidecar_resource_path})
+            sidecar_resource_files.append((sidecar_abs, sidecar_remote, sidecar_resource_path))
+
+            # Record cross-ref for each covered data file
+            for covered in sr.covers:
+                covered_abs = covered.resolve()
+                for local_abs, _remote, csv_resource_path in data_files:
+                    if local_abs.resolve() == covered_abs:
+                        cross_refs_to_apply.setdefault(csv_resource_path, {})[sr.cross_ref_property] = (
+                            sidecar_resource_path
+                        )
+                        break
+
+    # Apply cross-refs to existing resource dicts
+    for resource_dict in resources:
+        rp = resource_dict.get("path")
+        if rp in cross_refs_to_apply:
+            resource_dict.update(cross_refs_to_apply[rp])
+
     if not resources:
         return []
 
@@ -219,7 +297,6 @@ def push_group(
         datapackage.update(top_level_props)
 
     # Find a URL handler for the destination
-    registry = PluginRegistry.get(manager.project_path)
     handler = registry.find_url_handler(datapackage_url)
     if handler is None:
         raise ValueError(f"No URL handler found for: {datapackage_url}")
@@ -236,6 +313,17 @@ def push_group(
         # Build the full URL for this file
         file_url = f"{parsed.scheme}://{parsed.netloc}/{remote_path}"
         with open(local_path, "rb") as src, handler.open(file_url, "wb") as dst:
+            while True:
+                chunk = src.read(8192)
+                if not chunk:
+                    break
+                dst.write(chunk)
+        uploaded.append(resource_path)
+
+    # Upload sidecar files
+    for abs_path, remote_path, resource_path in sidecar_resource_files:
+        sidecar_url = f"{parsed.scheme}://{parsed.netloc}/{remote_path}"
+        with open(abs_path, "rb") as src, handler.open(sidecar_url, "wb") as dst:
             while True:
                 chunk = src.read(8192)
                 if not chunk:
