@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
+
 ## [1.11.0] - 2026-05-19
 
 - Added: SPDX license registry and per-output `license:` field with write-time compatibility checks (#13).

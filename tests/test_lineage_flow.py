@@ -339,3 +339,176 @@ class TestFlushAndPersist:
 
         # 'id' exists in both — should have derivation from at least one source
         assert "id" in fd_by_field
+
+
+class TestSessionSourcesFallback:
+    """Tests that session-accumulated sources are used when DataFrame has empty lineage."""
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_to_csv_uses_session_sources_when_df_lineage_empty(self, mock_ctx: Any, flow_project: Path) -> None:
+        """When a DataFrame is constructed from plain data (empty lineage),
+        to_csv() should fall back to session-accumulated sources."""
+
+        # Read inputs to populate session with source reads
+        df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+        df2 = sunstone.DataFrame.read_dataset("beta-data", project_path=flow_project)
+
+        # Extract scalar values and build a new DataFrame from plain Python data
+        # This simulates the bug scenario: DataFrame with empty lineage
+        rows = [{"summary": "total", "count": len(df1) + len(df2)}]
+        result = sunstone.DataFrame(rows, project_path=flow_project)
+
+        # Verify the new DataFrame has no lineage sources
+        assert len(result.metadata.lineage.sources) == 0
+
+        result.to_csv(
+            "outputs/summary.csv",
+            slug="summary-output",
+            name="Summary Output",
+            index=False,
+        )
+
+        # Check that session sources were persisted in the lock file
+        yaml = YAML()
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "summary-output")
+
+        assert "sources" in lock_output
+        source_slugs = {s["slug"] for s in lock_output["sources"]}
+        assert "alpha-data" in source_slugs
+        assert "beta-data" in source_slugs
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_to_csv_preserves_df_sources_over_session(self, mock_ctx: Any, flow_project: Path) -> None:
+        """When a DataFrame already has lineage sources, those should be used
+        instead of session-accumulated sources (no double-counting)."""
+        # Read both inputs
+        df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+        _df2 = sunstone.DataFrame.read_dataset("beta-data", project_path=flow_project)
+
+        # df1 already has alpha-data in its lineage; write it directly
+        df1.to_csv(
+            "outputs/alpha_only.csv",
+            slug="alpha-only-output",
+            name="Alpha Only Output",
+            index=False,
+        )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "alpha-only-output")
+
+        # Should only have alpha-data (from DataFrame lineage), not beta-data
+        assert "sources" in lock_output
+        source_slugs = {s["slug"] for s in lock_output["sources"]}
+        assert "alpha-data" in source_slugs
+        # beta-data should NOT appear because df1 already has its own sources
+        assert "beta-data" not in source_slugs
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_to_csv_sources_empty_list_disables_fallback(self, mock_ctx: Any, flow_project: Path) -> None:
+        """When sources=[], session sources should not be added even
+        when the DataFrame has empty lineage."""
+        df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+
+        rows = [{"summary": "total", "count": len(df1)}]
+        result = sunstone.DataFrame(rows, project_path=flow_project)
+        assert len(result.metadata.lineage.sources) == 0
+
+        result.to_csv(
+            "outputs/summary.csv",
+            slug="summary-output",
+            name="Summary Output",
+            index=False,
+            sources=[],
+        )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "summary-output")
+        sources = lock_output.get("sources", [])
+        assert len(sources) == 0
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_to_csv_explicit_sources(self, mock_ctx: Any, flow_project: Path) -> None:
+        """When sources= is given explicitly, those sources should be used
+        regardless of session or DataFrame lineage."""
+        # Read both inputs to populate session
+        _df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+        _df2 = sunstone.DataFrame.read_dataset("beta-data", project_path=flow_project)
+
+        # Look up only alpha as an explicit source
+        manager = sunstone.DatasetsManager(flow_project)
+        alpha = manager.find_dataset_by_slug("alpha-data")
+        assert alpha is not None
+
+        rows = [{"summary": "total", "count": 42}]
+        result = sunstone.DataFrame(rows, project_path=flow_project)
+
+        result.to_csv(
+            "outputs/summary.csv",
+            slug="summary-output",
+            name="Summary Output",
+            index=False,
+            sources=[alpha],
+        )
+
+        yaml = YAML()
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "summary-output")
+        source_slugs = {s["slug"] for s in lock_output["sources"]}
+        assert source_slugs == {"alpha-data"}
+
+    @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
+    def test_to_parquet_uses_session_sources_when_df_lineage_empty(self, mock_ctx: Any, flow_project: Path) -> None:
+        """Same fallback behavior should apply to to_parquet()."""
+
+        # Add a parquet output to datasets.yaml
+        yaml = YAML()
+        with open(flow_project / "datasets.yaml") as f:
+            data = yaml.load(f)
+
+        data["outputs"].append(
+            {
+                "name": "Summary Parquet",
+                "slug": "summary-parquet",
+                "location": "outputs/summary.parquet",
+                "fields": [
+                    {"name": "summary", "type": "string"},
+                    {"name": "count", "type": "integer"},
+                ],
+            }
+        )
+        with open(flow_project / "datasets.yaml", "w") as f:
+            yaml.dump(data, f)
+
+        # Read inputs to populate session
+        df1 = sunstone.DataFrame.read_dataset("alpha-data", project_path=flow_project)
+
+        # Build a new DataFrame from plain Python data (empty lineage)
+        rows = [{"summary": "total", "count": len(df1)}]
+        result = sunstone.DataFrame(rows, project_path=flow_project)
+        assert len(result.metadata.lineage.sources) == 0
+
+        result.to_parquet(
+            "outputs/summary.parquet",
+            slug="summary-parquet",
+            name="Summary Parquet",
+        )
+
+        # Check that session sources were persisted
+        with open(flow_project / "datasets.lock.yaml") as f:
+            lock_data = yaml.load(f)
+
+        lock_output = next(d for d in lock_data["outputs"] if d["slug"] == "summary-parquet")
+        assert "sources" in lock_output
+        source_slugs = {s["slug"] for s in lock_output["sources"]}
+        assert "alpha-data" in source_slugs

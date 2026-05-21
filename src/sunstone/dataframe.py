@@ -13,7 +13,7 @@ import pandas as pd
 from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
-from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -679,7 +679,7 @@ class DataFrame:
         return env_strict in ("1", "true")
 
     # Sunstone-specific kwargs that should not be passed to pandas
-    _SUNSTONE_KWARGS = {"publish", "transformation_params"}
+    _SUNSTONE_KWARGS = {"publish", "transformation_params", "sources"}
 
     def to_csv(
         self,
@@ -691,6 +691,7 @@ class DataFrame:
         track: bool = True,
         license: Optional[str] = None,
         check_license: bool = True,
+        sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -818,10 +819,23 @@ class DataFrame:
         session = get_session()
         lineage_data = session.flush_to_output(transformation_params=transformation_params)
 
+        # Resolve effective lineage sources:
+        # 1. Explicit sources= parameter takes priority
+        # 2. DataFrame's own lineage sources (from read/merge/concat)
+        # 3. Fall back to session-accumulated sources (when sources is None)
+        effective_lineage = self.metadata.lineage
+        if sources is not None:
+            effective_lineage.sources = list(sources)
+        elif not effective_lineage.sources and lineage_data.get("sources"):
+            for src in lineage_data["sources"]:
+                src_dataset = manager.find_dataset_by_slug(src["slug"])
+                if src_dataset:
+                    effective_lineage.add_source(src_dataset)
+
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.metadata.lineage,
+            lineage=effective_lineage,
             data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
@@ -839,6 +853,7 @@ class DataFrame:
         track: bool = True,
         license: Optional[str] = None,
         check_license: bool = True,
+        sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -973,10 +988,23 @@ class DataFrame:
         session = get_session()
         lineage_data = session.flush_to_output(transformation_params=transformation_params)
 
+        # Resolve effective lineage sources:
+        # 1. Explicit sources= parameter takes priority
+        # 2. DataFrame's own lineage sources (from read/merge/concat)
+        # 3. Fall back to session-accumulated sources (when sources is None)
+        effective_lineage = self.metadata.lineage
+        if sources is not None:
+            effective_lineage.sources = list(sources)
+        elif not effective_lineage.sources and lineage_data.get("sources"):
+            for src in lineage_data["sources"]:
+                src_dataset = manager.find_dataset_by_slug(src["slug"])
+                if src_dataset:
+                    effective_lineage.add_source(src_dataset)
+
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.metadata.lineage,
+            lineage=effective_lineage,
             data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
