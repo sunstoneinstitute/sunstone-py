@@ -13,6 +13,105 @@ uv add sunstone-py
 sunstone --version
 ```
 
+## Environment Commands
+
+`sunstone env` manages cascading TOML configuration that overlays values
+on `os.environ` for CLI invocations and Python sessions that call
+`sunstone.activate_environment()`. Environments are useful for storing
+catalog URLs, warehouse names, region settings, and `op://` references
+to secrets without committing them to `datasets.yaml`.
+
+**Config file precedence (highest wins for active-environment selection):**
+
+1. `SUNSTONE_DATA_ENV` env var.
+2. `.sunstone/data_platform.toml` (project — walked up from cwd).
+3. `~/.config/sunstone/data_platform.toml` (user).
+4. `/etc/sunstone/data_platform.toml` (system).
+
+Within an environment definition, field-level merging follows the same
+order — project entries override user entries override system entries.
+
+### Show Active Environment
+
+```bash
+sunstone env
+```
+
+Lists all defined environments and marks the active one. Output:
+
+```
+Active: dev (from /Users/me/.config/sunstone/data_platform.toml)
+
+* dev          3 keys, sections: data-platform   (/Users/me/.config/sunstone/data_platform.toml)
+  prod         2 keys                            (/etc/sunstone/data_platform.toml)
+```
+
+### Switch Active Environment
+
+```bash
+# Set the active environment in the project file
+sunstone env use dev
+
+# Set it in the user file instead
+sunstone env use dev --user
+```
+
+### Add an Environment
+
+`KEY=VAL` entries with a `.` in the key are written to plugin-namespaced
+subtables — handy for per-plugin configuration like
+`data-platform.warehouse=main`.
+
+```bash
+# User scope (default)
+sunstone env add dev CATALOG_URL=https://data.dev.example.com
+
+# Mix top-level scalars and a subtable entry
+sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
+
+# Write to project or system scope instead
+sunstone env add dev CATALOG_URL=https://... --scope project
+sunstone env add dev CATALOG_URL=https://... --scope system
+
+# Replace an existing entry
+sunstone env add dev CATALOG_URL=https://... --overwrite
+```
+
+`--scope` accepts `user` (default), `project`, or `system` and applies
+to `add`, `set`, `unset`, and `remove`.
+
+### Update an Environment
+
+`env set` merges entries into an existing environment without touching
+unspecified keys.
+
+```bash
+sunstone env set dev CATALOG_URL=https://new.example.com
+sunstone env set dev data-platform.warehouse=staging --scope project
+```
+
+If the same environment is also defined in a higher-precedence layer,
+the CLI warns that the update will be shadowed.
+
+### Remove Entries
+
+```bash
+# Remove specific keys (dotted keys target subtables; the subtable is
+# deleted if it ends up empty)
+sunstone env unset dev CATALOG_URL data-platform.warehouse
+
+# Remove the entire environment
+sunstone env remove dev
+sunstone env remove dev --scope system
+```
+
+### Credential References
+
+Values of the form `op://vault/item/field` are resolved through 1Password
+CLI at activation time, so secrets stay out of version control. Real env
+vars still win — if `CATALOG_URL` is already set in the shell, the
+environment value is left alone.
+
 ## Dataset Commands
 
 ### List Datasets

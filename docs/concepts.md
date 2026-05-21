@@ -2,6 +2,48 @@
 
 Understanding the key concepts behind sunstone-py's data management and lineage tracking.
 
+## Asset Envelope
+
+Everything sunstone reads or writes is an `Asset` — a uniform container
+with four fields:
+
+- `payload` — the kind-native data: a `pandas.DataFrame`, a NumPy
+  `ndarray`, a `dict[str, ndarray]`, or a tile pyramid descriptor.
+- `kind` — an `AssetKind` enum value (`TABULAR`, `RASTER`, `ARRAY`, `TILES`).
+- `metadata` — the unified `Metadata` container (lineage, identity,
+  per-component schema, RDF properties, license).
+- `extras` — kind-specific accessory info (rasterio profile, CRS, chunk spec).
+
+Two equivalent entry points produce and consume assets:
+
+```python
+# Kind-agnostic — works for any AssetKind
+asset = sunstone.read('inputs/era5_2024.zarr')
+sunstone.write(asset.derive(new_payload, slug='child', name='Child'),
+               'outputs/era5_derived.zarr')
+
+# Tabular shortcut — pandas-like API
+from sunstone import pandas as pd
+df = pd.read_csv('inputs/schools.csv')
+df.to_csv('outputs/summary.csv', slug='summary', name='Summary')
+```
+
+`sunstone.DataFrame` is a thin facade over an `Asset` of
+`kind=AssetKind.TABULAR`; the two paths record identical lineage. Use
+the pandas-style API for code that should read like pandas, and the
+Asset API for code that needs to be uniform across kinds.
+
+Each kind has its own quickstart:
+
+- [Tabular](pandas.md) — `pandas.DataFrame` payloads (CSV, Parquet, Excel, JSON, TSV).
+- [Tensors](tensors.md) — `dict[str, ndarray]` payloads (`.npz`, Zarr, HDF5/NetCDF-4).
+- [Images](images.md) — single-`ndarray` rasters (GeoTIFF on the roadmap).
+- [Tile pyramids](nbtiles.md) — pre-tiled multi-resolution data.
+
+`Asset.derive(payload, ..., derived_from=[...])` produces a child asset
+and records `prov:wasDerivedFrom` for each parent. Slug and name do
+*not* inherit — the child is a new dataset.
+
 ## Pandas-Like API
 
 sunstone-py provides a drop-in replacement for pandas that adds lineage tracking:
@@ -287,6 +329,23 @@ df.metadata.custom_properties = {'schema:about': 'Education'}
 # Lineage is accessed through metadata
 print(df.metadata.lineage.sources)
 ```
+
+### Identity URI
+
+`Metadata.identity` is a URI template (or fully materialised URI) for
+the asset. When it is `None` and a project `pyproject.toml` is
+discoverable, `sunstone.write()` materialises the default
+`sunstone://<package-name>/<slug>@<package-version>` before writing and
+reuses the value on subsequent writes. User-supplied templates are
+preserved verbatim — set `df.metadata.identity` to override.
+
+```python
+df.metadata.identity = 'sunstone://my-project/my-slug@1.0.0'
+```
+
+Without a `pyproject.toml` at the resolved project path the default is
+skipped, so a bare `cwd` fallback can never invent identities from
+arbitrary directory names.
 
 ### Per-Field Metadata
 

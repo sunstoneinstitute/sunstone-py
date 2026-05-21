@@ -67,6 +67,188 @@ with sunstone.use_project_path('/path/to/other/project'):
 # previous default restored here
 ```
 
+## Asset Envelope
+
+`Asset` is the uniform container for every kind of data sunstone handles
+— tabular, raster, n-D array, tile pyramid. `sunstone.DataFrame` is a
+thin facade over an `Asset` of `kind=AssetKind.TABULAR`; the two record
+identical lineage.
+
+```python
+from sunstone import Asset, AssetKind, ComponentSchema, IncompatibleAssetKindError
+```
+
+### `sunstone.read(path, *, format=None, kind=None, **kwargs)`
+
+Read any registered format into an `Asset`.
+
+**Parameters:**
+
+- `path` (str): Path or URL to read.
+- `format` (str | None): Format override (`'csv'`, `'parquet'`, `'zarr'`,
+  `'hdf5'`, ...). Auto-detected if not provided.
+- `kind` (AssetKind | None): Kind hint for ambiguous extensions.
+- `**kwargs`: Handler-specific keyword arguments.
+
+**Returns:** `Asset`
+
+**Dispatch order:**
+
+1. Explicit `kind=` / `format=` arguments.
+2. The `format:` field on the matching `datasets.yaml` entry (resolved by location).
+3. The path itself — directory paths route to the `StoreFormatHandler`
+   registry; single-file paths consult store handlers first (so HDF5 /
+   NetCDF-4 can claim them), then fall through to the tabular stream
+   pipeline.
+
+**Example:**
+
+```python
+import sunstone as ss
+
+asset = ss.read('inputs/era5_2024.zarr')
+assert asset.kind is ss.AssetKind.ARRAY
+arrays = asset.as_array()  # dict[str, numpy.ndarray]
+```
+
+---
+
+### `sunstone.write(asset, path, *, format=None, **kwargs)`
+
+Write an `Asset` to `path`. Dispatches via the plugin registry.
+
+**Parameters:**
+
+- `asset` (Asset): Asset to write.
+- `path` (str): Destination path or URL.
+- `format` (str | None): Format override.
+- `**kwargs`: Handler-specific keyword arguments.
+
+**Returns:** None
+
+**Raises:**
+
+- `IncompatibleAssetKindError`: If the selected handler does not support
+  `asset.kind`.
+- `ValueError`: If no handler matches `path` and `format`.
+
+When `asset.metadata.identity` is `None` and a project `pyproject.toml`
+is discoverable, `write()` materialises the default identity URI
+`sunstone://<package-name>/<slug>@<package-version>` before delegating.
+User-supplied templates are preserved verbatim.
+
+---
+
+### `AssetKind`
+
+Closed enum of supported asset kinds.
+
+**Values:**
+
+- `AssetKind.TABULAR` — `pandas.DataFrame`
+- `AssetKind.RASTER` — `numpy.ndarray` (single payload, e.g. GeoTIFF)
+- `AssetKind.ARRAY` — `dict[str, numpy.ndarray]` (multi-variable n-D arrays)
+- `AssetKind.TILES` — tile pyramid descriptor
+
+New kinds require adding a variant; plugin authors cannot extend the
+enum.
+
+---
+
+### `Asset`
+
+Uniform envelope across kinds.
+
+**Attributes:**
+
+- `payload` (Any): Kind-native data.
+- `kind` (AssetKind): Which kind this asset is.
+- `metadata` (Metadata): Unified metadata container.
+- `extras` (dict[str, Any]): Kind-specific accessory info (CRS,
+  rasterio profile, chunk spec). Never copies of the payload.
+
+**Read-only convenience properties:**
+
+- `asset.profile` → `extras.get("profile")`
+- `asset.crs` → `extras.get("crs")`
+
+**Typed kind accessors** (raise `IncompatibleAssetKindError` on mismatch):
+
+- `asset.as_table() -> pandas.DataFrame`
+- `asset.as_raster() -> numpy.ndarray`
+- `asset.as_array() -> dict[str, numpy.ndarray]`
+- `asset.as_tiles() -> Any`
+
+#### `Asset.derive(payload, *, slug=None, name=None, kind=None, derived_from=None, metadata_updates=None, extras_updates=None, inherit_custom_properties=False)`
+
+Return a new `Asset` derived from this one. Records
+`prov:wasDerivedFrom` for each parent.
+
+**Parameters:**
+
+- `payload` (Any): New payload for the child asset.
+- `slug` / `name` (str | None): Identity for the child. Slug and name
+  do *not* inherit from the parent.
+- `kind` (AssetKind | None): Override the child's kind (default: same
+  as parent).
+- `derived_from` (Iterable[Asset] | None): Multi-parent provenance.
+  Defaults to `[self]` (single-parent derivation).
+- `metadata_updates` (dict | None): Extra `Metadata` keys to set on the child.
+- `extras_updates` (dict | None): Updates merged into the deep-copied parent extras.
+- `inherit_custom_properties` (bool): If `True`, copy
+  `parent.metadata.custom_properties` to the child.
+
+**Returns:** `Asset`
+
+**Example (multi-parent):**
+
+```python
+ndvi = (nir.as_raster() - red.as_raster()) / (nir.as_raster() + red.as_raster())
+
+child = nir.derive(
+    ndvi,
+    slug='ndvi-2024',
+    name='NDVI 2024',
+    derived_from=[nir, red],
+)
+ss.write(child, 'outputs/ndvi.tif')
+```
+
+Per-kind derive policies (e.g. clearing stale rasterio `profile`
+fields when shape or dtype changes) run after the metadata fork.
+
+---
+
+### `ComponentSchema`
+
+Per-component metadata: a tabular column, a raster band, an array
+variable, or a tile layer.
+
+```python
+from sunstone import ComponentSchema
+```
+
+**Attributes:**
+
+- `name` (str): Component name.
+- `component_kind` (str): One of `"column"`, `"band"`, `"variable"`, `"layer"`.
+- `dtype` (str | None): Data type, e.g. `"float32"`, `"uint16"`.
+- `units` (str | None): Pint-parsable unit string, e.g. `"kelvin"`, `"m/s"`.
+- `description` (str | None): Human-readable description.
+
+Stored on `Metadata.component_metadata` keyed by component name.
+
+---
+
+### `IncompatibleAssetKindError`
+
+Raised when a typed accessor (`as_table`, `as_raster`, ...) or a handler
+is called with an asset whose `kind` does not match.
+
+```python
+from sunstone import IncompatibleAssetKindError
+```
+
 ## pandas Module
 
 Drop-in replacement for pandas with lineage tracking.
@@ -990,9 +1172,11 @@ from sunstone.lineage import Metadata
 - `description` (str | None): Human-readable description of the dataset
 - `rdf_prefixes` (dict | None): RDF namespace prefixes for custom properties
 - `custom_properties` (dict | None): Custom properties including RDF triples
-- `field_metadata` (dict[str, FieldSchema]): Per-column metadata, keyed by column name
+- `field_metadata` (dict[str, FieldSchema]): Per-column metadata, keyed by column name (tabular shortcut over `component_metadata`)
+- `component_metadata` (dict[str, ComponentSchema]): Per-component metadata keyed by component name (column, band, variable, layer)
 - `slug` (str | None): Dataset slug, used at write time
 - `name` (str | None): Human-readable dataset name, used at write time
+- `identity` (str | None): URI template or materialised URI for this asset. When `None` and a project `pyproject.toml` is discoverable, `sunstone.write()` fills in the default `sunstone://<package-name>/<slug>@<package-version>` and the value is reused on subsequent writes. User-supplied templates are preserved verbatim.
 
 ## Plugin System
 
@@ -1047,9 +1231,42 @@ registry.fetch('gs://my-bucket/data.csv', Path('data/local.csv'))
 
 Plugins implement one or more of these protocols:
 
-- **`AuthProvider`**: Provides authentication headers for HTTP requests
-- **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`
-- **`FormatHandler`**: Reads and writes data formats (CSV, JSON, Excel, Parquet, TSV)
+- **`AuthProvider`**: Provides authentication headers for HTTP requests.
+- **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`.
+- **`FormatHandler`**: Stream-based format reader/writer. Used for
+  single-file formats whose library accepts a byte stream (CSV, JSON,
+  Parquet, `.npz`). Returns / accepts `Asset`.
+- **`StoreFormatHandler`** (`sunstone.resource.StoreFormatHandler`):
+  Path-based format reader/writer for formats whose library needs a
+  real path or directory (HDF5, Zarr, MBTiles, partitioned Parquet).
+  Handlers MUST declare `__sunstone_handler_protocol__ = 2` and operate
+  on a `ResourceLocation`. Single-file store handlers are consulted
+  before the stream registry, so they can claim paths like `data.h5`.
+- **`CLIProvider`**: Contributes a `typer` command group mounted under
+  `sunstone <name>`. Built-in groups (`dataset`, `package`, `lineage`,
+  `env`, `license`) are protected from collision.
+
+### `ResourceLocation`
+
+```python
+from sunstone.resource import ResourceLocation
+```
+
+Wraps a path or URL that may refer to a single file or a
+directory/prefix. Pass to `StoreFormatHandler.read()` / `.write()`.
+
+**Attributes:**
+
+- `path` (str): The underlying path or URL string.
+
+**Methods:**
+
+- `as_path() -> pathlib.Path` — local-path view.
+- `is_dir() -> bool` — true when the path resolves to a directory.
+- `list(glob='*') -> Iterator[ResourceLocation]` — enumerate children.
+- `subpath(rel) -> ResourceLocation` — join a relative path.
+- `open_byte_stream(mode='rb') -> BinaryIO` — single-file byte stream
+  (routes through the `URLHandler` registry for non-local paths).
 
 ### Plugin Discovery
 
@@ -1114,6 +1331,61 @@ When columns with units are used in merge, join, or concat operations, sunstone 
 ### QUDT Round-Tripping
 
 Units stored as [QUDT](http://qudt.org/) URIs in `datasets.yaml` are preserved through read/write cycles via the `unit_source` field on `FieldSchema`.
+
+## RDF Value Wrappers
+
+Plain Python literals (`str`, `int`, `float`, `bool`, `datetime`, `Decimal`)
+cover most of what shows up in `Metadata.custom_properties`. These
+three wrappers disambiguate the cases Python's type system cannot
+distinguish on its own.
+
+```python
+from sunstone import IRI, LangString, TypedLiteral
+```
+
+### `IRI`
+
+A subclass of `str` flagged as an IRI reference. Stays string-comparable
+and JSON-friendly, but `isinstance(x, IRI)` distinguishes it from a
+plain string literal. Prefix resolution (e.g. `sosa:NDVI` → full URI)
+runs at JSON-LD serialisation time against `Metadata.rdf_prefixes`.
+
+```python
+metadata.custom_properties['schema:about'] = IRI('schema:Education')
+```
+
+---
+
+### `LangString`
+
+A language-tagged literal. Serialises to JSON-LD as
+`{"@value": ..., "@language": ...}`.
+
+**Attributes:**
+
+- `value` (str)
+- `lang` (str): BCP-47 tag, e.g. `"en"`, `"fr-CA"`.
+
+```python
+metadata.custom_properties['dct:title'] = LangString('Mon ensemble', 'fr-CA')
+```
+
+---
+
+### `TypedLiteral`
+
+A literal with an explicit XSD datatype. Use when Python-type inference
+would pick the wrong xsd type. Serialises to JSON-LD as
+`{"@value": ..., "@type": ...}`.
+
+**Attributes:**
+
+- `value` (Any)
+- `datatype` (str): e.g. `"xsd:double"`.
+
+```python
+metadata.custom_properties['si:precision'] = TypedLiteral('1.0', 'xsd:double')
+```
 
 ## Constants
 
@@ -1278,6 +1550,90 @@ Outcome of a `check_compatibility` call.
 
 Subclass of [`SunstoneError`](#sunstoneerror). Raised by `to_csv()` / `to_parquet()` when `check_license=True` and the effective target license conflicts with a source license. See [Error handling → `LicenseCompatibilityError`](errors.md#licensecompatibilityerror) for the recovery pattern.
 
+## Environment Configuration
+
+```python
+from sunstone import (
+    Environment,
+    activate_environment,
+    resolve_environment,
+)
+```
+
+Sunstone resolves environment settings from cascading TOML files and
+overlays them on `os.environ`. Within a single environment definition,
+field-level merging follows the same precedence: project > user >
+system. See the [`sunstone env`](cli.md#environment-commands) commands
+for the CLI surface.
+
+**File precedence (highest wins for active-environment selection):**
+
+1. `SUNSTONE_DATA_ENV` env var.
+2. `.sunstone/data_platform.toml` (project, walked up from cwd).
+3. `~/.config/sunstone/data_platform.toml` (user).
+4. `/etc/sunstone/data_platform.toml` (system).
+
+---
+
+### `Environment`
+
+Resolved environment configuration.
+
+**Attributes:**
+
+- `name` (str): Active environment name.
+- `source` (str): The file (or `SUNSTONE_DATA_ENV`) that selected this environment.
+- `vars` (Mapping[str, str]): Flattened key/value pairs from top-level
+  scalars and plugin-namespaced subtables. Keys are uppercased and
+  hyphens become underscores.
+- `sections` (Mapping[str, Any]): Typed models built by registered
+  `EnvSectionProvider` plugins, keyed by section name.
+
+**Methods:**
+
+- `activate() -> dict[str, str]`: Layer `vars` onto `os.environ`.
+  Pre-existing real env vars always win — this never overwrites them.
+  Returns the dict of keys this call actually set.
+
+---
+
+### `activate_environment(*, system_config=None, user_config=None, project_config=None)`
+
+Convenience: resolve the active environment and call `.activate()`.
+
+**Returns:** `dict[str, str]` — keys actually set in `os.environ`
+(empty when no active environment is configured or all keys were
+already set).
+
+**Example:**
+
+```python
+import sunstone
+
+applied = sunstone.activate_environment()
+print(f"Applied {len(applied)} env vars from active environment")
+```
+
+---
+
+### `resolve_environment(*, system_config=None, user_config=None, project_config=None)`
+
+Load all config files, merge environments, resolve the active name,
+flatten keys, resolve `op://` credential references, and build typed
+section models for any registered `EnvSectionProvider` plugins.
+
+**Returns:** `Environment | None` — `None` if no active environment is configured.
+
+**Raises:** `ValueError` if the active environment name does not match
+any defined environment, or a section model fails validation.
+
+---
+
+### `DataEnvironment` *(deprecated)*
+
+Deprecated alias retained for backward compatibility. Use
+`Environment` instead.
+
 ## Exceptions
 
 ```python
@@ -1288,6 +1644,7 @@ from sunstone.exceptions import (
     DatasetValidationError,
     LineageError,
 )
+from sunstone.errors import IncompatibleAssetKindError
 from sunstone.licenses import LicenseCompatibilityError
 ```
 

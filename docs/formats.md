@@ -1,11 +1,11 @@
 # File Formats
 
-Sunstone ships with built-in handlers for the common tabular formats and
-treats Parquet as a first-class self-describing target. This page lists
-what each format supports, where its metadata lives, and the format-specific
-features you can use from `datasets.yaml`.
+Sunstone wraps every payload — tabular, raster, array, tile — in a
+uniform `Asset` envelope and dispatches I/O through a plugin registry.
+This page covers the built-in handlers, where each one stores its
+metadata, and how to extend Sunstone with your own formats.
 
-## Overview
+## Tabular formats
 
 | Format  | Extensions       | Read | Write | Embedded metadata           | Format-specific features          |
 |---------|------------------|------|-------|-----------------------------|-----------------------------------|
@@ -13,7 +13,7 @@ features you can use from `datasets.yaml`.
 | TSV     | `.tsv`, `.txt`   | yes  | no    | no — sidecar YAML           | tab delimiter is fixed            |
 | JSON    | `.json`          | yes  | no    | no — sidecar YAML           | —                                 |
 | Excel   | `.xlsx`, `.xls`  | yes  | no    | no — sidecar YAML           | —                                 |
-| Parquet | `.parquet`       | yes  | yes   | **yes** — JSON-LD in footer | self-contained lineage           |
+| Parquet | `.parquet`       | yes  | yes   | **yes** — JSON-LD in footer | self-contained lineage            |
 
 "Sidecar YAML" means the human-authored `datasets.yaml` plus the
 auto-generated `datasets.lock.yaml` carry the lineage and field metadata.
@@ -21,11 +21,28 @@ For Parquet, the same JSON-LD that would live in the sidecar is also
 embedded in the file footer, so a Parquet file can travel without the
 sidecar and still describe itself.
 
+## Non-tabular formats
+
+| Format          | Extensions                       | Kind                  | Extra            | Embedded metadata                          |
+|-----------------|----------------------------------|-----------------------|------------------|--------------------------------------------|
+| NumPy `.npz`    | `.npz`                           | `AssetKind.ARRAY`     | built-in         | **yes** — JSON-LD entry in the archive     |
+| Zarr            | `.zarr` (directory store)        | `AssetKind.ARRAY`     | `sunstone-py[zarr]`  | **yes** — JSON-LD in root group `.attrs` |
+| HDF5 / NetCDF-4 | `.h5`, `.hdf5`, `.he5`, `.nc`, `.nc4` | `AssetKind.ARRAY` | `sunstone-py[hdf5]`  | **yes** — JSON-LD in root attribute      |
+
+See [Tensors](tensors.md) for the array workflow and per-variable
+component metadata. NetCDF-3 (classic) is out of scope — only NetCDF-4,
+which is HDF5 underneath, is supported.
+
+Raster (GeoTIFF) and tile-pyramid (XYZ/MBTiles) handlers are on the
+roadmap — see [Images](images.md) and [Tile pyramids](nbtiles.md).
+
 ## Reading and writing
 
-The pandas-compatible wrapper exposes four readers, all of which dispatch
-to the right format handler by extension (or by an explicit `format=` for
-`read_dataset`):
+There are two equivalent entry points: the pandas-compatible wrapper
+(tabular only) and the kind-agnostic `sunstone.read()` / `sunstone.write()`
+pair (any kind).
+
+### Pandas wrapper (tabular only)
 
 ```python
 from sunstone import pandas as pd
@@ -46,6 +63,36 @@ df.to_parquet('outputs/result.parquet', slug='result', name='Result')
 There is no `to_tsv`, `to_json`, or `to_excel` — write a CSV with a tab
 dialect if you need TSV (see below), or register a third-party
 `FormatHandler` plugin for the others.
+
+### Kind-agnostic `sunstone.read()` / `sunstone.write()`
+
+```python
+import sunstone as ss
+
+asset = ss.read('inputs/era5_2024.zarr')  # any kind, any handler
+arrays = asset.as_array()                  # dict[str, ndarray]
+
+child = asset.derive(
+    {k: v.mean(axis=0) for k, v in arrays.items()},
+    slug='era5-2024-yearly-mean',
+    name='ERA5 2024 annual mean',
+)
+ss.write(child, 'outputs/era5_yearly.zarr')
+```
+
+`sunstone.read()` returns an `Asset`; `sunstone.write()` accepts one.
+Dispatch order is:
+
+1. Explicit `kind=` / `format=` arguments.
+2. The `format:` field on the matching `datasets.yaml` entry (resolved
+   by location).
+3. The path itself — directory paths route through the
+   `StoreFormatHandler` registry, single-file paths route through both
+   the store and the stream registries (in that order, so HDF5/NetCDF-4
+   handlers can claim them).
+
+Writing an `Asset` whose `kind` does not match the destination handler
+raises `IncompatibleAssetKindError`.
 
 ## Where metadata lives
 
@@ -157,21 +204,54 @@ bytes, then the format handler parses them.
 
 ## Extending Sunstone with a new format
 
-Format handlers live behind the `FormatHandler` protocol
-(`sunstone.plugins`). To add a format, implement:
+There are two handler protocols depending on what your format needs:
+
+### Stream-based: `FormatHandler`
+
+Use for single-file formats whose library can read or write a byte
+stream (CSV, JSON, Parquet, `.npz`):
 
 ```python
 class FormatHandler(Protocol):
     def supports_metadata(self) -> bool: ...
     def can_read(self, path: str, format: str | None) -> bool: ...
     def can_write(self, path: str, format: str | None) -> bool: ...
-    def read(self, stream, **kwargs) -> pandas.DataFrame: ...
-    def write(self, df: pandas.DataFrame, stream, **kwargs) -> None: ...
+    def supported_kinds(self) -> tuple[AssetKind, ...]: ...
+    def read(self, stream, **kwargs) -> Asset: ...
+    def write(self, asset: Asset, stream, **kwargs) -> None: ...
 ```
 
 Return `True` from `supports_metadata()` if your format can embed
-Sunstone's JSON-LD document (see `ParquetFormatHandler` for a worked
-example); otherwise the sidecar YAML carries the metadata as usual.
+Sunstone's JSON-LD document (see `ParquetFormatHandler` and
+`NpzFormatHandler` for worked examples); otherwise the sidecar YAML
+carries the metadata as usual. `supported_kinds()` lets the registry
+reject mismatched assets at write time.
+
+### Store-based: `StoreFormatHandler`
+
+Use for formats whose library needs a real path or directory (HDF5,
+Zarr, MBTiles, partitioned Parquet):
+
+```python
+class StoreFormatHandler(Protocol):
+    __sunstone_handler_protocol__: int  # must be 2
+
+    def supports_native_metadata_extraction(self) -> bool: ...
+    def supports_sunstone_metadata_embedding(self) -> bool: ...
+    def can_read_store(self, location: ResourceLocation, format: str | None) -> bool: ...
+    def can_write_store(self, location: ResourceLocation, format: str | None) -> bool: ...
+    def supported_kinds(self) -> tuple[AssetKind, ...]: ...
+    def read(self, location: ResourceLocation, **kwargs) -> Asset: ...
+    def write(self, asset: Asset, location: ResourceLocation, **kwargs) -> None: ...
+```
+
+`ResourceLocation` wraps a path that may refer to a single file or a
+directory. Use `loc.is_dir()`, `loc.list(glob)`, `loc.subpath()`, and
+`loc.as_path()` for random access, partition enumeration, or chunked
+reads. Single-file store handlers (HDF5, NetCDF-4) are dispatched before
+the stream registry, so they can claim paths like `inputs/data.h5`.
+
+### Registration
 
 Register the class via the `sunstone.plugins` entry point group in your
 package's `pyproject.toml`:
@@ -187,6 +267,10 @@ priority over the built-ins.
 ## See also
 
 - [Core Concepts](concepts.md) — `datasets.yaml` structure and lineage.
+- [pandas](pandas.md) — tabular workflow details.
+- [Tensors](tensors.md) — array workflow (`.npz`, Zarr, HDF5/NetCDF-4).
+- [Images](images.md) — raster workflow (roadmap).
+- [Tile pyramids (nbtiles)](nbtiles.md) — pre-tiled multi-resolution data.
 - [Frictionless Data](frictionlessdata.md) — the Table Dialect
   specification that Sunstone's `dialect:` block follows.
 - [Data Package Spec](datapackage.md) — how dialects appear in the
