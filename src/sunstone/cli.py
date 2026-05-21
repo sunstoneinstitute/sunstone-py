@@ -101,6 +101,33 @@ def expand_env_vars(text: str) -> str:
     return ENV_VAR_PATTERN.sub(replace_var, text)
 
 
+def _parse_kv_entries(entries: list[str]) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    """Parse `KEY=VAL` tokens into (plain, sections).
+
+    A token with no `=` raises ValueError. A KEY containing one or more
+    `.` is treated as `<section>.<sub-key>`; the part before the first
+    `.` becomes the section name (verbatim, no case change), the rest is
+    the sub-key.
+    """
+    plain: dict[str, str] = {}
+    sections: dict[str, dict[str, str]] = {}
+    for token in entries:
+        if "=" not in token:
+            raise ValueError(f"Expected KEY=VAL, got {token!r}")
+        key, value = token.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Empty key in {token!r}")
+        if "." in key:
+            section, sub_key = key.split(".", 1)
+            if not section or not sub_key:
+                raise ValueError(f"Invalid dotted key {key!r}")
+            sections.setdefault(section, {})[sub_key] = value
+        else:
+            plain[key] = value
+    return plain, sections
+
+
 def expand_rdf_prefixes(value: str, prefixes: dict[str, str]) -> str:
     """
     Expand RDF prefix in a value.
@@ -411,9 +438,22 @@ _mount_plugin_cli_groups()
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(False, "--version", callback=_version_callback, is_eager=True, help="Show version"),
 ) -> None:
     """Sunstone dataset and package management CLI."""
+    # Best-effort: layer active-environment vars onto os.environ so that
+    # ${VAR} substitution in publish.as: / publish.to: and other places
+    # picks them up. Env subcommands must remain usable even when
+    # resolution fails (so the user can fix the config).
+    skip_activation = ctx.invoked_subcommand == "env"
+    if not skip_activation:
+        try:
+            from sunstone.env import activate_environment
+
+            activate_environment()
+        except Exception as e:
+            logger.debug("activate_environment failed during CLI startup: %s", e)
 
 
 # =============================================================================
@@ -434,7 +474,7 @@ def env_show(ctx: typer.Context) -> None:
         all_envs = list_environments()
         if not all_envs and env is None:
             typer.echo("No environment configured.")
-            typer.echo("Run 'sunstone env add <name>' to create one.")
+            typer.echo("Run 'sunstone env add <name> KEY=VAL ...' to create one.")
             return
 
         if env:
@@ -446,11 +486,24 @@ def env_show(ctx: typer.Context) -> None:
         for name, defn in sorted(all_envs.items()):
             marker = "* " if env and name == env.name else "  "
             source = environment_source(name)
-            typer.echo(f"{marker}{name:<12} {defn.get('catalog_url', ''):<45} ({source})")
+            summary = _summarize_env_def(defn)
+            typer.echo(f"{marker}{name:<12} {summary:<45} ({source})")
     except (FileNotFoundError, KeyError, RuntimeError, ValueError) as e:
         message = e.args[0] if isinstance(e, KeyError) else str(e)
         typer.echo(f"Error: {message}", err=True)
         raise typer.Exit(1)
+
+
+def _summarize_env_def(defn: dict) -> str:
+    """Build a one-line summary: 'N key(s), sections: foo, bar' or 'empty'."""
+    plain_keys = [k for k, v in defn.items() if not isinstance(v, dict)]
+    sections = sorted(k for k, v in defn.items() if isinstance(v, dict))
+    parts: list[str] = []
+    if plain_keys:
+        parts.append(f"{len(plain_keys)} key{'s' if len(plain_keys) != 1 else ''}")
+    if sections:
+        parts.append("sections: " + ", ".join(sections))
+    return ", ".join(parts) if parts else "empty"
 
 
 @env_app.command("use")
@@ -469,26 +522,49 @@ def env_use(
         raise typer.Exit(1)
 
 
+def _validate_scope(scope: str) -> None:
+    if scope not in ("user", "project", "system"):
+        typer.echo(f"Error: --scope must be one of user, project, system (got {scope!r})", err=True)
+        raise typer.Exit(2)
+
+
 @env_app.command("add")
 def env_add(
     name: str = typer.Argument(..., help="Environment name"),
-    catalog_url: str = typer.Option(..., "--catalog-url", help="Nessie catalog URL"),
-    s3_endpoint: str = typer.Option(..., "--s3-endpoint", help="S3/MinIO endpoint URL"),
-    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
-    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
-    auth: str | None = typer.Option(None, "--auth", help="Auth method (e.g. gcloud-adc)"),
+    entries: list[str] = typer.Argument(
+        None,
+        help=("KEY=VAL entries. Dotted keys (e.g. data-platform.warehouse=main) write to plugin-namespaced subtables."),
+    ),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing entry"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
-    """Add a new environment to user config."""
+    """Add a new environment to user config.
+
+    Examples:
+        sunstone env add dev CATALOG_URL=https://data.dev.example.com
+        sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
+    """
     from sunstone.env import add_environment
+
+    _validate_scope(scope)
+
+    try:
+        plain, sections = _parse_kv_entries(entries or [])
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(2)
 
     try:
         path = add_environment(
             name,
-            catalog_url=catalog_url,
-            s3_endpoint=s3_endpoint,
-            s3_access_key=s3_access_key,
-            s3_secret_key=s3_secret_key,
-            auth=auth,
+            plain=plain,
+            sections=sections,
+            overwrite=overwrite,
+            scope=scope,
         )
         typer.echo(f"Added environment '{name}' to {path}")
     except (OSError, RuntimeError, ValueError) as e:
@@ -499,100 +575,100 @@ def env_add(
 @env_app.command("remove")
 def env_remove(
     name: str = typer.Argument(..., help="Environment name to remove"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
     """Remove an environment from user config."""
     from sunstone.env import remove_environment
 
+    _validate_scope(scope)
+
     try:
-        path = remove_environment(name)
+        path = remove_environment(name, scope=scope)
         typer.echo(f"Removed environment '{name}' from {path}")
     except (OSError, RuntimeError, ValueError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
 
-@env_app.command("update")
-def env_update(
-    name: str = typer.Argument(..., help="Environment name to update"),
-    catalog_url: str | None = typer.Option(None, "--catalog-url", help="Nessie catalog URL"),
-    s3_endpoint: str | None = typer.Option(None, "--s3-endpoint", help="S3/MinIO endpoint URL"),
-    s3_access_key: str | None = typer.Option(None, "--s3-access-key", help="S3 access key or op:// reference"),
-    s3_secret_key: str | None = typer.Option(None, "--s3-secret-key", help="S3 secret key or op:// reference"),
-    auth: str | None = typer.Option(None, "--auth", help="Auth method"),
+@env_app.command("set")
+def env_set(
+    name: str = typer.Argument(..., help="Environment name"),
+    entries: list[str] = typer.Argument(
+        ...,
+        help=(
+            "KEY=VAL entries to merge into the environment. Dotted keys "
+            "(e.g. data-platform.warehouse=main) target plugin subtables."
+        ),
+    ),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
 ) -> None:
-    """Update fields on an existing environment in user config."""
-    from sunstone.env import (
-        _SYSTEM_CONFIG,
-        _find_project_config,
-        _get_user_config_path,
-        _load_toml,
-        _write_config,
-    )
+    """Merge KEY=VAL entries into an existing environment in user config.
+
+    Existing keys not touched by this invocation are preserved. Use
+    'env unset' to remove keys.
+    """
+    from sunstone.env import update_environment
+
+    _validate_scope(scope)
 
     try:
-        user_config = _get_user_config_path(required=True)
-    except RuntimeError as e:
+        plain, sections = _parse_kv_entries(entries)
+    except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(2)
 
-    user_data = _load_toml(user_config)
-    user_envs = user_data.get("environments", {})
-    project_config = _find_project_config()
-    project_data = _load_toml(project_config) if project_config else {}
-    system_data = _load_toml(_SYSTEM_CONFIG)
-
-    if name not in user_envs:
-        if name in project_data.get("environments", {}):
-            typer.echo(
-                f"Error: Environment '{name}' is defined in project config ({project_config}); "
-                "env update only modifies user config",
-                err=True,
-            )
-            raise typer.Exit(1)
-        if name in system_data.get("environments", {}):
-            typer.echo(
-                f"Error: Environment '{name}' is defined in system config ({_SYSTEM_CONFIG}); "
-                "env update only modifies user config",
-                err=True,
-            )
-            raise typer.Exit(1)
-        typer.echo(f"Error: Environment '{name}' not found in {user_config}", err=True)
-        raise typer.Exit(1)
-
-    if all(value is None for value in (catalog_url, s3_endpoint, s3_access_key, s3_secret_key, auth)):
-        typer.echo(
-            "Error: No fields to update. Use --catalog-url, --s3-endpoint, --s3-access-key, "
-            "--s3-secret-key, or --auth.",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-    shadowed_by_project = name in project_data.get("environments", {})
-
-    if catalog_url is not None:
-        user_envs[name]["catalog_url"] = catalog_url
-    if s3_endpoint is not None:
-        user_envs[name]["s3_endpoint"] = s3_endpoint
-    if s3_access_key is not None:
-        user_envs[name]["s3_access_key"] = s3_access_key
-    if s3_secret_key is not None:
-        user_envs[name]["s3_secret_key"] = s3_secret_key
-    if auth is not None:
-        user_envs[name]["auth"] = auth
-
-    user_data["environments"] = user_envs
     try:
-        _write_config(user_config, user_data)
-    except OSError as e:
+        path, shadowed_by = update_environment(name, plain=plain, sections=sections, scope=scope)
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    typer.echo(f"Updated environment '{name}' in {user_config}")
-    if shadowed_by_project:
+    typer.echo(f"Updated environment '{name}' in {path}")
+    if shadowed_by:
         typer.echo(
-            f"Warning: Environment '{name}' is also defined in project config ({project_config}); "
-            "project config values will shadow this update",
+            f"Warning: environment '{name}' is also defined in {shadowed_by}; "
+            "values in that file will shadow this update",
             err=True,
         )
+
+
+@env_app.command("unset")
+def env_unset(
+    name: str = typer.Argument(..., help="Environment name"),
+    keys: list[str] = typer.Argument(..., help="Keys to remove (dotted = subtable)"),
+    scope: str = typer.Option(
+        "user",
+        "--scope",
+        help="Config layer to write: user (default), project, or system.",
+    ),
+) -> None:
+    """Remove KEYs from an environment in user config.
+
+    Dotted keys (e.g. data-platform.catalog_url) remove an entry from a
+    plugin subtable; the subtable is deleted if it ends up empty. Missing
+    keys are silently ignored.
+    """
+    from sunstone.env import unset_environment_keys
+
+    _validate_scope(scope)
+
+    try:
+        path, removed = unset_environment_keys(name, keys=keys, scope=scope)
+    except (OSError, RuntimeError, KeyError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    if removed == 0:
+        typer.echo(f"No matching keys to remove from environment '{name}' ({path})")
+    else:
+        noun = "key" if removed == 1 else "keys"
+        typer.echo(f"Removed {removed} {noun} from environment '{name}' in {path}")
 
 
 # =============================================================================

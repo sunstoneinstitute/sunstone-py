@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -11,7 +12,6 @@ from unittest.mock import patch
 import pytest
 
 from sunstone.env import (
-    DataEnvironment,
     _find_project_config,
     _load_toml,
     _merge_environments,
@@ -26,40 +26,6 @@ from sunstone.env import (
     resolve_environment,
     set_active,
 )
-
-
-# ---------------------------------------------------------------------------
-# DataEnvironment dataclass
-# ---------------------------------------------------------------------------
-
-
-class TestDataEnvironment:
-    def test_frozen(self):
-        env = DataEnvironment(
-            name="test",
-            catalog_url="http://localhost:19120",
-            s3_endpoint="http://localhost:9000",
-            s3_access_key="key",
-            s3_secret_key="secret",
-            auth=None,
-            source="test",
-        )
-        with pytest.raises(FrozenInstanceError):
-            env.name = "other"  # type: ignore[misc]
-
-    def test_fields(self):
-        env = DataEnvironment(
-            name="prod",
-            catalog_url="https://nessie.prod.example.com",
-            s3_endpoint="https://s3.prod.example.com",
-            s3_access_key=None,
-            s3_secret_key=None,
-            auth="gcloud-adc",
-            source="/etc/sunstone/data_platform.toml",
-        )
-        assert env.name == "prod"
-        assert env.auth == "gcloud-adc"
-        assert env.s3_access_key is None
 
 
 def test_import_env_tolerates_missing_home(monkeypatch):
@@ -257,8 +223,9 @@ class TestFindProjectConfig:
 
 
 class TestResolveCredential:
-    def test_literal(self):
-        assert _resolve_credential("my-secret") == "my-secret"
+    def test_literal_returns_none(self):
+        # Non-op values return None; caller uses `_resolve_credential(v) or v` to keep original.
+        assert _resolve_credential("my-secret") is None
 
     def test_none(self):
         assert _resolve_credential(None) is None
@@ -333,190 +300,6 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
-class TestResolveEnvironment:
-    def test_full_cascade(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.prod]\ncatalog_url = "http://sys-prod"\ns3_endpoint = "http://sys-s3"\n',
-        )
-        user = _write_toml(
-            tmp_path / "user.toml",
-            'active = "prod"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=user,
-                project_config=tmp_path / "nonexistent.toml",
-            )
-
-        assert env is not None
-        assert env.name == "prod"
-        assert env.catalog_url == "http://sys-prod"
-        assert env.s3_endpoint == "http://sys-s3"
-
-    def test_env_var_field_overrides(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\n',
-        )
-
-        overrides = {
-            "SUNSTONE_DATA_CATALOG_URL": "http://overridden",
-            "SUNSTONE_DATA_S3_ENDPOINT": "http://overridden-s3",
-            "SUNSTONE_DATA_S3_ACCESS_KEY": "env-key",
-            "SUNSTONE_DATA_S3_SECRET_KEY": "env-secret",
-        }
-        with patch.dict("os.environ", overrides, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "none.toml",
-                project_config=tmp_path / "none2.toml",
-            )
-
-        assert env is not None
-        assert env.catalog_url == "http://overridden"
-        assert env.s3_endpoint == "http://overridden-s3"
-        assert env.s3_access_key == "env-key"
-        assert env.s3_secret_key == "env-secret"
-
-    def test_empty_env_vars_do_not_override_config(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            'active = "dev"\n[environments.dev]\ncatalog_url = "http://original"\ns3_endpoint = "http://original-s3"\ns3_access_key = "configured-key"\ns3_secret_key = "configured-secret"\n',
-        )
-
-        overrides = {
-            "SUNSTONE_DATA_CATALOG_URL": "",
-            "SUNSTONE_DATA_S3_ENDPOINT": "",
-            "SUNSTONE_DATA_S3_ACCESS_KEY": "",
-            "SUNSTONE_DATA_S3_SECRET_KEY": "",
-        }
-        with patch.dict("os.environ", overrides, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "none.toml",
-                project_config=tmp_path / "none2.toml",
-            )
-
-        assert env is not None
-        assert env.catalog_url == "http://original"
-        assert env.s3_endpoint == "http://original-s3"
-        assert env.s3_access_key == "configured-key"
-        assert env.s3_secret_key == "configured-secret"
-
-    def test_returns_none_when_nothing_configured(self, tmp_path: Path):
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=tmp_path / "no.toml",
-                user_config=tmp_path / "no2.toml",
-                project_config=tmp_path / "no3.toml",
-            )
-        assert env is None
-
-    def test_raises_for_unknown_active_env(self, tmp_path: Path):
-        config = _write_toml(
-            tmp_path / "user.toml",
-            'active = "nonexistent"\n',
-        )
-        with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="nonexistent"):
-                resolve_environment(
-                    system_config=tmp_path / "no.toml",
-                    user_config=config,
-                    project_config=tmp_path / "no2.toml",
-                )
-
-    def test_env_var_selects_environment(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.staging]\ncatalog_url = "http://staging"\ns3_endpoint = "http://staging-s3"\n',
-        )
-
-        with patch.dict("os.environ", {"SUNSTONE_DATA_ENV": "staging"}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=tmp_path / "no.toml",
-                project_config=tmp_path / "no2.toml",
-            )
-
-        assert env is not None
-        assert env.name == "staging"
-        assert env.source == "SUNSTONE_DATA_ENV"
-
-    def test_project_config_environments(self, tmp_path: Path):
-        project = _write_toml(
-            tmp_path / ".sunstone" / "data_platform.toml",
-            'active = "local"\n'
-            "[environments.local]\n"
-            'catalog_url = "http://localhost:19120"\n'
-            's3_endpoint = "http://localhost:9000"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=tmp_path / "no.toml",
-                user_config=tmp_path / "no2.toml",
-                project_config=project,
-            )
-
-        assert env is not None
-        assert env.name == "local"
-        assert env.catalog_url == "http://localhost:19120"
-
-    def test_field_level_merge_across_layers(self, tmp_path: Path):
-        system = _write_toml(
-            tmp_path / "system.toml",
-            '[environments.dev]\nauth = "basic"\ns3_endpoint = "http://sys-s3"\n',
-        )
-        user = _write_toml(
-            tmp_path / "user.toml",
-            'active = "dev"\n[environments.dev]\ns3_access_key = "user-key"\n',
-        )
-        project = _write_toml(
-            tmp_path / "project.toml",
-            '[environments.dev]\ncatalog_url = "http://project-dev"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            env = resolve_environment(
-                system_config=system,
-                user_config=user,
-                project_config=project,
-            )
-
-        assert env is not None
-        assert env.name == "dev"
-        assert env.catalog_url == "http://project-dev"
-        assert env.s3_endpoint == "http://sys-s3"
-        assert env.s3_access_key == "user-key"
-        assert env.auth == "basic"
-
-    def test_credential_resolution(self, tmp_path: Path):
-        config = _write_toml(
-            tmp_path / "config.toml",
-            'active = "test"\n'
-            "[environments.test]\n"
-            'catalog_url = "http://test"\n'
-            's3_endpoint = "http://test-s3"\n'
-            's3_access_key = "op://vault/item/key"\n'
-            's3_secret_key = "literal-secret"\n',
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            with patch("sunstone.env._resolve_op_reference", return_value="resolved-key"):
-                env = resolve_environment(
-                    system_config=config,
-                    user_config=tmp_path / "no.toml",
-                    project_config=tmp_path / "no2.toml",
-                )
-
-        assert env is not None
-        assert env.s3_access_key == "resolved-key"
-        assert env.s3_secret_key == "literal-secret"
-
-
 # ---------------------------------------------------------------------------
 # set_active
 # ---------------------------------------------------------------------------
@@ -577,33 +360,59 @@ class TestAddEnvironment:
 
         result = add_environment(
             "dev",
-            catalog_url="http://dev",
-            s3_endpoint="http://dev-s3",
-            s3_access_key="key",
-            auth="gcloud-adc",
+            plain={"CATALOG_URL": "http://dev", "AUTH": "gcloud-adc", "ACCESS_KEY": "key"},
             user_config=user,
         )
 
         assert result == user
         data = _load_toml(user)
-        assert data["environments"]["dev"]["catalog_url"] == "http://dev"
-        assert data["environments"]["dev"]["auth"] == "gcloud-adc"
-        assert data["environments"]["dev"]["s3_access_key"] == "key"
+        assert data["environments"]["dev"]["CATALOG_URL"] == "http://dev"
+        assert data["environments"]["dev"]["AUTH"] == "gcloud-adc"
+        assert data["environments"]["dev"]["ACCESS_KEY"] == "key"
         assert "s3_secret_key" not in data["environments"]["dev"]
+
+    def test_adds_sections(self, tmp_path: Path):
+        user = tmp_path / "user.toml"
+
+        result = add_environment(
+            "dev",
+            sections={"data-platform": {"catalog_url": "http://dev", "warehouse": "main"}},
+            user_config=user,
+        )
+
+        assert result == user
+        data = _load_toml(user)
+        assert data["environments"]["dev"]["data-platform"]["catalog_url"] == "http://dev"
+        assert data["environments"]["dev"]["data-platform"]["warehouse"] == "main"
 
     def test_rejects_duplicates(self, tmp_path: Path):
         user = _write_toml(
             tmp_path / "user.toml",
-            '[environments.dev]\ncatalog_url = "http://dev"\ns3_endpoint = "http://dev-s3"\n',
+            '[environments.dev]\nCATALOG_URL = "http://dev"\n',
         )
 
         with pytest.raises(ValueError, match="already exists"):
             add_environment(
                 "dev",
-                catalog_url="http://other",
-                s3_endpoint="http://other-s3",
+                plain={"CATALOG_URL": "http://other"},
                 user_config=user,
             )
+
+    def test_overwrite_replaces_entry(self, tmp_path: Path):
+        user = _write_toml(
+            tmp_path / "user.toml",
+            '[environments.dev]\nOLD_KEY = "y"\n',
+        )
+
+        add_environment(
+            "dev",
+            plain={"NEW_KEY": "z"},
+            user_config=user,
+            overwrite=True,
+        )
+
+        data = _load_toml(user)
+        assert data["environments"]["dev"] == {"NEW_KEY": "z"}
 
 
 # ---------------------------------------------------------------------------
@@ -877,3 +686,647 @@ class TestWriteConfig:
 
         assert path.read_text() == original
         assert not any(candidate.suffix == ".tmp" for candidate in tmp_path.iterdir())
+
+
+# ---------------------------------------------------------------------------
+# Environment dataclass
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironment:
+    def test_frozen(self):
+        from sunstone.env import Environment
+
+        env = Environment(name="dev", source="/etc/sunstone/data_platform.toml", vars={}, sections={})
+        with pytest.raises(FrozenInstanceError):
+            env.name = "other"  # type: ignore[misc]
+
+    def test_vars_and_sections_are_mappings(self):
+        from sunstone.env import Environment
+
+        env = Environment(
+            name="dev",
+            source="user",
+            vars={"FOO": "bar"},
+            sections={"plug": object()},
+        )
+        assert dict(env.vars) == {"FOO": "bar"}
+        assert "plug" in env.sections
+
+    def test_activate_sets_unset_keys(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "https://example.com"}, sections={})
+        applied = env.activate()
+        assert applied == {"MY_CATALOG_URL": "https://example.com"}
+        assert os.environ["MY_CATALOG_URL"] == "https://example.com"
+
+    def test_activate_does_not_overwrite_real_env_vars(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.setenv("MY_CATALOG_URL", "from-shell")
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "from-config"}, sections={})
+        applied = env.activate()
+        assert applied == {}
+        assert os.environ["MY_CATALOG_URL"] == "from-shell"
+
+    def test_activate_is_idempotent(self, monkeypatch):
+        from sunstone.env import Environment
+
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        env = Environment(name="dev", source="user", vars={"MY_CATALOG_URL": "x"}, sections={})
+        first = env.activate()
+        second = env.activate()
+        assert first == {"MY_CATALOG_URL": "x"}
+        assert second == {}  # already set on second call
+
+    def test_section_returns_typed_instance(self):
+        from sunstone.env import Environment
+
+        section = object()
+        env = Environment(name="dev", source="user", vars={}, sections={"data-platform": section})
+        assert env.section("data-platform") is section
+
+    def test_section_raises_keyerror_for_unknown(self):
+        from sunstone.env import Environment
+
+        env = Environment(name="dev", source="user", vars={}, sections={})
+        with pytest.raises(KeyError, match="No env section 'missing' on environment 'dev'"):
+            env.section("missing")
+
+    def test_vars_and_sections_are_immutable_after_construction(self):
+        from sunstone.env import Environment
+        from types import MappingProxyType
+
+        env = Environment(name="dev", source="user", vars={"FOO": "bar"}, sections={"plug": object()})
+        assert isinstance(env.vars, MappingProxyType)
+        assert isinstance(env.sections, MappingProxyType)
+        with pytest.raises(TypeError):
+            env.vars["FOO"] = "x"  # type: ignore[index]
+        with pytest.raises(TypeError):
+            env.sections["plug"] = object()  # type: ignore[index]
+
+
+# ---------------------------------------------------------------------------
+# resolve_environment — generic Environment (Task 3)
+# ---------------------------------------------------------------------------
+
+
+class TestResolveEnvironmentGeneric:
+    def _write_user_config(self, tmp_path: Path, body: str) -> Path:
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(body)
+        return cfg
+
+    def test_returns_environment_with_flattened_top_level_keys(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "https://data.dev.example.com"
+            GIT_BRANCH = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.name == "dev"
+        assert env.vars["CATALOG_URL"] == "https://data.dev.example.com"
+        assert env.vars["GIT_BRANCH"] == "main"
+
+    def test_uppercases_and_converts_hyphens_to_underscores(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            "feature-flag" = "yes"
+            lowercase_key = "v"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["FEATURE_FLAG"] == "yes"
+        assert env.vars["LOWERCASE_KEY"] == "v"
+
+    def test_flattens_plugin_namespaced_subtable(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            catalog_url = "https://data.dev.example.com"
+            warehouse = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["DATA_PLATFORM_CATALOG_URL"] == "https://data.dev.example.com"
+        assert env.vars["DATA_PLATFORM_WAREHOUSE"] == "main"
+
+    def test_resolves_op_references_generically(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            s3_secret_key = "op://Engineering/dev/secret"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with patch(
+            "sunstone.env._resolve_op_reference",
+            return_value="resolved-secret",
+        ):
+            env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["DATA_PLATFORM_S3_SECRET_KEY"] == "resolved-secret"
+
+    def test_returns_none_when_no_active_environment(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(tmp_path, "[environments.dev]\n")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(
+            system_config=tmp_path / "missing-system.toml",
+            user_config=cfg,
+            project_config=tmp_path / "missing-project.toml",
+        )
+        assert env is None
+
+    def test_op_resolution_preserves_empty_secret(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            BLANK = "op://Engineering/dev/empty"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with patch("sunstone.env._resolve_op_reference", return_value=""):
+            env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["BLANK"] == ""  # not the original op:// reference
+
+    def test_rejects_nested_subtable_value(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform".nested]
+            deep = "value"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="nested tables"):
+            resolve_environment(user_config=cfg)
+
+    def test_rejects_list_value(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev]
+            TAGS = ["a", "b"]
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="arrays"):
+            resolve_environment(user_config=cfg)
+
+    def test_raises_when_active_env_is_unknown(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "missing"
+
+            [environments.dev]
+            K = "v"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        with pytest.raises(ValueError, match="missing"):
+            resolve_environment(user_config=cfg)
+
+    def test_sunstone_data_env_sets_source_label(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            [environments.dev]
+            CATALOG_URL = "x"
+            """,
+        )
+        monkeypatch.setenv("SUNSTONE_DATA_ENV", "dev")
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.name == "dev"
+        assert env.source == "SUNSTONE_DATA_ENV"
+
+
+# ---------------------------------------------------------------------------
+# _build_sections — typed sections from EnvSectionProviders (Task 4)
+# ---------------------------------------------------------------------------
+
+
+class TestEnvironmentSections:
+    def _write_user_config(self, tmp_path: Path, body: str) -> Path:
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(body)
+        return cfg
+
+    def test_registered_provider_with_matching_subtable_builds_section(self, tmp_path, monkeypatch):
+        from sunstone.plugins import PluginRegistry
+
+        class FakeSection:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class FakeSectionProvider:
+            def env_section_name(self):
+                return "data-platform"
+
+            def env_section_model(self):
+                return FakeSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."data-platform"]
+            catalog_url = "https://data.dev.example.com"
+            warehouse = "main"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        # Patch the registry's getter so resolve_environment picks up our provider.
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[FakeSectionProvider()],
+        ):
+            env = resolve_environment(user_config=cfg)
+
+        assert env is not None
+        section = env.section("data-platform")
+        assert isinstance(section, FakeSection)
+        assert section.kwargs == {
+            "catalog_url": "https://data.dev.example.com",
+            "warehouse": "main",
+        }
+
+    def test_unregistered_subtable_keys_still_flatten(self, tmp_path, monkeypatch):
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."unknown-plugin"]
+            foo = "bar"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert env.vars["UNKNOWN_PLUGIN_FOO"] == "bar"
+        with pytest.raises(KeyError):
+            env.section("unknown-plugin")
+
+    def test_section_validation_error_wraps_with_context(self, tmp_path, monkeypatch):
+        from sunstone.plugins import PluginRegistry
+
+        class StrictSection:
+            def __init__(self, *, required_only: str):
+                self.required_only = required_only
+
+        class StrictProvider:
+            def env_section_name(self):
+                return "strict"
+
+            def env_section_model(self):
+                return StrictSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."strict"]
+            unexpected = "x"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[StrictProvider()],
+        ):
+            with pytest.raises(ValueError, match=r"Environment 'dev' section 'strict':"):
+                resolve_environment(user_config=cfg)
+
+    def test_duplicate_providers_log_warning_and_last_wins(self, tmp_path, monkeypatch, caplog):
+        from sunstone.plugins import PluginRegistry
+
+        class FirstSection:
+            def __init__(self, **kwargs):
+                self.tag = "first"
+                self.kwargs = kwargs
+
+        class SecondSection:
+            def __init__(self, **kwargs):
+                self.tag = "second"
+                self.kwargs = kwargs
+
+        class FirstProvider:
+            def env_section_name(self):
+                return "dup"
+
+            def env_section_model(self):
+                return FirstSection
+
+        class SecondProvider:
+            def env_section_name(self):
+                return "dup"
+
+            def env_section_model(self):
+                return SecondSection
+
+        cfg = self._write_user_config(
+            tmp_path,
+            """
+            active = "dev"
+
+            [environments.dev."dup"]
+            foo = "bar"
+            """,
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        with patch.object(
+            PluginRegistry.get(),
+            "get_env_section_providers",
+            return_value=[FirstProvider(), SecondProvider()],
+        ):
+            with caplog.at_level("WARNING", logger="sunstone.env"):
+                env = resolve_environment(user_config=cfg)
+
+        assert env is not None
+        assert env.section("dup").tag == "second"
+        assert any("Duplicate EnvSectionProvider" in rec.message for rec in caplog.records)
+
+
+class TestLegacyEnvVarOverridesRemoved:
+    """SUNSTONE_DATA_CATALOG_URL / SUNSTONE_DATA_S3_* used to override
+    individual fields on the resolved environment. They are removed; the
+    replacement is to set the bare env var (CATALOG_URL=...) directly or
+    via the section-flattened name (DATA_PLATFORM_CATALOG_URL=...). Real
+    env vars still win over config-file values via Environment.activate().
+    """
+
+    def test_old_overrides_have_no_effect(self, tmp_path, monkeypatch):
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "from-config"
+            """
+        )
+        monkeypatch.setenv("SUNSTONE_DATA_CATALOG_URL", "from-old-override")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        # The old override env var must NOT bleed into resolved vars.
+        assert env.vars["CATALOG_URL"] == "from-config"
+        assert "SUNSTONE_DATA_CATALOG_URL" not in env.vars
+
+
+# ---------------------------------------------------------------------------
+# DataEnvironment deprecation alias (Task 6)
+# ---------------------------------------------------------------------------
+
+
+class TestDataEnvironmentDeprecationAlias:
+    def test_old_name_is_alias_for_environment(self):
+        from sunstone.env import DataEnvironment, Environment
+
+        assert DataEnvironment is Environment
+
+    def test_old_typed_attrs_are_gone(self, tmp_path, monkeypatch):
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            CATALOG_URL = "x"
+            """
+        )
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+        env = resolve_environment(user_config=cfg)
+        assert env is not None
+        assert not hasattr(env, "catalog_url")
+        assert not hasattr(env, "s3_endpoint")
+        assert not hasattr(env, "auth")
+
+
+class TestActivateEnvironmentHelper:
+    def test_module_helper_resolves_and_activates(self, tmp_path, monkeypatch):
+        import sunstone
+
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CATALOG_URL = "https://data.dev.example.com"
+            """
+        )
+        monkeypatch.delenv("MY_CATALOG_URL", raising=False)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(user_config=cfg)
+        assert applied == {"MY_CATALOG_URL": "https://data.dev.example.com"}
+        assert os.environ["MY_CATALOG_URL"] == "https://data.dev.example.com"
+
+    def test_module_helper_returns_empty_dict_when_no_active_env(self, tmp_path, monkeypatch):
+        import sunstone
+
+        empty = tmp_path / "data_platform.toml"
+        empty.write_text("")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(
+            system_config=tmp_path / "missing-sys.toml",
+            user_config=empty,
+            project_config=tmp_path / "missing-prj.toml",
+        )
+        assert applied == {}
+
+    def test_module_helper_does_not_overwrite_real_env_vars(self, tmp_path, monkeypatch):
+        import sunstone
+
+        cfg = tmp_path / "data_platform.toml"
+        cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CATALOG_URL = "from-config"
+            """
+        )
+        monkeypatch.setenv("MY_CATALOG_URL", "from-shell")
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        applied = sunstone.activate_environment(user_config=cfg)
+        assert applied == {}
+        assert os.environ["MY_CATALOG_URL"] == "from-shell"
+
+
+# ---------------------------------------------------------------------------
+# Scoped writes (Task 14)
+# ---------------------------------------------------------------------------
+
+
+class TestScopedWrites:
+    def _write_config(self, path, body):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+
+    def test_add_environment_to_project_scope(self, tmp_path):
+        from sunstone.env import add_environment
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        path = add_environment(
+            "dev",
+            plain={"CATALOG_URL": "https://x"},
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        import tomllib
+
+        with open(prj_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+
+    def test_add_environment_to_system_scope(self, tmp_path):
+        from sunstone.env import add_environment
+
+        sys_cfg = tmp_path / "etc" / "sunstone" / "data_platform.toml"
+        path = add_environment(
+            "dev",
+            plain={"K": "v"},
+            scope="system",
+            system_config=sys_cfg,
+        )
+        assert path == sys_cfg
+
+    def test_update_environment_project_scope_merges(self, tmp_path):
+        from sunstone.env import update_environment
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(
+            prj_cfg,
+            """
+            [environments.dev]
+            EXISTING = "y"
+            """,
+        )
+        path, shadow = update_environment(
+            "dev",
+            plain={"NEW": "z"},
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        assert shadow is None  # project is top of cascade
+
+    def test_unset_environment_keys_project_scope(self, tmp_path):
+        from sunstone.env import unset_environment_keys
+
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(
+            prj_cfg,
+            """
+            [environments.dev]
+            KEEP = "k"
+            DROP = "d"
+            """,
+        )
+        path, removed = unset_environment_keys(
+            "dev",
+            keys=["DROP"],
+            scope="project",
+            project_config=prj_cfg,
+        )
+        assert path == prj_cfg
+        assert removed == 1
+
+    def test_remove_environment_from_system_scope(self, tmp_path):
+        from sunstone.env import remove_environment
+
+        sys_cfg = tmp_path / "etc" / "sunstone" / "data_platform.toml"
+        self._write_config(
+            sys_cfg,
+            """
+            [environments.dev]
+            X = "y"
+            """,
+        )
+        path = remove_environment(
+            "dev",
+            scope="system",
+            system_config=sys_cfg,
+        )
+        assert path == sys_cfg
+        import tomllib
+
+        with open(sys_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert "dev" not in data.get("environments", {})
+
+    def test_unknown_scope_raises(self):
+        from sunstone.env import add_environment
+
+        with pytest.raises(ValueError, match="Unknown scope"):
+            add_environment("dev", plain={"K": "v"}, scope="bogus")
+
+    def test_update_environment_system_scope_warns_project_and_user_shadow(self, tmp_path, monkeypatch):
+        from sunstone.env import update_environment
+
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        usr_cfg = tmp_path / "user" / "data_platform.toml"
+        prj_cfg = tmp_path / ".sunstone" / "data_platform.toml"
+        self._write_config(sys_cfg, '[environments.dev]\nX = "y"\n')
+        self._write_config(usr_cfg, '[environments.dev]\nX = "y"\n')
+        self._write_config(prj_cfg, '[environments.dev]\nX = "y"\n')
+
+        # Patch the auto-discovery so _find_project_config returns prj_cfg.
+        monkeypatch.setattr("sunstone.env._find_project_config", lambda: prj_cfg)
+
+        path, shadow = update_environment(
+            "dev",
+            plain={"NEW": "z"},
+            scope="system",
+            system_config=sys_cfg,
+            user_config=usr_cfg,
+        )
+        assert path == sys_cfg
+        # Project shadows over system; report project path.
+        assert shadow == str(prj_cfg)

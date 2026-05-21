@@ -18,6 +18,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Changed: `BuiltinFormatHandler` and `ParquetFormatHandler` return `Asset` natively; Parquet round-trips full `Metadata` via JSON-LD.
 - Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (closes #67).
 - Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
+- Changed: env config refactored to generic schema with plugin-owned sections; `DataEnvironment` retained as deprecated alias (#68).
+- Added: `sunstone.activate_environment()` helper and `--scope user|project|system` flag on `sunstone env add`/`set`/`unset`/`remove` (#68).
 
 ## [1.11.0] - 2026-05-19
 
@@ -33,8 +35,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Changed: incompatible source licenses now raise `LicenseCompatibilityError` instead of warning.
 - Changed: `sunstone dataset validate` flags non-SPDX license identifiers (`LicenseRef-*` still accepted).
 - Changed: source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage.
-- Fixed: default to `
-` CSV line terminators on Windows for stable data hashes.
+- Fixed: default to `\n` CSV line terminators on Windows for stable data hashes.
 
 ## [1.10.0] - 2026-05-06
 

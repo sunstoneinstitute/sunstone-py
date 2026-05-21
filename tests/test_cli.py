@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import shutil
+import tomllib
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -2141,13 +2142,11 @@ def test_env_add_creates_environment(tmp_path):
                 "env",
                 "add",
                 "dev",
-                "--catalog-url",
-                "http://localhost:19120/api/v1",
-                "--s3-endpoint",
-                "http://localhost:9000",
+                "CATALOG_URL=http://localhost:19120/api/v1",
+                "S3_ENDPOINT=http://localhost:9000",
             ],
         )
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "Added environment 'dev'" in result.output
     config_text = user_config.read_text()
     assert "dev" in config_text
@@ -2172,112 +2171,6 @@ def test_env_remove_deletes_environment(tmp_path):
     assert "Removed environment 'dev'" in result.output
 
 
-def test_env_update_modifies_environment(tmp_path):
-    """sunstone env update modifies an existing environment."""
-    user_config = tmp_path / "user.toml"
-    user_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=None),
-    ):
-        result = runner.invoke(
-            app,
-            [
-                "env",
-                "update",
-                "dev",
-                "--catalog-url",
-                "http://newhost:19120/api/v1",
-            ],
-        )
-    assert result.exit_code == 0
-    assert "Updated environment 'dev'" in result.output
-    config_text = user_config.read_text()
-    assert "http://newhost:19120/api/v1" in config_text
-
-
-def test_env_update_reports_project_scoped_environment(tmp_path):
-    """sunstone env update explains when the env exists only in project config."""
-    user_config = tmp_path / "user.toml"
-    project_config = tmp_path / ".sunstone" / "data_platform.toml"
-    project_config.parent.mkdir(parents=True)
-    project_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=project_config),
-    ):
-        result = runner.invoke(
-            app,
-            [
-                "env",
-                "update",
-                "dev",
-                "--catalog-url",
-                "http://newhost:19120/api/v1",
-            ],
-        )
-    assert result.exit_code == 1
-    assert "defined in project config" in result.output
-
-
-def test_env_update_requires_at_least_one_field(tmp_path):
-    """sunstone env update refuses no-op invocations without rewriting the file."""
-    user_config = tmp_path / "user.toml"
-    original = (
-        "# keep me\n"
-        "[environments.dev]\n"
-        'catalog_url = "http://localhost:19120/api/v1"\n'
-        's3_endpoint = "http://localhost:9000"\n'
-    )
-    user_config.write_text(original)
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=None),
-    ):
-        result = runner.invoke(app, ["env", "update", "dev"])
-    assert result.exit_code == 1
-    assert "No fields to update" in result.output
-    assert user_config.read_text() == original
-
-
-def test_env_update_warns_when_project_config_shadows_user(tmp_path):
-    """sunstone env update warns when project config will shadow the updated user env."""
-    user_config = tmp_path / "user.toml"
-    user_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://user-dev"\ns3_endpoint = "http://localhost:9000"\n'
-    )
-    project_config = tmp_path / ".sunstone" / "data_platform.toml"
-    project_config.parent.mkdir(parents=True)
-    project_config.write_text(
-        '[environments.dev]\ncatalog_url = "http://project-dev"\ns3_endpoint = "http://localhost:9001"\n'
-    )
-
-    runner = CliRunner()
-    with (
-        patch("sunstone.env._SYSTEM_CONFIG", tmp_path / "system.toml"),
-        patch("sunstone.env._USER_CONFIG", user_config),
-        patch("sunstone.env._find_project_config", return_value=project_config),
-    ):
-        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://new-user-dev"])
-    assert result.exit_code == 0
-    assert "Updated environment 'dev'" in result.output
-    assert "project config values will shadow this update" in result.output
-    assert "http://new-user-dev" in user_config.read_text()
-
-
 def test_env_use_reports_write_errors():
     """sunstone env use reports config write failures cleanly."""
     runner = CliRunner()
@@ -2297,10 +2190,7 @@ def test_env_add_reports_write_errors():
                 "env",
                 "add",
                 "dev",
-                "--catalog-url",
-                "http://localhost:19120/api/v1",
-                "--s3-endpoint",
-                "http://localhost:9000",
+                "CATALOG_URL=http://localhost:19120/api/v1",
             ],
         )
     assert result.exit_code == 1
@@ -2316,8 +2206,8 @@ def test_env_remove_reports_write_errors():
     assert "read-only filesystem" in result.output
 
 
-def test_env_update_reports_write_errors(tmp_path):
-    """sunstone env update reports config write failures cleanly."""
+def test_env_set_reports_write_errors(tmp_path):
+    """sunstone env set reports config write failures cleanly."""
     user_config = tmp_path / "user.toml"
     user_config.write_text(
         '[environments.dev]\ncatalog_url = "http://localhost:19120/api/v1"\ns3_endpoint = "http://localhost:9000"\n'
@@ -2330,7 +2220,7 @@ def test_env_update_reports_write_errors(tmp_path):
         patch("sunstone.env._find_project_config", return_value=None),
         patch("sunstone.env._write_config", side_effect=PermissionError("permission denied")),
     ):
-        result = runner.invoke(app, ["env", "update", "dev", "--catalog-url", "http://newhost:19120/api/v1"])
+        result = runner.invoke(app, ["env", "set", "dev", "CATALOG_URL=http://newhost:19120/api/v1"])
     assert result.exit_code == 1
     assert "permission denied" in result.output
 
@@ -2495,3 +2385,514 @@ class TestMigrateHashes:
         assert "content_hash" not in input_entry
         assert input_entry["file_hash"] == f"sha256:{bare_hex}"
         assert "Migrated hashes" in result.output
+
+
+class TestEnvAddGeneric:
+    def _fake_user_config_path(self, monkeypatch, path):
+        # Force _USER_CONFIG to point at our tmp file.
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_env_add_with_plain_keys(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "CATALOG_URL=https://x", "GIT_BRANCH=main"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+        assert data["environments"]["dev"]["GIT_BRANCH"] == "main"
+
+    def test_env_add_with_dotted_keys_creates_subtable(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            [
+                "env",
+                "add",
+                "dev",
+                "data-platform.catalog_url=https://data.dev.example.com",
+                "data-platform.warehouse=main",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["data-platform"]["catalog_url"] == "https://data.dev.example.com"
+        assert env["data-platform"]["warehouse"] == "main"
+
+    def test_env_add_mixed_plain_and_dotted(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "GIT_BRANCH=main", "data-platform.warehouse=main"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["GIT_BRANCH"] == "main"
+        assert env["data-platform"]["warehouse"] == "main"
+
+    def test_env_add_rejects_token_without_equals(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "BARE_KEY_NO_VALUE"])
+        assert result.exit_code == 2
+        assert "BARE_KEY_NO_VALUE" in result.output
+
+    def test_env_add_rejects_existing_without_overwrite(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            EXISTING = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "CATALOG_URL=z"])
+        assert result.exit_code != 0
+        assert "already exists" in result.output.lower()
+
+    def test_env_add_overwrite_replaces_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            OLD_KEY = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--overwrite", "NEW_KEY=z"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env == {"NEW_KEY": "z"}
+
+    def test_env_add_with_no_entries_creates_empty_environment(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {}
+
+
+class TestEnvSet:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_env_set_merges_with_existing_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            GIT_BRANCH = "main"
+
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "set", "dev", "CATALOG_URL=https://x", "data-platform.catalog_url=https://y"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["GIT_BRANCH"] == "main"  # preserved
+        assert env["CATALOG_URL"] == "https://x"  # added
+        assert env["data-platform"]["warehouse"] == "main"  # preserved
+        assert env["data-platform"]["catalog_url"] == "https://y"  # added
+
+    def test_env_set_fails_on_unknown_environment(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "set", "missing", "CATALOG_URL=x"])
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower()
+
+    def test_env_update_command_is_gone(self):
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "update", "--help"])
+        # Typer prints "No such command" or similar; exit code != 0
+        assert result.exit_code != 0
+
+
+class TestEnvUnset:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_unset_removes_top_level_key(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            KEEP = "k"
+            DROP = "d"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "DROP"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env == {"KEEP": "k"}
+
+    def test_unset_dotted_removes_subtable_entry(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            catalog_url = "https://x"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "data-platform.catalog_url"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert env["data-platform"] == {"warehouse": "main"}
+
+    def test_unset_removes_empty_subtable(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "data-platform.warehouse"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        env = data["environments"]["dev"]
+        assert "data-platform" not in env
+
+    def test_unset_unknown_key_is_no_op(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            [environments.dev]
+            KEEP = "k"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "dev", "MISSING"])
+        assert result.exit_code == 0  # silent no-op
+
+    def test_unset_unknown_env_exits_nonzero(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text('[environments.dev]\nKEEP = "k"\n')
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "unset", "staging", "KEEP"])
+        assert result.exit_code == 1
+        assert "staging" in result.output
+        assert "not found" in result.output.lower()
+
+
+class TestEnvShowGeneric:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_show_lists_envs_with_generic_summary(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            GIT_BRANCH = "main"
+
+            [environments.dev."data-platform"]
+            warehouse = "main"
+            catalog_url = "https://data.dev.example.com"
+
+            [environments.prod]
+            GIT_BRANCH = "main"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env"])
+        assert result.exit_code == 0, result.output
+        assert "Active: dev" in result.output
+        assert "dev" in result.output
+        assert "prod" in result.output
+        # Summary mentions section names rather than catalog_url specifically.
+        assert "data-platform" in result.output
+
+
+class TestSummarizeEnvDef:
+    def test_empty(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({}) == "empty"
+
+    def test_plain_keys_singular(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1"}) == "1 key"
+
+    def test_plain_keys_plural(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1", "B": "2"}) == "2 keys"
+
+    def test_sections_only(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"s": {"x": 1}}) == "sections: s"
+
+    def test_mixed(self):
+        from sunstone.cli import _summarize_env_def
+
+        assert _summarize_env_def({"A": "1", "s": {"x": 1}}) == "1 key, sections: s"
+
+    def test_sections_are_sorted(self):
+        from sunstone.cli import _summarize_env_def
+
+        result = _summarize_env_def({"zebra": {"x": 1}, "apple": {"y": 2}})
+        assert result == "sections: apple, zebra"
+
+
+class TestCallbackActivates:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def test_callback_activates_environment_for_non_env_commands(self, tmp_path, monkeypatch):
+        # Smoke test: invoke a non-env subcommand (here `dataset list`); by
+        # the time the callback returns, os.environ should have picked up
+        # the active env vars regardless of the command's own exit status.
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text(
+            """
+            active = "dev"
+
+            [environments.dev]
+            MY_CALLBACK_VAR = "callback-wired"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        # Set then clear to prove the assertion catches the activation
+        # side-effect, not a leftover from a prior test.
+        monkeypatch.setenv("MY_CALLBACK_VAR", "this-should-be-overwritten-or-cleared")
+        monkeypatch.delenv("MY_CALLBACK_VAR", raising=False)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        # `dataset list` (or any non-env command) should trigger activation.
+        # We expect the os.environ side-effect; the command itself may
+        # exit non-zero if the project isn't set up — only the side-effect
+        # matters here.
+        runner.invoke(app, ["dataset", "list"])
+        assert os.environ.get("MY_CALLBACK_VAR") == "callback-wired"
+
+    def test_callback_does_not_break_env_subcommands_when_resolve_fails(self, tmp_path, monkeypatch):
+        """Even if activation would fail, env subcommands must remain usable
+        so the user can fix the config."""
+        user_cfg = tmp_path / "user.toml"
+        # Active env points to one that does not exist — resolve raises.
+        user_cfg.write_text(
+            """
+            active = "missing"
+
+            [environments.dev]
+            X = "y"
+            """
+        )
+        self._fake_user_config_path(monkeypatch, user_cfg)
+        monkeypatch.delenv("SUNSTONE_DATA_ENV", raising=False)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env"])
+        assert result.exit_code != 0 or "missing" in result.output.lower()
+        # `env add` must still succeed (does not call resolve).
+        result_add = runner.invoke(app, ["env", "add", "newenv", "K=v"])
+        assert result_add.exit_code == 0, result_add.output
+
+
+class TestEnvScopeFlag:
+    def _fake_user_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_USER_CONFIG", path, raising=False)
+
+    def _fake_system_config_path(self, monkeypatch, path):
+        import sunstone.env as env_mod
+
+        monkeypatch.setattr(env_mod, "_SYSTEM_CONFIG", path, raising=False)
+
+    def test_env_add_to_project_scope(self, tmp_path, monkeypatch):
+        # Run from inside tmp_path so the auto-discovery falls back to cwd.
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "project", "CATALOG_URL=https://x"],
+        )
+        assert result.exit_code == 0, result.output
+
+        prj_path = tmp_path / ".sunstone" / "data_platform.toml"
+        assert prj_path.exists()
+        with open(prj_path, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["CATALOG_URL"] == "https://x"
+
+    def test_env_add_to_system_scope(self, tmp_path, monkeypatch):
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        self._fake_system_config_path(monkeypatch, sys_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "system", "K=v"],
+        )
+        assert result.exit_code == 0, result.output
+        assert sys_cfg.exists()
+
+    def test_env_set_project_scope_merges_in_project_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        prj_dir = tmp_path / ".sunstone"
+        prj_dir.mkdir()
+        (prj_dir / "data_platform.toml").write_text('[environments.dev]\nA = "1"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "set", "dev", "--scope", "project", "B=2"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(prj_dir / "data_platform.toml", "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {"A": "1", "B": "2"}
+
+    def test_env_unset_project_scope_removes_key(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        prj_dir = tmp_path / ".sunstone"
+        prj_dir.mkdir()
+        (prj_dir / "data_platform.toml").write_text('[environments.dev]\nKEEP = "k"\nDROP = "d"\n')
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "unset", "dev", "--scope", "project", "DROP"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(prj_dir / "data_platform.toml", "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"] == {"KEEP": "k"}
+
+    def test_env_remove_system_scope(self, tmp_path, monkeypatch):
+        sys_cfg = tmp_path / "etc" / "data_platform.toml"
+        sys_cfg.parent.mkdir(parents=True)
+        sys_cfg.write_text('[environments.dev]\nX = "y"\n')
+        self._fake_system_config_path(monkeypatch, sys_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "remove", "dev", "--scope", "system"],
+        )
+        assert result.exit_code == 0, result.output
+
+        with open(sys_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert "dev" not in data.get("environments", {})
+
+    def test_invalid_scope_rejected(self, tmp_path, monkeypatch):
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            app,
+            ["env", "add", "dev", "--scope", "bogus", "K=v"],
+        )
+        assert result.exit_code == 2
+        assert "scope" in result.output.lower()
+
+    def test_default_scope_is_user(self, tmp_path, monkeypatch):
+        # No --scope flag should still write to user config (regression guard).
+        user_cfg = tmp_path / "user.toml"
+        user_cfg.write_text("")
+        self._fake_user_config_path(monkeypatch, user_cfg)
+
+        runner = CliRunner()
+        result = runner.invoke(app, ["env", "add", "dev", "K=v"])
+        assert result.exit_code == 0, result.output
+
+        with open(user_cfg, "rb") as f:
+            data = tomllib.load(f)
+        assert data["environments"]["dev"]["K"] == "v"

@@ -11,6 +11,7 @@ import typer
 from sunstone.plugins import (
     AuthProvider,
     CLIProvider,
+    EnvSectionProvider,
     FormatHandler,
     URLHandler,
     PluginRegistry,
@@ -1041,3 +1042,61 @@ def test_find_store_format_reader_returns_matching_handler(tmp_path):
     handler = registry.find_store_format_reader(loc, format=None)
     assert handler is not None
     assert isinstance(handler, _DirReader)
+
+
+# --- EnvSectionProvider tests ---
+
+
+class FakeEnvSection:
+    """Validated model returned by FakeEnvSectionProvider."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+class FakeEnvSectionProvider:
+    def env_section_name(self):
+        return "fake-platform"
+
+    def env_section_model(self):
+        return FakeEnvSection
+
+
+def test_registry_discovers_env_section_provider():
+
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("fake-section", FakeEnvSectionProvider)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            providers = registry.get_env_section_providers()
+            assert len(providers) == 1
+            assert isinstance(providers[0], EnvSectionProvider)
+            assert providers[0].env_section_name() == "fake-platform"
+            model_cls = providers[0].env_section_model()
+            instance = model_cls(key="val")
+            assert instance.kwargs == {"key": "val"}
+
+
+def test_registry_multi_protocol_with_env_section():
+    """A single plugin can implement EnvSectionProvider plus other protocols."""
+
+    class MultiPlugin:
+        def authenticate(self, url, headers, dataset):
+            return headers
+
+        def env_section_name(self):
+            return "multi"
+
+        def env_section_model(self):
+            return FakeEnvSection
+
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("multi", MultiPlugin)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            assert len(registry.get_auth_providers()) == 1
+            assert len(registry.get_env_section_providers()) == 1
