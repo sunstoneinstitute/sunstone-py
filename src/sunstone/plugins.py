@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -29,6 +30,7 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
+    from .lineage import Metadata
     from .resource import ResourceLocation
 
 _config_yaml = YAML()
@@ -108,6 +110,75 @@ class FormatHandler(Protocol):
     def write(self, payload: object, stream: BinaryIO, **kwargs: object) -> None:
         """Write payload to stream. The payload is either a ``pd.DataFrame``
         (legacy) or a sunstone ``Asset`` (new)."""
+        ...
+
+
+@dataclass
+class SidecarResource:
+    """An external metadata resource (sidecar) to include in a datapackage.
+
+    Returned by ``SidecarMetadataProvider.list_metadata_resources()`` so the
+    packaging layer knows which sidecar files to upload and how to
+    cross-reference them from the data resources.
+    """
+
+    path: Path
+    """Sidecar file path. Relative to the project root for local sidecars,
+    otherwise the URL handler-resolvable path."""
+
+    covers: list[Path]
+    """Data files this sidecar describes."""
+
+    cross_ref_property: str
+    """RDF property URI to add on each covered resource entry, pointing
+    back at this sidecar."""
+
+
+@runtime_checkable
+class SidecarMetadataProvider(Protocol):
+    """Format handlers implement this protocol to declare that the formats
+    they handle can carry sunstone metadata in external sidecar files.
+
+    Orthogonal to ``FormatHandler`` — a handler may implement both. Sidecars
+    are CSV's problem (CSVW being the canonical example); columnar formats
+    such as Parquet/HDF5/Zarr/npz embed metadata in-file and do not need
+    this protocol.
+    """
+
+    def read_metadata(
+        self,
+        data_path: str,
+        url_handler: "URLHandler",
+    ) -> "Metadata | None":
+        """Read external metadata for ``data_path``. Return ``None`` if no
+        sidecar is found."""
+        ...
+
+    def write_metadata(
+        self,
+        data_path: str,
+        metadata: "Metadata",
+        url_handler: "URLHandler",
+        *,
+        target: str | None = None,
+    ) -> str | None:
+        """Write external metadata for ``data_path``.
+
+        ``target=None`` uses the format default sibling sidecar path. A
+        string targets a specific (possibly shared) sidecar — for example
+        a multi-CSV csvm sidecar. Returns the path actually written, or
+        ``None`` when no sidecar was written.
+        """
+        ...
+
+    def list_metadata_resources(
+        self,
+        data_paths: list[str],
+    ) -> list[SidecarResource]:
+        """Return external metadata resources discovered for ``data_paths``,
+        for inclusion in ``datapackage.json``. Implementations must validate
+        that every sidecar covers only paths in ``data_paths`` and raise on
+        mismatch."""
         ...
 
 
