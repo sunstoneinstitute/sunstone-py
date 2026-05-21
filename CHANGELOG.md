@@ -4,34 +4,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: `Asset` envelope (`sunstone.Asset`, `AssetKind`) generalising the plugin protocol from DataFrame-only to tabular/raster/array/tile kinds.
+- Added: Asset envelope — generic format handler protocol supporting non-tabular kinds (raster/array/tile).
 - Added: `sunstone.read()` / `sunstone.write()` top-level entry points returning/accepting `Asset`.
+- Added: `Asset.derive()` for explicit provenance with single- and multi-parent `prov:wasDerivedFrom`.
 - Added: `IRI`, `LangString`, `TypedLiteral` RDF value wrappers (`sunstone.rdf`).
-- Added: `Asset.derive()` for explicit provenance with single- and multi-parent `prov:wasDerivedFrom` recording and transient-parent activity chaining.
 - Added: `StoreFormatHandler` protocol and `ResourceLocation` for store-based formats (tile pyramids, partitioned Parquet, Zarr).
-- Added: `Metadata.identity` URI template field with default `sunstone://<pkg>/<slug>@<version>` materialisation at write time; `Metadata.component_metadata` for per-component metadata across kinds.
-- Added: Mapping sugar on `Metadata` (`m["prefix:term"] = ...`).
-- Changed: `sunstone.DataFrame` is now a thin facade over an `Asset` of `kind=AssetKind.TABULAR`. No behaviour change for existing code.
-- Changed: `FormatHandler.supports_metadata()` split into `supports_native_metadata_extraction()` and `supports_sunstone_metadata_embedding()` (legacy name kept as an alias).
-- Changed: `BuiltinFormatHandler` and `ParquetFormatHandler` return `Asset` natively (protocol v2). Parquet round-trips full `Metadata` via JSON-LD in schema footer.
-- Added: full attribution chain traversal with `get_full_attribution()` and `generate_attribution_statement()`
-- Added: `sunstone lineage attribution` CLI command with text, markdown, and HTML output formats
-- Added: `sunstone.licenses` module with embedded SPDX registry (CC, ODC, CC0/PDDL, common LicenseRef-),
-  `LicenseProperties`, `check_compatibility()`, `get_most_restrictive_license()`, and
-  `LicenseCompatibilityError` (closes #13).
-- Added: per-output `license:` field in `datasets.yaml` (falls back to `package.license`).
-- Added: write-time license compatibility enforcement on `DataFrame.to_csv` / `to_parquet`
-  (default `check_license=True`); raises `LicenseCompatibilityError` with conflict descriptions
-  and suggested compatible target licenses. Pass `license=` to override or persist a target license.
-- Added: `sunstone license check [SLUG]` and `sunstone license list` CLI commands (with `--json`).
-- Changed: `sunstone dataset validate` now flags non-SPDX identifiers in dataset, source, and
-  package license fields (LicenseRef-* identifiers are accepted).
-- Added: `NLOD-1.0`, `NLOD-2.0` (Norwegian Licence for Open Government Data), `CC-BY-3.0-IGO`,
-  and `CC-BY-NC-SA-3.0-IGO` to the embedded license registry — needed for Norwegian government
-  data publishers (Fiskeridirektoratet, Miljødirektoratet) and additional UN/IGO datasets.
-- Added: denormalize `attributedTo` and `license` from input source blocks into output lineage
-  source entries in `datasets.lock.yaml` — makes lineage self-contained for datapackage.json
-  export and cross-project use (closes #15).
+- Added: `Metadata.identity` URI template with default `sunstone://<pkg>/<slug>@<version>` materialisation at write time.
+- Changed: `sunstone.DataFrame` is now a thin facade over an `Asset` of `kind=AssetKind.TABULAR` — no behaviour change.
+- Changed: `BuiltinFormatHandler` and `ParquetFormatHandler` return `Asset` natively; Parquet round-trips full `Metadata` via JSON-LD.
+- Added: `pd.read_json()` wrapper in `sunstone.pandas` for parity with `read_csv`/`read_excel` (closes #67).
+- Fixed: `to_csv()`/`to_parquet()` fall back to session-accumulated sources when the DataFrame has empty lineage (#19).
+
+## [1.11.0] - 2026-05-19
+
+- Added: SPDX license registry and per-output `license:` field with write-time compatibility checks (#13).
+- Added: `sunstone license check` / `sunstone license list` CLI commands (with `--json`).
+- Added: writers auto-derive a missing output license from sources (most restrictive wins).
+- Added: license registry entries for `NLOD-1.0`, `NLOD-2.0`, `CC-BY-3.0-IGO`, and `CC-BY-NC-SA-3.0-IGO`.
+- Added: attribution chain traversal and `sunstone lineage attribution` CLI (text/markdown/HTML) (#15).
+- Added: per-dataset `dialect:` block (delimiter, quoteChar, header) for CSV reads and writes.
+- Added: identity URI template and `component_metadata` for compositional dataset metadata.
+- Added: `Metadata` mapping sugar — `metadata['key']` proxies to `custom_properties`.
+- Added: `docs/formats.md` covering supported formats, metadata strategy, and the CSV dialect block.
+- Changed: incompatible source licenses now raise `LicenseCompatibilityError` instead of warning.
+- Changed: `sunstone dataset validate` flags non-SPDX license identifiers (`LicenseRef-*` still accepted).
+- Changed: source `attributedTo` and `license` denormalized into `datasets.lock.yaml` for self-contained lineage.
+- Fixed: default to `
+` CSV line terminators on Windows for stable data hashes.
 
 ## [1.10.0] - 2026-05-06
 

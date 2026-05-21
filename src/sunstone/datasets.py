@@ -16,6 +16,7 @@ from .lineage import (
     Agent,
     AgentType,
     Contributor,
+    CsvDialect,
     DatasetMetadata,
     EntityRef,
     FieldDerivation,
@@ -37,6 +38,31 @@ _yaml.preserve_quotes = True
 _yaml.default_flow_style = False
 _yaml.width = 4096
 _yaml.indent(mapping=2, sequence=4, offset=2)
+
+
+def _parse_dialect(data: Any) -> Optional[CsvDialect]:
+    """Parse a CSV dialect block from raw YAML data.
+
+    Returns ``None`` if ``data`` is missing or not a mapping. Unknown keys
+    are ignored; missing keys fall back to ``CsvDialect`` defaults so the
+    YAML form ``dialect: {}`` is equivalent to plain pandas behavior.
+    """
+    if not isinstance(data, dict):
+        return None
+    return CsvDialect(
+        delimiter=data.get("delimiter", ","),
+        quote_char=data.get("quoteChar", '"'),
+        header=bool(data.get("header", True)),
+    )
+
+
+def _dialect_to_dict(dialect: CsvDialect) -> dict:
+    """Serialize a ``CsvDialect`` to a plain dict for YAML output."""
+    return {
+        "delimiter": dialect.delimiter,
+        "quoteChar": dialect.quote_char,
+        "header": dialect.header,
+    }
 
 
 def _field_schema_to_dict(field: FieldSchema) -> dict:
@@ -545,6 +571,7 @@ class DatasetsManager:
             "lineage",
             "rdfPrefixes",
             "publish",
+            "dialect",
         }
 
         # Get RDF prefixes with precedence: dataset > top-level > defaults
@@ -663,6 +690,7 @@ class DatasetsManager:
             was_generated_by=was_generated_by,
             generated_at_time=generated_at_time,
             field_derivations=field_derivations_parsed,
+            dialect=_parse_dialect(dataset_data.get("dialect")),
         )
 
     @classmethod
@@ -998,6 +1026,7 @@ class DatasetsManager:
         rdf_prefixes: Optional[Dict[str, str]] = None,
         custom_properties: Optional[Dict[str, Any]] = None,
         license: Optional[str] = None,
+        dialect: Optional[CsvDialect] = None,
     ) -> DatasetMetadata:
         """
         Add a new output dataset to datasets.yaml.
@@ -1032,6 +1061,8 @@ class DatasetsManager:
             dataset_data["license"] = license
         if rdf_prefixes is not None:
             dataset_data["rdfPrefixes"] = rdf_prefixes
+        if dialect is not None:
+            dataset_data["dialect"] = _dialect_to_dict(dialect)
         if custom_properties is not None:
             for key, value in custom_properties.items():
                 dataset_data[key] = value
@@ -1048,6 +1079,7 @@ class DatasetsManager:
         rdf_prefixes: Optional[Dict[str, str]] = None,
         custom_properties: Optional[Dict[str, Any]] = None,
         license: Optional[str] = None,
+        dialect: Optional[CsvDialect] = None,
     ) -> DatasetMetadata:
         """
         Update an existing output dataset.
@@ -1079,6 +1111,8 @@ class DatasetsManager:
                     dataset_data["license"] = license
                 if rdf_prefixes is not None:
                     dataset_data["rdfPrefixes"] = rdf_prefixes
+                if dialect is not None:
+                    dataset_data["dialect"] = _dialect_to_dict(dialect)
                 if custom_properties is not None:
                     for key, value in custom_properties.items():
                         dataset_data[key] = value

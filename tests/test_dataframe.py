@@ -119,6 +119,70 @@ class TestReadExcel:
         assert isinstance(df, sunstone.DataFrame)
 
 
+class TestReadJson:
+    """Tests for reading JSON files."""
+
+    def test_read_json_by_path(self, project_path: Path) -> None:
+        """Test reading a JSON file by path."""
+        df = sunstone.DataFrame.read_json(
+            "inputs/un_member_states_sample.json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert len(df.data.columns) > 0
+        assert len(df.metadata.lineage.sources) > 0
+        assert "Member State" in df.data.columns
+
+    def test_read_json_by_slug(self, project_path: Path) -> None:
+        """Test reading a JSON file by slug."""
+        df = sunstone.DataFrame.read_json(
+            "un-member-states-sample-json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert len(df.metadata.lineage.sources) > 0
+
+    def test_read_json_preserves_lineage(self, project_path: Path) -> None:
+        """Test that read_json tracks lineage correctly."""
+        df = sunstone.DataFrame.read_json(
+            "inputs/un_member_states_sample.json",
+            project_path=project_path,
+            strict=False,
+        )
+
+        assert df.metadata.lineage.sources[0].slug == "un-member-states-sample-json"
+
+    def test_read_json_not_found(self, project_path: Path) -> None:
+        """Test that read_json raises error for unregistered file."""
+        from sunstone.exceptions import DatasetNotFoundError
+
+        with pytest.raises(DatasetNotFoundError):
+            sunstone.DataFrame.read_json(
+                "inputs/nonexistent.json",
+                project_path=project_path,
+                strict=True,
+            )
+
+    def test_read_json_via_pandas_module(self, project_path: Path) -> None:
+        """Test read_json via sunstone.pandas module."""
+        from sunstone import pandas as spd
+
+        df = spd.read_json(
+            "un-member-states-sample-json",
+            project_path=project_path,
+        )
+
+        assert df is not None
+        assert len(df.data) == 5
+        assert isinstance(df, sunstone.DataFrame)
+
+
 class TestDataFrameMerge:
     """Tests for DataFrame merge operations."""
 
@@ -923,3 +987,71 @@ def test_sunstone_dataframe_data_returns_pandas_dataframe():
 
     pdf = pd.DataFrame({"x": [1]})
     assert SDF(pdf).data is pdf
+
+
+class TestCsvDialectEndToEnd:
+    """End-to-end: a registered text/csv dataset with a dialect block is read
+    and written through sunstone's pandas API using that dialect."""
+
+    def _write_project(self, root: Path, dialect_block: str = "") -> Path:
+        (root / "inputs").mkdir()
+        (root / "outputs").mkdir()
+        (root / "inputs" / "semi.csv").write_text("a;b\n1;2\n3;4\n")
+        (root / "datasets.yaml").write_text(
+            f"""
+inputs:
+  - name: Semi
+    slug: semi
+    location: inputs/semi.csv
+    {dialect_block}
+outputs:
+  - name: Semi Out
+    slug: semi-out
+    location: outputs/semi_out.csv
+    {dialect_block}
+    fields:
+      - name: a
+        type: integer
+      - name: b
+        type: integer
+"""
+        )
+        return root
+
+    def test_read_csv_with_dialect_uses_delimiter(self, tmp_path: Path) -> None:
+        project = self._write_project(
+            tmp_path,
+            dialect_block='dialect:\n      delimiter: ";"\n      quoteChar: \'"\'\n      header: true',
+        )
+        df = sunstone.DataFrame.read_csv("semi", project_path=project)
+        assert list(df.data.columns) == ["a", "b"]
+        assert df.data.iloc[0, 0] == 1
+
+    def test_read_csv_without_dialect_defaults_to_comma(self, tmp_path: Path) -> None:
+        """Backwards compatibility: no dialect block → pandas default behavior."""
+        (tmp_path / "inputs").mkdir()
+        (tmp_path / "inputs" / "comma.csv").write_text("a,b\n1,2\n3,4\n")
+        (tmp_path / "datasets.yaml").write_text(
+            """
+inputs:
+  - name: Comma
+    slug: comma
+    location: inputs/comma.csv
+outputs: []
+"""
+        )
+        df = sunstone.DataFrame.read_csv("comma", project_path=tmp_path)
+        assert list(df.data.columns) == ["a", "b"]
+        assert df.data.iloc[0, 0] == 1
+
+    def test_to_csv_with_dialect_uses_delimiter(self, tmp_path: Path) -> None:
+        project = self._write_project(
+            tmp_path,
+            dialect_block='dialect:\n      delimiter: ";"\n      quoteChar: \'"\'\n      header: true',
+        )
+        df = sunstone.DataFrame.read_csv("semi", project_path=project)
+        df.to_csv("outputs/semi_out.csv", index=False)
+
+        # Read raw bytes to verify the delimiter was honored on write
+        written = (project / "outputs" / "semi_out.csv").read_text()
+        assert written == "a;b\n1;2\n3;4\n"

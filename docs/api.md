@@ -258,18 +258,27 @@ Read Excel file and return DataFrame.
 
 ### Instance Methods
 
-#### `to_csv(path, slug, name, **kwargs)`
+#### `to_csv(path, slug, name, *, license=None, check_license=True, track=True, **kwargs)`
 
 Write DataFrame to CSV and register in `datasets.yaml`.
 
 **Parameters:**
 
 - `path` (str | Path): Output file path
-- `slug` (str): Machine-readable identifier
-- `name` (str): Human-readable name
+- `slug` (str | None): Machine-readable identifier (required in relaxed mode if not registered)
+- `name` (str | None): Human-readable name (required in relaxed mode if not registered)
+- `license` (str | None): SPDX license identifier for the output. Persisted to `datasets.yaml` and used as the target for the compatibility check. When omitted, falls back to the dataset's existing `license`, then to `packages[].license` / `package.license`. If still unresolved and source licenses exist, one is auto-derived (inherited from a single source, or the most restrictive license that satisfies all sources) and persisted to `datasets.yaml`.
+- `check_license` (bool): If `True` (default), raise [`LicenseCompatibilityError`](errors.md#licensecompatibilityerror) when the effective target license is incompatible with any source license collected from the current session lineage. Pass `check_license=False` to skip the check (and the auto-derivation).
+- `track` (bool): If `False`, write the CSV directly without lineage tracking, dataset registration, or license enforcement. Useful for tests and exploratory work.
 - `**kwargs`: Arguments passed to `pandas.DataFrame.to_csv()`
 
 **Returns:** None
+
+**Raises:**
+
+- `StrictModeError`: In strict mode, if dataset not registered.
+- `ValueError`: In relaxed mode, if `slug`/`name` not provided for a new dataset.
+- `LicenseCompatibilityError`: If `check_license` is `True` and either (a) the declared target license conflicts with a source license, or (b) no target was declared and the source licenses are mutually incompatible / unverifiable so no default can be derived.
 
 **Example:**
 
@@ -278,7 +287,8 @@ df.to_csv(
     'outputs/summary.csv',
     slug='summary',
     name='Summary Results',
-    index=False
+    license='CC-BY-4.0',
+    index=False,
 )
 ```
 
@@ -286,7 +296,7 @@ df.to_csv(
 
 ---
 
-#### `to_parquet(path, slug, name, **kwargs)`
+#### `to_parquet(path, slug, name, *, license=None, check_license=True, track=True, **kwargs)`
 
 Write DataFrame to Parquet file and register in `datasets.yaml`.
 
@@ -295,10 +305,14 @@ Write DataFrame to Parquet file and register in `datasets.yaml`.
 - `path` (str | Path): Output file path
 - `slug` (str | None): Machine-readable identifier (required in relaxed mode if not registered)
 - `name` (str | None): Human-readable name (required in relaxed mode if not registered)
-- `track` (bool): If False, write without lineage tracking or dataset registration
+- `license` (str | None): SPDX license identifier for the output. Same semantics as `to_csv`'s `license` parameter.
+- `check_license` (bool): If `True` (default), enforce license compatibility against source licenses. See `to_csv`.
+- `track` (bool): If `False`, write without lineage tracking, dataset registration, or license enforcement.
 - `**kwargs`: Arguments passed to `pandas.DataFrame.to_parquet()`
 
 **Returns:** None
+
+**Raises:** Same as `to_csv`.
 
 **Example:**
 
@@ -306,7 +320,8 @@ Write DataFrame to Parquet file and register in `datasets.yaml`.
 df.to_parquet(
     'outputs/summary.parquet',
     slug='summary',
-    name='Summary Results'
+    name='Summary Results',
+    license='CC-BY-4.0',
 )
 ```
 
@@ -1115,6 +1130,154 @@ print(STANDARD_RDF_PREFIXES['si'])
 
 See [RDF Prefixes in datasets.yaml](rdf-prefixes-guide.md#standard-prefixes) for the full table and usage.
 
+## License Compatibility
+
+```python
+from sunstone.licenses import (
+    is_valid_spdx,
+    known_licenses,
+    get_properties,
+    check_compatibility,
+    get_most_restrictive_license,
+    derive_compatible_target,
+    LicenseProperties,
+    LicenseCompatibilityResult,
+    LicenseCompatibilityError,
+)
+```
+
+Programmatic counterparts to the [`sunstone license`](cli.md#license-commands) CLI. The rules engine and embedded registry are documented in [Concepts → License Compatibility](concepts.md#license-compatibility).
+
+---
+
+### `is_valid_spdx(identifier)`
+
+True if `identifier` is a recognised SPDX id, an entry in the embedded registry, or any well-formed `LicenseRef-*` identifier per the SPDX spec. This is the validator used by lint rule `R006`.
+
+**Parameters:**
+
+- `identifier` (str): License identifier to validate.
+
+**Returns:** `bool`
+
+---
+
+### `known_licenses()`
+
+Return every license in the embedded registry, sorted by SPDX identifier.
+
+**Returns:** `list[LicenseProperties]`
+
+---
+
+### `get_properties(identifier)`
+
+Return the `LicenseProperties` for `identifier`, or `None` if it is not in the embedded registry. Returns `None` even for *valid* `LicenseRef-*` ids that are not registered — callers must decide how to treat unknown licenses.
+
+**Parameters:**
+
+- `identifier` (str): SPDX identifier or alias.
+
+**Returns:** `LicenseProperties | None`
+
+---
+
+### `check_compatibility(source_licenses, target_license)`
+
+Check whether `target_license` is compatible with every license in `source_licenses`. This is the function the CLI and the writers' `check_license` enforcement both call.
+
+**Parameters:**
+
+- `source_licenses` (Iterable[str]): SPDX identifiers of source licenses.
+- `target_license` (str): Proposed target license identifier.
+
+**Returns:** `LicenseCompatibilityResult`
+
+**Example:**
+
+```python
+from sunstone.licenses import check_compatibility
+
+result = check_compatibility(
+    source_licenses=["CC-BY-NC-4.0", "CC-BY-4.0"],
+    target_license="CC-BY-4.0",
+)
+if not result.compatible:
+    for conflict in result.conflicts:
+        print(conflict)
+    if result.suggestions:
+        print("Try one of:", result.suggestions)
+```
+
+---
+
+### `get_most_restrictive_license(licenses)`
+
+Return the SPDX identifier of the most restrictive license in `licenses`, or `None` if none of them are registered. Useful for suggesting a target license for a derived dataset.
+
+Ordering, most-to-least restrictive: ShareAlike > NonCommercial > Attribution > Public Domain.
+
+**Parameters:**
+
+- `licenses` (Iterable[str]): SPDX identifiers to compare.
+
+**Returns:** `str | None`
+
+---
+
+### `derive_compatible_target(source_licenses)`
+
+Derive a target license that satisfies every source. Used by the writers to auto-assign an output license when none has been declared:
+
+- A single unique source license is returned as-is (the output inherits it).
+- Multiple unique source licenses produce the most restrictive registry license that satisfies every source.
+- Returns `None` when no compatible target exists — mutually incompatible ShareAlike families, or unknown identifiers among multiple sources that prevent verification.
+
+**Parameters:**
+
+- `source_licenses` (Iterable[str]): SPDX identifiers of source licenses.
+
+**Returns:** `str | None`
+
+---
+
+### `LicenseProperties`
+
+Frozen dataclass describing a license in the registry.
+
+**Attributes:**
+
+- `spdx` (str): SPDX identifier (e.g. `'CC-BY-4.0'`).
+- `name` (str): Human-readable name.
+- `public_domain` (bool): True for CC0, PDDL, and similar — compatible with everything.
+- `attribution` (bool): Downstream users must credit the source.
+- `share_alike` (bool): Derivatives must use the same (same-family) license.
+- `non_commercial` (bool): Commercial use is forbidden downstream.
+- `family` (str | None): ShareAlike family identifier — only same-family SA licenses are mutually compatible.
+- `aliases` (tuple[str, ...]): Alternate identifiers (case-insensitive) that map to this license.
+
+---
+
+### `LicenseCompatibilityResult`
+
+Outcome of a `check_compatibility` call.
+
+**Attributes:**
+
+- `target` (str): The proposed target license identifier.
+- `sources` (list[str]): Source identifiers considered (deduplicated, preserving order).
+- `compatible` (bool): True if `target` satisfies every source's downstream requirements.
+- `conflicts` (list[str]): Human-readable conflict descriptions; empty when `compatible` is `True`.
+- `suggestions` (list[str]): Target licenses that *would* satisfy every known source (best-effort).
+- `unknown_sources` (list[str]): Source identifiers not present in the registry — excluded from the rule check.
+- `unknown_target` (bool): True if `target` is not in the registry; the result then carries a conflict explaining that compatibility could not be verified.
+
+---
+
+### `LicenseCompatibilityError`
+
+Subclass of [`SunstoneError`](#sunstoneerror). Raised by `to_csv()` / `to_parquet()` when `check_license=True` and the effective target license conflicts with a source license. See [Error handling → `LicenseCompatibilityError`](errors.md#licensecompatibilityerror) for the recovery pattern.
+
 ## Exceptions
 
 ```python
@@ -1123,8 +1286,9 @@ from sunstone.exceptions import (
     DatasetNotFoundError,
     StrictModeError,
     DatasetValidationError,
-    LineageError
+    LineageError,
 )
+from sunstone.licenses import LicenseCompatibilityError
 ```
 
 ### `SunstoneError`

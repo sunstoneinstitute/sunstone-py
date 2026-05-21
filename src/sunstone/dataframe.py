@@ -13,7 +13,7 @@ import pandas as pd
 from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
-from .lineage import FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
 
 if TYPE_CHECKING:
     from .asset import Asset
@@ -278,12 +278,19 @@ class DataFrame:
     ) -> None:
         """Check the proposed write against source licenses.
 
+        When no target license is declared, auto-derives one from the source
+        licenses (the single source's license, or the most restrictive license
+        that satisfies every source) and persists it to the output dataset.
+
         Raises :class:`LicenseCompatibilityError` if the target license is
-        incompatible with any source license collected from the current session.
-        Warns if there are source licenses to check but no target license
-        could be determined.
+        incompatible with any source license — or if no compatible default
+        can be derived (e.g., mutually incompatible ShareAlike families).
         """
-        from .licenses import LicenseCompatibilityError, check_compatibility
+        from .licenses import (
+            LicenseCompatibilityError,
+            check_compatibility,
+            derive_compatible_target,
+        )
         from .session import get_session
 
         source_slugs = get_session().current_source_slugs()
@@ -303,15 +310,18 @@ class DataFrame:
             return
 
         if target_license is None:
-            warnings.warn(
-                f"Output '{dataset_slug}' has source datasets with declared licenses "
-                f"({source_licenses}) but no target license is declared "
-                f"(set 'license:' on the dataset, on a package, or pass license= to the writer). "
-                f"Skipping license compatibility check.",
-                UserWarning,
-                stacklevel=3,
-            )
-            return
+            derived = derive_compatible_target(source_licenses)
+            if derived is None:
+                unique = sorted(set(source_licenses))
+                raise LicenseCompatibilityError(
+                    f"Output '{dataset_slug}' has source datasets with licenses "
+                    f"{unique} but no compatible default license can be derived "
+                    f"(mutually incompatible or contains unknown identifiers). "
+                    f"Set 'license:' on the dataset, on a package, or pass "
+                    f"license= to the writer."
+                )
+            manager.update_output_dataset(slug=dataset_slug, license=derived)
+            target_license = derived
 
         result = check_compatibility(source_licenses, target_license)
         if result.compatible:
@@ -419,7 +429,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            result = format_handler.read(stream, format=format, path=location, **kwargs)
+            result = format_handler.read(
+                stream,
+                format=format,
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
         # Handlers may return either a bare DataFrame (legacy) or an Asset (v2+).
         from .asset import Asset as _Asset
 
@@ -584,7 +600,13 @@ class DataFrame:
             raise ValueError(f"No URL handler found for '{location}'")
 
         with url_handler.open(location, "rb") as stream:
-            result = format_handler.read(stream, format="csv", path=location, **kwargs)
+            result = format_handler.read(
+                stream,
+                format="csv",
+                path=location,
+                dialect=dataset.dialect,
+                **kwargs,
+            )
         from .asset import Asset as _Asset
 
         df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
@@ -719,6 +741,123 @@ class DataFrame:
         # Return wrapped DataFrame
         return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
 
+    @classmethod
+    def read_json(
+        cls,
+        filepath_or_buffer: Union[str, Path],
+        project_path: Optional[Union[str, Path]] = None,
+        strict: Optional[bool] = None,
+        fetch_from_url: bool = True,
+        **kwargs: Any,
+    ) -> "DataFrame":
+        """
+        Read a JSON file into a Sunstone DataFrame.
+
+        The file must be registered in datasets.yaml, otherwise this will fail
+        (or in relaxed mode, register it automatically).
+
+        Args:
+            filepath_or_buffer: Path to JSON file or dataset slug.
+                              If it's a slug (e.g., 'my-json-data'),
+                              the dataset will be looked up in datasets.yaml.
+            project_path: Path to project directory containing datasets.yaml.
+            strict: Whether to operate in strict mode.
+            fetch_from_url: If True and dataset has a source URL but no local file,
+                          automatically fetch from URL.
+            **kwargs: Additional arguments passed to pandas.read_json.
+
+        Returns:
+            A new Sunstone DataFrame with lineage metadata.
+
+        Raises:
+            DatasetNotFoundError: In strict mode, if dataset not found in datasets.yaml.
+            FileNotFoundError: If datasets.yaml doesn't exist.
+
+        Examples:
+            >>> # Load by slug
+            >>> df = DataFrame.read_json('my-json-data', project_path='/path/to/project')
+            >>>
+            >>> # Load by file path
+            >>> df = DataFrame.read_json('inputs/data.json', project_path='/path/to/project')
+        """
+        location = str(filepath_or_buffer)
+
+        # Determine if this is a slug or a file path
+        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+
+        if is_slug:
+            return cls.read_dataset(
+                slug=location,
+                project_path=project_path,
+                strict=strict,
+                fetch_from_url=fetch_from_url,
+                format="json",
+                **kwargs,
+            )
+
+        # File path - handle with original logic
+        if project_path is None:
+            project_path = get_project_path()
+
+        manager = DatasetsManager(project_path)
+
+        # Look up by location
+        dataset = manager.find_dataset_by_location(location)
+        if dataset is None:
+            if strict or (strict is None and cls._get_default_strict_mode()):
+                raise DatasetNotFoundError(
+                    f"Dataset at '{location}' not found in datasets.yaml. "
+                    f"In strict mode, all datasets must be registered."
+                )
+            else:
+                raise DatasetNotFoundError(
+                    f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
+                )
+
+        # Use the requested location
+        absolute_path = manager.get_absolute_path(location)
+
+        # If file doesn't exist and we have a source URL, fetch it
+        if not absolute_path.exists() and fetch_from_url:
+            if dataset.source and dataset.source.location.data:
+                absolute_path = manager.fetch_from_url(dataset)
+            else:
+                raise FileNotFoundError(
+                    f"File not found: {absolute_path}\nDataset '{dataset.slug}' has no source URL to fetch from."
+                )
+
+        # Read via format handler registry
+        from .plugins import PluginRegistry
+
+        registry = PluginRegistry.get(manager.project_path)
+        location = str(absolute_path)
+        format_handler = registry.find_format_reader(location, "json")
+        if format_handler is None:
+            raise ValueError("No format handler found for JSON files")
+
+        url_handler = registry.find_url_handler(location)
+        if url_handler is None:
+            raise ValueError(f"No URL handler found for '{location}'")
+
+        with url_handler.open(location, "rb") as stream:
+            result = format_handler.read(stream, format="json", path=location, **kwargs)
+        from .asset import Asset as _Asset
+
+        df = cast(pd.DataFrame, result.payload if isinstance(result, _Asset) else result)
+
+        # Create lineage metadata
+        metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.add_source(dataset)
+        metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
+
+        # Record read in lineage session
+        from .session import DatasetRead, get_session
+
+        get_session().record_read(DatasetRead(slug=dataset.slug))
+
+        # Return wrapped DataFrame
+        return cls(data=df, metadata=metadata, strict=strict, project_path=project_path)
+
     @staticmethod
     def _get_default_strict_mode() -> bool:
         """Get the default strict mode from environment variable."""
@@ -726,7 +865,7 @@ class DataFrame:
         return env_strict in ("1", "true")
 
     # Sunstone-specific kwargs that should not be passed to pandas
-    _SUNSTONE_KWARGS = {"publish", "transformation_params"}
+    _SUNSTONE_KWARGS = {"publish", "transformation_params", "sources"}
 
     def to_csv(
         self,
@@ -738,6 +877,7 @@ class DataFrame:
         track: bool = True,
         license: Optional[str] = None,
         check_license: bool = True,
+        sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -846,12 +986,13 @@ class DataFrame:
         url_handler = registry.find_url_handler(location)
         format_writer = registry.find_format_writer(location, None)
 
+        dialect = dataset.dialect if dataset is not None else None
         if url_handler and format_writer:
             with url_handler.open(location, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         elif format_writer:
             with open(absolute_path, "wb") as stream:
-                format_writer.write(self.data, stream, format=None, path=location, **pandas_kwargs)
+                format_writer.write(self.data, stream, format=None, path=location, dialect=dialect, **pandas_kwargs)
         else:
             self.data.to_csv(absolute_path, **pandas_kwargs)
 
@@ -864,10 +1005,23 @@ class DataFrame:
         session = get_session()
         lineage_data = session.flush_to_output(transformation_params=transformation_params)
 
+        # Resolve effective lineage sources:
+        # 1. Explicit sources= parameter takes priority
+        # 2. DataFrame's own lineage sources (from read/merge/concat)
+        # 3. Fall back to session-accumulated sources (when sources is None)
+        effective_lineage = self.metadata.lineage
+        if sources is not None:
+            effective_lineage.sources = list(sources)
+        elif not effective_lineage.sources and lineage_data.get("sources"):
+            for src in lineage_data["sources"]:
+                src_dataset = manager.find_dataset_by_slug(src["slug"])
+                if src_dataset:
+                    effective_lineage.add_source(src_dataset)
+
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.metadata.lineage,
+            lineage=effective_lineage,
             data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),
@@ -885,6 +1039,7 @@ class DataFrame:
         track: bool = True,
         license: Optional[str] = None,
         check_license: bool = True,
+        sources: Optional[List[DatasetMetadata]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -1024,10 +1179,23 @@ class DataFrame:
         session = get_session()
         lineage_data = session.flush_to_output(transformation_params=transformation_params)
 
+        # Resolve effective lineage sources:
+        # 1. Explicit sources= parameter takes priority
+        # 2. DataFrame's own lineage sources (from read/merge/concat)
+        # 3. Fall back to session-accumulated sources (when sources is None)
+        effective_lineage = self.metadata.lineage
+        if sources is not None:
+            effective_lineage.sources = list(sources)
+        elif not effective_lineage.sources and lineage_data.get("sources"):
+            for src in lineage_data["sources"]:
+                src_dataset = manager.find_dataset_by_slug(src["slug"])
+                if src_dataset:
+                    effective_lineage.add_source(src_dataset)
+
         # Persist lineage metadata to datasets.yaml
         manager.update_output_lineage(
             slug=dataset.slug,
-            lineage=self.metadata.lineage,
+            lineage=effective_lineage,
             data_hash=data_hash,
             strict=self.strict_mode,
             context=lineage_data.get("context"),

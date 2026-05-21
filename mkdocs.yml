@@ -31,6 +31,9 @@ extra:
     provider: mike
     default: latest
 
+hooks:
+  - mkdocs_hooks.py
+
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
@@ -48,6 +51,7 @@ nav:
       - Quick Start: quickstart.md
       - CLI Guide: cli.md
       - Core Concepts: concepts.md
+      - File Formats: formats.md
   - Data Kinds:
       - pandas: pandas.md
       - polars: polars.md

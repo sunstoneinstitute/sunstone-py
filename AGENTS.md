@@ -174,7 +174,20 @@ but formatted like this:
 `<one-liner>` is a single sentence (preferrably) describing something that's changelog-worthy
 
 **IMPORTANT**: every time you make a commit, consider whether the change is changelog-worthy, and
-if so add an entry to the "[Unreleased]" section of CHANGELOG.md.
+if so add an entry to the "[Unreleased]" section of CHANGELOG.md. The changelog is meant for
+users, so housekeeping changes (CI, agent instructions, readme, etc) should not go in there.
+
+##### Updating CHANGELOG.md
+
+**Keep it tight.** Each entry is one short line — ideally under ~140 characters. Write for a
+user skimming the release page, not for an engineer who wants the full story. Rules:
+
+- One line, one sentence. No subclauses piling up rationale, mechanism, edge cases, and follow-ups.
+- Lead with the user-visible change. Skip implementation detail (file paths, internal flags,
+  "now patches X at package time") unless it changes how the user interacts with the thing.
+- If an existing `[Unreleased]` entry is verbose, rewrite it — don't just copy it forward.
+- Details belong in commit messages, `docs/`, `CONTRIBUTORS.md`, etc. The changelog may point
+  at them, it doesn't replace them.
 
 #### Make a Release
 
