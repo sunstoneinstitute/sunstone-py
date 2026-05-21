@@ -231,6 +231,12 @@ class PluginRegistry:
         # these in the TabularDataFrameAdapter, which conforms to the wider
         # Protocol exactly.
         self._format_handlers.append(ParquetFormatHandler())  # type: ignore[arg-type]
+        try:
+            from .handlers_npz import NpzFormatHandler
+
+            self._format_handlers.append(NpzFormatHandler())  # type: ignore[arg-type]
+        except ImportError:
+            pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         self._url_handlers.append(HttpURLHandler())
         # LocalFileHandler is always present (registered in __init__)
