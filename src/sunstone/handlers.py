@@ -13,14 +13,14 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Callable, Literal, TextIO, cast
 from urllib.parse import urljoin, urlparse
 
 if TYPE_CHECKING:
+    import pandas as pd  # for type annotations only
+
     from .asset import Asset
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
 from sunstone.lineage import CsvDialect
 from sunstone.ssrf import is_public_url
-
-import pandas as pd
 
 
 def _apply_csv_dialect_read(kwargs: dict, dialect: CsvDialect | None) -> dict:
@@ -67,18 +67,34 @@ _EXTENSION_MAP: dict[str, str] = {
     ".txt": "tsv",
 }
 
-# Format string -> pandas reader function
-_READER_MAP: dict[str, Callable[..., pd.DataFrame]] = {
-    "csv": pd.read_csv,
-    "json": pd.read_json,
-    "excel": pd.read_excel,
-    "tsv": lambda path, **kw: pd.read_csv(path, sep="\t", **kw),
-}
+# Format strings supported for reads (kept module-level so existence checks
+# don't drag pandas in). The actual reader callables are resolved lazily by
+# ``_get_reader`` below to keep ``import sunstone.handlers`` free of pandas.
+_READER_FORMATS: frozenset[str] = frozenset({"csv", "json", "excel", "tsv"})
 
 # Format string -> pandas writer method name on DataFrame
 _WRITER_MAP: dict[str, str] = {
     "csv": "to_csv",
 }
+
+
+def _get_reader(fmt: str) -> Callable[..., "pd.DataFrame"]:
+    """Resolve a pandas reader callable lazily.
+
+    Importing pandas costs ~400 ms; pushing it behind a function keeps
+    ``import sunstone.handlers`` cheap for callers that never actually read.
+    """
+    import pandas as _pd
+
+    if fmt == "csv":
+        return _pd.read_csv
+    if fmt == "json":
+        return _pd.read_json
+    if fmt == "excel":
+        return _pd.read_excel
+    if fmt == "tsv":
+        return lambda path, **kw: _pd.read_csv(path, sep="\t", **kw)
+    raise KeyError(fmt)
 
 
 class BuiltinFormatHandler:
@@ -110,7 +126,7 @@ class BuiltinFormatHandler:
     def _resolve_format(self, path: str, format: str | None) -> str | None:
         """Resolve a format string from explicit format or file extension."""
         if format is not None:
-            return format if format in _READER_MAP or format in _WRITER_MAP else None
+            return format if format in _READER_FORMATS or format in _WRITER_MAP else None
         # Extract extension from path or URL
         parsed = urlparse(path)
         file_path = parsed.path if parsed.scheme else path
@@ -119,7 +135,7 @@ class BuiltinFormatHandler:
 
     def can_read(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
-        return fmt is not None and fmt in _READER_MAP
+        return fmt is not None and fmt in _READER_FORMATS
 
     def _read_to_dataframe(self, stream: BinaryIO | Path, **kwargs: object) -> pd.DataFrame:
         fmt = kwargs.pop("format", None)
@@ -134,7 +150,7 @@ class BuiltinFormatHandler:
             fmt = "csv"  # safe default
         if fmt == "csv" and isinstance(dialect, CsvDialect):
             kwargs = _apply_csv_dialect_read(kwargs, dialect)
-        reader = _READER_MAP[str(fmt)]
+        reader = _get_reader(str(fmt))
         return reader(stream, **kwargs)
 
     def read(self, stream: BinaryIO | Path, **kwargs: object) -> "Asset":
@@ -242,6 +258,7 @@ class ParquetFormatHandler:
     def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
         import json as _json
 
+        import pandas as pd
         import pyarrow as pa  # type: ignore[import-untyped]
         import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
