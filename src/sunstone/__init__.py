@@ -23,76 +23,35 @@ Example:
     ...     name='Filtered School Counts',
     ...     index=False
     ... )
+
+The public surface (classes, helpers, submodules) is imported lazily via PEP 562
+``__getattr__``. ``import sunstone`` is cheap; pandas, pyarrow, numpy, etc. are
+only loaded when an attribute that needs them is actually accessed.
 """
 
-from .asset import Asset, AssetKind
-from .component import ComponentSchema
-from .config import (
-    clear_project_path,
-    get_project_path,
-    set_project_path,
-    use_project_path,
-)
-from .dataframe import DataFrame
-from .datasets import DatasetsManager
-from .errors import IncompatibleAssetKindError
-from .exceptions import (
-    DatasetNotFoundError,
-    DatasetValidationError,
-    LineageError,
-    StrictModeError,
-    SunstoneError,
-    UnitError,
-)
-from .rdf import IRI, LangString, TypedLiteral
-from .lineage import (
-    Activity,
-    ActivityRef,
-    Agent,
-    AgentType,
-    Contributor,
-    DatasetMetadata,
-    EntityRef,
-    FieldDerivation,
-    FieldSchema,
-    LineageMetadata,
-    Metadata,
-    PackageMetadata,
-    Source,
-    SourceLocation,
-    UsageRecord,
-)
+from __future__ import annotations
 
-# Plugin system
-from .plugins import AuthProvider, CLIProvider, FormatHandler, PluginRegistry, URLHandler
+import importlib
+from typing import TYPE_CHECKING, Any
 
-# Environment config
-from .env import DataEnvironment, Environment, activate_environment, resolve_environment
-
-# Packaging (library functions for building and pushing data packages)
-from . import packaging
-
-# Import pandas module for pd-like interface
-from . import pandas
-
-# Import errors module (re-exports pandas.errors)
-from . import errors
-
-# Import validation utilities
-from .validation import (
-    ImportCheckResult,
-    check_notebook_imports,
-    check_script_imports,
-    validate_project_notebooks,
-)
-
-# Linter
-from .lint import LintReport, Severity as LintSeverity, Violation, lint_project
-
-# Lineage tracking modules
-from .context import ExecutionContext, detect_execution_context
-from .queries import LineageNode, display_lineage, get_upstream, lineage_to_dict
-from .session import DatasetRead, LineageSession, close_session, get_session
+# Standard RDF and DCAT prefixes for automatic type properties.
+# Eager because the dict is cheap and frequently consulted by the CLI.
+STANDARD_RDF_PREFIXES = {
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "dct": "http://purl.org/dc/terms/",
+    "dwc": "http://rs.tdwg.org/dwc/terms/",
+    "gtio-i": "https://sunstone.institute/rdf/gtio/0.3/interventions#",
+    "gtio-t": "https://sunstone.institute/rdf/gtio/0.3/threats#",
+    "prov": "http://www.w3.org/ns/prov#",
+    "qudt": "http://qudt.org/schema/qudt/",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "schema": "http://schema.org/",
+    "si": "https://sunstone.institute/rdf/vocab#",
+    "si30": "https://sunstone.institute/rdf/threat/",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "sosa": "http://www.w3.org/ns/sosa/",
+}
 
 
 def read(
@@ -224,23 +183,185 @@ def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object)
     raise ValueError(f"No handler for path={path!r} format={format!r}")
 
 
-# Standard RDF and DCAT prefixes for automatic type properties
-STANDARD_RDF_PREFIXES = {
-    "dcat": "http://www.w3.org/ns/dcat#",
-    "dct": "http://purl.org/dc/terms/",
-    "dwc": "http://rs.tdwg.org/dwc/terms/",
-    "gtio-i": "https://sunstone.institute/rdf/gtio/0.3/interventions#",
-    "gtio-t": "https://sunstone.institute/rdf/gtio/0.3/threats#",
-    "prov": "http://www.w3.org/ns/prov#",
-    "qudt": "http://qudt.org/schema/qudt/",
-    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-    "schema": "http://schema.org/",
-    "si": "https://sunstone.institute/rdf/vocab#",
-    "si30": "https://sunstone.institute/rdf/threat/",
-    "skos": "http://www.w3.org/2004/02/skos/core#",
-    "sosa": "http://www.w3.org/ns/sosa/",
+# --- Lazy attribute machinery (PEP 562) -------------------------------------
+# Map of public attribute -> (submodule, attribute in submodule). Resolved on
+# first access via ``__getattr__``; the result is cached in this module's
+# globals so subsequent accesses are direct.
+_LAZY_ATTRS: dict[str, tuple[str, str]] = {
+    # Asset envelope
+    "Asset": ("sunstone.asset", "Asset"),
+    "AssetKind": ("sunstone.asset", "AssetKind"),
+    # Component
+    "ComponentSchema": ("sunstone.component", "ComponentSchema"),
+    # Project-path configuration
+    "clear_project_path": ("sunstone.config", "clear_project_path"),
+    "get_project_path": ("sunstone.config", "get_project_path"),
+    "set_project_path": ("sunstone.config", "set_project_path"),
+    "use_project_path": ("sunstone.config", "use_project_path"),
+    # DataFrame and datasets manager
+    "DataFrame": ("sunstone.dataframe", "DataFrame"),
+    "DatasetsManager": ("sunstone.datasets", "DatasetsManager"),
+    # Errors (sunstone-specific)
+    "IncompatibleAssetKindError": ("sunstone.errors", "IncompatibleAssetKindError"),
+    # Exceptions
+    "DatasetNotFoundError": ("sunstone.exceptions", "DatasetNotFoundError"),
+    "DatasetValidationError": ("sunstone.exceptions", "DatasetValidationError"),
+    "LineageError": ("sunstone.exceptions", "LineageError"),
+    "StrictModeError": ("sunstone.exceptions", "StrictModeError"),
+    "SunstoneError": ("sunstone.exceptions", "SunstoneError"),
+    "UnitError": ("sunstone.exceptions", "UnitError"),
+    # RDF types
+    "IRI": ("sunstone.rdf", "IRI"),
+    "LangString": ("sunstone.rdf", "LangString"),
+    "TypedLiteral": ("sunstone.rdf", "TypedLiteral"),
+    # Lineage
+    "Activity": ("sunstone.lineage", "Activity"),
+    "ActivityRef": ("sunstone.lineage", "ActivityRef"),
+    "Agent": ("sunstone.lineage", "Agent"),
+    "AgentType": ("sunstone.lineage", "AgentType"),
+    "Contributor": ("sunstone.lineage", "Contributor"),
+    "DatasetMetadata": ("sunstone.lineage", "DatasetMetadata"),
+    "EntityRef": ("sunstone.lineage", "EntityRef"),
+    "FieldDerivation": ("sunstone.lineage", "FieldDerivation"),
+    "FieldSchema": ("sunstone.lineage", "FieldSchema"),
+    "LineageMetadata": ("sunstone.lineage", "LineageMetadata"),
+    "Metadata": ("sunstone.lineage", "Metadata"),
+    "PackageMetadata": ("sunstone.lineage", "PackageMetadata"),
+    "Source": ("sunstone.lineage", "Source"),
+    "SourceLocation": ("sunstone.lineage", "SourceLocation"),
+    "UsageRecord": ("sunstone.lineage", "UsageRecord"),
+    # Plugin system
+    "AuthProvider": ("sunstone.plugins", "AuthProvider"),
+    "CLIProvider": ("sunstone.plugins", "CLIProvider"),
+    "FormatHandler": ("sunstone.plugins", "FormatHandler"),
+    "PluginRegistry": ("sunstone.plugins", "PluginRegistry"),
+    "URLHandler": ("sunstone.plugins", "URLHandler"),
+    # Environment config
+    "DataEnvironment": ("sunstone.env", "DataEnvironment"),
+    "Environment": ("sunstone.env", "Environment"),
+    "activate_environment": ("sunstone.env", "activate_environment"),
+    "resolve_environment": ("sunstone.env", "resolve_environment"),
+    # Validation
+    "ImportCheckResult": ("sunstone.validation", "ImportCheckResult"),
+    "check_notebook_imports": ("sunstone.validation", "check_notebook_imports"),
+    "check_script_imports": ("sunstone.validation", "check_script_imports"),
+    "validate_project_notebooks": ("sunstone.validation", "validate_project_notebooks"),
+    # Linter
+    "LintReport": ("sunstone.lint", "LintReport"),
+    "LintSeverity": ("sunstone.lint", "Severity"),
+    "Violation": ("sunstone.lint", "Violation"),
+    "lint_project": ("sunstone.lint", "lint_project"),
+    # Context / queries / session
+    "ExecutionContext": ("sunstone.context", "ExecutionContext"),
+    "detect_execution_context": ("sunstone.context", "detect_execution_context"),
+    "LineageNode": ("sunstone.queries", "LineageNode"),
+    "display_lineage": ("sunstone.queries", "display_lineage"),
+    "get_upstream": ("sunstone.queries", "get_upstream"),
+    "lineage_to_dict": ("sunstone.queries", "lineage_to_dict"),
+    "DatasetRead": ("sunstone.session", "DatasetRead"),
+    "LineageSession": ("sunstone.session", "LineageSession"),
+    "close_session": ("sunstone.session", "close_session"),
+    "get_session": ("sunstone.session", "get_session"),
 }
+
+# Submodules exposed via attribute access (`sunstone.<name>`).
+_LAZY_SUBMODULES: frozenset[str] = frozenset({"errors", "packaging", "pandas"})
+
+
+if TYPE_CHECKING:
+    # Eager-looking imports for the benefit of type checkers and IDEs. These
+    # statements are never executed at runtime; they only inform static
+    # analysis about the surface available on the `sunstone` namespace.
+    from . import errors, packaging, pandas  # noqa: F401
+    from .asset import Asset, AssetKind  # noqa: F401
+    from .component import ComponentSchema  # noqa: F401
+    from .config import (  # noqa: F401
+        clear_project_path,
+        get_project_path,
+        set_project_path,
+        use_project_path,
+    )
+    from .context import ExecutionContext, detect_execution_context  # noqa: F401
+    from .dataframe import DataFrame  # noqa: F401
+    from .datasets import DatasetsManager  # noqa: F401
+    from .env import (  # noqa: F401
+        DataEnvironment,
+        Environment,
+        activate_environment,
+        resolve_environment,
+    )
+    from .errors import IncompatibleAssetKindError  # noqa: F401
+    from .exceptions import (  # noqa: F401
+        DatasetNotFoundError,
+        DatasetValidationError,
+        LineageError,
+        StrictModeError,
+        SunstoneError,
+        UnitError,
+    )
+    from .lineage import (  # noqa: F401
+        Activity,
+        ActivityRef,
+        Agent,
+        AgentType,
+        Contributor,
+        DatasetMetadata,
+        EntityRef,
+        FieldDerivation,
+        FieldSchema,
+        LineageMetadata,
+        Metadata,
+        PackageMetadata,
+        Source,
+        SourceLocation,
+        UsageRecord,
+    )
+    from .lint import LintReport, Severity as LintSeverity, Violation, lint_project  # noqa: F401
+    from .plugins import (  # noqa: F401
+        AuthProvider,
+        CLIProvider,
+        FormatHandler,
+        PluginRegistry,
+        URLHandler,
+    )
+    from .queries import (  # noqa: F401
+        LineageNode,
+        display_lineage,
+        get_upstream,
+        lineage_to_dict,
+    )
+    from .rdf import IRI, LangString, TypedLiteral  # noqa: F401
+    from .session import (  # noqa: F401
+        DatasetRead,
+        LineageSession,
+        close_session,
+        get_session,
+    )
+    from .validation import (  # noqa: F401
+        ImportCheckResult,
+        check_notebook_imports,
+        check_script_imports,
+        validate_project_notebooks,
+    )
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_ATTRS:
+        mod_name, attr = _LAZY_ATTRS[name]
+        module = importlib.import_module(mod_name)
+        value = getattr(module, attr)
+        globals()[name] = value
+        return value
+    if name in _LAZY_SUBMODULES:
+        module = importlib.import_module(f"sunstone.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module 'sunstone' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(_LAZY_ATTRS) | _LAZY_SUBMODULES)
+
 
 __all__ = [
     # Main classes

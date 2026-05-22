@@ -3,6 +3,7 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed: `sunstone` CLI startup is ~7× faster (~500 ms → ~70 ms) by deferring pandas/pyarrow/numpy imports until actually needed.
 
 ## [1.12.1] - 2026-05-22
 

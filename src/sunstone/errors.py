@@ -1,26 +1,75 @@
 """
-Re-export pandas.errors for use as sunstone.errors.
+Re-export pandas.errors for use as sunstone.errors, lazily.
 
-This module allows users who do ``from sunstone import pandas as pd``
-to also access ``from sunstone import errors`` (or ``from sunstone.errors
-import ParserError``, etc.) without importing pandas directly.
+Importing ``sunstone.errors`` does **not** import pandas. Pandas is imported
+only the first time a re-exported name is actually accessed. This keeps
+``sunstone --help`` (and other lightweight code paths that only need
+``IncompatibleAssetKindError``) fast.
 
-All public names from ``pandas.errors`` are re-exported here.
+Users still get the full pandas-errors surface via either explicit access
+(``sunstone.errors.ParserError``) or star-import (``from sunstone.errors
+import *``); both transparently trigger the pandas import on first use.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from pandas.errors import *  # noqa: F401,F403
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    # Make the re-exported names visible to type checkers / IDEs.
+    from pandas.errors import *  # noqa: F401,F403
     from sunstone.asset import AssetKind
 
-# Build __all__ from the names the star import actually brought in,
-# rather than relying on pandas.errors.__all__ (which doesn't exist).
-# Exclude TYPE_CHECKING and annotations which are not re-exports from pandas.
-__all__ = [name for name in dir() if not name.startswith("_") and name not in ("TYPE_CHECKING", "annotations")]
+# Snapshot of names re-exported from pandas.errors.
+# Drift versus the upstream package is caught by tests/test_errors.py.
+_PANDAS_ERROR_NAMES: tuple[str, ...] = (
+    "AbstractMethodError",
+    "AttributeConflictWarning",
+    "CSSWarning",
+    "CategoricalConversionWarning",
+    "ChainedAssignmentError",
+    "ClosedFileError",
+    "DataError",
+    "DatabaseError",
+    "DtypeWarning",
+    "DuplicateLabelError",
+    "EmptyDataError",
+    "IncompatibilityWarning",
+    "IncompatibleFrequency",
+    "IndexingError",
+    "IntCastingNaNError",
+    "InvalidColumnName",
+    "InvalidComparison",
+    "InvalidIndexError",
+    "InvalidVersion",
+    "LossySetitemError",
+    "MergeError",
+    "NoBufferPresent",
+    "NullFrequencyError",
+    "NumExprClobberingError",
+    "NumbaUtilError",
+    "OptionError",
+    "OutOfBoundsDatetime",
+    "OutOfBoundsTimedelta",
+    "Pandas4Warning",
+    "Pandas5Warning",
+    "PandasChangeWarning",
+    "PandasDeprecationWarning",
+    "PandasFutureWarning",
+    "PandasPendingDeprecationWarning",
+    "ParserError",
+    "ParserWarning",
+    "PerformanceWarning",
+    "PossibleDataLossError",
+    "PossiblePrecisionLoss",
+    "PyperclipException",
+    "PyperclipWindowsException",
+    "SpecificationError",
+    "UndefinedVariableError",
+    "UnsortedIndexError",
+    "UnsupportedFunctionCall",
+    "ValueLabelTypeMismatch",
+)
 
 
 class IncompatibleAssetKindError(ValueError):
@@ -32,4 +81,18 @@ class IncompatibleAssetKindError(ValueError):
         super().__init__(f"Asset kind mismatch: expected {expected.value!r}, got {actual.value!r}")
 
 
-__all__.append("IncompatibleAssetKindError")
+__all__ = list(_PANDAS_ERROR_NAMES) + ["IncompatibleAssetKindError"]
+
+
+def __getattr__(name: str) -> Any:
+    if name in _PANDAS_ERROR_NAMES:
+        import pandas.errors
+
+        value = getattr(pandas.errors, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module 'sunstone.errors' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
