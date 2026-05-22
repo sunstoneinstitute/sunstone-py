@@ -4,6 +4,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-05-22
+
+- Fixed: `sunstone env use`, `env add`, `env set`, `env unset`, `env remove` no longer strip hand-written comments, blank lines, or key order from `.sunstone/data_platform.toml` and the user config. The env module reads and writes config files through `tomlkit` (round-trip TOML), replacing the previous `tomllib` + `tomli-w` pair that flattened the file on every write.
+- Changed: `tomlkit>=0.12.0` replaces `tomli-w>=1.2.0` as a runtime dependency.
+
 ## [1.12.0] - 2026-05-21
 
 - Added: Asset envelope — generic format handler protocol for non-tabular kinds (raster/array/tile).

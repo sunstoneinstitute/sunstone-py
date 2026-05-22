@@ -20,13 +20,13 @@ import logging
 import os
 import subprocess
 import tempfile
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Mapping, overload
 
-import tomli_w
+import tomlkit
+import tomlkit.exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -117,13 +117,23 @@ class Environment:
             raise KeyError(f"No env section '{name}' on environment '{self.name}'") from e
 
 
-def _load_toml(path: Path) -> dict:
-    """Load a TOML file, returning an empty dict if missing or invalid."""
+def _load_toml(path: Path) -> tomlkit.TOMLDocument:
+    """Load a TOML file as a round-trippable document.
+
+    Returns a ``tomlkit.TOMLDocument`` (a dict-like that retains comments,
+    whitespace and key order). When the file is missing or invalid, returns
+    an empty document so that subsequent edits still serialize cleanly.
+
+    Callers that mutate the result and pass it back to :func:`_write_config`
+    get a round-trip that preserves any comments the user wrote by hand.
+    """
     try:
-        with open(path, "rb") as f:
-            return tomllib.load(f)
-    except (FileNotFoundError, tomllib.TOMLDecodeError, OSError):
-        return {}
+        with open(path, "r", encoding="utf-8") as f:
+            return tomlkit.load(f)
+    except (FileNotFoundError, OSError):
+        return tomlkit.document()
+    except tomlkit.exceptions.TOMLKitError:
+        return tomlkit.document()
 
 
 def _merge_environments(*configs: dict) -> dict:
@@ -788,14 +798,22 @@ def update_environment(
     return target, None
 
 
-def _write_config(path: Path, data: dict) -> None:
-    """Write a config dict as TOML, creating parent directories as needed."""
+def _write_config(path: Path, data: Mapping[str, Any]) -> None:
+    """Write a config document as TOML, creating parent directories as needed.
+
+    ``data`` is typically the ``tomlkit.TOMLDocument`` returned by
+    :func:`_load_toml`. When the same document instance round-trips through
+    load -> mutate -> write, hand-written comments and key ordering are
+    preserved. A plain ``dict`` also works (tomlkit serializes it) but loses
+    structural metadata, so callers should prefer round-tripping the loaded
+    document rather than rebuilding from scratch.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     tmp_path = Path(tmp_name)
     try:
-        with os.fdopen(fd, "wb") as f:
-            tomli_w.dump(data, f)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            tomlkit.dump(data, f)
         os.replace(tmp_path, path)
     except Exception:
         try:

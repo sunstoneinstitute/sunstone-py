@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sunstone-py"
-version = "1.12.0"
+version = "1.12.1"
 description = "Python library for managing datasets with lineage tracking in Sunstone projects"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,7 +32,7 @@ dependencies = [
     "pyyaml>=6.0",
     "ruamel-yaml>=0.18",
     "pyarrow>=23.0.1",
-    "tomli-w>=1.2.0",
+    "tomlkit>=0.12.0",
     "pint>=0.24",
 ]
 
@@ -120,7 +120,6 @@ dev = [
     "pandas-stubs>=2.3.2.250926",
     "types-pyyaml>=6.0.12.20250915",
     "markdown>=3.10",
-    "tomli-w>=1.2.0",
 ]
 docs = [
     "mkdocs-material>=9.5.0",

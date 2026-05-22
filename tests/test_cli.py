@@ -2609,9 +2609,16 @@ class TestEnvUnset:
         assert env["data-platform"] == {"warehouse": "main"}
 
     def test_unset_removes_empty_subtable(self, tmp_path, monkeypatch):
+        # Anchor the env with a sibling top-level key so the env table
+        # remains materialized after the subtable is emptied — otherwise a
+        # round-trip TOML writer drops the now-orphaned [environments.dev]
+        # header entirely (legitimately, since there's nothing left in it).
         user_cfg = tmp_path / "user.toml"
         user_cfg.write_text(
             """
+            [environments.dev]
+            CATALOG_URL = "http://dev"
+
             [environments.dev."data-platform"]
             warehouse = "main"
             """
@@ -2626,6 +2633,7 @@ class TestEnvUnset:
             data = tomllib.load(f)
         env = data["environments"]["dev"]
         assert "data-platform" not in env
+        assert env["CATALOG_URL"] == "http://dev"
 
     def test_unset_unknown_key_is_no_op(self, tmp_path, monkeypatch):
         user_cfg = tmp_path / "user.toml"
