@@ -74,6 +74,67 @@ class TestLoadToml:
 
 
 # ---------------------------------------------------------------------------
+# Round-trip preservation: comments, blank lines, key order survive mutation
+# ---------------------------------------------------------------------------
+
+
+class TestRoundTripPreservesComments:
+    """Regression tests for v1.12.1.
+
+    v1.12.0 used ``tomli_w`` for writes, which serializes a plain dict and
+    drops every comment, blank line, and original key ordering. v1.12.1
+    switched to ``tomlkit`` so a load -> mutate -> write cycle preserves the
+    user's hand-edited file structure. These tests pin that behaviour.
+    """
+
+    def test_load_write_no_mutation_is_byte_identical(self, tmp_path: Path):
+        """A load followed by an immediate write must not touch the file."""
+        original = (
+            "# Project-level data platform config.\n"
+            "# Activate the local stack with: sunstone env use local\n"
+            "\n"
+            'active = "local"\n'
+            "\n"
+            '[environments.local."data-platform"]\n'
+            "# Points at the local catalog-frontend nginx.\n"
+            'catalog_url = "http://localhost:19120"\n'
+            's3_access_key = "minioadmin"\n'
+        )
+        config = tmp_path / "data_platform.toml"
+        config.write_text(original)
+
+        doc = _load_toml(config)
+        _write_config(config, doc)
+
+        assert config.read_text() == original
+
+    def test_set_active_preserves_comments(self, tmp_path: Path):
+        """``sunstone env use`` must not strip comments from project config."""
+        config = tmp_path / "data_platform.toml"
+        config.write_text(
+            "# Top-of-file note from the user.\n"
+            "\n"
+            "[environments.dev]\n"
+            "# Inline note: prod-style auth.\n"
+            'catalog_url = "http://dev"\n'
+            's3_endpoint = "http://dev-s3"\n'
+        )
+
+        doc = _load_toml(config)
+        doc["active"] = "dev"
+        _write_config(config, doc)
+
+        text = config.read_text()
+        assert "# Top-of-file note from the user." in text
+        assert "# Inline note: prod-style auth." in text
+        assert 'active = "dev"' in text
+        # And the resulting file must still be parseable into the same values.
+        roundtripped = _load_toml(config)
+        assert roundtripped["active"] == "dev"
+        assert roundtripped["environments"]["dev"]["catalog_url"] == "http://dev"
+
+
+# ---------------------------------------------------------------------------
 # _merge_environments
 # ---------------------------------------------------------------------------
 
@@ -680,7 +741,7 @@ class TestWriteConfig:
         )
         original = path.read_text()
 
-        with patch("sunstone.env.tomli_w.dump", side_effect=OSError("disk full")):
+        with patch("sunstone.env.tomlkit.dump", side_effect=OSError("disk full")):
             with pytest.raises(OSError, match="disk full"):
                 _write_config(path, {"active": "updated"})
 
