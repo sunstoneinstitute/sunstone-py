@@ -895,6 +895,76 @@ def test_legacy_supports_metadata_alias_present_on_protocol():
     assert "supports_metadata" in dir(FormatHandler)
 
 
+def test_legacy_v1_handler_without_content_descriptors_still_registers():
+    """A legacy handler that lacks ``content_descriptors`` / ``extensions``
+    must still be classifiable as a FormatHandler and routable via
+    ``can_read``. Protects against regressions in the runtime_checkable
+    Protocol surface if optional methods are ever added to it.
+    """
+
+    class LegacyV1Handler:
+        # Only the v1 surface: supports_*, can_read/read, can_write/write.
+        # NO content_descriptors, NO extensions.
+        def supports_metadata(self):
+            return False
+
+        def supports_native_metadata_extraction(self):
+            return False
+
+        def supports_sunstone_metadata_embedding(self):
+            return False
+
+        def can_read(self, path, format):
+            return str(path).endswith(".legacy")
+
+        def read(self, stream, **kwargs):
+            return pd.DataFrame({"legacy": [1]})
+
+        def can_write(self, path, format):
+            return str(path).endswith(".legacy")
+
+        def write(self, payload, stream, **kwargs):
+            pass
+
+    h = LegacyV1Handler()
+    # Structural typing must still see this as a FormatHandler — the
+    # optional content_descriptors / extensions methods must NOT be part
+    # of the @runtime_checkable surface.
+    assert isinstance(h, FormatHandler)
+
+    # And it must still be discoverable + routable through the registry.
+    with patch(
+        "sunstone.plugins._get_entry_points",
+        return_value=[_make_entry_point("legacy-v1", LegacyV1Handler)],
+    ):
+        with patch("sunstone.plugins._load_plugin_config", return_value=None):
+            registry = PluginRegistry.get()
+            handler = registry.find_format_reader(Path("data.legacy"), None)
+            assert isinstance(handler, LegacyV1Handler)
+
+
+def test_content_descriptor_aware_protocol_recognises_implementer():
+    """Objects that implement ``content_descriptors`` / ``extensions`` are
+    recognisable via the dedicated ``ContentDescriptorAware`` protocol
+    (which is the discovery surface the registry will use in Task 5).
+    """
+    from sunstone.handlers_meta import ContentDescriptor
+    from sunstone.plugins import ContentDescriptorAware
+
+    class AwareHandler:
+        def content_descriptors(self):
+            return (ContentDescriptor("text/csv"),)
+
+        def extensions(self):
+            return (".csv",)
+
+    class UnawareHandler:
+        pass
+
+    assert isinstance(AwareHandler(), ContentDescriptorAware)
+    assert not isinstance(UnawareHandler(), ContentDescriptorAware)
+
+
 def test_registry_wraps_legacy_handlers_in_adapter():
     import pandas as pd
 

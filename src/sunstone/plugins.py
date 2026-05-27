@@ -29,6 +29,7 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
+    from .handlers_meta import ContentDescriptor
     from .resource import ResourceLocation
 
 _config_yaml = YAML()
@@ -108,6 +109,40 @@ class FormatHandler(Protocol):
     def write(self, payload: object, stream: BinaryIO, **kwargs: object) -> None:
         """Write payload to stream. The payload is either a ``pd.DataFrame``
         (legacy) or a sunstone ``Asset`` (new)."""
+        ...
+
+
+# NOTE: ``content_descriptors`` and ``extensions`` are intentionally NOT part
+# of the ``@runtime_checkable`` ``FormatHandler`` surface above. ``runtime_checkable``
+# Protocols verify member existence via ``hasattr`` for *every* declared method,
+# so adding them there would break ``isinstance(handler, FormatHandler)`` for
+# legacy v1/v2 handlers that lack them — violating the spec's "Optional;
+# default treated as empty tuple by the registry" guarantee. Instead, the
+# registry uses this dedicated, separately-checkable Protocol via ``isinstance``
+# or ``getattr`` with a ``()`` fallback.
+@runtime_checkable
+class ContentDescriptorAware(Protocol):
+    """Optional Protocol that handlers may implement to advertise the
+    content types and file extensions they natively read/write.
+
+    Handlers without these methods continue to work; the registry treats
+    a missing implementation as "no advertised descriptors / extensions".
+    """
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        """Return (content_type, content_encoding) pairs this handler reads/writes.
+
+        Optional; default treated as empty tuple by the registry. A handler may
+        return multiple descriptors if it natively handles several encodings of
+        the same payload type (e.g. tar both raw and gzip-compressed).
+        """
+        ...
+
+    def extensions(self) -> tuple[str, ...]:
+        """Return file extensions (including the leading dot) this handler
+        recognises, including compound extensions (e.g. ``".tar.gz"``).
+        Optional; default empty.
+        """
         ...
 
 
