@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from .asset import Asset
+    from .handlers_meta import ContentDescriptor
 
 
 class NpzFormatHandler:
@@ -60,6 +61,14 @@ class NpzFormatHandler:
         from .asset import AssetKind
 
         return (AssetKind.ARRAY,)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (ContentDescriptor(content_type="application/x-numpy-npz", content_encoding=None),)
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".npz",)
 
     # --- dispatch helpers --------------------------------------------------
 

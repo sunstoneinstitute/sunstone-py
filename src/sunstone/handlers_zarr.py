@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 import numpy as np
 
 if TYPE_CHECKING:
+    from .handlers_meta import ContentDescriptor
     from .resource import ResourceLocation
 
 
@@ -80,6 +81,14 @@ class ZarrStoreHandler:
         from .asset import AssetKind
 
         return (AssetKind.ARRAY,)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (ContentDescriptor(content_type="application/x-zarr", content_encoding=None),)
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".zarr",)
 
     # --- store classification ---------------------------------------------
 

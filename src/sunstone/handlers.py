@@ -185,6 +185,20 @@ class BuiltinFormatHandler:
         df = asset.as_table() if hasattr(asset, "as_table") else asset
         self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
 
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (
+            ContentDescriptor(content_type="text/csv", content_encoding=None),
+            ContentDescriptor(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                content_encoding=None,
+            ),
+        )
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".csv", ".xlsx")
+
 
 class ParquetFormatHandler:
     """Handles Parquet format with metadata embedding support via PyArrow.
@@ -285,6 +299,14 @@ class ParquetFormatHandler:
             table = table.replace_schema_metadata(existing_meta)
 
         pq.write_table(table, stream, **kwargs)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (ContentDescriptor(content_type="application/vnd.apache.parquet", content_encoding=None),)
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".parquet",)
 
 
 class BlobFormatHandler:
