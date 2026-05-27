@@ -35,8 +35,10 @@ class TestBuiltinFormatHandlerCanRead:
     def test_excel_xlsx(self, handler):
         assert handler.can_read("data.xlsx", None)
 
-    def test_excel_xls(self, handler):
-        assert handler.can_read("data.xls", None)
+    def test_excel_xls_not_handled(self, handler):
+        # .xls is claimed by BlobFormatHandler per spec D2; callers wanting
+        # Excel parsing must pass format="excel" explicitly.
+        assert not handler.can_read("data.xls", None)
 
     def test_parquet_not_handled(self, handler):
         assert not handler.can_read("data.parquet", None)
@@ -44,8 +46,10 @@ class TestBuiltinFormatHandlerCanRead:
     def test_tsv(self, handler):
         assert handler.can_read("data.tsv", None)
 
-    def test_txt_as_tsv(self, handler):
-        assert handler.can_read("data.txt", None)
+    def test_txt_not_handled(self, handler):
+        # .txt is claimed by BlobFormatHandler per spec D2; callers wanting
+        # TSV parsing must pass format="tsv" explicitly.
+        assert not handler.can_read("data.txt", None)
 
     def test_unknown_extension(self, handler):
         assert not handler.can_read("data.hdf5", None)

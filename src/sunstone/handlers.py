@@ -58,14 +58,14 @@ def _apply_csv_dialect_write(kwargs: dict, dialect: CsvDialect | None) -> dict:
     return out
 
 
-# Extension -> format string mapping
+# Extension -> format string mapping. ``.txt`` and ``.xls`` are claimed by
+# ``BlobFormatHandler`` per spec D2; callers wanting TSV/Excel semantics on
+# those extensions must pass ``format=`` explicitly.
 _EXTENSION_MAP: dict[str, str] = {
     ".csv": "csv",
     ".json": "json",
     ".xlsx": "excel",
-    ".xls": "excel",
     ".tsv": "tsv",
-    ".txt": "tsv",
 }
 
 # Format strings supported for reads (kept module-level so existence checks
