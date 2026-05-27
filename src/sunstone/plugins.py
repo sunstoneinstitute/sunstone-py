@@ -303,7 +303,12 @@ class PluginRegistry:
             pass  # h5py extra not installed
 
         # Internal handlers last (fallback)
-        from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
+        from .handlers import (
+            BlobFormatHandler,
+            BuiltinFormatHandler,
+            HttpURLHandler,
+            ParquetFormatHandler,
+        )
 
         # Legacy handlers narrow `write` to `pd.DataFrame`; they are still
         # callable as FormatHandler at runtime via duck typing. Task 2.2 wraps
@@ -317,6 +322,10 @@ class PluginRegistry:
         except ImportError:
             pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
+        # BlobFormatHandler is the residual fallback — registered LAST so more
+        # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
+        # claim their extensions first.
+        self._format_handlers.append(BlobFormatHandler())  # type: ignore[arg-type]
         self._url_handlers.append(HttpURLHandler())
         # LocalFileHandler is always present (registered in __init__)
 
