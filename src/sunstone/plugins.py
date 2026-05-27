@@ -16,6 +16,7 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
+    Iterator,
     Literal,
     Protocol,
     TextIO,
@@ -29,8 +30,9 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
-    from .handlers_meta import ContentDescriptor
-    from .resource import ResourceLocation
+    from .resource import ResourceLocation, StoreFormatHandler
+
+from .handlers_meta import ContentDescriptor
 
 _config_yaml = YAML()
 
@@ -393,6 +395,58 @@ class PluginRegistry:
 
     def get_store_format_handlers(self) -> list[object]:
         return self._store_format_handlers
+
+    def _iter_descriptor_aware_handlers(self) -> "Iterator[FormatHandler | StoreFormatHandler]":
+        """Yield every registered format and store handler in lookup order.
+
+        Format handlers come first so they win on conflict with store handlers.
+        """
+        yield from self._format_handlers
+        yield from self._store_format_handlers  # type: ignore[misc]
+
+    def known_content_descriptors(self) -> set[ContentDescriptor]:
+        """Union of content_descriptors() across all registered format and store
+        handlers that declare them. Handlers without the method contribute nothing.
+        """
+        out: set[ContentDescriptor] = set()
+        for handler in self._iter_descriptor_aware_handlers():
+            descriptors = getattr(handler, "content_descriptors", lambda: ())()
+            out.update(descriptors)
+        return out
+
+    def known_content_types(self) -> set[str]:
+        """Convenience projection — the set of content_type strings present in
+        known_content_descriptors(), regardless of encoding.
+        """
+        return {d.content_type for d in self.known_content_descriptors()}
+
+    def known_extensions(self) -> dict[str, "FormatHandler | StoreFormatHandler"]:
+        """Map of declared extension -> handler (last-registered wins on conflict)."""
+        out: dict[str, FormatHandler | StoreFormatHandler] = {}
+        for handler in self._iter_descriptor_aware_handlers():
+            exts = getattr(handler, "extensions", lambda: ())()
+            for ext in exts:
+                out[ext] = handler  # type: ignore[assignment]
+        return out
+
+    def handler_for_content(
+        self,
+        content_type: str,
+        content_encoding: str | None = None,
+    ) -> "FormatHandler | StoreFormatHandler | None":
+        """First handler whose declared content_descriptors() contains a matching
+        (content_type, content_encoding) pair. content_type lookup strips
+        parameters; e.g. "text/csv; charset=utf-8" matches "text/csv".
+        Returns None if no handler claims the pair.
+        """
+        # Strip parameters from incoming content_type (e.g. "text/csv; charset=utf-8" -> "text/csv")
+        bare_type = content_type.split(";", 1)[0].strip()
+        for handler in self._iter_descriptor_aware_handlers():
+            descriptors: tuple[ContentDescriptor, ...] = getattr(handler, "content_descriptors", lambda: ())()
+            for descriptor in descriptors:
+                if descriptor.content_type == bare_type and descriptor.content_encoding == content_encoding:
+                    return handler
+        return None
 
     def find_store_format_reader(self, location: "ResourceLocation", format: str | None) -> object | None:
         for h in self._store_format_handlers:
