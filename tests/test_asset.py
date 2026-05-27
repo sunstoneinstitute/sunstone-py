@@ -8,7 +8,40 @@ from sunstone.lineage import Metadata
 
 
 def test_asset_kind_is_closed_enum():
-    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles"}
+    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles", "blob"}
+
+
+def test_asset_kind_blob_exists_with_expected_value():
+    assert AssetKind.BLOB.value == "blob"
+
+
+def test_as_blob_returns_payload_when_kind_matches():
+    data = b"hello world"
+    asset = Asset(payload=data, kind=AssetKind.BLOB, metadata=Metadata())
+    assert asset.as_blob() == b"hello world"
+    assert asset.as_blob() is data
+
+
+def test_as_blob_raises_on_wrong_kind():
+    asset = Asset(payload=None, kind=AssetKind.TABULAR, metadata=Metadata())
+    with pytest.raises(IncompatibleAssetKindError) as exc_info:
+        asset.as_blob()
+    assert exc_info.value.expected is AssetKind.BLOB
+    assert exc_info.value.actual is AssetKind.TABULAR
+
+
+def test_blob_asset_derive_preserves_kind_and_records_parent_lineage():
+    parent = Asset(
+        payload=b"old bytes",
+        kind=AssetKind.BLOB,
+        metadata=Metadata(slug="parent-blob", name="Parent Blob"),
+    )
+    child = parent.derive(b"new bytes", slug="child", name="Child")
+    assert child.kind is AssetKind.BLOB
+    assert child.payload == b"new bytes"
+    assert child.as_blob() == b"new bytes"
+    source_slugs = [s.slug for s in child.metadata.lineage.sources]
+    assert "parent-blob" in source_slugs
 
 
 def test_incompatible_asset_kind_error_message():
