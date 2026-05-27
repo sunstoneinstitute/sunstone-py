@@ -22,8 +22,10 @@ def _builtin_case() -> tuple[object, tuple[ContentDescriptor, ...], tuple[str, .
         (
             ContentDescriptor("text/csv"),
             ContentDescriptor("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ContentDescriptor("application/json"),
+            ContentDescriptor("text/tab-separated-values"),
         ),
-        (".csv", ".xlsx"),
+        (".csv", ".xlsx", ".json", ".tsv"),
     )
 
 

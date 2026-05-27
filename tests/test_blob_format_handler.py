@@ -77,6 +77,13 @@ class TestBlobCanRead:
     def test_can_read_rejects_unknown_format(self, handler: BlobFormatHandler) -> None:
         assert handler.can_read("/tmp/no-ext", "application/x-nonsense") is False
 
+    @pytest.mark.parametrize("short", ["pdf", "rtf", "txt", "doc", "docx", "ppt", "pptx", "xls"])
+    def test_can_read_accepts_short_format_alias(self, handler: BlobFormatHandler, short: str) -> None:
+        # Mirrors the BuiltinFormatHandler convention where format="csv" works
+        # alongside format="text/csv". datasets.yaml rows often carry the short
+        # form, so the blob handler must also accept it.
+        assert handler.can_read("/tmp/unknown-thing", short) is True
+
 
 class TestBlobCanWrite:
     @pytest.mark.parametrize("ext", [ext for ext, _, _ in _ROUND_TRIP_CASES])

@@ -30,6 +30,10 @@ def test_known_content_types_includes_tabular_mimes() -> None:
     assert "text/csv" in types
     assert "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" in types
     assert "application/vnd.apache.parquet" in types
+    # BuiltinFormatHandler also dispatches .json and .tsv via pandas; discovery
+    # must advertise them so downstream catalogs see everything sunstone can read.
+    assert "application/json" in types
+    assert "text/tab-separated-values" in types
 
 
 def test_known_content_types_includes_npz() -> None:

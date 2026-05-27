@@ -189,15 +189,16 @@ class BuiltinFormatHandler:
         from .handlers_meta import ContentDescriptor
 
         return (
-            ContentDescriptor(content_type="text/csv", content_encoding=None),
+            ContentDescriptor(content_type="text/csv"),
             ContentDescriptor(
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                content_encoding=None,
             ),
+            ContentDescriptor(content_type="application/json"),
+            ContentDescriptor(content_type="text/tab-separated-values"),
         )
 
     def extensions(self) -> tuple[str, ...]:
-        return (".csv", ".xlsx")
+        return (".csv", ".xlsx", ".json", ".tsv")
 
 
 class ParquetFormatHandler:
@@ -357,13 +358,17 @@ class BlobFormatHandler:
         """Resolve canonical MIME from explicit ``format`` or path extension.
 
         Returns the canonical MIME (first element of the ``_CONTENT_TYPES`` tuple)
-        when either ``format`` matches a known canonical MIME or alias, or when
-        the path/URL extension is in ``_CONTENT_TYPES``. Returns ``None`` otherwise.
+        when ``format`` matches a known canonical MIME, alias, or short form
+        (e.g. ``"pdf"``, ``"docx"``), or when the path/URL extension is in
+        ``_CONTENT_TYPES``. Returns ``None`` otherwise.
         """
         if format is not None:
             for mimes in self._CONTENT_TYPES.values():
                 if format in mimes:
                     return mimes[0]
+            short_key = "." + format.lower().lstrip(".")
+            if short_key in self._CONTENT_TYPES:
+                return self._CONTENT_TYPES[short_key][0]
             return None
         parsed = urlparse(path)
         file_path = parsed.path if parsed.scheme else path
