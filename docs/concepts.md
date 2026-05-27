@@ -8,8 +8,10 @@ Everything sunstone reads or writes is an `Asset` — a uniform container
 with four fields:
 
 - `payload` — the kind-native data: a `pandas.DataFrame`, a NumPy
-  `ndarray`, a `dict[str, ndarray]`, or a tile pyramid descriptor.
-- `kind` — an `AssetKind` enum value (`TABULAR`, `RASTER`, `ARRAY`, `TILES`).
+  `ndarray`, a `dict[str, ndarray]`, a tile pyramid descriptor, or raw
+  `bytes` for opaque binaries.
+- `kind` — an `AssetKind` enum value (`TABULAR`, `RASTER`, `ARRAY`,
+  `TILES`, `BLOB`).
 - `metadata` — the unified `Metadata` container (lineage, identity,
   per-component schema, RDF properties, license).
 - `extras` — kind-specific accessory info (rasterio profile, CRS, chunk spec).
@@ -39,6 +41,9 @@ Each kind has its own quickstart:
 - [Tensors](tensors.md) — `dict[str, ndarray]` payloads (`.npz`, Zarr, HDF5/NetCDF-4).
 - [Images](images.md) — single-`ndarray` rasters (GeoTIFF on the roadmap).
 - [Tile pyramids](nbtiles.md) — pre-tiled multi-resolution data.
+- [Blob / opaque binaries](formats.md#blob--opaque-binary-formats) —
+  `bytes` payloads for PDF, DOCX, PPTX, RTF, plain-text reports, and
+  similar artefacts sunstone ingests without interpreting.
 
 `Asset.derive(payload, ..., derived_from=[...])` produces a child asset
 and records `prov:wasDerivedFrom` for each parent. Slug and name do

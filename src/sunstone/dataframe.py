@@ -437,10 +437,13 @@ class DataFrame:
                 **kwargs,
             )
         # Handlers may return either a bare DataFrame (legacy) or an Asset (v2+).
-        from .asset import Asset as _Asset
+        from .asset import Asset as _Asset, AssetKind as _AssetKind
+        from .errors import IncompatibleAssetKindError as _IncompatibleAssetKindError
 
         embedded_metadata: Optional[Metadata]
         if isinstance(result, _Asset):
+            if result.kind is not _AssetKind.TABULAR:
+                raise _IncompatibleAssetKindError(expected=_AssetKind.TABULAR, actual=result.kind)
             df = cast(pd.DataFrame, result.payload)
             # Prefer the Asset's metadata; fall back to df.attrs for handlers
             # that still leak metadata via the legacy channel.

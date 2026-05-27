@@ -16,6 +16,7 @@ from typing import (
     Any,
     BinaryIO,
     Callable,
+    Iterator,
     Literal,
     Protocol,
     TextIO,
@@ -29,7 +30,9 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
-    from .resource import ResourceLocation
+    from .resource import ResourceLocation, StoreFormatHandler
+
+from .handlers_meta import ContentDescriptor
 
 _config_yaml = YAML()
 
@@ -108,6 +111,40 @@ class FormatHandler(Protocol):
     def write(self, payload: object, stream: BinaryIO, **kwargs: object) -> None:
         """Write payload to stream. The payload is either a ``pd.DataFrame``
         (legacy) or a sunstone ``Asset`` (new)."""
+        ...
+
+
+# NOTE: ``content_descriptors`` and ``extensions`` are intentionally NOT part
+# of the ``@runtime_checkable`` ``FormatHandler`` surface above. ``runtime_checkable``
+# Protocols verify member existence via ``hasattr`` for *every* declared method,
+# so adding them there would break ``isinstance(handler, FormatHandler)`` for
+# legacy v1/v2 handlers that lack them — violating the spec's "Optional;
+# default treated as empty tuple by the registry" guarantee. Instead, the
+# registry uses this dedicated, separately-checkable Protocol via ``isinstance``
+# or ``getattr`` with a ``()`` fallback.
+@runtime_checkable
+class ContentDescriptorAware(Protocol):
+    """Optional Protocol that handlers may implement to advertise the
+    content types and file extensions they natively read/write.
+
+    Handlers without these methods continue to work; the registry treats
+    a missing implementation as "no advertised descriptors / extensions".
+    """
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        """Return (content_type, content_encoding) pairs this handler reads/writes.
+
+        Optional; default treated as empty tuple by the registry. A handler may
+        return multiple descriptors if it natively handles several encodings of
+        the same payload type (e.g. tar both raw and gzip-compressed).
+        """
+        ...
+
+    def extensions(self) -> tuple[str, ...]:
+        """Return file extensions (including the leading dot) this handler
+        recognises, including compound extensions (e.g. ``".tar.gz"``).
+        Optional; default empty.
+        """
         ...
 
 
@@ -252,8 +289,14 @@ class PluginRegistry:
         except ImportError:
             pass  # boto3 not installed
 
-        # Optional store-format handlers
+        # Optional store-format handlers. The handler modules import their
+        # heavy dep (zarr / h5py) lazily inside read(), so a successful module
+        # import does NOT guarantee the dep is installed. Probe the dep
+        # directly before registering, otherwise the handler shows up in
+        # known_content_types() / handler_for_content() but blows up with
+        # ImportError on first use.
         try:
+            import zarr  # noqa: F401
             from .handlers_zarr import ZarrStoreHandler
 
             self._store_format_handlers.append(ZarrStoreHandler())
@@ -261,6 +304,7 @@ class PluginRegistry:
             pass  # zarr not installed
 
         try:
+            import h5py  # noqa: F401
             from .handlers_hdf5 import Hdf5StoreHandler
 
             self._store_format_handlers.append(Hdf5StoreHandler())
@@ -268,7 +312,12 @@ class PluginRegistry:
             pass  # h5py extra not installed
 
         # Internal handlers last (fallback)
-        from .handlers import BuiltinFormatHandler, HttpURLHandler, ParquetFormatHandler
+        from .handlers import (
+            BlobFormatHandler,
+            BuiltinFormatHandler,
+            HttpURLHandler,
+            ParquetFormatHandler,
+        )
 
         # Legacy handlers narrow `write` to `pd.DataFrame`; they are still
         # callable as FormatHandler at runtime via duck typing. Task 2.2 wraps
@@ -282,6 +331,10 @@ class PluginRegistry:
         except ImportError:
             pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
+        # BlobFormatHandler is the residual fallback — registered LAST so more
+        # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
+        # claim their extensions first.
+        self._format_handlers.append(BlobFormatHandler())  # type: ignore[arg-type]
         self._url_handlers.append(HttpURLHandler())
         # LocalFileHandler is always present (registered in __init__)
 
@@ -349,6 +402,61 @@ class PluginRegistry:
 
     def get_store_format_handlers(self) -> list[object]:
         return self._store_format_handlers
+
+    def _iter_descriptor_aware_handlers(self) -> "Iterator[FormatHandler | StoreFormatHandler]":
+        """Yield every registered format and store handler in lookup order.
+
+        Format handlers come first so they win on conflict with store handlers.
+        """
+        yield from self._format_handlers
+        yield from self._store_format_handlers  # type: ignore[misc]
+
+    def known_content_descriptors(self) -> set[ContentDescriptor]:
+        """Union of content_descriptors() across all registered format and store
+        handlers that declare them. Handlers without the method contribute nothing.
+        """
+        out: set[ContentDescriptor] = set()
+        for handler in self._iter_descriptor_aware_handlers():
+            descriptors = getattr(handler, "content_descriptors", lambda: ())()
+            out.update(descriptors)
+        return out
+
+    def known_content_types(self) -> set[str]:
+        """Convenience projection — the set of content_type strings present in
+        known_content_descriptors(), regardless of encoding.
+        """
+        return {d.content_type for d in self.known_content_descriptors()}
+
+    def known_extensions(self) -> dict[str, "FormatHandler | StoreFormatHandler"]:
+        """Map of declared extension -> handler. First-registered wins, matching
+        dispatch priority: external plugins (registered before internals) win
+        over built-ins on overlapping extensions.
+        """
+        out: dict[str, FormatHandler | StoreFormatHandler] = {}
+        for handler in self._iter_descriptor_aware_handlers():
+            exts = getattr(handler, "extensions", lambda: ())()
+            for ext in exts:
+                out.setdefault(ext, handler)  # type: ignore[arg-type]
+        return out
+
+    def handler_for_content(
+        self,
+        content_type: str,
+        content_encoding: str | None = None,
+    ) -> "FormatHandler | StoreFormatHandler | None":
+        """First handler whose declared content_descriptors() contains a matching
+        (content_type, content_encoding) pair. content_type lookup strips
+        parameters; e.g. "text/csv; charset=utf-8" matches "text/csv".
+        Returns None if no handler claims the pair.
+        """
+        # Strip parameters from incoming content_type (e.g. "text/csv; charset=utf-8" -> "text/csv")
+        bare_type = content_type.split(";", 1)[0].strip()
+        for handler in self._iter_descriptor_aware_handlers():
+            descriptors: tuple[ContentDescriptor, ...] = getattr(handler, "content_descriptors", lambda: ())()
+            for descriptor in descriptors:
+                if descriptor.content_type == bare_type and descriptor.content_encoding == content_encoding:
+                    return handler
+        return None
 
     def find_store_format_reader(self, location: "ResourceLocation", format: str | None) -> object | None:
         for h in self._store_format_handlers:

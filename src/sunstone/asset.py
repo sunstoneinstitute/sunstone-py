@@ -27,6 +27,7 @@ class AssetKind(Enum):
     RASTER = "raster"
     ARRAY = "array"
     TILES = "tiles"
+    BLOB = "blob"
 
 
 @dataclass
@@ -75,6 +76,11 @@ class Asset:
         if self.kind is not AssetKind.TILES:
             raise IncompatibleAssetKindError(expected=AssetKind.TILES, actual=self.kind)
         return self.payload
+
+    def as_blob(self) -> bytes:
+        if self.kind is not AssetKind.BLOB:
+            raise IncompatibleAssetKindError(expected=AssetKind.BLOB, actual=self.kind)
+        return cast(bytes, self.payload)
 
     def derive(
         self,

@@ -59,6 +59,8 @@ def read(
     *,
     format: str | None = None,
     kind: "AssetKind | None" = None,
+    metadata: "Metadata | None" = None,
+    extras: dict[str, Any] | None = None,
     **kw: object,
 ) -> "Asset":
     """Read any registered format into an `Asset`.
@@ -68,6 +70,12 @@ def read(
       2. ``datasets.yaml`` ``format`` field, if the path matches a registered
          dataset entry.
       3. Path extension / store classification by handler.
+
+    Overrides: when ``kind`` / ``metadata`` / ``extras`` are provided they
+    OVERRIDE (full replacement) whatever the handler produced. This is the
+    reconstruction path — consumers rebuilding an Asset from a catalog row
+    where the catalog (not the file) is the source of truth for envelope
+    fields.
     """
     from .dataframe import _read_tabular_asset
     from .datasets import DatasetsManager
@@ -88,10 +96,11 @@ def read(
     # 3. Store-vs-stream classification.
     loc = ResourceLocation(path=path)
     registry = PluginRegistry.get()
+    asset: "Asset | None" = None
     if loc.is_dir():
         handler = registry.find_store_format_reader(loc, format)
         if handler is not None:
-            return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
+            asset = handler.read(loc, **kw)  # type: ignore[attr-defined]
         # Fall through to stream path so single-file handlers can still claim
         # directory-like paths via can_read.
     else:
@@ -101,9 +110,19 @@ def read(
         # stream path.
         handler = registry.find_store_format_reader(loc, format)
         if handler is not None:
-            return handler.read(loc, **kw)  # type: ignore[attr-defined,no-any-return]
+            asset = handler.read(loc, **kw)  # type: ignore[attr-defined]
 
-    return _read_tabular_asset(path, format=format, **kw)
+    if asset is None:
+        asset = _read_tabular_asset(path, format=format, **kw)
+
+    # Apply overrides (full replacement — catalog rows win over file content).
+    if kind is not None:
+        asset.kind = kind
+    if metadata is not None:
+        asset.metadata = metadata
+    if extras is not None:
+        asset.extras = extras
+    return asset
 
 
 def _materialise_default_identity(asset: "Asset") -> None:

@@ -141,6 +141,90 @@ def test_top_level_write_skips_default_identity_when_slug_missing(tmp_path, monk
     assert asset.metadata.identity is None
 
 
+def test_read_no_overrides_returns_handler_metadata_for_csv(tmp_path):
+    """Baseline: with no overrides, the handler's Asset is returned untouched."""
+    import sunstone
+
+    csv = tmp_path / "x.csv"
+    csv.write_text("a,b\n1,2\n3,4\n")
+
+    asset = sunstone.read(str(csv), format="csv")
+    assert asset.kind is sunstone.AssetKind.TABULAR
+    # No slug was provided; handler doesn't invent one.
+    assert asset.metadata.slug is None
+
+
+def test_read_no_overrides_preserves_blob_handler_extras(tmp_path):
+    """Baseline: BlobFormatHandler emits ``extras={'media_type': ...}`` and a bare
+    ``Metadata()``; passing no overrides leaves both intact."""
+    import sunstone
+
+    pdf = tmp_path / "foo.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nsmall")
+
+    asset = sunstone.read(str(pdf))
+    assert asset.kind is sunstone.AssetKind.BLOB
+    assert asset.extras == {"media_type": "application/pdf"}
+    assert asset.metadata.slug is None
+
+
+def test_read_metadata_override_replaces_handler_metadata(tmp_path):
+    """``metadata=`` fully replaces what the handler produced (catalog wins)."""
+    import sunstone
+    from sunstone.lineage import Metadata
+
+    pdf = tmp_path / "foo.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nsmall")
+
+    asset = sunstone.read(str(pdf), metadata=Metadata(slug="x"))
+    assert asset.metadata.slug == "x"
+
+
+def test_read_extras_override_replaces_handler_extras(tmp_path):
+    """``extras=`` fully replaces the handler's extras dict (no merge)."""
+    import sunstone
+
+    pdf = tmp_path / "foo.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nsmall")
+
+    asset = sunstone.read(str(pdf), extras={"custom": "value"})
+    # Handler-produced ``media_type`` is gone; only the override remains.
+    assert asset.extras == {"custom": "value"}
+
+
+def test_read_kind_override_replaces_handler_kind(tmp_path):
+    """``kind=`` overrides even when the file is clearly a PDF (BLOB).
+
+    Contrived but documents the override semantics: catalog rows are the
+    source of truth when reconstructing Assets.
+    """
+    import sunstone
+
+    pdf = tmp_path / "foo.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nsmall")
+
+    asset = sunstone.read(str(pdf), kind=sunstone.AssetKind.RASTER)
+    assert asset.kind is sunstone.AssetKind.RASTER
+
+
+def test_read_all_three_overrides_applied_together(tmp_path):
+    import sunstone
+    from sunstone.lineage import Metadata
+
+    pdf = tmp_path / "foo.pdf"
+    pdf.write_bytes(b"%PDF-1.4\nsmall")
+
+    asset = sunstone.read(
+        str(pdf),
+        kind=sunstone.AssetKind.RASTER,
+        metadata=Metadata(slug="catalog-row"),
+        extras={"from": "catalog"},
+    )
+    assert asset.kind is sunstone.AssetKind.RASTER
+    assert asset.metadata.slug == "catalog-row"
+    assert asset.extras == {"from": "catalog"}
+
+
 def test_read_uses_datasets_yaml_format_field(tmp_path, monkeypatch):
     """When a `datasets.yaml` entry declares `format: csv` for a path with a
     misleading extension, dispatch should follow the declared format."""

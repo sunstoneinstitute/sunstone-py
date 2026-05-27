@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import pandas as pd  # for type annotations only
 
     from .asset import Asset
+    from .handlers_meta import ContentDescriptor
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 from http.client import HTTPMessage
 
@@ -57,14 +58,14 @@ def _apply_csv_dialect_write(kwargs: dict, dialect: CsvDialect | None) -> dict:
     return out
 
 
-# Extension -> format string mapping
+# Extension -> format string mapping. ``.txt`` and ``.xls`` are claimed by
+# ``BlobFormatHandler`` per spec D2; callers wanting TSV/Excel semantics on
+# those extensions must pass ``format=`` explicitly.
 _EXTENSION_MAP: dict[str, str] = {
     ".csv": "csv",
     ".json": "json",
     ".xlsx": "excel",
-    ".xls": "excel",
     ".tsv": "tsv",
-    ".txt": "tsv",
 }
 
 # Format strings supported for reads (kept module-level so existence checks
@@ -184,6 +185,21 @@ class BuiltinFormatHandler:
         df = asset.as_table() if hasattr(asset, "as_table") else asset
         self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
 
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (
+            ContentDescriptor(content_type="text/csv"),
+            ContentDescriptor(
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+            ContentDescriptor(content_type="application/json"),
+            ContentDescriptor(content_type="text/tab-separated-values"),
+        )
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".csv", ".xlsx", ".json", ".tsv")
+
 
 class ParquetFormatHandler:
     """Handles Parquet format with metadata embedding support via PyArrow.
@@ -284,6 +300,126 @@ class ParquetFormatHandler:
             table = table.replace_schema_metadata(existing_meta)
 
         pq.write_table(table, stream, **kwargs)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (ContentDescriptor(content_type="application/vnd.apache.parquet", content_encoding=None),)
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".parquet",)
+
+
+class BlobFormatHandler:
+    """Built-in handler for opaque binary/document formats.
+
+    Reads any file with one of the known document/binary extensions into an
+    Asset of kind BLOB with the raw bytes as payload. Writes the bytes back
+    verbatim. No interpretation of payload structure.
+
+    Registered LAST among built-in FormatHandlers so more specific handlers
+    (Parquet, CSV/XLSX via BuiltinFormatHandler) claim their extensions first.
+    .xlsx is intentionally NOT in this handler's table — pandas-backed handler
+    owns it.
+    """
+
+    __sunstone_handler_protocol__ = 2
+
+    # extension : (canonical_mime, *aliases)
+    _CONTENT_TYPES: dict[str, tuple[str, ...]] = {
+        ".pdf": ("application/pdf",),
+        ".rtf": ("application/rtf",),
+        ".txt": ("text/plain",),
+        ".doc": ("application/msword",),
+        ".docx": ("application/vnd.openxmlformats-officedocument.wordprocessingml.document",),
+        ".ppt": ("application/vnd.ms-powerpoint",),
+        ".pptx": ("application/vnd.openxmlformats-officedocument.presentationml.presentation",),
+        ".xls": ("application/vnd.ms-excel",),
+    }
+
+    def supports_native_metadata_extraction(self) -> bool:
+        """Opaque formats are not parsed for sidecar metadata."""
+        return False
+
+    def supports_sunstone_metadata_embedding(self) -> bool:
+        """These formats don't carry a round-trippable sunstone Metadata blob."""
+        return False
+
+    def supports_metadata(self) -> bool:
+        """Legacy alias for ``supports_sunstone_metadata_embedding()``."""
+        return self.supports_sunstone_metadata_embedding()
+
+    def supported_kinds(self) -> tuple:
+        from .asset import AssetKind
+
+        return (AssetKind.BLOB,)
+
+    def _resolve_mime(self, path: str, format: str | None) -> str | None:
+        """Resolve canonical MIME from explicit ``format`` or path extension.
+
+        Returns the canonical MIME (first element of the ``_CONTENT_TYPES`` tuple)
+        when ``format`` matches a known canonical MIME, alias, or short form
+        (e.g. ``"pdf"``, ``"docx"``), or when the path/URL extension is in
+        ``_CONTENT_TYPES``. Returns ``None`` otherwise.
+        """
+        if format is not None:
+            for mimes in self._CONTENT_TYPES.values():
+                if format in mimes:
+                    return mimes[0]
+            short_key = "." + format.lower().lstrip(".")
+            if short_key in self._CONTENT_TYPES:
+                return self._CONTENT_TYPES[short_key][0]
+            return None
+        parsed = urlparse(path)
+        file_path = parsed.path if parsed.scheme else path
+        suffix = PurePosixPath(file_path).suffix.lower()
+        matched = self._CONTENT_TYPES.get(suffix)
+        return matched[0] if matched is not None else None
+
+    def can_read(self, path: str, format: str | None) -> bool:
+        return self._resolve_mime(path, format) is not None
+
+    def can_write(self, path: str, format: str | None) -> bool:
+        return self._resolve_mime(path, format) is not None
+
+    def read(self, stream: BinaryIO, **kwargs: object) -> "Asset":
+        from .asset import Asset, AssetKind
+        from .lineage import Metadata
+
+        fmt = kwargs.pop("format", None)
+        path = kwargs.pop("path", None)
+        kwargs.pop("dialect", None)
+
+        mime: str | None = None
+        if fmt is not None or path is not None:
+            mime = self._resolve_mime(str(path) if path is not None else "", fmt if isinstance(fmt, str) else None)
+        if mime is None:
+            mime = "application/octet-stream"
+
+        data = stream.read()
+        return Asset(
+            payload=data,
+            kind=AssetKind.BLOB,
+            metadata=Metadata(),
+            extras={"media_type": mime},
+        )
+
+    def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
+        kwargs.pop("format", None)
+        kwargs.pop("path", None)
+
+        data = asset.as_blob()  # type: ignore[attr-defined]
+        stream.write(data)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return tuple(
+            ContentDescriptor(content_type=mimes[0], content_encoding=None) for mimes in self._CONTENT_TYPES.values()
+        )
+
+    def extensions(self) -> tuple[str, ...]:
+        return tuple(self._CONTENT_TYPES.keys())
 
 
 logger = logging.getLogger(__name__)

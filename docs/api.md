@@ -78,7 +78,7 @@ identical lineage.
 from sunstone import Asset, AssetKind, ComponentSchema, IncompatibleAssetKindError
 ```
 
-### `sunstone.read(path, *, format=None, kind=None, **kwargs)`
+### `sunstone.read(path, *, format=None, kind=None, metadata=None, extras=None, **kwargs)`
 
 Read any registered format into an `Asset`.
 
@@ -86,8 +86,16 @@ Read any registered format into an `Asset`.
 
 - `path` (str): Path or URL to read.
 - `format` (str | None): Format override (`'csv'`, `'parquet'`, `'zarr'`,
-  `'hdf5'`, ...). Auto-detected if not provided.
-- `kind` (AssetKind | None): Kind hint for ambiguous extensions.
+  `'hdf5'`, `'pdf'`, `'docx'`, a canonical MIME like `'application/pdf'`,
+  …). Auto-detected if not provided.
+- `kind` (AssetKind | None): When supplied, overrides the kind on the
+  returned `Asset`. Use this when reconstructing an asset from a
+  catalog row where the catalog is authoritative.
+- `metadata` (Metadata | None): When supplied, fully replaces the
+  handler-produced `metadata`. Use this for catalog-driven
+  reconstruction where the canonical metadata lives outside the file.
+- `extras` (dict | None): When supplied, fully replaces the
+  handler-produced `extras` dict.
 - `**kwargs`: Handler-specific keyword arguments.
 
 **Returns:** `Asset`
@@ -105,10 +113,18 @@ Read any registered format into an `Asset`.
 
 ```python
 import sunstone as ss
+from sunstone.lineage import Metadata
 
 asset = ss.read('inputs/era5_2024.zarr')
 assert asset.kind is ss.AssetKind.ARRAY
 arrays = asset.as_array()  # dict[str, numpy.ndarray]
+
+# Catalog-driven reconstruction: override handler-produced fields.
+pdf_asset = ss.read(
+    'inputs/report.pdf',
+    metadata=Metadata(slug='q4-report', name='Q4 Report'),
+    extras={'media_type': 'application/pdf', 'origin': 'catalog'},
+)
 ```
 
 ---
@@ -149,6 +165,8 @@ Closed enum of supported asset kinds.
 - `AssetKind.RASTER` — `numpy.ndarray` (single payload, e.g. GeoTIFF)
 - `AssetKind.ARRAY` — `dict[str, numpy.ndarray]` (multi-variable n-D arrays)
 - `AssetKind.TILES` — tile pyramid descriptor
+- `AssetKind.BLOB` — `bytes` (opaque binaries: PDF, DOCX, PPTX, RTF,
+  plain text, etc.)
 
 New kinds require adding a variant; plugin authors cannot extend the
 enum.
@@ -178,6 +196,7 @@ Uniform envelope across kinds.
 - `asset.as_raster() -> numpy.ndarray`
 - `asset.as_array() -> dict[str, numpy.ndarray]`
 - `asset.as_tiles() -> Any`
+- `asset.as_blob() -> bytes`
 
 #### `Asset.derive(payload, *, slug=None, name=None, kind=None, derived_from=None, metadata_updates=None, extras_updates=None, inherit_custom_properties=False)`
 
@@ -1227,6 +1246,71 @@ registry.fetch('gs://my-bucket/data.csv', Path('data/local.csv'))
 
 ---
 
+#### Content-type discovery
+
+Four accessors expose what sunstone knows how to read or write so
+downstream tools (catalogs, dispatch layers, UIs) can enumerate the
+format surface without re-implementing the format catalogue.
+
+##### `registry.known_content_descriptors() -> set[ContentDescriptor]`
+
+Union of `content_descriptors()` across every registered format and
+store handler that declares the method. Handlers without the method
+contribute nothing.
+
+##### `registry.known_content_types() -> set[str]`
+
+Convenience projection — the set of canonical MIME strings present in
+`known_content_descriptors()`, regardless of encoding.
+
+##### `registry.known_extensions() -> dict[str, FormatHandler | StoreFormatHandler]`
+
+Map of declared file extension → handler. First-registered wins on
+conflict, matching dispatch priority (external plugins win over
+built-ins on overlapping extensions).
+
+##### `registry.handler_for_content(content_type, content_encoding=None)`
+
+First handler whose declared `content_descriptors()` contains a
+matching `(content_type, content_encoding)` pair.
+
+- Parameters are stripped from `content_type` (so
+  `"text/csv; charset=utf-8"` matches `"text/csv"`).
+- `content_encoding=None` matches identity-encoded handlers; passing
+  `"gzip"`, `"br"`, etc. requires a handler that declares the encoded
+  variant explicitly.
+- Returns `None` when nothing matches.
+
+```python
+from sunstone.plugins import PluginRegistry
+
+reg = PluginRegistry.get()
+reg.known_content_types()                          # {'text/csv', 'application/pdf', ...}
+reg.handler_for_content('text/csv; charset=utf-8') # <BuiltinFormatHandler ...>
+reg.handler_for_content('text/csv', 'gzip')        # None
+```
+
+##### `ContentDescriptor`
+
+```python
+from sunstone.handlers_meta import ContentDescriptor
+```
+
+Frozen dataclass identifying what a handler reads or writes. Mirrors
+HTTP `Content-Type` + `Content-Encoding`.
+
+**Attributes:**
+
+- `content_type` (str): Canonical MIME, no parameters
+  (e.g. `"text/csv"`).
+- `content_encoding` (str | None): Transport/storage encoding —
+  `"gzip"`, `"br"`, `"zstd"`, `"deflate"`, or `None` for identity.
+
+`ContentDescriptor` is hashable and equal-by-value, so the
+`known_content_descriptors()` view is a real `set`.
+
+---
+
 ### Plugin Protocols
 
 Plugins implement one or more of these protocols:
@@ -1235,7 +1319,14 @@ Plugins implement one or more of these protocols:
 - **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`.
 - **`FormatHandler`**: Stream-based format reader/writer. Used for
   single-file formats whose library accepts a byte stream (CSV, JSON,
-  Parquet, `.npz`). Returns / accepts `Asset`.
+  Parquet, `.npz`, PDF/DOCX/etc. via `BlobFormatHandler`). Returns /
+  accepts `Asset`.
+- **`ContentDescriptorAware`** (optional, `sunstone.plugins`): Extends
+  any `FormatHandler` / `StoreFormatHandler` with `content_descriptors()`
+  and `extensions()` methods so it participates in
+  [content-type discovery](#content-type-discovery). Handlers without
+  these methods still dispatch normally; they just don't appear in
+  enumeration.
 - **`StoreFormatHandler`** (`sunstone.resource.StoreFormatHandler`):
   Path-based format reader/writer for formats whose library needs a
   real path or directory (HDF5, Zarr, MBTiles, partitioned Parquet).

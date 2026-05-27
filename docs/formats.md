@@ -10,10 +10,14 @@ metadata, and how to extend Sunstone with your own formats.
 | Format  | Extensions       | Read | Write | Embedded metadata           | Format-specific features          |
 |---------|------------------|------|-------|-----------------------------|-----------------------------------|
 | CSV     | `.csv`           | yes  | yes   | no — sidecar YAML           | `dialect:` block                  |
-| TSV     | `.tsv`, `.txt`   | yes  | no    | no — sidecar YAML           | tab delimiter is fixed            |
+| TSV     | `.tsv`           | yes  | no    | no — sidecar YAML           | tab delimiter is fixed            |
 | JSON    | `.json`          | yes  | no    | no — sidecar YAML           | —                                 |
-| Excel   | `.xlsx`, `.xls`  | yes  | no    | no — sidecar YAML           | —                                 |
+| Excel   | `.xlsx`          | yes  | no    | no — sidecar YAML           | —                                 |
 | Parquet | `.parquet`       | yes  | yes   | **yes** — JSON-LD in footer | self-contained lineage            |
+
+`.txt` and `.xls` route to the [blob handler](#blob--opaque-binary-formats)
+by default — pass `format="tsv"` or `format="excel"` explicitly to force
+tabular parsing on those extensions.
 
 "Sidecar YAML" means the human-authored `datasets.yaml` plus the
 auto-generated `datasets.lock.yaml` carry the lineage and field metadata.
@@ -35,6 +39,45 @@ which is HDF5 underneath, is supported.
 
 Raster (GeoTIFF) and tile-pyramid (XYZ/MBTiles) handlers are on the
 roadmap — see [Images](images.md) and [Tile pyramids](nbtiles.md).
+
+## Blob / opaque binary formats
+
+For document and binary artefacts sunstone has no semantic
+interpretation of — PDF reports, Word and PowerPoint decks, plain text,
+RTF — the built-in `BlobFormatHandler` reads bytes in and writes bytes
+out verbatim, wrapped in `Asset(kind=AssetKind.BLOB)`.
+
+| Format        | Extensions | Canonical MIME                                                                |
+|---------------|------------|-------------------------------------------------------------------------------|
+| PDF           | `.pdf`     | `application/pdf`                                                             |
+| Plain text    | `.txt`     | `text/plain`                                                                  |
+| Rich Text     | `.rtf`     | `application/rtf`                                                             |
+| MS Word       | `.doc`     | `application/msword`                                                          |
+| MS Word OOXML | `.docx`    | `application/vnd.openxmlformats-officedocument.wordprocessingml.document`     |
+| MS PowerPoint | `.ppt`     | `application/vnd.ms-powerpoint`                                               |
+| PPT OOXML     | `.pptx`    | `application/vnd.openxmlformats-officedocument.presentationml.presentation`   |
+| MS Excel      | `.xls`     | `application/vnd.ms-excel`                                                    |
+
+`.xlsx` is intentionally NOT in this table — the pandas-backed
+`BuiltinFormatHandler` claims it for tabular parsing.
+
+```python
+import sunstone as ss
+
+asset = ss.read('inputs/report.pdf')
+assert asset.kind is ss.AssetKind.BLOB
+assert isinstance(asset.payload, bytes)
+assert asset.extras['media_type'] == 'application/pdf'
+
+# Same shape on write — bytes go through verbatim.
+ss.write(asset, 'outputs/report-copy.pdf')
+```
+
+`BlobFormatHandler` advertises no native or embedded metadata —
+the file is opaque. Downstream consumers (e.g. catalog services) carry
+the sunstone `Metadata` blob externally and replay it via
+`sunstone.read(..., metadata=..., extras=...)` at read time (see
+[catalog-driven reads](#catalog-driven-reads-with-metadata-extras-and-kind-overrides)).
 
 ## Reading and writing
 
@@ -93,6 +136,26 @@ Dispatch order is:
 
 Writing an `Asset` whose `kind` does not match the destination handler
 raises `IncompatibleAssetKindError`.
+
+### Catalog-driven reads with `metadata`, `extras`, and `kind` overrides
+
+`sunstone.read()` accepts three optional keyword-only arguments that
+fully replace any values the handler would have produced:
+
+```python
+from sunstone.lineage import Metadata
+
+asset = ss.read(
+    'inputs/report.pdf',
+    metadata=Metadata(slug='q4-board-report', name='Q4 Board Report'),
+    extras={'media_type': 'application/pdf', 'source_system': 'catalog'},
+)
+```
+
+This is the path consumers use when reconstructing an `Asset` from a
+catalog row: the canonical metadata lives in the catalog, not embedded
+in the file. Calling without these arguments keeps the handler-produced
+values unchanged.
 
 ## Where metadata lives
 
@@ -188,14 +251,64 @@ outputs:
       delimiter: "\t"
 ```
 
+## Discovering available formats
+
+Downstream tools (catalogs, dispatch layers, UIs) can enumerate what
+sunstone knows how to read or write through four `PluginRegistry`
+accessors:
+
+```python
+from sunstone.plugins import PluginRegistry
+
+reg = PluginRegistry.get()
+
+reg.known_content_types()
+# {'text/csv', 'application/pdf', 'application/x-zarr', ...}
+
+reg.known_content_descriptors()
+# {ContentDescriptor('text/csv', None), ContentDescriptor('application/pdf', None), ...}
+
+reg.known_extensions()
+# {'.csv': BuiltinFormatHandler(), '.pdf': BlobFormatHandler(), ...}
+
+reg.handler_for_content('text/csv; charset=utf-8')
+# <BuiltinFormatHandler at 0x...>
+
+reg.handler_for_content('text/csv', content_encoding='gzip')
+# None — no compressed-csv handler is registered
+```
+
+Identity is two-dimensional, mirroring HTTP semantics:
+
+- `content_type` — canonical MIME of the payload (e.g. `text/csv`).
+- `content_encoding` — how the bytes have been wrapped for transport or
+  storage (`'gzip'`, `'br'`, `'zstd'`, or `None` for the identity
+  encoding). All current built-in handlers are identity-encoded; the
+  protocol shape is ready for compressed-variant handlers as
+  follow-ups.
+
+`handler_for_content()` strips parameters from the requested
+`content_type` (so `text/csv; charset=utf-8` matches `text/csv`) and
+returns the first registered handler that claims the
+(content_type, content_encoding) pair. External plugins are registered
+before built-ins, so a plugin advertising `.pdf` would win over
+`BlobFormatHandler` on both dispatch and discovery.
+
+Handlers that don't implement the optional `content_descriptors()` or
+`extensions()` methods contribute nothing to discovery — `find_format_reader()`
+dispatch via `can_read()` still works for them. Plugin authors are
+encouraged to declare descriptors to participate.
+
 ## Format detection
 
 Format detection follows this order:
 
 1. An explicit `format=` argument on `read_dataset` (`csv`, `json`,
-   `excel`, `parquet`, `tsv`).
-2. The file extension (`.csv` → csv, `.tsv`/`.txt` → tsv, `.json` →
-   json, `.xlsx`/`.xls` → excel, `.parquet` → parquet).
+   `excel`, `parquet`, `tsv`, or any blob format / canonical MIME like
+   `pdf` or `application/pdf`).
+2. The file extension (`.csv` → csv, `.tsv` → tsv, `.json` → json,
+   `.xlsx` → excel, `.parquet` → parquet, `.pdf`/`.txt`/`.xls`/... →
+   blob).
 3. For `read_csv` the format is always `csv`; for `read_excel` always
    `excel`; for `read_json` always `json`.
 
@@ -219,6 +332,11 @@ class FormatHandler(Protocol):
     def supported_kinds(self) -> tuple[AssetKind, ...]: ...
     def read(self, stream, **kwargs) -> Asset: ...
     def write(self, asset: Asset, stream, **kwargs) -> None: ...
+
+# Optional — implement to appear in PluginRegistry discovery:
+class ContentDescriptorAware(Protocol):
+    def content_descriptors(self) -> tuple[ContentDescriptor, ...]: ...
+    def extensions(self) -> tuple[str, ...]: ...
 ```
 
 Return `True` from `supports_metadata()` if your format can embed
@@ -226,6 +344,13 @@ Sunstone's JSON-LD document (see `ParquetFormatHandler` and
 `NpzFormatHandler` for worked examples); otherwise the sidecar YAML
 carries the metadata as usual. `supported_kinds()` lets the registry
 reject mismatched assets at write time.
+
+The optional `content_descriptors()` / `extensions()` methods make a
+handler discoverable via `PluginRegistry.known_content_types()` and
+`handler_for_content()` (see [Discovering available
+formats](#discovering-available-formats)). Handlers without these
+methods still dispatch normally via `can_read()`; they just don't
+appear in the discovery view.
 
 ### Store-based: `StoreFormatHandler`
 

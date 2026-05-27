@@ -25,6 +25,7 @@ from .errors import IncompatibleAssetKindError
 from .lineage import Metadata
 
 if TYPE_CHECKING:
+    from .handlers_meta import ContentDescriptor
     from .resource import ResourceLocation
 
 
@@ -54,6 +55,17 @@ class Hdf5StoreHandler:
 
     def supported_kinds(self) -> tuple[AssetKind, ...]:
         return (AssetKind.ARRAY,)
+
+    def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
+        from .handlers_meta import ContentDescriptor
+
+        return (
+            ContentDescriptor(content_type="application/x-hdf5", content_encoding=None),
+            ContentDescriptor(content_type="application/x-netcdf", content_encoding=None),
+        )
+
+    def extensions(self) -> tuple[str, ...]:
+        return (".h5", ".hdf5", ".he5", ".nc", ".nc4")
 
     # ---- Format detection -------------------------------------------------------
 
