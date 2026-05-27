@@ -15,12 +15,12 @@ Separately, downstream consumers want to identify formats by **canonical MIME ty
 
 - Add a fifth `AssetKind` for opaque binaries, so consumers can ingest and version PDF/DOCX/PPTX/etc. through the same envelope API as rasters and arrays.
 - Provide built-in format handlers for the common document formats so `sunstone.read("report.pdf")` returns a meaningful `Asset` without requiring an external plugin.
-- Make canonical MIME identity discoverable from the registry, so downstream consumers can map "what sunstone knows about" onto their own catalog schemas without duplicating the format catalogue.
+- Make canonical content identity discoverable from the registry along two axes — payload `content_type` (MIME) and transport/storage `content_encoding` (mirroring HTTP semantics, so e.g. `.tar.gz` is `application/x-tar` with `gzip` encoding) — so downstream consumers can map "what sunstone knows about" onto their own catalog schemas without duplicating the format catalogue.
 - Preserve full backwards compatibility for existing plugin authors. New protocol surface is optional with sensible defaults.
 
 ## Non-Goals
 
-- Text extraction, OCR, search indexing, or any interpretation of blob payloads beyond reading their bytes. The pointer-table catalog can layer that on top; sunstone-py stays neutral.
+- Text extraction, OCR, search indexing, or any interpretation of blob payloads beyond reading their bytes. Downstream consumers can layer that on top; sunstone-py stays neutral.
 - Mime-sniffing on file contents. Detection remains extension-based plus explicit-format-string, as today. Content-aware sniffing is a separate concern.
 - A handler taxonomy for media (audio, video, images). Could come later; not part of this spec. If a future need surfaces, those kinds either fit under BLOB or earn their own `AssetKind`.
 - Compression / decompression of blob payloads. The handler stores and returns the raw bytes as written.
@@ -85,7 +85,20 @@ class BlobFormatHandler:
 
 Registration in `PluginRegistry._register_internal_handlers()` happens **last** among `FormatHandler`s, so more specific handlers (`ParquetFormatHandler`, `BuiltinFormatHandler` for csv/xlsx, format-specific plugins) win on extensions they also recognize. The blob handler is the residual.
 
-### D3. `content_types()` and `extensions()` on `FormatHandler`
+### D3. `ContentDescriptor`, `content_descriptors()`, and `extensions()` on `FormatHandler`
+
+Identity is two-dimensional, mirroring HTTP semantics: **what the payload is** (`Content-Type`) and **how it has been encoded for transport/storage** (`Content-Encoding`). A `.tar.gz` is `application/x-tar` with `gzip` encoding; a `.csv.gz` is `text/csv` with `gzip` encoding; a plain `.csv` is `text/csv` with no encoding. Conflating the two axes into a single MIME string forces non-standard composites (e.g. `application/x-tar+gzip`) and prevents the registry from answering "what tar handlers do we have, regardless of compression?"
+
+A small descriptor type captures both:
+
+```python
+# sunstone/handlers_meta.py (new module)
+@dataclass(frozen=True)
+class ContentDescriptor:
+    """What a handler reads/writes. Mirrors HTTP Content-Type + Content-Encoding."""
+    content_type: str                    # canonical MIME, no parameters
+    content_encoding: str | None = None  # "gzip", "br", "zstd", "deflate", None for identity
+```
 
 Extend the `FormatHandler` protocol with two optional methods:
 
@@ -94,63 +107,78 @@ Extend the `FormatHandler` protocol with two optional methods:
 class FormatHandler(Protocol):
     # ... existing methods unchanged ...
 
-    def content_types(self) -> tuple[str, ...]:
-        """Return canonical MIME types this handler reads/writes (no parameters).
-        Optional; default treated as empty tuple by the registry."""
+    def content_descriptors(self) -> tuple[ContentDescriptor, ...]:
+        """Return (content_type, content_encoding) pairs this handler reads/writes.
+        Optional; default treated as empty tuple by the registry. A handler may
+        return multiple descriptors if it natively handles several encodings of
+        the same payload type (e.g. tar both raw and gzip-compressed)."""
         ...
 
     def extensions(self) -> tuple[str, ...]:
-        """Return file extensions (including leading dot) this handler recognises.
-        Optional; default treated as empty tuple by the registry."""
+        """Return file extensions (including leading dot) this handler recognises,
+        including compound extensions (e.g. ".tar.gz"). Optional; default empty."""
         ...
 ```
 
-Both methods are **optional**. The `PluginRegistry` calls them via `getattr(handler, "content_types", lambda: ())()` so external plugins without these methods keep working unchanged. Built-in handlers implement them. New plugin authors are encouraged to as well — the registry's content-type view (D5) only sees handlers that declare.
+Both methods are **optional**. The `PluginRegistry` calls them via `getattr(handler, "content_descriptors", lambda: ())()` so external plugins without them keep working unchanged. Built-in handlers implement them. New plugin authors are encouraged to as well — the registry's discovery view (D5) only sees handlers that declare.
+
+**Decompression behavior**: handlers receive raw bytes including any declared `content_encoding`. A handler that declares `ContentDescriptor("text/csv", "gzip")` is responsible for decompressing the gzip stream internally (e.g. `gzip.GzipFile(fileobj=stream)` before parsing). This preserves byte-exact round-trips for `BLOB` payloads (the bytes are what was written) and keeps the framework simple — there is no global decompression layer that handlers must opt out of. A future spec can introduce shared decompression utilities or a transparent-decode option if real handlers prove the boilerplate painful.
 
 This is *additive* to the existing protocol; the `__sunstone_handler_protocol__` marker stays at `2`. The handler can declare these methods regardless of whether it produces DataFrames or Assets.
 
 ### D4. Built-in handler updates
 
-Each built-in handler declares its content types and extensions:
+Each built-in handler declares its `ContentDescriptor`s and extensions. All built-in handlers operate on uncompressed payloads, so `content_encoding` is `None` throughout the initial round of declarations:
 
-| Handler | `content_types()` | `extensions()` |
+| Handler | `content_descriptors()` | `extensions()` |
 |---|---|---|
-| `BuiltinFormatHandler` (csv/xlsx via pandas) | `("text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")` | `(".csv", ".xlsx")` |
-| `ParquetFormatHandler` | `("application/vnd.apache.parquet",)` | `(".parquet",)` |
-| `NpzFormatHandler` | `("application/x-numpy-npz",)` | `(".npz",)` |
-| `BlobFormatHandler` (D2) | all values from `_CONTENT_TYPES` | all keys from `_CONTENT_TYPES` |
+| `BuiltinFormatHandler` (csv/xlsx via pandas) | `(ContentDescriptor("text/csv"), ContentDescriptor("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))` | `(".csv", ".xlsx")` |
+| `ParquetFormatHandler` | `(ContentDescriptor("application/vnd.apache.parquet"),)` | `(".parquet",)` |
+| `NpzFormatHandler` | `(ContentDescriptor("application/x-numpy-npz"),)` | `(".npz",)` |
+| `BlobFormatHandler` (D2) | one `ContentDescriptor(<mime>)` per entry in `_CONTENT_TYPES` | all keys from `_CONTENT_TYPES` |
 
 `StoreFormatHandler` implementations (`ZarrStoreHandler`, `Hdf5StoreHandler`) gain the same optional methods. Suggested values:
 
-| Store handler | `content_types()` | `extensions()` |
+| Store handler | `content_descriptors()` | `extensions()` |
 |---|---|---|
-| `ZarrStoreHandler` | `("application/x-zarr",)` | `(".zarr",)` |
-| `Hdf5StoreHandler` | `("application/x-hdf5", "application/x-netcdf")` | `(".h5", ".hdf5", ".nc", ".nc4")` |
+| `ZarrStoreHandler` | `(ContentDescriptor("application/x-zarr"),)` | `(".zarr",)` |
+| `Hdf5StoreHandler` | `(ContentDescriptor("application/x-hdf5"), ContentDescriptor("application/x-netcdf"))` | `(".h5", ".hdf5", ".nc", ".nc4")` |
 
-`application/x-zarr` and `application/x-hdf5` are not IANA-registered but follow conventional usage; they're treated as canonical by sunstone-py's registry and by data-platform.
+`application/x-zarr` and `application/x-hdf5` are not IANA-registered but follow conventional usage; they're treated as canonical by sunstone-py's registry and by downstream consumers.
 
-### D5. `PluginRegistry` content-type view
+Compressed-variant handlers (e.g. a future `TarGzFormatHandler` that handles tar archives in gzip-encoded form) are out of scope for this spec. The protocol shape is ready for them; concrete handlers ship in their own follow-ups.
 
-Add three accessor methods to `PluginRegistry` for discovery by downstream consumers:
+### D5. `PluginRegistry` discovery view
+
+Add four accessor methods to `PluginRegistry` for discovery by downstream consumers:
 
 ```python
 class PluginRegistry:
     # ...
 
+    def known_content_descriptors(self) -> set[ContentDescriptor]:
+        """Union of content_descriptors() across all registered format/store
+        handlers that declare them. Handlers without the method contribute nothing."""
+
     def known_content_types(self) -> set[str]:
-        """Union of content_types() across all registered format/store handlers
-        that declare it. Handlers without the method contribute nothing."""
+        """Convenience projection — the set of content_type strings present in
+        known_content_descriptors(), regardless of encoding."""
 
     def known_extensions(self) -> dict[str, FormatHandler | StoreFormatHandler]:
         """Map of declared extension -> handler (last-registered wins on conflict)."""
 
-    def handler_for_content_type(self, content_type: str) -> FormatHandler | StoreFormatHandler | None:
-        """First handler whose declared content_types() includes `content_type`.
-        Parameter-stripped lookup; e.g. "text/csv; charset=utf-8" matches "text/csv".
-        Returns None if no handler claims it."""
+    def handler_for_content(
+        self,
+        content_type: str,
+        content_encoding: str | None = None,
+    ) -> FormatHandler | StoreFormatHandler | None:
+        """First handler whose declared content_descriptors() contains a matching
+        (content_type, content_encoding) pair. content_type lookup strips
+        parameters; e.g. "text/csv; charset=utf-8" matches "text/csv".
+        Returns None if no handler claims the pair."""
 ```
 
-These are the methods data-platform's `ContentRegistry.register_from_sunstone()` calls.
+These are the methods downstream consumers (e.g. the Sunstone data-platform catalog) call to populate their own registries.
 
 Existing `can_read(path, format)` / `can_write(path, format)` paths are untouched. The new methods are for **enumeration**, not dispatch — dispatch continues through `can_read`.
 
@@ -187,7 +215,9 @@ Currently `sunstone.read()` doesn't accept these overrides; this adds them. Call
 - Unit: `BlobFormatHandler.read()` / `write()` round-trips a small PDF, DOCX, RTF, and TXT verbatim (byte-equal).
 - Unit: `BlobFormatHandler.can_read()` returns True for each `_CONTENT_TYPES` extension, False for `.csv` / `.xlsx` / `.parquet`.
 - Unit: `PluginRegistry.known_content_types()` includes every MIME from D4 after default registration.
-- Unit: `PluginRegistry.handler_for_content_type("text/csv; charset=utf-8")` returns the csv handler (parameter stripping).
+- Unit: `PluginRegistry.known_content_descriptors()` includes a `ContentDescriptor("text/csv", None)` (and equivalents for the other built-ins).
+- Unit: `PluginRegistry.handler_for_content("text/csv; charset=utf-8")` returns the csv handler (parameter stripping, default encoding=None).
+- Unit: `PluginRegistry.handler_for_content("text/csv", content_encoding="gzip")` returns None when no compressed-csv handler is registered.
 - Unit: `sunstone.read("foo.pdf", metadata=Metadata(slug="x"))` returns an Asset whose `metadata.slug == "x"` (overrides applied).
 - Integration: register a fake v1 (DataFrame) plugin without `content_types()`, confirm registry doesn't crash and the plugin still dispatches via `can_read`.
 
