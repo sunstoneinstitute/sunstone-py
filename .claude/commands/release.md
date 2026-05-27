@@ -25,6 +25,7 @@ Format as [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Use these ca
 
 - `- Added:` — new features
 - `- Changed:` — changes in existing functionality
+- `- Improved:` — material performance improvement
 - `- Fixed:` — bug fixes
 - `- Removed:` — removed features
 

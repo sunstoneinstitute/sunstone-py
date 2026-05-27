@@ -3,11 +3,10 @@
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added: `AssetKind.BLOB` and built-in `BlobFormatHandler` for opaque document/binary formats (PDF, RTF, TXT, DOC/DOCX, PPT/PPTX, XLS).
+- Added: `AssetKind.BLOB` and `BlobFormatHandler` for opaque binary formats (PDF, RTF, DOC, PPT, etc.); `.txt`/`.xls` now default to BLOB — pass `format="tsv"`/`format="excel"` for the old behavior.
 - Added: `PluginRegistry.known_content_descriptors()` / `known_content_types()` / `known_extensions()` / `handler_for_content()` for downstream content-type discovery.
 - Added: `sunstone.read()` accepts `kind` / `metadata` / `extras` overrides for catalog-driven Asset reconstruction.
-- Changed: `.txt` and `.xls` extensions now route to `BlobFormatHandler` (opaque bytes) by default instead of `BuiltinFormatHandler` (TSV/Excel). Callers wanting the previous behavior must pass `format="tsv"` or `format="excel"` explicitly.
-- Changed: `sunstone` CLI startup is ~7× faster (~500 ms → ~70 ms) by deferring pandas/pyarrow/numpy imports until actually needed.
+- Improved: `sunstone` CLI startup is ~7× faster (~500 ms → ~70 ms) by deferring pandas/pyarrow/numpy imports
 
 ## [1.12.1] - 2026-05-22
 
