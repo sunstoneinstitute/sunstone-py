@@ -65,7 +65,7 @@ class Hdf5StoreHandler:
         )
 
     def extensions(self) -> tuple[str, ...]:
-        return (".h5", ".hdf5", ".nc", ".nc4")
+        return (".h5", ".hdf5", ".he5", ".nc", ".nc4")
 
     # ---- Format detection -------------------------------------------------------
 

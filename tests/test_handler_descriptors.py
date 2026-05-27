@@ -66,7 +66,7 @@ def _hdf5_case() -> tuple[object, tuple[ContentDescriptor, ...], tuple[str, ...]
             ContentDescriptor("application/x-hdf5"),
             ContentDescriptor("application/x-netcdf"),
         ),
-        (".h5", ".hdf5", ".nc", ".nc4"),
+        (".h5", ".hdf5", ".he5", ".nc", ".nc4"),
     )
 
 

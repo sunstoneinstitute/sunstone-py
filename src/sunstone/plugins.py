@@ -289,8 +289,14 @@ class PluginRegistry:
         except ImportError:
             pass  # boto3 not installed
 
-        # Optional store-format handlers
+        # Optional store-format handlers. The handler modules import their
+        # heavy dep (zarr / h5py) lazily inside read(), so a successful module
+        # import does NOT guarantee the dep is installed. Probe the dep
+        # directly before registering, otherwise the handler shows up in
+        # known_content_types() / handler_for_content() but blows up with
+        # ImportError on first use.
         try:
+            import zarr  # noqa: F401
             from .handlers_zarr import ZarrStoreHandler
 
             self._store_format_handlers.append(ZarrStoreHandler())
@@ -298,6 +304,7 @@ class PluginRegistry:
             pass  # zarr not installed
 
         try:
+            import h5py  # noqa: F401
             from .handlers_hdf5 import Hdf5StoreHandler
 
             self._store_format_handlers.append(Hdf5StoreHandler())
