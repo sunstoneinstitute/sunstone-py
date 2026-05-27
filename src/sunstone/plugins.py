@@ -421,12 +421,15 @@ class PluginRegistry:
         return {d.content_type for d in self.known_content_descriptors()}
 
     def known_extensions(self) -> dict[str, "FormatHandler | StoreFormatHandler"]:
-        """Map of declared extension -> handler (last-registered wins on conflict)."""
+        """Map of declared extension -> handler. First-registered wins, matching
+        dispatch priority: external plugins (registered before internals) win
+        over built-ins on overlapping extensions.
+        """
         out: dict[str, FormatHandler | StoreFormatHandler] = {}
         for handler in self._iter_descriptor_aware_handlers():
             exts = getattr(handler, "extensions", lambda: ())()
             for ext in exts:
-                out[ext] = handler  # type: ignore[assignment]
+                out.setdefault(ext, handler)  # type: ignore[arg-type]
         return out
 
     def handler_for_content(

@@ -340,6 +340,32 @@ class TestReadDataset:
         assert len(df.metadata.lineage.sources) > 0
 
 
+class TestReadDatasetKindValidation:
+    """``DataFrame.read_dataset`` must reject non-tabular Assets with a clear
+    error rather than letting downstream code attempt ``.columns`` on bytes."""
+
+    def test_read_dataset_rejects_blob_kind(self, project_copy: Path) -> None:
+        from sunstone.errors import IncompatibleAssetKindError
+
+        # Add a PDF entry to the test project's datasets.yaml + write the file.
+        pdf_path = project_copy / "inputs" / "report.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"%PDF-1.4\nreport bytes")
+
+        datasets_yaml = project_copy / "datasets.yaml"
+        text = datasets_yaml.read_text()
+        # Append a new input entry; trailing newline already present.
+        text += "  - name: UN Report\n    slug: un-report\n    location: inputs/report.pdf\n"
+        datasets_yaml.write_text(text)
+
+        with pytest.raises(IncompatibleAssetKindError):
+            sunstone.DataFrame.read_dataset(
+                "un-report",
+                project_path=project_copy,
+                strict=False,
+            )
+
+
 class TestToCsvTrackParameter:
     """Tests for the track parameter on to_csv()."""
 

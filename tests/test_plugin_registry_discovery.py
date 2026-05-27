@@ -242,3 +242,50 @@ def test_format_handlers_consulted_before_store_handlers() -> None:
 
     result = registry.handler_for_content("application/x-shared-mime")
     assert result is fmt
+
+
+def test_known_extensions_external_plugin_wins_over_builtin() -> None:
+    """External plugins are registered before built-ins, so dispatch returns
+    them first on overlapping extensions. ``known_extensions()`` must mirror
+    that priority — discovery and dispatch should agree."""
+
+    class _ExternalPdfPlugin:
+        def supports_metadata(self) -> bool:
+            return False
+
+        def supports_native_metadata_extraction(self) -> bool:
+            return False
+
+        def supports_sunstone_metadata_embedding(self) -> bool:
+            return False
+
+        def can_read(self, path, format):
+            return False
+
+        def read(self, stream, **kwargs):
+            return None
+
+        def can_write(self, path, format):
+            return False
+
+        def write(self, payload, stream, **kwargs):
+            return None
+
+        def content_descriptors(self):
+            return (ContentDescriptor("application/pdf", None),)
+
+        def extensions(self):
+            return (".pdf",)
+
+    registry = PluginRegistry.get()
+    external = _ExternalPdfPlugin()
+    # External plugins are prepended/registered before internals; the registry
+    # constructs _format_handlers with externals first, internals last. Mimic
+    # that ordering by inserting at the front.
+    registry._format_handlers.insert(0, external)  # type: ignore[arg-type]
+
+    exts = registry.known_extensions()
+    assert exts[".pdf"] is external, (
+        "known_extensions() should report the external plugin for .pdf, "
+        "matching dispatch priority — not the later-registered BlobFormatHandler."
+    )
