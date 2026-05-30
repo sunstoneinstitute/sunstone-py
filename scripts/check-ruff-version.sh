@@ -13,7 +13,7 @@ check_version() {
     lock_version=$(tomlq -r ".package[] | select(.name == \"$name\") | .version" uv.lock)
 
     local precommit_version
-    precommit_version=$(yq ".repos[] | select(.repo == \"*${repo_pattern}*\") | .rev" .pre-commit-config.yaml | sed 's/^v//')
+    precommit_version=$(yq -r ".repos[] | select(.repo | test(\"${repo_pattern}\")) | .rev" .pre-commit-config.yaml | sed 's/^v//')
 
     if [ -z "$lock_version" ]; then
         echo "ERROR: Could not find $name version in uv.lock"
