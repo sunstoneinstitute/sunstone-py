@@ -1,0 +1,1547 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.13.1/superpowers/specs/2026-05-12-asset-envelope-open-decisions/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Asset Envelope — Open Design Decisions - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-05-12-asset-envelope-open-decisions.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#asset-envelope-open-design-decisions" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Asset Envelope — Open Design Decisions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-dataframe-wrapper-vs-asset-ownership-tabular-kind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. DataFrame wrapper vs. Asset ownership (tabular kind)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-mapping-sugar-on-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Mapping sugar on Metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-derive-multi-parent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. derive() — multi-parent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-derive-name-inheritance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. derive() — name inheritance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-derive-custom_properties-propagation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. derive() — custom_properties propagation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-extras-mutability-on-inheritance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Extras mutability on inheritance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-per-kind-derive-policies-raster-profile-invalidation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Per-kind derive policies (raster profile invalidation)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-derive-from-unsaved-parents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. derive() from unsaved parents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-array-payload-vs-extrasarrays-overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Array payload vs. extras["arrays"] overlap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-tile-pyramids-and-the-stream-based-handler-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Tile pyramids and the stream-based handler protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-autodispatch-beyond-file-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Autodispatch beyond file extensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-legacy-vs-new-handler-distinction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Legacy vs. new handler distinction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-supports_metadata-one-capability-or-two" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. supports_metadata() — one capability or two?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-pluginregistryget_format_handlers-migration-risk" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. PluginRegistry.get_format_handlers() migration risk
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-rdf-discovery-shape-per-kind-required-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. RDF discovery shape (per-kind required properties)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-rdf-value-typing-iri-vs-literal-vs-blank-node" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. RDF value typing (IRI vs literal vs blank node)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#17-stable-asset-id-for-cross-project-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        17. Stable asset @id for cross-project discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#18-per-band-per-variable-per-layer-component-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        18. Per-band / per-variable / per-layer component metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19-deprecation-warning-timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19. Deprecation warning timing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-to-respond" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How to respond
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="asset-envelope-open-design-decisions">Asset Envelope — Open Design Decisions<a class="headerlink" href="#asset-envelope-open-design-decisions" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-05-12
+<strong>Status:</strong> Draft — awaiting decisions
+<strong>Parent spec:</strong> <code>2026-05-12-generic-format-handler-asset-envelope-design.md</code></p>
+<p>Each section is one decision that needs a call before the parent spec can ship. The
+items came out of a codex peer-review pass; the parent spec already applied the
+"just-fix" findings (factual errors, mechanical bugs). What remains here is genuinely
+load-bearing design — pick a direction or push back on the framing.</p>
+<p>Leave inline comments on the decisions you want changed. Comments on a single decision
+take precedence over the recommendations below.</p>
+<hr />
+<h2 id="1-dataframe-wrapper-vs-asset-ownership-tabular-kind">1. DataFrame wrapper vs. Asset ownership (tabular kind)<a class="headerlink" href="#1-dataframe-wrapper-vs-asset-ownership-tabular-kind" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> The current <code>sunstone.DataFrame</code> is a wrapper holding <code>pd.DataFrame</code> in
+<code>.data</code> and a <code>Metadata</code> in <code>.metadata</code>. Legacy <code>FormatHandler.read()</code> returns a bare
+<code>pd.DataFrame</code>. The parent spec needs to declare which object owns which for tabular
+assets, and how <code>df.metadata</code> stays in sync with <code>asset.metadata</code>.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. <code>Asset</code> owns. <code>sunstone.DataFrame</code> becomes a thin facade over an <code>Asset</code>.</strong>
+  <code>df.data</code> returns <code>asset.as_table()</code>; <code>df.metadata</code> returns <code>asset.metadata</code>.
+  Legacy handlers continue returning <code>pd.DataFrame</code>; the adapter wraps. New handlers
+  return <code>Asset(kind=TABULAR, payload=pd.DataFrame)</code>.</li>
+<li><strong>B. <code>sunstone.DataFrame</code> owns. <code>Asset</code> is a transient handoff at handler boundaries.</strong>
+  Inside the library, tabular data flows as <code>sunstone.DataFrame</code>. <code>Asset</code> only exists in
+  <code>ss.read</code>/<code>ss.write</code>/<code>derive()</code> calls. Non-tabular kinds use <code>Asset</code> end-to-end.</li>
+<li><strong>C. Parallel containers with explicit sync points.</strong>
+  <code>Asset.metadata is df.metadata</code> is enforced at <code>Asset</code> construction and after every
+  <code>derive()</code>. Users mutate either side and it shows up everywhere. Requires a sync
+  helper and rules for when to re-sync (e.g., after pandas operations that drop attrs).</li>
+</ul>
+<p><strong>Recommendation: A.</strong> Single source of truth eliminates "which one do I edit". The
+facade keeps the user-facing ergonomics (<code>df.metadata.description = ...</code>) intact.
+Cost: a moderate refactor of <code>sunstone.DataFrame</code> to delegate everywhere.</p>
+<hr />
+<h2 id="2-mapping-sugar-on-metadata">2. Mapping sugar on <code>Metadata</code><a class="headerlink" href="#2-mapping-sugar-on-metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Examples in the parent spec used <code>asset.metadata["sosa:observedProperty"] = ...</code>.
+<code>Metadata</code> doesn't implement <code>__getitem__</code>/<code>__setitem__</code>. The current workaround is
+<code>asset.metadata.custom_properties = asset.metadata.custom_properties or {}</code> then key
+access — clunky.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Add <code>__getitem__</code>/<code>__setitem__</code>/<code>__delitem__</code>/<code>__contains__</code> to <code>Metadata</code></strong> that
+  proxy to <code>custom_properties</code> (lazy-init the dict on first set). Treat colon-bearing
+  keys as RDF triples; non-namespaced keys raise.</li>
+<li><strong>B. Leave <code>Metadata</code> as-is, document the verbose form.</strong> Users learn the API.</li>
+<li><strong>C. Add a separate <code>asset.rdf[...]</code> mapping</strong> that proxies to <code>custom_properties</code>,
+  leaving <code>Metadata</code> itself unchanged.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> This is the discovery story's primary touch-point — data
+scientists will write <code>asset.metadata["sosa:observedProperty"] = ...</code> constantly. The
+mapping sugar is a few lines and matches the way users already think about RDF triples
+on a dataset.</p>
+<hr />
+<h2 id="3-derive-multi-parent">3. <code>derive()</code> — multi-parent<a class="headerlink" href="#3-derive-multi-parent" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Many real operations combine assets: raster mosaics, image stacks, table
+joins, tile generation from multiple sources. <code>derive()</code> as drafted assumes a single
+implicit parent.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. <code>Asset.derive(payload, *, derived_from: Iterable["Asset"] | None = None, ...)</code>.</strong>
+  When <code>derived_from</code> is <code>None</code>, default to <code>[self]</code>. When provided, record one
+  <code>prov:wasDerivedFrom</code> per parent.</li>
+<li><strong>B. Class method <code>Asset.combine(parents, payload, ...)</code>.</strong> <code>self.derive(...)</code>
+  remains single-parent; explicit combinator for multi-parent.</li>
+<li><strong>C. Defer.</strong> Single-parent only in v1; revisit when first multi-parent handler ships.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> The default stays clean (<code>asset.derive(payload=...)</code> still
+works), and lineage stays correct for mosaics/joins. PROV-O models multi-parent
+derivation natively; no reason to artificially restrict it.</p>
+<hr />
+<h2 id="4-derive-name-inheritance">4. <code>derive()</code> — name inheritance<a class="headerlink" href="#4-derive-name-inheritance" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Parent spec clears <code>slug</code> to <code>None</code> on derive but leaves <code>name</code> inherited.
+A derived NDVI asset would silently carry the parent's "Sentinel-2 SR, July 2024" name
+unless the user overrides.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Clear both <code>slug</code> and <code>name</code> to <code>None</code> by default.</strong> User must supply both on
+  the <code>derive()</code> call or before write.</li>
+<li><strong>B. Inherit <code>name</code> by default.</strong> User overrides when they care.</li>
+<li><strong>C. Add <code>inherit_identity: bool = False</code></strong> — explicit opt-in for inheritance.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> Same logic as slug: a new dataset deserves its own name. Forcing
+the user to think about it at derive time matches the existing <code>to_csv(name=...)</code>
+contract.</p>
+<hr />
+<h2 id="5-derive-custom_properties-propagation">5. <code>derive()</code> — custom_properties propagation<a class="headerlink" href="#5-derive-custom_properties-propagation" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Blindly carrying <code>custom_properties</code> forward can make false statements.
+Example: parent has <code>sosa:observedProperty = "surface-reflectance"</code>. NDVI derivative
+inherits it unless overridden — but NDVI is <em>not</em> surface reflectance.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Split into two buckets on <code>Metadata</code>.</strong> <code>custom_properties</code> (semantic, per-asset)
+  and <code>provenance_properties</code> (carries forward through derive). RDF emission joins them
+  on serialise.</li>
+<li><strong>B. Add an inheritance manifest.</strong> Each RDF key declares its inheritance behaviour
+  ("inherit", "clear", "ask"). Driven by a small built-in table for known prefixes
+  (<code>sosa:</code>, <code>dcat:</code>, <code>prov:</code>, ...) plus user overrides.</li>
+<li><strong>C. Don't inherit by default; require <code>derive(..., inherit_custom_properties=True)</code>.</strong></li>
+<li><strong>D. Inherit by default; document the footgun.</strong></li>
+</ul>
+<p><strong>Recommendation: C.</strong> Semantic claims about data are not provenance. Forcing explicit
+opt-in is the safe default. Option A is cleaner long-term but adds API surface and
+storage complexity; do it when (B/C) proves insufficient.</p>
+<hr />
+<h2 id="6-extras-mutability-on-inheritance">6. Extras mutability on inheritance<a class="headerlink" href="#6-extras-mutability-on-inheritance" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>extras</code> is <code>dict[str, Any]</code>. <code>derive()</code> as drafted inherits it shallowly,
+so parent and child can share a mutable <code>profile</code> dict or <code>arrays</code> map. Mutating the
+child's profile silently mutates the parent's.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Deep-copy <code>extras</code> on derive.</strong> Safe default; small perf cost on big extras.</li>
+<li><strong>B. Shallow-copy + document the gotcha.</strong></li>
+<li><strong>C. Make <code>extras</code> values immutable by convention (frozen dataclasses, tuples).</strong>
+  Burdens plugin authors.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> Deep-copy. The kinds we expect — profile dicts, CRS strings,
+chunk specs — are small. The bug class this prevents (silent cross-asset mutation) is
+nasty and hard to diagnose.</p>
+<hr />
+<h2 id="7-per-kind-derive-policies-raster-profile-invalidation">7. Per-kind derive policies (raster profile invalidation)<a class="headerlink" href="#7-per-kind-derive-policies-raster-profile-invalidation" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Inheriting <code>extras["profile"]</code> for raster <code>derive()</code> is unsafe when the
+payload shape/dtype/band count changes. NDVI from a multiband uint16 image becomes
+single-band float; the inherited profile lies about <code>count</code>, <code>dtype</code>, <code>nodata</code>.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Asset has no policy; writers validate and raise.</strong> Cheap to implement; user
+  finds out at write time.</li>
+<li><strong>B. Kind-specific derive policies.</strong> <code>AssetKind.RASTER</code> derive inspects the payload
+  shape vs. parent, drops stale profile keys (<code>count</code>, <code>dtype</code>, <code>nodata</code>), keeps geo
+  keys (<code>transform</code>, <code>crs</code>).</li>
+<li><strong>C. Helper free functions per kind</strong> (<code>raster_derive(asset, payload, ...)</code>) that
+  encapsulate the right invalidation. <code>Asset.derive()</code> stays naive.</li>
+</ul>
+<p><strong>Recommendation: B.</strong> A small registry of <code>KindDerivePolicy</code> callables keyed on
+<code>AssetKind</code>, called from <code>Asset.derive()</code>. Raster gets the auto-invalidation logic;
+other kinds get a no-op default until they need it.</p>
+<hr />
+<h2 id="8-derive-from-unsaved-parents">8. <code>derive()</code> from unsaved parents<a class="headerlink" href="#8-derive-from-unsaved-parents" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>prov:wasDerivedFrom</code> referencing a parent that was never written
+(no slug, no location) is not discoverable or serialisable as a useful entity.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Reject.</strong> Raise on <code>derive()</code> if <code>self.metadata.slug is None</code>.</li>
+<li><strong>B. Use content-hash identity.</strong> If parent has no slug, record
+  <code>prov:wasDerivedFrom &lt;_:hash-of-content&gt;</code> as a blank node.</li>
+<li><strong>C. Collapse to parent's sources.</strong> Skip the immediate parent; record what <em>it</em> was
+  derived from. Loses one hop of lineage.</li>
+<li><strong>D. Warn and proceed.</strong> Record the parent as best you can (in-memory id) and let
+  the user know the lineage will be incomplete.</li>
+</ul>
+<p><strong>Recommendation: B + D.</strong> Content-hash blank nodes preserve the lineage shape;
+emit a warning the first time it happens per process. Future work: opt-in
+"materialise upstream" mode that writes intermediate assets to disk to give them
+durable identity.</p>
+<hr />
+<h2 id="9-array-payload-vs-extrasarrays-overlap">9. Array payload vs. <code>extras["arrays"]</code> overlap<a class="headerlink" href="#9-array-payload-vs-extrasarrays-overlap" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Kind taxonomy says <code>AssetKind.ARRAY</code> payload is <code>dict[str, ndarray]</code>, but
+<code>asset.arrays</code> is also defined as a convenience accessor over <code>extras["arrays"]</code>.
+Same data in two places.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Drop <code>asset.arrays</code> from <code>D3</code>.</strong> For <code>ARRAY</code> kind, users access
+  <code>asset.as_array()</code> (returns the payload dict directly). <code>extras</code> reserved for store
+  metadata (<code>compressed</code>, dimension labels, chunking).</li>
+<li><strong>B. Drop the payload form; store arrays only in extras.</strong> Payload becomes a
+  store handle. Discovery code uses <code>asset.arrays</code>. Inconsistent with how raster
+  works (payload IS the array there).</li>
+<li><strong>C. Keep both; make <code>asset.arrays</code> an alias for <code>as_array()</code>.</strong></li>
+</ul>
+<p><strong>Recommendation: A.</strong> Payload IS the data, for every kind. Extras hold structure/
+metadata about the data. The duplication is a leftover from earlier drafts.</p>
+<hr />
+<h2 id="10-tile-pyramids-and-the-stream-based-handler-protocol">10. Tile pyramids and the stream-based handler protocol<a class="headerlink" href="#10-tile-pyramids-and-the-stream-based-handler-protocol" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>FormatHandler.read(stream: BinaryIO)</code> / <code>write(asset, stream)</code> doesn't fit
+XYZ tile directories, MBTiles (single SQLite file but pattern-based access), Zarr stores
+(directory of chunks), or object-store prefixes. Tiles need <em>store/location</em> access, not
+a single byte stream.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Defer tiles.</strong> Drop <code>AssetKind.TILES</code> from the v1 enum. Add it in a later spec
+  that extends the handler protocol with a <code>read_store(path)</code> method.</li>
+<li><strong>B. Add a parallel store-based protocol now.</strong> <code>StoreFormatHandler</code> with
+  <code>read(location, **kw) -&gt; Asset</code> and <code>write(asset, location, **kw) -&gt; None</code>. URLHandler
+  provides "is this a directory/store?" classification.</li>
+<li><strong>C. Generalise <code>stream</code> to a <code>Resource</code> abstraction</strong> — <code>Resource.open_byte_stream()</code>
+  for single-file formats, <code>Resource.list()</code> / <code>Resource.subpath()</code> for stores. Handlers
+  declare which they need.</li>
+</ul>
+<p><strong>Recommendation: B.</strong> Keeping <code>TILES</code> in v1 the enum but with no shipping handler is
+fine; the protocol gap is what blocks shipping. A clean parallel protocol avoids forcing
+single-file formats through a more complex abstraction, and lets <code>URLHandler</code> extensions
+(GCS prefix listing, etc.) plug in cleanly. C is more elegant but premature until we
+have two store-based formats to compare.</p>
+<hr />
+<h2 id="11-autodispatch-beyond-file-extensions">11. Autodispatch beyond file extensions<a class="headerlink" href="#11-autodispatch-beyond-file-extensions" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>ss.read("inputs/sentinel2_2024_07.tif")</code> works via extension. But <code>.zarr</code>
+is a directory, XYZ tile pyramids have no canonical extension, cloud prefixes
+(<code>gs://bucket/path/</code>) often lack one. Extension dispatch breaks.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Multi-key dispatch.</strong> Handlers declare <code>can_read(path, format, *, store_kind)</code>.
+  Registry tries extension, then store kind (directory, file, URL-prefix), then
+  declared <code>format</code> argument. First match wins.</li>
+<li><strong>B. Explicit <code>kind=</code> parameter on <code>ss.read</code>.</strong> When auto-detection fails, the user
+  passes <code>ss.read(path, kind=AssetKind.TILES)</code>.</li>
+<li><strong>C. Consult <code>datasets.yaml</code> first.</strong> If the dataset entry declares
+  <code>format: mbtiles</code>, use that to pick the handler. Falls back to extension.</li>
+</ul>
+<p><strong>Recommendation: C, then A as fallback.</strong> <code>datasets.yaml</code> is already the source of
+truth for what a dataset <em>is</em>; honouring its declared <code>format</code> is the cleanest signal.
+Extension dispatch stays for ad-hoc reads outside of <code>datasets.yaml</code>.</p>
+<hr />
+<h2 id="12-legacy-vs-new-handler-distinction">12. Legacy vs. new handler distinction<a class="headerlink" href="#12-legacy-vs-new-handler-distinction" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> The current parent spec proposed return-annotation inspection
+(<code>if read() returns Asset → new; else → legacy</code>). Unreliable — old plugins lack
+annotations, and a runtime call consumes a real stream.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Two protocols.</strong> <code>FormatHandler</code> (legacy, returns <code>pd.DataFrame</code>) and
+  <code>AssetFormatHandler</code> (new, returns <code>Asset</code>). Registry tries both <code>isinstance</code> checks
+  on plugin instantiation; never inspects return annotations or runtime returns.</li>
+<li><strong>B. Capability marker.</strong> New-style handlers set a class attribute
+  <code>__sunstone_format_protocol__ = 2</code>. Registry checks the attribute; absence → legacy.</li>
+<li><strong>C. Separate entry-point group.</strong> <code>sunstone.format_handlers</code> (new) vs. <code>sunstone.plugins</code>
+  (legacy). Migration = move the entry-point declaration.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> Two protocols is the most Python-idiomatic, plays well with
+<code>runtime_checkable</code>, and gives plugin authors a clear "switch your base class" migration
+target. B is cute but ad-hoc; C creates a long-tail of plugins registered in the wrong
+group.</p>
+<hr />
+<h2 id="13-supports_metadata-one-capability-or-two">13. <code>supports_metadata()</code> — one capability or two?<a class="headerlink" href="#13-supports_metadata-one-capability-or-two" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Today's <code>supports_metadata()</code> conflates two things: "I can extract native
+file metadata (CRS, transform, band tags from a GeoTIFF)" and "I can embed Sunstone
+JSON-LD into the file". A GeoTIFF handler can do the first but not the second.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Split into two predicates.</strong> <code>supports_native_metadata()</code> and
+  <code>supports_sunstone_metadata()</code>. Read paths consult the first, write paths consult the
+  second.</li>
+<li><strong>B. One predicate stays; add a <code>metadata_capabilities()</code> set.</strong> Returns a set of
+  capability flags. Forward-compatible if we add more later.</li>
+<li><strong>C. Keep one predicate, interpret it as Sunstone-only.</strong> Native metadata extraction
+  is implicit in what the handler chooses to populate on the <code>Asset</code>.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> Clear, two predicates, easy to migrate. B is over-engineered for
+the current need; C silently loses an important capability distinction.</p>
+<hr />
+<h2 id="14-pluginregistryget_format_handlers-migration-risk">14. <code>PluginRegistry.get_format_handlers()</code> migration risk<a class="headerlink" href="#14-pluginregistryget_format_handlers-migration-risk" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> External code (not just plugin authors — <em>users</em> of the registry) calls
+<code>get_format_handlers()</code> and invokes <code>handler.read()</code> expecting <code>pd.DataFrame</code>. Switching
+the contract to <code>Asset</code> silently breaks them.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Add new accessors; deprecate the old.</strong>
+  <code>get_asset_format_handlers()</code> returns new-protocol handlers. <code>get_format_handlers()</code>
+  keeps returning legacy ones (or adapters thereof). Deprecation warning on the latter.</li>
+<li><strong>B. Break it; document loudly in CHANGELOG.</strong></li>
+<li><strong>C. Provide a <code>read_dataframe()</code> / <code>read_asset()</code> helper pair on each handler that
+  works for both flavours via the adapter.</strong></li>
+</ul>
+<p><strong>Recommendation: A.</strong> Plugin API is a library promise. A versioned migration path
+(new accessor + deprecation) keeps trust intact.</p>
+<hr />
+<h2 id="15-rdf-discovery-shape-per-kind-required-properties">15. RDF discovery shape (per-kind required properties)<a class="headerlink" href="#15-rdf-discovery-shape-per-kind-required-properties" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> The discovery destination is "find datasets by language". <code>custom_properties:
+dict[str, Any]</code> is too unstructured: nothing forces a <code>RASTER</code> asset to declare CRS,
+bbox, temporal coverage, bands. Without a required RDF shape per kind, discovery
+queries will either fail or hallucinate.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Per-kind RDF profiles, validated at write.</strong> Define minimum required triples per
+  <code>AssetKind</code>:</li>
+<li><code>TABULAR</code>: <code>dcterms:title</code>, <code>dcterms:description</code>, <code>dcterms:license</code>, <code>prov:wasGeneratedBy</code>.</li>
+<li><code>RASTER</code>: above + <code>geo:hasGeometry</code> (footprint), <code>dct:spatial</code>, <code>dcterms:temporal</code>,
+    <code>si:bands</code> (list of band descriptors), <code>si:resolution</code>.</li>
+<li><code>ARRAY</code>: above + <code>si:variables</code> (list with shape/dtype/dim labels).</li>
+<li><code>TILES</code>: above + <code>si:zoomRange</code>, <code>si:tileScheme</code>.
+  Writers validate; missing required triples → warning (v1) or error (v2).</li>
+<li><strong>B. Soft shape — recommend but don't enforce.</strong> Document the per-kind profiles;
+  discovery layer copes with absence.</li>
+<li><strong>C. Defer entirely to a follow-up spec.</strong> Ship the envelope, design the discovery
+  shape later.</li>
+</ul>
+<p><strong>Recommendation: A, in a separate follow-up spec written before the first non-tabular
+handler lands.</strong> The envelope can ship without it, but no GeoTIFF handler should ship
+without the RDF shape it must emit. Treat as a <em>gating dependency</em> for non-tabular
+handlers, not for the envelope itself.</p>
+<hr />
+<h2 id="16-rdf-value-typing-iri-vs-literal-vs-blank-node">16. RDF value typing (IRI vs literal vs blank node)<a class="headerlink" href="#16-rdf-value-typing-iri-vs-literal-vs-blank-node" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>custom_properties: dict[str, Any]</code> can't tell whether the value is an
+IRI reference, a typed literal (xsd:date, xsd:double), a language-tagged string, or a
+blank node. Discovery queries need this distinction.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. JSON-LD value conventions.</strong> Values are either plain Python literals (str, int,
+  float, bool, datetime) or dicts following JSON-LD: <code>{"@id": "..."}</code> for IRIs,
+  <code>{"@value": "...", "@type": "xsd:date"}</code> for typed literals, <code>{"@value": "...", "@language": "en"}</code>
+  for language tags.</li>
+<li><strong>B. Small RDF term wrappers.</strong> <code>IRI("...")</code>, <code>Literal("...", lang="en")</code>. Serialised
+  to JSON-LD on emit.</li>
+<li><strong>C. Free-form; rely on downstream interpretation.</strong></li>
+</ul>
+<p><strong>Recommendation: A.</strong> JSON-LD conventions are the lingua franca; users (and tooling)
+already understand them. No new types to import.</p>
+<hr />
+<h2 id="17-stable-asset-id-for-cross-project-discovery">17. Stable asset <code>@id</code> for cross-project discovery<a class="headerlink" href="#17-stable-asset-id-for-cross-project-discovery" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>slug</code> is project-local. Two unrelated projects both have <code>current-un-members</code>.
+Discovery across packages needs globally stable IDs.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Asset <code>@id</code> derived from package + slug + version.</strong> E.g.,
+  <code>https://sunstone.institute/datasets/sunstoneinstitute/sunstone-py/current-un-members@1.0.0</code>.
+  Publishable when the package publishes.</li>
+<li><strong>B. Content-hash identity.</strong> <code>@id</code> is <code>urn:sunstone:sha256:...</code>. Stable across
+  rebuilds when content is identical.</li>
+<li><strong>C. Both — <code>@id</code> is package-namespaced; <code>si:dataHash</code> is content-hash; discovery
+  uses either.</strong></li>
+</ul>
+<p><strong>Recommendation: C.</strong> Two-axis identity: humans use namespaced names, machines use
+content hashes, both work.</p>
+<hr />
+<h2 id="18-per-band-per-variable-per-layer-component-metadata">18. Per-band / per-variable / per-layer component metadata<a class="headerlink" href="#18-per-band-per-variable-per-layer-component-metadata" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> <code>LineageMetadata.field_derivations</code> is tabular-specific. Raster bands,
+NPZ variables, and tile layers all want per-component metadata (units, dtype,
+description, derivation). Repurposing <code>field_derivations</code> to mean "band" sometimes is
+confusing.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Introduce <code>component_metadata: dict[str, ComponentSchema]</code></strong> on <code>Metadata</code>,
+  keyed by component name. <code>ComponentSchema</code> is a neutral structure with <code>name</code>,
+  <code>kind</code> (column/band/variable/layer), <code>dtype</code>, <code>units</code>, <code>description</code>, <code>derived_from</code>.
+  <code>field_metadata</code> becomes a tabular-flavoured view onto it.</li>
+<li><strong>B. Per-kind metadata classes.</strong> <code>BandMetadata</code>, <code>VariableMetadata</code>, etc.,
+  on <code>Asset.extras</code>. <code>Metadata</code> stays tabular-only for fields.</li>
+<li><strong>C. Defer.</strong> Ship without per-component metadata for non-tabular kinds; revisit
+  when a handler needs it.</li>
+</ul>
+<p><strong>Recommendation: A.</strong> A neutral component model future-proofs the discovery layer
+and avoids per-kind sharding. Migration: <code>field_metadata</code> keeps working as a typed
+view; new kinds populate <code>component_metadata</code> directly.</p>
+<hr />
+<h2 id="19-deprecation-warning-timing">19. Deprecation warning timing<a class="headerlink" href="#19-deprecation-warning-timing" title="Permanent link">&para;</a></h2>
+<p><strong>Problem.</strong> Emitting <code>DeprecationWarning</code> at handler-registration time breaks users
+running with <code>warnings-as-errors</code> during import.</p>
+<p><strong>Options.</strong></p>
+<ul>
+<li><strong>A. Emit on first actual use, once per handler class.</strong> Register a sentinel; first
+  <code>read()</code>/<code>write()</code> call through the adapter emits the warning, sets the sentinel.</li>
+<li><strong>B. Emit on registration but use <code>PendingDeprecationWarning</code></strong> until a configurable
+  release. Promote to <code>DeprecationWarning</code> one minor before removal.</li>
+<li><strong>C. Environment-variable escape hatch.</strong> <code>SUNSTONE_SUPPRESS_LEGACY_WARNINGS=1</code>
+  disables.</li>
+</ul>
+<p><strong>Recommendation: A + C.</strong> First-use timing avoids import-time failures; the env-var
+escape hatch is cheap insurance. B is fine too but more bookkeeping.</p>
+<hr />
+<h2 id="how-to-respond">How to respond<a class="headerlink" href="#how-to-respond" title="Permanent link">&para;</a></h2>
+<p>For each decision, leave an inline crit comment with one of:</p>
+<ul>
+<li><strong>"go"</strong> — accept the recommendation as written.</li>
+<li><strong>"do X instead"</strong> — pick a different option (A/B/C/...) with one-line reason if
+  non-obvious.</li>
+<li><strong>"defer"</strong> — push to a later spec; tell me where it should land (parent spec
+  follow-up, separate spec, never).</li>
+<li><strong>"reframe"</strong> — the question itself is wrong; here's the right question.</li>
+</ul>
+<p>I'll fold the decisions back into the parent spec in one pass, then we ship.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
