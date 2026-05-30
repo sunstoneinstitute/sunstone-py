@@ -28,16 +28,30 @@ class GcsURLHandler:
     """Handles gs:// URLs using google-cloud-storage."""
 
     def __init__(self, config: dict | None = None) -> None:
-        from google.cloud import storage  # type: ignore[import-untyped]
+        # Import (but do NOT instantiate) the client here. The import raises
+        # ImportError when google-cloud-storage is missing, which the plugin
+        # registry relies on to skip this handler cleanly. Constructing
+        # storage.Client() eagerly would call google.auth.default() and raise
+        # DefaultCredentialsError in credential-less environments (e.g. CI),
+        # crashing plugin discovery. Defer client construction to first use.
+        from google.cloud import storage  # type: ignore[import-untyped] # noqa: F401
 
-        self._client = storage.Client()
+        self._client: object | None = None
 
     def can_handle(self, url: str) -> bool:
         return urlparse(url).scheme == "gs"
 
+    def _get_client(self) -> object:
+        """Lazily construct and cache the GCS client on first use."""
+        if self._client is None:
+            from google.cloud import storage  # type: ignore[import-untyped]
+
+            self._client = storage.Client()
+        return self._client
+
     def _get_blob(self, url: str) -> object:
         parsed = urlparse(url)
-        bucket = self._client.bucket(parsed.netloc)
+        bucket = self._get_client().bucket(parsed.netloc)  # type: ignore[attr-defined]
         blob_path = parsed.path.lstrip("/")
         return bucket.blob(blob_path)
 
