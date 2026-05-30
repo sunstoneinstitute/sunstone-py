@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.13.1] - 2026-05-30
+
+- Fixed: `gs://` handler no longer authenticates at discovery time — the GCS storage client is now constructed lazily on first use.
+
 ## [1.13.0] - 2026-05-27
 
 - Added: `AssetKind.BLOB` and `BlobFormatHandler` for opaque binary formats (PDF, RTF, DOC, PPT, etc.); `.txt`/`.xls` now default to BLOB — pass `format="tsv"`/`format="excel"` for the old behavior.
