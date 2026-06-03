@@ -340,12 +340,12 @@ print(df.metadata.lineage.sources)
 `Metadata.identity` is a URI template (or fully materialised URI) for
 the asset. When it is `None` and a project `pyproject.toml` is
 discoverable, `sunstone.write()` materialises the default
-`sunstone://<package-name>/<slug>@<package-version>` before writing and
+`sunstone:<package-name>/<slug>@<package-version>` before writing and
 reuses the value on subsequent writes. User-supplied templates are
 preserved verbatim — set `df.metadata.identity` to override.
 
 ```python
-df.metadata.identity = 'sunstone://my-project/my-slug@1.0.0'
+df.metadata.identity = 'sunstone:my-project/my-slug@1.0.0'
 ```
 
 Without a `pyproject.toml` at the resolved project path the default is

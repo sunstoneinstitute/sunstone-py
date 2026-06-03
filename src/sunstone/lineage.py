@@ -588,7 +588,7 @@ class Metadata:
     identity: str | None = None
     """Globally stable URI template for this asset. Supports env-var
     interpolation (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
-    `sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised into
+    `sunstone:${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised into
     the concrete `@id` at write time. None means the writer derives one from
     the package + slug + version defaults."""
 

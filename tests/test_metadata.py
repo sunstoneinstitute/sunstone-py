@@ -901,8 +901,8 @@ class TestMetadataIdentityAndComponentMetadata:
 
     def test_metadata_identity_accepts_uri_template(self):
         """Metadata.identity accepts a URI template string."""
-        m = Metadata(identity="sunstone://acme/sales@1.0.0")
-        assert m.identity == "sunstone://acme/sales@1.0.0"
+        m = Metadata(identity="sunstone:acme/sales@1.0.0")
+        assert m.identity == "sunstone:acme/sales@1.0.0"
 
     def test_metadata_component_metadata_defaults_to_empty_dict(self):
         """Metadata.component_metadata defaults to an empty dict."""

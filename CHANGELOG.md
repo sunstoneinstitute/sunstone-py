@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Changed: the default identity URI template is now `sunstone:<pkg>/<slug>@<version>` (no `//`) to match the data-platform `sunstone:` URL scheme, whose namespace lives in the URL path rather than the authority. **Breaking** for anything that pinned the old `sunstone://` form.
+
 ## [1.13.1] - 2026-05-30
 
 - Fixed: `gs://` handler no longer authenticates at discovery time — the GCS storage client is now constructed lazily on first use.

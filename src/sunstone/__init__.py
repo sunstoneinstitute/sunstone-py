@@ -127,7 +127,7 @@ def read(
 
 def _materialise_default_identity(asset: "Asset") -> None:
     """If `asset.metadata.identity` is None and the asset has a slug, fill in
-    the default `sunstone://<package-name>/<slug>@<package-version>` URI using
+    the default `sunstone:<package-name>/<slug>@<package-version>` URI using
     the active project's pyproject.toml. No-op otherwise — user-supplied
     templates are preserved verbatim.
 
@@ -162,7 +162,7 @@ def _materialise_default_identity(asset: "Asset") -> None:
 
     pkg_name = get_project_slug(project_path)
     pkg_version = get_project_version(project_path) or "0.0.0"
-    asset.metadata.identity = f"sunstone://{pkg_name}/{asset.metadata.slug}@{pkg_version}"
+    asset.metadata.identity = f"sunstone:{pkg_name}/{asset.metadata.slug}@{pkg_version}"
 
 
 def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
