@@ -91,7 +91,8 @@ def test_top_level_write_materialises_default_identity_when_none(tmp_path, monke
     assert asset.metadata.identity is None
 
     sunstone.write(asset, str(tmp_path / "out.csv"), format="csv")
-    assert asset.metadata.identity == "sunstone://demo-pkg/my-output@1.2.3"
+    # Scheme-less, environment-relative path — the consumer binds the scheme.
+    assert asset.metadata.identity == "demo-pkg/my-output@1.2.3"
 
 
 def test_top_level_write_preserves_user_supplied_identity(tmp_path, monkeypatch):

@@ -335,17 +335,20 @@ df.metadata.custom_properties = {'schema:about': 'Education'}
 print(df.metadata.lineage.sources)
 ```
 
-### Identity URI
+### Identity
 
-`Metadata.identity` is a URI template (or fully materialised URI) for
-the asset. When it is `None` and a project `pyproject.toml` is
-discoverable, `sunstone.write()` materialises the default
-`sunstone://<package-name>/<slug>@<package-version>` before writing and
-reuses the value on subsequent writes. User-supplied templates are
+`Metadata.identity` is an identity template (or fully materialised
+identity) for the asset. When it is `None` and a project `pyproject.toml`
+is discoverable, `sunstone.write()` materialises the default scheme-less
+path `<package-name>/<slug>@<package-version>` before writing and reuses
+the value on subsequent writes. The path carries only what this package
+owns (its name, the asset slug, its version); the consumer binds it to a
+scheme — e.g. the data platform resolves it to a `sunstone:` authoring
+handle or an absolute `https://` graph IRI. User-supplied templates are
 preserved verbatim — set `df.metadata.identity` to override.
 
 ```python
-df.metadata.identity = 'sunstone://my-project/my-slug@1.0.0'
+df.metadata.identity = 'my-project/my-slug@1.0.0'
 ```
 
 Without a `pyproject.toml` at the resolved project path the default is

@@ -127,9 +127,16 @@ def read(
 
 def _materialise_default_identity(asset: "Asset") -> None:
     """If `asset.metadata.identity` is None and the asset has a slug, fill in
-    the default `sunstone://<package-name>/<slug>@<package-version>` URI using
-    the active project's pyproject.toml. No-op otherwise — user-supplied
-    templates are preserved verbatim.
+    the default `<package-name>/<slug>@<package-version>` path using the active
+    project's pyproject.toml. No-op otherwise — user-supplied templates are
+    preserved verbatim.
+
+    The minted value is a scheme-less, environment-relative path: it carries
+    only what this package owns (its name, the asset slug, its version). The
+    consumer is responsible for binding it to a scheme — e.g. the data platform
+    resolves it to a `sunstone:` authoring handle or an absolute `https://`
+    graph IRI. Minting a `sunstone:`-schemed URI here would couple this package
+    to a URL scheme it does not define.
 
     Skipped entirely when no `pyproject.toml` is discoverable at the resolved
     project path: otherwise the bare cwd fallback in `get_project_path()`
@@ -162,7 +169,7 @@ def _materialise_default_identity(asset: "Asset") -> None:
 
     pkg_name = get_project_slug(project_path)
     pkg_version = get_project_version(project_path) or "0.0.0"
-    asset.metadata.identity = f"sunstone://{pkg_name}/{asset.metadata.slug}@{pkg_version}"
+    asset.metadata.identity = f"{pkg_name}/{asset.metadata.slug}@{pkg_version}"
 
 
 def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:

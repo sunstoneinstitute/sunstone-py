@@ -586,11 +586,12 @@ class Metadata:
     """Human-readable dataset name, used at write time."""
 
     identity: str | None = None
-    """Globally stable URI template for this asset. Supports env-var
-    interpolation (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
-    `sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised into
-    the concrete `@id` at write time. None means the writer derives one from
-    the package + slug + version defaults."""
+    """Stable identity template for this asset. Supports env-var interpolation
+    (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
+    `${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised at write time.
+    None means the writer derives a scheme-less `<package>/<slug>@<version>`
+    path from the project defaults; the consumer binds that path to a scheme
+    (e.g. a `sunstone:` handle or an absolute `https://` IRI)."""
 
     component_metadata: Dict[str, "ComponentSchema"] = field(default_factory=dict)
     """Per-component metadata (columns, bands, variables, layers). The
