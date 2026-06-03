@@ -149,9 +149,10 @@ Write an `Asset` to `path`. Dispatches via the plugin registry.
 - `ValueError`: If no handler matches `path` and `format`.
 
 When `asset.metadata.identity` is `None` and a project `pyproject.toml`
-is discoverable, `write()` materialises the default identity URI
-`sunstone:<package-name>/<slug>@<package-version>` before delegating.
-User-supplied templates are preserved verbatim.
+is discoverable, `write()` materialises the default identity as the
+scheme-less path `<package-name>/<slug>@<package-version>` before
+delegating; the consumer binds it to a scheme. User-supplied templates
+are preserved verbatim.
 
 ---
 
@@ -1195,7 +1196,7 @@ from sunstone.lineage import Metadata
 - `component_metadata` (dict[str, ComponentSchema]): Per-component metadata keyed by component name (column, band, variable, layer)
 - `slug` (str | None): Dataset slug, used at write time
 - `name` (str | None): Human-readable dataset name, used at write time
-- `identity` (str | None): URI template or materialised URI for this asset. When `None` and a project `pyproject.toml` is discoverable, `sunstone.write()` fills in the default `sunstone:<package-name>/<slug>@<package-version>` and the value is reused on subsequent writes. User-supplied templates are preserved verbatim.
+- `identity` (str | None): Identity template or materialised identity for this asset. When `None` and a project `pyproject.toml` is discoverable, `sunstone.write()` fills in the default scheme-less path `<package-name>/<slug>@<package-version>` (the consumer binds it to a scheme) and the value is reused on subsequent writes. User-supplied templates are preserved verbatim.
 
 ## Plugin System
 

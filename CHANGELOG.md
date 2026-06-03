@@ -4,7 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Changed: the default identity URI template is now `sunstone:<pkg>/<slug>@<version>` (no `//`) to match the data-platform `sunstone:` URL scheme, whose namespace lives in the URL path rather than the authority. **Breaking** for anything that pinned the old `sunstone://` form.
+- Changed: the default materialised identity is now a scheme-less path `<pkg>/<slug>@<version>` instead of a `sunstone:`-schemed URI. The `sunstone:` URL scheme is defined and owned by the data platform; minting it here coupled this package to a scheme it does not define. The minted value now carries only what this package owns (name, slug, version), and the consumer binds it to a scheme (a `sunstone:` authoring handle or an absolute `https://` graph IRI). **Breaking** for anything that pinned the old `sunstone://` or `sunstone:` form.
 
 ## [1.13.1] - 2026-05-30
 
