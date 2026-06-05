@@ -12,7 +12,7 @@ with four fields:
   `bytes` for opaque binaries.
 - `kind` — an `AssetKind` enum value (`TABULAR`, `RASTER`, `ARRAY`,
   `TILES`, `BLOB`).
-- `metadata` — the unified `Metadata` container (lineage, identity,
+- `metadata` — the unified `Metadata` container (lineage,
   per-component schema, RDF properties, license).
 - `extras` — kind-specific accessory info (rasterio profile, CRS, chunk spec).
 
@@ -315,14 +315,13 @@ result_v2.to_csv('output.csv', slug='output', name='Output')
 
 ## DataFrame Metadata
 
-Every DataFrame carries a `metadata` container that holds lineage, dataset identity, and per-field annotations. This metadata flows through operations and is persisted to `datasets.yaml` on write.
+Every DataFrame carries a `metadata` container that holds lineage and per-field annotations. This metadata flows through operations and is persisted to `datasets.yaml` on write.
 
 ### The Metadata Container
 
 ```python
 df = pd.read_csv('data.csv', project_path=PROJECT_PATH)
 
-# Dataset identity (used at write time)
 df.metadata.slug = 'my-analysis'
 df.metadata.name = 'My Analysis'
 df.metadata.description = 'Analysis of school enrollment data'
@@ -334,26 +333,6 @@ df.metadata.custom_properties = {'schema:about': 'Education'}
 # Lineage is accessed through metadata
 print(df.metadata.lineage.sources)
 ```
-
-### Identity
-
-`Metadata.identity` is an identity template (or fully materialised
-identity) for the asset. When it is `None` and a project `pyproject.toml`
-is discoverable, `sunstone.write()` materialises the default scheme-less
-path `<package-name>/<slug>@<package-version>` before writing and reuses
-the value on subsequent writes. The path carries only what this package
-owns (its name, the asset slug, its version); the consumer binds it to a
-scheme — e.g. the data platform resolves it to a `sunstone:` authoring
-handle or an absolute `https://` graph IRI. User-supplied templates are
-preserved verbatim — set `df.metadata.identity` to override.
-
-```python
-df.metadata.identity = 'my-project/my-slug@1.0.0'
-```
-
-Without a `pyproject.toml` at the resolved project path the default is
-skipped, so a bare `cwd` fallback can never invent identities from
-arbitrary directory names.
 
 ### Per-Field Metadata
 

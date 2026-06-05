@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Removed: `Metadata.identity` field and the auto-minted default identity. The value was never serialized (no format handler emitted it) or read by anything, and the field silently dropped user-supplied input at write time. **Breaking** for `Metadata(identity=...)` callers.
+
 ## [1.13.2] - 2026-06-03
 
 - Fixed: materialised identity no longer mints the data-platform-owned `sunstone:` scheme; the minted value is now a scheme-less path `<pkg>/<slug>@<version>` carrying only what this package owns (name, slug, version).
