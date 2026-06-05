@@ -192,8 +192,6 @@ def _metadata_has_content(metadata: Any) -> bool:
         return True
     if metadata.component_metadata:
         return True
-    if metadata.identity:
-        return True
     lineage = getattr(metadata, "lineage", None)
     if lineage is not None:
         if lineage.sources:

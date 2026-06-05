@@ -892,17 +892,7 @@ class TestMetadataJsonLd:
 
 
 class TestMetadataIdentityAndComponentMetadata:
-    """Tests for identity URI and component_metadata fields."""
-
-    def test_metadata_identity_defaults_to_none(self):
-        """Metadata.identity defaults to None."""
-        m = Metadata()
-        assert m.identity is None
-
-    def test_metadata_identity_accepts_uri_template(self):
-        """Metadata.identity accepts a URI template string."""
-        m = Metadata(identity="acme/sales@1.0.0")
-        assert m.identity == "acme/sales@1.0.0"
+    """Tests for component_metadata fields."""
 
     def test_metadata_component_metadata_defaults_to_empty_dict(self):
         """Metadata.component_metadata defaults to an empty dict."""

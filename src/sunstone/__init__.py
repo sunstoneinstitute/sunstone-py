@@ -125,61 +125,12 @@ def read(
     return asset
 
 
-def _materialise_default_identity(asset: "Asset") -> None:
-    """If `asset.metadata.identity` is None and the asset has a slug, fill in
-    the default `<package-name>/<slug>@<package-version>` path using the active
-    project's pyproject.toml. No-op otherwise — user-supplied templates are
-    preserved verbatim.
-
-    The minted value is a scheme-less, environment-relative path: it carries
-    only what this package owns (its name, the asset slug, its version). The
-    consumer is responsible for binding it to a scheme — e.g. the data platform
-    resolves it to a `sunstone:` authoring handle or an absolute `https://`
-    graph IRI. Minting a `sunstone:`-schemed URI here would couple this package
-    to a URL scheme it does not define.
-
-    Skipped entirely when no `pyproject.toml` is discoverable at the resolved
-    project path: otherwise the bare cwd fallback in `get_project_path()`
-    would invent identities from arbitrary directory names (e.g. a user's
-    home directory), leaking information into the asset and into downstream
-    JSON-LD emission.
-
-    Mutates `asset.metadata.identity` in place; subsequent writes of the
-    same asset reuse the materialised value.
-    """
-    if asset.metadata.identity is not None:
-        return
-    if not asset.metadata.slug:
-        return
-
-    from .cli import get_project_slug, get_project_version
-    from .config import get_project_path
-
-    try:
-        project_path = get_project_path()
-    except Exception:
-        # No project path configured — skip default identity.
-        return
-    if project_path is None:
-        return
-
-    # Refuse to invent an identity when there's no project declaration.
-    if not (project_path / "pyproject.toml").exists():
-        return
-
-    pkg_name = get_project_slug(project_path)
-    pkg_version = get_project_version(project_path) or "0.0.0"
-    asset.metadata.identity = f"{pkg_name}/{asset.metadata.slug}@{pkg_version}"
-
-
 def write(asset: "Asset", path: str, *, format: str | None = None, **kw: object) -> None:
     """Write an `Asset` to `path`. Dispatches via the plugin registry.
 
     Raises `IncompatibleAssetKindError` if the selected handler does not
     support `asset.kind`.
     """
-    _materialise_default_identity(asset)
-
     from .errors import IncompatibleAssetKindError
     from .plugins import PluginRegistry
 

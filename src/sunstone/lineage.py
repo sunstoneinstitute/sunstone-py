@@ -559,7 +559,7 @@ class LineageMetadata:
 class Metadata:
     """Unified metadata container for data objects.
 
-    Holds lineage, dataset identity, description, RDF prefixes,
+    Holds lineage, description, RDF prefixes,
     custom properties, and per-field metadata. Not DataFrame-specific —
     can be reused for other data containers.
     """
@@ -584,14 +584,6 @@ class Metadata:
 
     name: str | None = None
     """Human-readable dataset name, used at write time."""
-
-    identity: str | None = None
-    """Stable identity template for this asset. Supports env-var interpolation
-    (e.g., `https://${DATASET_BASE_URL}/table@1.0.0` or
-    `${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}`). Materialised at write time.
-    None means the writer derives a scheme-less `<package>/<slug>@<version>`
-    path from the project defaults; the consumer binds that path to a scheme
-    (e.g. a `sunstone:` handle or an absolute `https://` IRI)."""
 
     component_metadata: Dict[str, "ComponentSchema"] = field(default_factory=dict)
     """Per-component metadata (columns, bands, variables, layers). The
