@@ -205,6 +205,61 @@ class TestSetFieldMetadata:
         df.set_field_metadata("val", source="input-data")
         assert df.metadata.field_metadata["val"].source == "input-data"
 
+    def test_set_field_metadata_with_custom_properties(self):
+        """Field-level RDF custom properties can be set and merged."""
+        df = sunstone.DataFrame({"n": [1]})
+        df.set_field_metadata("n", custom_properties={"sosa:observedProperty": "http://example.org/n"})
+        assert df.metadata.field_metadata["n"].custom_properties == {
+            "sosa:observedProperty": "http://example.org/n"
+        }
+        # A later call merges rather than replaces.
+        df.set_field_metadata("n", custom_properties={"qudt:hasQuantityKind": "http://example.org/mass"})
+        assert df.metadata.field_metadata["n"].custom_properties == {
+            "sosa:observedProperty": "http://example.org/n",
+            "qudt:hasQuantityKind": "http://example.org/mass",
+        }
+
+
+class TestFieldCustomPropertiesJsonLd:
+    """Field-level custom properties flow through Metadata JSON-LD round-trips."""
+
+    def test_to_jsonld_includes_field_custom_properties(self):
+        from sunstone.lineage import FieldSchema, Metadata
+
+        m = Metadata(
+            slug="data",
+            name="Data",
+            field_metadata={
+                "n": FieldSchema(
+                    name="n",
+                    type="number",
+                    custom_properties={"sosa:observedProperty": "http://example.org/n"},
+                )
+            },
+        )
+        doc = m.to_jsonld()
+        assert doc["si:fields"]["n"]["sosa:observedProperty"] == "http://example.org/n"
+
+    def test_jsonld_round_trip_preserves_field_custom_properties(self):
+        from sunstone.lineage import FieldSchema, Metadata
+
+        m = Metadata(
+            slug="data",
+            name="Data",
+            field_metadata={
+                "n": FieldSchema(
+                    name="n",
+                    type="number",
+                    unit="t",
+                    custom_properties={"sosa:observedProperty": "http://example.org/n"},
+                )
+            },
+        )
+        restored = Metadata.from_jsonld(m.to_jsonld())
+        assert restored.field_metadata["n"].custom_properties == {
+            "sosa:observedProperty": "http://example.org/n"
+        }
+
 
 class TestMetadataPropagation:
     """Tests for metadata flowing through pandas operations."""

@@ -1211,6 +1211,9 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
             field_dict["source"] = f.source
         if f.constraints:
             field_dict["constraints"] = f.constraints
+        if f.custom_properties:
+            prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
+            field_dict.update(expand_custom_properties(f.custom_properties, prefixes))
         field_dicts.append(field_dict)
     return {"fields": field_dicts}
 
@@ -1343,6 +1346,9 @@ def build_resource_dict(
                         field_dict["unit"] = yaml_field.unit
                     if yaml_field.source:
                         field_dict["source"] = yaml_field.source
+                    if yaml_field.custom_properties:
+                        prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
+                        field_dict.update(expand_custom_properties(yaml_field.custom_properties, prefixes))
 
         # Add automatic RDF type for resource
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"

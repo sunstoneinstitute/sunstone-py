@@ -239,6 +239,9 @@ class FieldSchema:
     unit_source: Optional[str] = None
     """Original unit string format for round-tripping (e.g. QUDT URI). None means Pint string."""
 
+    custom_properties: Optional[Dict[str, Any]] = None
+    """Field-level custom/RDF properties (e.g. sosa:observedProperty), expanded at build time."""
+
 
 @dataclass
 class Contributor:
@@ -690,6 +693,9 @@ class Metadata:
                     entry["si:unit"] = fs.unit
                 if fs.type is not None:
                     entry["si:type"] = fs.type
+                if fs.custom_properties:
+                    for key, value in fs.custom_properties.items():
+                        entry[key] = value
                 if col_name in fd_by_field:
                     fd = fd_by_field[col_name]
                     derivation: Dict[str, Any] = {"dct:identifier": fd.source_entity}
@@ -764,12 +770,15 @@ class Metadata:
         field_metadata: Dict[str, FieldSchema] = {}
         field_derivations: List[FieldDerivation] = []
         si_fields = doc.get("si:fields", {})
+        _field_known_keys = {"si:type", "dct:description", "si:unit", "prov:wasDerivedFrom"}
         for col_name, entry in si_fields.items():
+            field_custom = {k: v for k, v in entry.items() if k not in _field_known_keys}
             fs = FieldSchema(
                 name=col_name,
                 type=entry.get("si:type"),
                 description=entry.get("dct:description"),
                 unit=entry.get("si:unit"),
+                custom_properties=field_custom or None,
             )
             field_metadata[col_name] = fs
             derivation = entry.get("prov:wasDerivedFrom")

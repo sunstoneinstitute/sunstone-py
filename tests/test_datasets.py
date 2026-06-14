@@ -141,6 +141,53 @@ class TestFieldSchemaExtendedProperties:
         assert field.description is None
         assert field.unit is None
         assert field.source is None
+        assert field.custom_properties is None
+
+    def test_parse_fields_with_rdf_custom_properties(self, tmp_path: Path) -> None:
+        """RDF property keys on a field are collected into custom_properties."""
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Nutrient Data\n"
+            "    slug: nutrient-data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: n_tonnes\n"
+            "        type: number\n"
+            "        unit: http://qudt.org/vocab/unit/TONNE\n"
+            "        qudt:hasQuantityKind: http://qudt.org/vocab/quantitykind/Mass\n"
+            "        sosa:observedProperty: http://vocab.nerc.ac.uk/collection/P01/current/TNITZZXX/\n"
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("nutrient-data")
+        assert dataset is not None
+        assert dataset.fields is not None
+        field = next(f for f in dataset.fields if f.name == "n_tonnes")
+        assert field.custom_properties == {
+            "qudt:hasQuantityKind": "http://qudt.org/vocab/quantitykind/Mass",
+            "sosa:observedProperty": "http://vocab.nerc.ac.uk/collection/P01/current/TNITZZXX/",
+        }
+
+    def test_parse_fields_ignores_non_rdf_unknown_keys(self, tmp_path: Path) -> None:
+        """Unknown non-RDF keys are still ignored (leniency preserved)."""
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Data\n"
+            "    slug: data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: number\n"
+            "        bogus: ignored\n"
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("data")
+        assert dataset is not None
+        assert dataset.fields is not None
+        assert dataset.fields[0].custom_properties is None
 
 
 class TestFieldSchemaSerialization:
@@ -189,6 +236,42 @@ class TestFieldSchemaSerialization:
         assert "source" not in d
         assert "constraints" not in d
         assert d["description"] == "A field"
+
+    def test_field_to_dict_includes_custom_properties(self) -> None:
+        """Field-level custom RDF properties are emitted for round-tripping."""
+        from sunstone.datasets import _field_schema_to_dict
+        from sunstone.lineage import FieldSchema
+
+        field = FieldSchema(
+            name="n_tonnes",
+            type="number",
+            custom_properties={"sosa:observedProperty": "http://example.org/total-n"},
+        )
+        d = _field_schema_to_dict(field)
+        assert d["sosa:observedProperty"] == "http://example.org/total-n"
+
+    def test_field_custom_properties_round_trip(self, tmp_path: Path) -> None:
+        """A field custom property survives parse -> serialize unchanged."""
+        from sunstone.datasets import _field_schema_to_dict
+
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Data\n"
+            "    slug: data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: number\n"
+            "        sosa:observedProperty: http://example.org/total-n\n"
+        )
+        manager = sunstone.DatasetsManager(tmp_path)
+        dataset = manager.find_dataset_by_slug("data")
+        assert dataset is not None
+        assert dataset.fields is not None
+        d = _field_schema_to_dict(dataset.fields[0])
+        assert d["sosa:observedProperty"] == "http://example.org/total-n"
 
 
 class TestPackageMetadata:

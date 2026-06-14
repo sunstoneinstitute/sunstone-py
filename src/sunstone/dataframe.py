@@ -204,6 +204,7 @@ class DataFrame:
         source: Optional[str] = None,
         type: Optional[str] = None,
         constraints: Optional[Dict[str, Any]] = None,
+        custom_properties: Optional[Dict[str, Any]] = None,
     ) -> "DataFrame":
         """Set metadata for a column. Returns self for chaining.
 
@@ -214,6 +215,9 @@ class DataFrame:
             source: Slug of the input dataset this field comes from.
             type: Data type override. If None, inferred from dtype at write time.
             constraints: Optional constraints (e.g., enum values).
+            custom_properties: Optional field-level RDF/custom properties
+                (e.g. ``{"sosa:observedProperty": "..."}``) that flow to
+                datasets.yaml and datapackage.json.
 
         Returns:
             self, for method chaining.
@@ -236,6 +240,10 @@ class DataFrame:
                 existing.type = type
             if constraints is not None:
                 existing.constraints = constraints
+            if custom_properties is not None:
+                merged = dict(existing.custom_properties or {})
+                merged.update(custom_properties)
+                existing.custom_properties = merged or None
         else:
             self.metadata.field_metadata[column] = FieldSchema(
                 name=column,
@@ -244,6 +252,7 @@ class DataFrame:
                 unit=unit,
                 source=source,
                 constraints=constraints,
+                custom_properties=custom_properties or None,
             )
 
         # When source is set, also create a FieldDerivation entry

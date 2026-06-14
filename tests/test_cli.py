@@ -731,6 +731,52 @@ class TestFieldMetadataInDatapackage:
         assert value_field["unit"] == "USD"
         assert value_field["source"] == "world-bank-data"
 
+    def test_field_rdf_custom_property_in_datapackage(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Field-level RDF properties (e.g. sosa:observedProperty) expand into datapackage.json."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "outputs").mkdir()
+        (project / "outputs" / "data.csv").write_text("county,n_tonnes\nOslo,12.5\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n"
+            "  enabled: true\n"
+            "  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Nutrient Data\n"
+            "    slug: nutrient-data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: county\n"
+            "        type: string\n"
+            "      - name: n_tonnes\n"
+            "        type: number\n"
+            "        unit: http://qudt.org/vocab/unit/TONNE\n"
+            "        qudt:hasQuantityKind: http://qudt.org/vocab/quantitykind/Mass\n"
+            "        sosa:observedProperty: http://vocab.nerc.ac.uk/collection/P01/current/TNITZZXX/\n"
+        )
+
+        result = runner.invoke(
+            app,
+            ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "datapackage.json")],
+        )
+        assert result.exit_code == 0
+
+        import json
+
+        datapackage = json.loads((project / "datapackage.json").read_text())
+        fields = datapackage["resources"][0]["schema"]["fields"]
+        fields_by_name = {f["name"]: f for f in fields}
+        n_field = fields_by_name["n_tonnes"]
+        # Keys are expanded to full URIs via the standard prefix map.
+        assert n_field["http://qudt.org/schema/qudt/hasQuantityKind"] == "http://qudt.org/vocab/quantitykind/Mass"
+        assert (
+            n_field["http://www.w3.org/ns/sosa/observedProperty"]
+            == "http://vocab.nerc.ac.uk/collection/P01/current/TNITZZXX/"
+        )
+        # A field without custom props carries none of these keys.
+        assert "http://www.w3.org/ns/sosa/observedProperty" not in fields_by_name["county"]
+
 
 class TestPackagePushCommand:
     """Tests for the package push command."""
