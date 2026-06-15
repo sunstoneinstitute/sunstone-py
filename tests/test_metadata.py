@@ -209,9 +209,7 @@ class TestSetFieldMetadata:
         """Field-level RDF custom properties can be set and merged."""
         df = sunstone.DataFrame({"n": [1]})
         df.set_field_metadata("n", custom_properties={"sosa:observedProperty": "http://example.org/n"})
-        assert df.metadata.field_metadata["n"].custom_properties == {
-            "sosa:observedProperty": "http://example.org/n"
-        }
+        assert df.metadata.field_metadata["n"].custom_properties == {"sosa:observedProperty": "http://example.org/n"}
         # A later call merges rather than replaces.
         df.set_field_metadata("n", custom_properties={"qudt:hasQuantityKind": "http://example.org/mass"})
         assert df.metadata.field_metadata["n"].custom_properties == {
@@ -256,9 +254,7 @@ class TestFieldCustomPropertiesJsonLd:
             },
         )
         restored = Metadata.from_jsonld(m.to_jsonld())
-        assert restored.field_metadata["n"].custom_properties == {
-            "sosa:observedProperty": "http://example.org/n"
-        }
+        assert restored.field_metadata["n"].custom_properties == {"sosa:observedProperty": "http://example.org/n"}
 
 
 class TestMetadataPropagation:

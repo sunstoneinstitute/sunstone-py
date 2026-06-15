@@ -361,9 +361,7 @@ class DatasetsManager:
             # as field-level custom properties. Non-RDF unknown keys are ignored,
             # preserving current leniency.
             custom_properties = {
-                key: value
-                for key, value in field.items()
-                if key not in known_keys and self._is_rdf_property_key(key)
+                key: value for key, value in field.items() if key not in known_keys and self._is_rdf_property_key(key)
             }
 
             result.append(
