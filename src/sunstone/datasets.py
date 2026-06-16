@@ -78,6 +78,9 @@ def _field_schema_to_dict(field: FieldSchema) -> dict:
         d["unit"] = field.unit_source if field.unit_source else field.unit
     if field.source:
         d["source"] = field.source
+    if field.custom_properties:
+        for key, value in field.custom_properties.items():
+            d[key] = value
     return d
 
 
@@ -338,6 +341,8 @@ class DatasetsManager:
         """Parse field schema data from YAML."""
         from .units import is_qudt_uri, parse_unit_string
 
+        known_keys = {"name", "type", "constraints", "description", "unit", "source"}
+
         result = []
         for field in fields_data:
             unit_str = field.get("unit")
@@ -352,6 +357,13 @@ class DatasetsManager:
                     unit_value = unit_str
                     unit_source = unit_str
 
+            # Collect any remaining RDF property keys (e.g. sosa:observedProperty)
+            # as field-level custom properties. Non-RDF unknown keys are ignored,
+            # preserving current leniency.
+            custom_properties = {
+                key: value for key, value in field.items() if key not in known_keys and self._is_rdf_property_key(key)
+            }
+
             result.append(
                 FieldSchema(
                     name=field["name"],
@@ -361,6 +373,7 @@ class DatasetsManager:
                     unit=unit_value,
                     source=field.get("source"),
                     unit_source=unit_source,
+                    custom_properties=custom_properties or None,
                 )
             )
         return result
