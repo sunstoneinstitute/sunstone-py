@@ -691,6 +691,7 @@ class DatasetsManager:
             location=dataset_data["location"],
             description=dataset_data.get("description"),
             resource_type=dataset_data.get("type"),
+            format=dataset_data.get("format"),
             fields=fields,
             source=source,
             license=dataset_data.get("license"),

@@ -241,6 +241,9 @@ class PluginRegistry:
         self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
         self._store_format_handlers: list[object] = []
+        from .field_types import FieldTypeRegistry
+
+        self.field_types = FieldTypeRegistry()
         self._cli_providers: list[CLIProvider] = []
         self._env_section_providers: list[EnvSectionProvider] = []
 
@@ -330,6 +333,19 @@ class PluginRegistry:
             self._format_handlers.append(NpzFormatHandler())  # type: ignore[arg-type]
         except ImportError:
             pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
+        # Optional geo handler (GeoJSON/TopoJSON). Registered before the
+        # catch-all BuiltinFormatHandler so .geojson/.topojson resolve here.
+        try:
+            import geopandas  # noqa: F401
+
+            from .handlers_geo import GeoFeaturesFormatHandler
+
+            geo_handler = GeoFeaturesFormatHandler()
+            self._format_handlers.append(geo_handler)  # type: ignore[arg-type]
+            for descriptor in geo_handler.field_types():
+                self.field_types.register(descriptor)
+        except ImportError:
+            pass  # [geo] extra not installed
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
@@ -365,6 +381,10 @@ class PluginRegistry:
             registered = True
         if isinstance(plugin, EnvSectionProvider):
             self._env_section_providers.append(plugin)
+            registered = True
+        if hasattr(plugin, "field_types") and callable(plugin.field_types):
+            for descriptor in plugin.field_types():
+                self.field_types.register(descriptor)
             registered = True
         if not registered:
             logger.warning("Plugin '%s' does not implement any known plugin protocol", name)

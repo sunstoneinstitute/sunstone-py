@@ -52,6 +52,12 @@ zarr = [
 hdf5 = [
     "h5py>=3.10",
 ]
+geo = [
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "pyogrio>=0.8",
+    "topojson>=1.9",
+]
 
 [project.license]
 text = "MIT"
@@ -97,6 +103,9 @@ overrides = [
     { module = "ontopint", ignore_missing_imports = true },
     { module = "zarr", ignore_missing_imports = true },
     { module = "h5py", ignore_missing_imports = true },
+    { module = "geopandas.*", ignore_missing_imports = true },
+    { module = "shapely.*", ignore_missing_imports = true },
+    { module = "topojson.*", ignore_missing_imports = true },
 ]
 
 [tool.pytest.ini_options]

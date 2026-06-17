@@ -1170,3 +1170,30 @@ def test_registry_multi_protocol_with_env_section():
             registry = PluginRegistry.get()
             assert len(registry.get_auth_providers()) == 1
             assert len(registry.get_env_section_providers()) == 1
+
+
+def test_plugin_field_types_are_registered():
+    from sunstone.field_types import FieldTypeDescriptor
+    from sunstone.plugins import PluginRegistry
+
+    class FakeGeoPlugin:
+        def field_types(self):
+            return (FieldTypeDescriptor(name="geometry", validate=lambda v: True),)
+
+    reg = PluginRegistry()
+    reg._register("fake-geo", FakeGeoPlugin())
+    assert reg.field_types.get("geometry") is not None
+    assert reg.field_types.get("string") is not None
+
+
+def test_geo_handler_registered_when_geopandas_present():
+    import pytest
+
+    pytest.importorskip("geopandas")
+    from sunstone.plugins import PluginRegistry
+
+    reg = PluginRegistry()
+    reg._discover()
+    h = reg.find_format_reader("x.geojson", None)
+    assert h is not None and type(h).__name__ == "GeoFeaturesFormatHandler"
+    assert reg.field_types.get("geometry") is not None

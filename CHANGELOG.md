@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: GeoJSON and TopoJSON read/write via the optional `[geo]` extra.
+- Added: Extensible field value-types (registry) for structured columns.
 - Added: field-level RDF/custom properties in `datasets.yaml` (e.g. `sosa:observedProperty`) now round-trip and flow to `datapackage.json`.
 - Removed: `Metadata.identity` field and the auto-minted default identity. The value was never serialized (no format handler emitted it) or read by anything, and the field silently dropped user-supplied input at write time. **Breaking** for `Metadata(identity=...)` callers.
 

@@ -371,6 +371,10 @@ class DatasetMetadata:
     resource_type: Optional[str] = None
     """Resource type (e.g., 'table'). Optional."""
 
+    format: Optional[str] = None
+    """Serialization format (e.g. 'geojson', 'topojson', 'csv'). Drives handler
+    resolution when set; otherwise the file extension is used."""
+
     fields: Optional[List[FieldSchema]] = None
     """Schema definitions for dataset fields. Required for table resources."""
 
