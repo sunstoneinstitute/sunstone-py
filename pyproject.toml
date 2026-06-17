@@ -52,6 +52,12 @@ zarr = [
 hdf5 = [
     "h5py>=3.10",
 ]
+geo = [
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "pyogrio>=0.8",
+    "topojson>=1.9",
+]
 
 [project.license]
 text = "MIT"
