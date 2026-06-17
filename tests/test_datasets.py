@@ -1216,3 +1216,19 @@ class TestPerDatasetPublishDeprecation:
             assert len(deprecation_warnings) == 1
             assert "publish" in str(deprecation_warnings[0].message).lower()
             assert "packages:" in str(deprecation_warnings[0].message)
+
+
+def test_dataset_format_field_parsed(tmp_path):
+    from sunstone.datasets import DatasetsManager
+
+    (tmp_path / "datasets.yaml").write_text(
+        "inputs:\n"
+        "  - name: World Borders\n"
+        "    slug: world-borders\n"
+        "    location: inputs/world.json\n"
+        "    format: geojson\n"
+    )
+    mgr = DatasetsManager(tmp_path)
+    ds = mgr.find_dataset_by_slug("world-borders")
+    assert ds is not None
+    assert ds.format == "geojson"
