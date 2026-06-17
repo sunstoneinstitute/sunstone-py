@@ -103,6 +103,9 @@ overrides = [
     { module = "ontopint", ignore_missing_imports = true },
     { module = "zarr", ignore_missing_imports = true },
     { module = "h5py", ignore_missing_imports = true },
+    { module = "geopandas.*", ignore_missing_imports = true },
+    { module = "shapely.*", ignore_missing_imports = true },
+    { module = "topojson.*", ignore_missing_imports = true },
 ]
 
 [tool.pytest.ini_options]
