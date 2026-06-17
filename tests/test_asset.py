@@ -8,7 +8,7 @@ from sunstone.lineage import Metadata
 
 
 def test_asset_kind_is_closed_enum():
-    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles", "blob"}
+    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles", "blob", "geofeatures"}
 
 
 def test_asset_kind_blob_exists_with_expected_value():
