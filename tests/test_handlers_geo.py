@@ -122,3 +122,20 @@ def test_topojson_write_roundtrip(tmp_path):
     back = h.read(io.BytesIO(out.getvalue()), format="topojson", path="x.topojson")
     assert back.payload.geometry.iloc[0].x == 10.0
     assert back.metadata.slug == "pts"
+
+
+def test_missing_geo_extra_message(monkeypatch):
+    import io
+    import builtins
+    from sunstone.handlers_geo import GeoFeaturesFormatHandler
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *a, **k):
+        if name == "geopandas":
+            raise ImportError("no geopandas")
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(ImportError, match=r"sunstone-py\[geo\]"):
+        GeoFeaturesFormatHandler().read(io.BytesIO(b"{}"), format="geojson", path="x.geojson")

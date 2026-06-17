@@ -1086,8 +1086,12 @@ outputs: []
 def test_pinned_format_overrides_extension(tmp_path):
     """A .json file pinned as format: geojson must NOT be read as tabular JSON.
 
-    With no geojson handler installed (Phase 1), resolution must fail loudly
-    instead of silently mis-parsing via read_json.
+    Resolution must fail loudly instead of silently mis-parsing via read_json.
+    When the [geo] extra is absent, no handler claims ``geojson`` and lookup
+    raises a "geojson" ValueError. When it is present, the geo handler resolves
+    but returns a non-tabular GEOFEATURES asset, which the tabular path rejects
+    via IncompatibleAssetKindError (also a ValueError) — geo data must be read
+    through ``sunstone.geopandas``, not the tabular facade.
     """
     import pytest
     from sunstone.dataframe import DataFrame
@@ -1097,5 +1101,5 @@ def test_pinned_format_overrides_extension(tmp_path):
     )
     (tmp_path / "world.json").write_text('{"type":"FeatureCollection","features":[]}')
 
-    with pytest.raises(ValueError, match="geojson"):
+    with pytest.raises(ValueError, match="geojson|geofeatures"):
         DataFrame.read_dataset("world", project_path=tmp_path)
