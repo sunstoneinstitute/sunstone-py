@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Changed: "No URL handler found" for `gs://`/`s3://`/`r2://` now names the extra to install (e.g. `sunstone-py[gcs]`).
+
 ## [1.14.0] - 2026-06-17
 
 - Added: GeoJSON and TopoJSON read/write via the optional `[geo]` extra.

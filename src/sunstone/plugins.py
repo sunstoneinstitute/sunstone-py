@@ -11,6 +11,7 @@ import os
 import shutil
 import tomllib
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -176,6 +177,30 @@ class EnvSectionProvider(Protocol):
 
 
 logger = logging.getLogger(__name__)
+
+
+# URL schemes whose handlers ship in optional extras. Used to turn the opaque
+# "No URL handler found" miss into actionable guidance: the handler is silently
+# skipped during discovery when its dependency is missing, so the most common
+# cause of a miss on these schemes is a not-installed extra.
+_SCHEME_EXTRAS: dict[str, str] = {
+    "gs": "gcs",
+    "s3": "s3",
+    "r2": "s3",
+}
+
+
+def no_url_handler_error(url: str) -> ValueError:
+    """Build a ValueError for an unresolvable URL, pointing at the optional
+    extra that provides the scheme's handler when one is known."""
+    scheme = urlparse(url).scheme
+    extra = _SCHEME_EXTRAS.get(scheme)
+    if extra:
+        return ValueError(
+            f"No URL handler found for '{url}'. The '{scheme}://' scheme requires the "
+            f"optional '{extra}' extra; install it with: uv add 'sunstone-py[{extra}]'"
+        )
+    return ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
 
 
 def _get_entry_points() -> list:
@@ -541,7 +566,7 @@ class PluginRegistry:
         """Convenience: download url to local file via open()."""
         handler = self.find_url_handler(url)
         if handler is None:
-            raise ValueError(f"No URL handler found for: {url}")
+            raise no_url_handler_error(url)
         with handler.open(url, "rb") as src, builtins.open(dest, "wb") as dst:
             shutil.copyfileobj(src, dst)
         return dest

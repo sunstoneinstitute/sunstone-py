@@ -1376,15 +1376,15 @@ class DatasetsManager:
         url = dataset.source.location.data
 
         from .handlers import HttpURLHandler, LocalFileHandler
-        from .plugins import PluginRegistry
+        from .plugins import PluginRegistry, no_url_handler_error
 
         registry = PluginRegistry.get(self.project_path)
         url_handler = registry.find_url_handler(url)
 
         if url_handler is None:
-            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
+            raise no_url_handler_error(url)
         if isinstance(url_handler, LocalFileHandler):
-            raise ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
+            raise no_url_handler_error(url)
 
         local_path.parent.mkdir(parents=True, exist_ok=True)
 

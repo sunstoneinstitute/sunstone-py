@@ -337,6 +337,14 @@ Upload your data package and all output datasets to GCS.
 
 **Prerequisites:**
 
+Pushing to `gs://` requires the optional GCS extra (`s3://`/`r2://` need `[s3]`):
+
+```bash
+uv add 'sunstone-py[gcs]'
+```
+
+Without it, the push fails with "No URL handler found for: gs://…".
+
 Publishing requires a top-level `publish` configuration in `datasets.yaml`:
 
 ```yaml

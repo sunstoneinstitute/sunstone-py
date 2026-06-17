@@ -806,6 +806,22 @@ def test_registry_fetch_no_handler():
         registry.fetch("unknown://data.csv", Path("/tmp/out"))
 
 
+def test_no_url_handler_error_points_at_extra():
+    """A miss on a cloud scheme names the extra that provides its handler."""
+    from sunstone.plugins import no_url_handler_error
+
+    gs_err = str(no_url_handler_error("gs://bucket/datapackage.json"))
+    assert "sunstone-py[gcs]" in gs_err
+    assert "gs://" in gs_err
+
+    for url, extra in [("s3://b/k", "s3"), ("r2://b/k", "s3")]:
+        assert f"sunstone-py[{extra}]" in str(no_url_handler_error(url))
+
+    # Unknown schemes fall back to the generic guidance.
+    other = str(no_url_handler_error("unknown://data.csv"))
+    assert "Install a plugin" in other
+
+
 # --- CLIProvider tests ---
 
 

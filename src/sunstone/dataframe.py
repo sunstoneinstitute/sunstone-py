@@ -440,7 +440,9 @@ class DataFrame:
 
         url_handler = registry.find_url_handler(location)
         if url_handler is None:
-            raise ValueError(f"No URL handler found for '{location}'")
+            from .plugins import no_url_handler_error
+
+            raise no_url_handler_error(location)
 
         with url_handler.open(location, "rb") as stream:
             result = format_handler.read(
@@ -614,7 +616,9 @@ class DataFrame:
 
         url_handler = registry.find_url_handler(location)
         if url_handler is None:
-            raise ValueError(f"No URL handler found for '{location}'")
+            from .plugins import no_url_handler_error
+
+            raise no_url_handler_error(location)
 
         with url_handler.open(location, "rb") as stream:
             result = format_handler.read(
@@ -737,7 +741,9 @@ class DataFrame:
 
         url_handler = registry.find_url_handler(location)
         if url_handler is None:
-            raise ValueError(f"No URL handler found for '{location}'")
+            from .plugins import no_url_handler_error
+
+            raise no_url_handler_error(location)
 
         with url_handler.open(location, "rb") as stream:
             result = format_handler.read(stream, format="excel", path=location, **kwargs)
@@ -854,7 +860,9 @@ class DataFrame:
 
         url_handler = registry.find_url_handler(location)
         if url_handler is None:
-            raise ValueError(f"No URL handler found for '{location}'")
+            from .plugins import no_url_handler_error
+
+            raise no_url_handler_error(location)
 
         with url_handler.open(location, "rb") as stream:
             result = format_handler.read(stream, format="json", path=location, **kwargs)

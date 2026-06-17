@@ -88,7 +88,7 @@ When you run `sunstone package build`, all outputs are bundled into a single `da
 | Field | Description |
 |-------|-------------|
 | `enabled` | Set to `true` to enable publishing. |
-| `to` | Destination URL (e.g. `gs://bucket/path/`, `s3://bucket/path/`). Supports `${VAR}` expansion. |
+| `to` | Destination URL (e.g. `gs://bucket/path/`, `s3://bucket/path/`). `gs://` needs `sunstone-py[gcs]`; `s3://`/`r2://` need `sunstone-py[s3]`. Supports `${VAR}` expansion. |
 | `as` | Optional public URL base. If set, resource paths in `datapackage.json` use this instead of the upload URL. |
 | `flatten` | If `true`, strip subdirectories from file paths when uploading (e.g. `outputs/data.csv` becomes `data.csv`). |
 

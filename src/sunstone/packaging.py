@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 
 from .datasets import DatasetsManager
 from .lineage import DatasetMetadata, PublishConfig
-from .plugins import PluginRegistry
+from .plugins import PluginRegistry, no_url_handler_error
 
 # Only the prefixes needed for the datapackage envelope.
 # The full STANDARD_RDF_PREFIXES dict lives in sunstone.__init__.
@@ -222,7 +222,7 @@ def push_group(
     registry = PluginRegistry.get(manager.project_path)
     handler = registry.find_url_handler(datapackage_url)
     if handler is None:
-        raise ValueError(f"No URL handler found for: {datapackage_url}")
+        raise no_url_handler_error(datapackage_url)
 
     uploaded: list[str] = []
 
