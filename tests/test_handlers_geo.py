@@ -76,3 +76,28 @@ def test_geojson_write_roundtrip_and_conformance(tmp_path):
     asset2 = h.read(io.BytesIO(out.getvalue()), format="geojson", path="x.geojson")
     assert asset2.metadata.slug == "pts"
     assert list(asset2.payload["name"]) == ["A"]
+
+
+def test_topojson_read_decodes_line(tmp_path):
+    import io
+    from sunstone.handlers_geo import GeoFeaturesFormatHandler
+
+    topo = {
+        "type": "Topology",
+        "transform": {"scale": [1.0, 1.0], "translate": [0.0, 0.0]},
+        "objects": {
+            "ex": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    {"type": "LineString", "properties": {"k": "v"}, "arcs": [0]},
+                ],
+            }
+        },
+        "arcs": [[[0, 0], [2, 0], [0, 2]]],  # delta-encoded: (0,0)->(2,0)->(2,2)
+    }
+    asset = GeoFeaturesFormatHandler().read(
+        io.BytesIO(json.dumps(topo).encode("utf-8")), format="topojson", path="x.topojson"
+    )
+    line = asset.payload.geometry.iloc[0]
+    assert list(line.coords) == [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0)]
+    assert list(asset.payload["k"]) == ["v"]
