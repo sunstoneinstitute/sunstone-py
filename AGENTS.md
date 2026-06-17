@@ -29,8 +29,11 @@ The `sunstone-py` package provides:
 │       ├── datasets.py
 │       ├── errors.py
 │       ├── exceptions.py
+│       ├── field_types.py
+│       ├── geopandas.py
 │       ├── handlers.py
 │       ├── handlers_gcs.py
+│       ├── handlers_geo.py
 │       ├── handlers_s3.py
 │       ├── lineage.py
 │       ├── packaging.py
@@ -121,6 +124,7 @@ result.to_csv(
 
 Reading, writing, and URL fetching are handled by a plugin registry. Built-in handlers
 cover CSV, JSON, Excel, Parquet, TSV formats and HTTP/HTTPS, local file, GCS, and S3/R2 URLs.
+GeoJSON/TopoJSON formats are available via the optional `[geo]` extra.
 External plugins are discovered via the `sunstone.plugins` entry point group and take priority
 over built-ins.
 
@@ -129,6 +133,9 @@ Key modules:
 - `handlers.py` — Built-in `BuiltinFormatHandler`, `HttpURLHandler`, and `LocalFileHandler`
 - `handlers_gcs.py` — `GcsURLHandler` for `gs://` URLs (requires `sunstone-py[gcs]`)
 - `handlers_s3.py` — `S3URLHandler` for `s3://` and `r2://` URLs (requires `sunstone-py[s3]`)
+- `handlers_geo.py` — GeoJSON/TopoJSON format handler for `GEOFEATURES` assets (requires `sunstone-py[geo]`)
+- `geopandas.py` — Lineage-tracking geopandas facade (`read_geojson`/`read_topojson`/`read_file`, `GeoDataFrame`)
+- `field_types.py` — Field value-type registry for column-level type metadata
 - `packaging.py` — Library functions for building and pushing data packages via URLHandler
 
 URLHandler uses stream-based `open(url, mode) -> BinaryIO | TextIO` matching Python's built-in `open()`.

@@ -15,7 +15,18 @@ Parse `$ARGUMENTS` for `--bump {major,minor,patch}`. If no `--bump` argument is 
 
 State the bump level and why.
 
-## Step 2: Generate changelog entry
+## Step 2: Ensure documentation is up to date
+
+Before generating the changelog, review the commits since the last version tag (`git log <tag>..HEAD --oneline`) and check that user-facing documentation reflects them. In particular:
+
+- **README.md** — new features, CLI commands, options, or changed usage.
+- **CLAUDE.md** — package structure (new/removed modules), plugin system, or workflow changes.
+- **docs/** and docstrings — any API surface that changed.
+- **`sunstone-dev:dataset` skill** in the claude-plugins repo (`~/git/sunstone/claude-plugins/plugins/sunstone-dev/skills/dataset/`) — update if the release changes the public DataFrame/dataset API, `datasets.yaml` schema, or data-science workflow the skill documents. This skill lives in a separate repo, so flag it for a follow-up commit/PR there rather than editing it as part of this release. Every claude-plugins PR must carry a version bump label: apply `bump-minor` (use it whether or not the change adds a new capability — if it's not a new capability, still `bump-minor`), and never use `bump-major`. Add the `documentation` label too for doc updates.
+
+For each change that affects how users interact with the package, confirm the docs match. If anything is stale, update it now (or flag it to the user) so the release ships with accurate documentation. If everything is already current, say so and move on.
+
+## Step 3: Generate changelog entry
 
 First, check if CHANGELOG.md already has entries under `## [Unreleased]`. If it does, use those as the starting point — they were written incrementally during development and are likely accurate. Supplement with any commits not already covered.
 
@@ -31,7 +42,7 @@ Format as [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Use these ca
 
 Be concise but descriptive. Each entry should be one line. Do NOT include the version header line — the release script adds that. The release script also clears the `[Unreleased]` section automatically, so don't worry about duplication.
 
-## Step 3: Confirm with user
+## Step 4: Confirm with user
 
 Show the user:
 - Current version → new version
@@ -40,7 +51,7 @@ Show the user:
 
 Ask for confirmation before proceeding. If the user wants changes, revise accordingly.
 
-## Step 4: Run the release script
+## Step 5: Run the release script
 
 Once confirmed, pipe the changelog entry to the release script:
 
@@ -56,7 +67,7 @@ uv run python scripts/release.py --bump <level> <<'CHANGELOG'
 CHANGELOG
 ```
 
-## Step 5: Report result
+## Step 6: Report result
 
 Show the user the new version tag and remind them to push with tags when ready:
 

@@ -10,6 +10,7 @@ A Python library for managing datasets with lineage tracking in data science pro
 - **Automatic Lineage Tracking**: Track data provenance through all operations automatically
 - **Dataset Management**: Integration with `datasets.yaml` for organized dataset registration
 - **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd` (CSV, Excel, JSON)
+- **Geospatial Support**: Lineage-tracking GeoJSON/TopoJSON read/write via `from sunstone import geopandas as gpd` (requires the `[geo]` extra)
 - **Plugin System**: Extensible architecture for custom auth providers, URL handlers, and format handlers via entry points
 - **Strict/Relaxed Modes**: Control whether operations can modify `datasets.yaml`
 - **Validation Tools**: Check notebooks and scripts for correct import usage
@@ -139,6 +140,29 @@ merged = pd.merge(df, df2, on='key')
 concatenated = pd.concat([df, df2])
 ```
 
+### Geospatial Data
+
+With the `[geo]` extra installed, `sunstone.geopandas` mirrors the pandas facade for
+GeoJSON and TopoJSON vector data. Read functions resolve a slug/path against
+`datasets.yaml` and return a `GeoDataFrame` wrapping a `geopandas.GeoDataFrame` with
+metadata and lineage:
+
+```python
+from sunstone import geopandas as gpd
+
+# Read by registered slug or path (auto-detect format with read_file)
+gdf = gpd.read_geojson('regions.geojson')
+topo = gpd.read_topojson('regions.topojson')
+auto = gpd.read_file('regions')
+
+# Access the underlying geopandas.GeoDataFrame
+print(gdf.data.crs)
+
+# Write with lineage tracking (slug + name required for new outputs)
+gdf.to_geojson('output.geojson', slug='regions-out', name='Regions Output')
+gdf.to_topojson('output.topojson', slug='regions-topo', name='Regions TopoJSON')
+```
+
 ### Strict vs Relaxed Mode
 
 **Relaxed Mode** (default):
@@ -196,6 +220,7 @@ Plugins implement one or more of these protocols:
 pip install sunstone-py          # Core + HTTP + local file handling
 pip install sunstone-py[gcs]     # Adds GCS (gs://) support
 pip install sunstone-py[s3]      # Adds S3 (s3://) and R2 (r2://) support
+pip install sunstone-py[geo]     # Adds GeoJSON/TopoJSON vector support
 pip install sunstone-py[gcs,s3]  # Both
 ```
 
@@ -313,6 +338,18 @@ Drop-in replacement for pandas with lineage tracking:
 - `read_json(filepath, project_path, strict=False, **kwargs)`: Read JSON with lineage
 - `merge(left, right, **kwargs)`: Merge DataFrames with combined lineage
 - `concat(dfs, **kwargs)`: Concatenate DataFrames with combined lineage
+
+### geopandas Module
+
+Lineage-tracking facade for vector data (requires the `[geo]` extra):
+
+- `read_geojson(slug_or_path, project_path=None)`: Read GeoJSON into a `GeoDataFrame`
+- `read_topojson(slug_or_path, project_path=None)`: Read TopoJSON into a `GeoDataFrame`
+- `read_file(slug_or_path, project_path=None)`: Read with format auto-detected from the dataset
+- `GeoDataFrame.to_geojson(path, slug, name)`: Write GeoJSON and register
+- `GeoDataFrame.to_topojson(path, slug, name)`: Write TopoJSON and register
+- `GeoDataFrame.data`: Access the underlying `geopandas.GeoDataFrame`
+- `GeoDataFrame.metadata`: Access the unified metadata container
 
 ### DataFrame Class
 

@@ -55,6 +55,7 @@ nav:
   - Data Kinds:
       - pandas: pandas.md
       - polars: polars.md
+      - geopandas: geopandas.md
       - Images: images.md
       - Tile pyramids (nbtiles): nbtiles.md
       - Tensors: tensors.md
