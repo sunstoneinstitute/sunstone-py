@@ -1081,3 +1081,21 @@ outputs: []
         # Read raw bytes to verify the delimiter was honored on write
         written = (project / "outputs" / "semi_out.csv").read_text()
         assert written == "a;b\n1;2\n3;4\n"
+
+
+def test_pinned_format_overrides_extension(tmp_path):
+    """A .json file pinned as format: geojson must NOT be read as tabular JSON.
+
+    With no geojson handler installed (Phase 1), resolution must fail loudly
+    instead of silently mis-parsing via read_json.
+    """
+    import pytest
+    from sunstone.dataframe import DataFrame
+
+    (tmp_path / "datasets.yaml").write_text(
+        "inputs:\n  - name: World\n    slug: world\n    location: world.json\n    format: geojson\n"
+    )
+    (tmp_path / "world.json").write_text('{"type":"FeatureCollection","features":[]}')
+
+    with pytest.raises(ValueError, match="geojson"):
+        DataFrame.read_dataset("world", project_path=tmp_path)

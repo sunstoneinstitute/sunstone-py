@@ -421,16 +421,21 @@ class DataFrame:
 
         registry = PluginRegistry.get(manager.project_path)
 
+        # A pinned format in datasets.yaml overrides extension detection.
+        if format is None and dataset.format is not None:
+            format = dataset.format
+
         # Try explicit format string first, then extension-based detection
         location = str(absolute_path)
         format_handler = registry.find_format_reader(location, format)
 
         if format_handler is None:
             extension = absolute_path.suffix.lower()
+            detail = f"format={format!r}" if format else f"extension={extension!r}"
             raise ValueError(
-                f"No format handler found for '{absolute_path.name}'"
-                + (f" (format='{format}')" if format else f" (extension='{extension}')")
-                + ". Install a plugin or check the file extension."
+                f"No format handler found for '{absolute_path.name}' ({detail}). "
+                "Install the matching extra (e.g. `pip install sunstone-py[geo]` for "
+                "geojson/topojson) or check the file extension."
             )
 
         url_handler = registry.find_url_handler(location)
