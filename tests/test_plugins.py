@@ -1184,3 +1184,16 @@ def test_plugin_field_types_are_registered():
     reg._register("fake-geo", FakeGeoPlugin())
     assert reg.field_types.get("geometry") is not None
     assert reg.field_types.get("string") is not None
+
+
+def test_geo_handler_registered_when_geopandas_present():
+    import pytest
+
+    pytest.importorskip("geopandas")
+    from sunstone.plugins import PluginRegistry
+
+    reg = PluginRegistry()
+    reg._discover()
+    h = reg.find_format_reader("x.geojson", None)
+    assert h is not None and type(h).__name__ == "GeoFeaturesFormatHandler"
+    assert reg.field_types.get("geometry") is not None

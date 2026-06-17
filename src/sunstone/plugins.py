@@ -333,6 +333,19 @@ class PluginRegistry:
             self._format_handlers.append(NpzFormatHandler())  # type: ignore[arg-type]
         except ImportError:
             pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
+        # Optional geo handler (GeoJSON/TopoJSON). Registered before the
+        # catch-all BuiltinFormatHandler so .geojson/.topojson resolve here.
+        try:
+            import geopandas  # noqa: F401
+
+            from .handlers_geo import GeoFeaturesFormatHandler
+
+            geo_handler = GeoFeaturesFormatHandler()
+            self._format_handlers.append(geo_handler)  # type: ignore[arg-type]
+            for descriptor in geo_handler.field_types():
+                self.field_types.register(descriptor)
+        except ImportError:
+            pass  # [geo] extra not installed
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
