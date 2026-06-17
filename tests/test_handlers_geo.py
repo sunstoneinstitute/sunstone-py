@@ -101,3 +101,24 @@ def test_topojson_read_decodes_line(tmp_path):
     line = asset.payload.geometry.iloc[0]
     assert list(line.coords) == [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0)]
     assert list(asset.payload["k"]) == ["v"]
+
+
+def test_topojson_write_roundtrip(tmp_path):
+    import io
+    from sunstone.handlers_geo import GeoFeaturesFormatHandler
+
+    h = GeoFeaturesFormatHandler()
+    src = io.BytesIO(json.dumps(_fc()).encode("utf-8"))
+    asset = h.read(src, format="geojson", path="x.geojson")
+    asset.metadata.slug = "pts"
+    asset.metadata.name = "Points"
+
+    out = io.BytesIO()
+    h.write(asset, out, format="topojson", path="x.topojson")
+    doc = json.loads(out.getvalue().decode("utf-8"))
+    assert doc["type"] == "Topology"
+    assert "sunstone" in doc
+
+    back = h.read(io.BytesIO(out.getvalue()), format="topojson", path="x.topojson")
+    assert back.payload.geometry.iloc[0].x == 10.0
+    assert back.metadata.slug == "pts"
