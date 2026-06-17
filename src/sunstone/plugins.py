@@ -241,6 +241,9 @@ class PluginRegistry:
         self._url_handlers: list[URLHandler] = [LocalFileHandler()]
         self._format_handlers: list[FormatHandler] = []
         self._store_format_handlers: list[object] = []
+        from .field_types import FieldTypeRegistry
+
+        self.field_types = FieldTypeRegistry()
         self._cli_providers: list[CLIProvider] = []
         self._env_section_providers: list[EnvSectionProvider] = []
 
@@ -365,6 +368,10 @@ class PluginRegistry:
             registered = True
         if isinstance(plugin, EnvSectionProvider):
             self._env_section_providers.append(plugin)
+            registered = True
+        if hasattr(plugin, "field_types") and callable(plugin.field_types):
+            for descriptor in plugin.field_types():
+                self.field_types.register(descriptor)
             registered = True
         if not registered:
             logger.warning("Plugin '%s' does not implement any known plugin protocol", name)
