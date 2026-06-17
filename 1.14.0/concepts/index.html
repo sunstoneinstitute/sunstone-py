@@ -1,0 +1,2893 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.14.0/concepts/">
+      
+      
+        <link rel="prev" href="../cli/">
+      
+      
+        <link rel="next" href="../formats/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Core Concepts - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../concepts.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#core-concepts" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Core Concepts
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#asset-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset Envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pandas-like-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pandas-Like API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pandas-Like API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-differences-from-plain-pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences from Plain Pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strict-vs-relaxed-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict vs Relaxed Mode
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strict vs Relaxed Mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#relaxed-mode-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relaxed Mode (Default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lineage-tracking-w3c-prov-o" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Tracking (W3C PROV-O)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lineage Tracking (W3C PROV-O)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prov-o-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROV-O Concepts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Tracked
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#accessing-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Lineage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-level-derivations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field-Level Derivations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineage-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineage-propagation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Propagation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-hash-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content Hash Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataframe-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataFrame Metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DataFrame Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-metadata-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Metadata Container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-field-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Field Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecation-dflineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecation: df.lineage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin System
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Plugin System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#built-in-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-plugin-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the Plugin Registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#writing-custom-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing Custom Plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unit-aware-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit-Aware Arithmetic
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unit-Aware Arithmetic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qudt-round-tripping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        QUDT Round-Tripping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License Compatibility
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="License Compatibility">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-compatibility-engine-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Compatibility Engine Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedded-license-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedded License Registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-derived-target-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-Derived Target Licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflicting-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflicting Licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dataset Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publishing-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publishing Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-path-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Path Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organizing-datasets-across-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organizing Datasets Across Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment Variables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment Variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sunstone_dataframe_strict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SUNSTONE_DATAFRAME_STRICT
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-relaxed-lock-for-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start Relaxed, Lock for Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lint-before-you-ship" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lint Before You Ship
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-sources-thoroughly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Sources Thoroughly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-descriptive-slugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Descriptive Slugs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#track-operations-explicitly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Track Operations Explicitly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-your-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Your Datasets
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#asset-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset Envelope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pandas-like-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pandas-Like API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pandas-Like API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#key-differences-from-plain-pandas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Differences from Plain Pandas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#strict-vs-relaxed-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict vs Relaxed Mode
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Strict vs Relaxed Mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#relaxed-mode-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relaxed Mode (Default)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#strict-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Strict Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lineage-tracking-w3c-prov-o" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Tracking (W3C PROV-O)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lineage Tracking (W3C PROV-O)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prov-o-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PROV-O Concepts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-tracked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Tracked
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#accessing-lineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessing Lineage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-level-derivations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field-Level Derivations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineage-persistence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Persistence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineage-propagation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Propagation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#content-hash-optimization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Content Hash Optimization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataframe-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataFrame Metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="DataFrame Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-metadata-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Metadata Container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#per-field-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-Field Metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deprecation-dflineage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecation: df.lineage
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin System
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Plugin System">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#built-in-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Built-in Support
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#using-the-plugin-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Using the Plugin Registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#writing-custom-plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Writing Custom Plugins
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unit-aware-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit-Aware Arithmetic
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unit-Aware Arithmetic">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#unit-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unit Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#qudt-round-tripping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        QUDT Round-Tripping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#license-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        License Compatibility
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="License Compatibility">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-compatibility-engine-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the Compatibility Engine Works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#embedded-license-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Embedded License Registry
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-derived-target-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-Derived Target Licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conflicting-licenses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflicting Licenses
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dataset-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dataset Metadata
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Dataset Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#required-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#publishing-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publishing Configuration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#project-path-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Path Configuration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#organizing-datasets-across-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Organizing Datasets Across Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment Variables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Environment Variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sunstone_dataframe_strict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SUNSTONE_DATAFRAME_STRICT
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-relaxed-lock-for-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start Relaxed, Lock for Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lint-before-you-ship" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lint Before You Ship
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-sources-thoroughly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document Sources Thoroughly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#use-descriptive-slugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Descriptive Slugs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#track-operations-explicitly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Track Operations Explicitly
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#version-your-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version Your Datasets
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h1>
+<p>Understanding the key concepts behind sunstone-py's data management and lineage tracking.</p>
+<h2 id="asset-envelope">Asset Envelope<a class="headerlink" href="#asset-envelope" title="Permanent link">&para;</a></h2>
+<p>Everything sunstone reads or writes is an <code>Asset</code> — a uniform container
+with four fields:</p>
+<ul>
+<li><code>payload</code> — the kind-native data: a <code>pandas.DataFrame</code>, a NumPy
+  <code>ndarray</code>, a <code>dict[str, ndarray]</code>, a tile pyramid descriptor, or raw
+  <code>bytes</code> for opaque binaries.</li>
+<li><code>kind</code> — an <code>AssetKind</code> enum value (<code>TABULAR</code>, <code>RASTER</code>, <code>ARRAY</code>,
+  <code>TILES</code>, <code>BLOB</code>).</li>
+<li><code>metadata</code> — the unified <code>Metadata</code> container (lineage,
+  per-component schema, RDF properties, license).</li>
+<li><code>extras</code> — kind-specific accessory info (rasterio profile, CRS, chunk spec).</li>
+</ul>
+<p>Two equivalent entry points produce and consume assets:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Kind-agnostic — works for any AssetKind</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">asset</span> <span class="o">=</span> <span class="n">sunstone</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s1">&#39;inputs/era5_2024.zarr&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">sunstone</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span><span class="n">new_payload</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;child&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Child&#39;</span><span class="p">),</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>               <span class="s1">&#39;outputs/era5_derived.zarr&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Tabular shortcut — pandas-like API</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone</span><span class="w"> </span><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;inputs/schools.csv&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;outputs/summary.csv&#39;</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;summary&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Summary&#39;</span><span class="p">)</span>
+</code></pre></div>
+<p><code>sunstone.DataFrame</code> is a thin facade over an <code>Asset</code> of
+<code>kind=AssetKind.TABULAR</code>; the two paths record identical lineage. Use
+the pandas-style API for code that should read like pandas, and the
+Asset API for code that needs to be uniform across kinds.</p>
+<p>Each kind has its own quickstart:</p>
+<ul>
+<li><a href="../pandas/">Tabular</a> — <code>pandas.DataFrame</code> payloads (CSV, Parquet, Excel, JSON, TSV).</li>
+<li><a href="../tensors/">Tensors</a> — <code>dict[str, ndarray]</code> payloads (<code>.npz</code>, Zarr, HDF5/NetCDF-4).</li>
+<li><a href="../images/">Images</a> — single-<code>ndarray</code> rasters (GeoTIFF on the roadmap).</li>
+<li><a href="../nbtiles/">Tile pyramids</a> — pre-tiled multi-resolution data.</li>
+<li><a href="../formats/#blob--opaque-binary-formats">Blob / opaque binaries</a> —
+  <code>bytes</code> payloads for PDF, DOCX, PPTX, RTF, plain-text reports, and
+  similar artefacts sunstone ingests without interpreting.</li>
+</ul>
+<p><code>Asset.derive(payload, ..., derived_from=[...])</code> produces a child asset
+and records <code>prov:wasDerivedFrom</code> for each parent. Slug and name do
+<em>not</em> inherit — the child is a new dataset.</p>
+<h2 id="pandas-like-api">Pandas-Like API<a class="headerlink" href="#pandas-like-api" title="Permanent link">&para;</a></h2>
+<p>sunstone-py provides a drop-in replacement for pandas that adds lineage tracking:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sunstone</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone</span><span class="w"> </span><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Configure the default project path once</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">sunstone</span><span class="o">.</span><span class="n">set_project_path</span><span class="p">(</span><span class="s1">&#39;/path/to/project&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Works like pandas, but tracks lineage</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input.csv&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">df2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input2.csv&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># All pandas operations work</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">]</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">grouped</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;category&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># Merge/join operations combine lineage from both sources</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">df2</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;key&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">concatenated</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df</span><span class="p">,</span> <span class="n">df2</span><span class="p">])</span>
+</code></pre></div>
+<h3 id="key-differences-from-plain-pandas">Key Differences from Plain Pandas<a class="headerlink" href="#key-differences-from-plain-pandas" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Project path configuration</strong>: Reads resolve paths against a project directory containing <code>datasets.yaml</code>. Set it once with <code>sunstone.set_project_path(...)</code>, pass <code>project_path=</code> per call, or rely on the <code>Path.cwd()</code> fallback. Use <code>with sunstone.use_project_path(...):</code> for a scoped override.</li>
+<li><strong>Dataset registration</strong>: All reads and writes must correspond to entries in <code>datasets.yaml</code></li>
+<li><strong>Access underlying data</strong>: Use <code>.data</code> to access the pandas DataFrame directly</li>
+<li><strong>Save with metadata</strong>: Write operations require <code>slug</code> and <code>name</code> for dataset registration</li>
+</ol>
+<h2 id="strict-vs-relaxed-mode">Strict vs Relaxed Mode<a class="headerlink" href="#strict-vs-relaxed-mode" title="Permanent link">&para;</a></h2>
+<p>sunstone-py operates in two modes that control how it interacts with <code>datasets.yaml</code>:</p>
+<h3 id="relaxed-mode-default">Relaxed Mode (Default)<a class="headerlink" href="#relaxed-mode-default" title="Permanent link">&para;</a></h3>
+<p><strong>Behavior:</strong>
+- Writing to new outputs auto-registers them in <code>datasets.yaml</code>
+- More flexible for exploratory work
+- Schema is inferred from the data
+- Lineage metadata is automatically added</p>
+<p><strong>Use when:</strong>
+- Doing exploratory data analysis
+- Prototyping new analyses
+- Working in notebooks
+- Iterating quickly on data transformations</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># This will auto-create an entry in datasets.yaml</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s1">&#39;outputs/new-analysis.csv&#39;</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;new-analysis&#39;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;New Analysis Results&#39;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">index</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="p">)</span>
+</code></pre></div></p>
+<h3 id="strict-mode">Strict Mode<a class="headerlink" href="#strict-mode" title="Permanent link">&para;</a></h3>
+<p><strong>Behavior:</strong>
+- All reads and writes must be pre-registered in <code>datasets.yaml</code>
+- Raises <code>StrictModeError</code> if dataset not found
+- Ensures complete documentation of data operations
+- Validates that lineage matches what's recorded</p>
+<p><strong>Use when:</strong>
+- Running production pipelines
+- Need reproducibility guarantees
+- Working in team environments
+- Preparing for publication or sharing</p>
+<p><strong>Enable strict mode:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Per-operation</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;data.csv&#39;</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Globally via environment variable</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;SUNSTONE_DATAFRAME_STRICT&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;1&#39;</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># Via CLI for entire dataset</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># sunstone dataset lock my-dataset</span>
+</code></pre></div>
+<p><strong>Example error in strict mode:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># This will raise StrictModeError if &#39;new-output&#39; not in datasets.yaml</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s1">&#39;outputs/new-output.csv&#39;</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;new-output&#39;</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;New Output&#39;</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+</code></pre></div></p>
+<h2 id="lineage-tracking-w3c-prov-o">Lineage Tracking (W3C PROV-O)<a class="headerlink" href="#lineage-tracking-w3c-prov-o" title="Permanent link">&para;</a></h2>
+<p>Lineage tracking automatically captures the provenance of your data through all operations. Since v1.5.0, the lineage model is aligned with <a href="https://www.w3.org/TR/prov-o/">W3C PROV-O</a>, the standard ontology for provenance.</p>
+<h3 id="prov-o-concepts">PROV-O Concepts<a class="headerlink" href="#prov-o-concepts" title="Permanent link">&para;</a></h3>
+<p>sunstone-py maps its data model to PROV-O:</p>
+<ul>
+<li><strong>Entity</strong>: A dataset (<code>DatasetMetadata</code>) — the thing being tracked</li>
+<li><strong>Activity</strong>: A script or notebook execution (<code>Activity</code>) — the process that transforms data</li>
+<li><strong>Agent</strong>: A user, organization, or software (<code>Agent</code>) — who is responsible</li>
+</ul>
+<h3 id="what-gets-tracked">What Gets Tracked<a class="headerlink" href="#what-gets-tracked" title="Permanent link">&para;</a></h3>
+<p><strong>Sources:</strong>
+- Input datasets that were read
+- Their metadata (slug, name, location)
+- License information
+- Source attribution (as PROV-O Agents)</p>
+<p><strong>Activities:</strong>
+- Script/notebook executions with timestamps
+- Which entities were used (with column-level detail)
+- Which entities were generated
+- Associated agents (user, software)
+- Git commit hash and dirty state</p>
+<p><strong>Field Derivations:</strong>
+- Which output columns came from which source datasets
+- Column-level provenance (prov:qualifiedDerivation)
+- Auto-populated on read so provenance flows through merge/join/concat</p>
+<p><strong>Metadata:</strong>
+- Content hash (detects when data actually changes)
+- Creation timestamp (only updated when content changes)
+- Source relationships</p>
+<h3 id="accessing-lineage">Accessing Lineage<a class="headerlink" href="#accessing-lineage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Read and transform data</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="n">PROJECT_PATH</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">]</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;category&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Access lineage through metadata (preferred)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">get_licenses</span><span class="p">())</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Check field derivations</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">field_derivations</span><span class="p">:</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="k">for</span> <span class="n">fd</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">field_derivations</span><span class="p">:</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">fd</span><span class="o">.</span><span class="n">output_field</span><span class="si">}</span><span class="s2"> &lt;- </span><span class="si">{</span><span class="n">fd</span><span class="o">.</span><span class="n">source_entity</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fd</span><span class="o">.</span><span class="n">source_field</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="c1"># Check activity details</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">activity</span><span class="p">:</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">activity</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">activity</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Activity: </span><span class="si">{</span><span class="n">activity</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Started: </span><span class="si">{</span><span class="n">activity</span><span class="o">.</span><span class="n">started_at</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">activity</span><span class="o">.</span><span class="n">was_associated_with</span><span class="p">:</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Agent: </span><span class="si">{</span><span class="n">agent</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">agent</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="field-level-derivations">Field-Level Derivations<a class="headerlink" href="#field-level-derivations" title="Permanent link">&para;</a></h3>
+<p>When you read a dataset, sunstone automatically records which columns came from which source. This propagates through operations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Read: each column gets a derivation record</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">schools</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;schools.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="n">PROJECT_PATH</span><span class="p">)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1"># schools.metadata.lineage.field_derivations contains:</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1">#   FieldDerivation(output_field=&#39;name&#39;, source_entity=&#39;school-data&#39;, source_field=&#39;name&#39;)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1">#   FieldDerivation(output_field=&#39;enrollment&#39;, source_entity=&#39;school-data&#39;, source_field=&#39;enrollment&#39;)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1">#   ...</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Merge: derivations from both sources are combined</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">schools</span><span class="p">,</span> <span class="n">teachers</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;school_id&#39;</span><span class="p">)</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># merged has derivations from both &#39;school-data&#39; and &#39;teacher-data&#39;</span>
+</code></pre></div>
+<h3 id="lineage-persistence">Lineage Persistence<a class="headerlink" href="#lineage-persistence" title="Permanent link">&para;</a></h3>
+<p>When you save a DataFrame, lineage is automatically written to <code>datasets.yaml</code>, including PROV-O activity tracking:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="s1">&#39;outputs/summary.csv&#39;</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;summary&#39;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Summary Results&#39;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">index</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">)</span>
+</code></pre></div>
+<p>This adds to <code>datasets.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Summary Results</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">summary</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outputs/summary.csv</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">category</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nt">lineage</span><span class="p">:</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="nt">content_hash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">abc123...</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">      </span><span class="nt">created_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-02-04T10:30:00&#39;</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">      </span><span class="nt">sources</span><span class="p">:</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">input-data</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">      </span><span class="nt">activity</span><span class="p">:</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">exec-20260204T103000-abc123</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">        </span><span class="nt">agents</span><span class="p">:</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stig</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Person</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sunstone-py</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="w">            </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:SoftwareAgent</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="w">            </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;1.5.0&#39;</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="w">        </span><span class="nt">used</span><span class="p">:</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">entity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">input-data</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="w">        </span><span class="nt">started_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-02-04T10:29:55&#39;</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="w">        </span><span class="nt">ended_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-02-04T10:30:00&#39;</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="w">      </span><span class="nt">field_derivations</span><span class="p">:</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">output_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">category</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="w">          </span><span class="nt">source_entity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">input-data</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="w">          </span><span class="nt">source_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">category</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">output_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="w">          </span><span class="nt">source_entity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">input-data</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a><span class="w">          </span><span class="nt">source_field</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
+</code></pre></div>
+<h3 id="lineage-propagation">Lineage Propagation<a class="headerlink" href="#lineage-propagation" title="Permanent link">&para;</a></h3>
+<p>Lineage automatically propagates through operations:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Read two sources</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">schools</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;schools.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="n">PROJECT_PATH</span><span class="p">)</span>  <span class="c1"># source 1</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">teachers</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;teachers.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="n">PROJECT_PATH</span><span class="p">)</span>  <span class="c1"># source 2</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Merge combines lineage from both</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">schools</span><span class="p">,</span> <span class="n">teachers</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s1">&#39;school_id&#39;</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="c1"># Result tracks both sources</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">merged</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">sources</span><span class="p">))</span>  <span class="c1"># 2</span>
+</code></pre></div>
+<h3 id="content-hash-optimization">Content Hash Optimization<a class="headerlink" href="#content-hash-optimization" title="Permanent link">&para;</a></h3>
+<p>The content hash prevents unnecessary timestamp updates:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># First save</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;output.csv&#39;</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Output&#39;</span><span class="p">)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># lineage.created_at = &#39;2026-02-04T10:00:00&#39;</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Re-run with same result</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;output.csv&#39;</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Output&#39;</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># lineage.created_at = &#39;2026-02-04T10:00:00&#39;  (unchanged!)</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1"># Re-run with different result</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">result_v2</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;output.csv&#39;</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;Output&#39;</span><span class="p">)</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="c1"># lineage.created_at = &#39;2026-02-04T11:00:00&#39;  (updated!)</span>
+</code></pre></div>
+<h2 id="dataframe-metadata">DataFrame Metadata<a class="headerlink" href="#dataframe-metadata" title="Permanent link">&para;</a></h2>
+<p>Every DataFrame carries a <code>metadata</code> container that holds lineage and per-field annotations. This metadata flows through operations and is persisted to <code>datasets.yaml</code> on write.</p>
+<h3 id="the-metadata-container">The Metadata Container<a class="headerlink" href="#the-metadata-container" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;data.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="n">PROJECT_PATH</span><span class="p">)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">slug</span> <span class="o">=</span> <span class="s1">&#39;my-analysis&#39;</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;My Analysis&#39;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s1">&#39;Analysis of school enrollment data&#39;</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># RDF prefixes and custom properties</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">rdf_prefixes</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;schema&#39;</span><span class="p">:</span> <span class="s1">&#39;http://schema.org/&#39;</span><span class="p">}</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">custom_properties</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;schema:about&#39;</span><span class="p">:</span> <span class="s1">&#39;Education&#39;</span><span class="p">}</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># Lineage is accessed through metadata</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">lineage</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="per-field-metadata">Per-Field Metadata<a class="headerlink" href="#per-field-metadata" title="Permanent link">&para;</a></h3>
+<p>Annotate individual columns with descriptions, units, and source tracking:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">df</span><span class="o">.</span><span class="n">set_field_metadata</span><span class="p">(</span><span class="s1">&#39;enrollment&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Total enrolled students&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;students&#39;</span><span class="p">)</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">df</span><span class="o">.</span><span class="n">set_field_metadata</span><span class="p">(</span><span class="s1">&#39;area_km2&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;School district area&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;km^2&#39;</span><span class="p">)</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">df</span><span class="o">.</span><span class="n">set_field_metadata</span><span class="p">(</span><span class="s1">&#39;density&#39;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Students per square kilometer&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;students / km^2&#39;</span><span class="p">)</span>
+</code></pre></div>
+<p>Field metadata is written to <code>datasets.yaml</code> alongside the field schema:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">enrollment</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total enrolled students</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">students</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">area_km2</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">School district area</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">km^2</span>
+</code></pre></div>
+<h3 id="deprecation-dflineage">Deprecation: <code>df.lineage</code><a class="headerlink" href="#deprecation-dflineage" title="Permanent link">&para;</a></h3>
+<p>The old <code>df.lineage</code> accessor still works but is deprecated. Use <code>df.metadata.lineage</code> instead.</p>
+<h2 id="plugin-system">Plugin System<a class="headerlink" href="#plugin-system" title="Permanent link">&para;</a></h2>
+<p>Reading, writing, and URL fetching are handled by a plugin registry. Built-in handlers cover common formats and URL schemes; external plugins are discovered automatically via entry points.</p>
+<h3 id="built-in-support">Built-in Support<a class="headerlink" href="#built-in-support" title="Permanent link">&para;</a></h3>
+<p><strong>Formats:</strong> CSV, JSON, Excel, Parquet, TSV</p>
+<p><strong>URL schemes:</strong>
+- Local file paths (built-in)
+- <code>http://</code> and <code>https://</code> (built-in, with SSRF protection)
+- <code>gs://</code> (requires <code>sunstone-py[gcs]</code>)
+- <code>s3://</code> and <code>r2://</code> (requires <code>sunstone-py[s3]</code>)</p>
+<h3 id="using-the-plugin-registry">Using the Plugin Registry<a class="headerlink" href="#using-the-plugin-registry" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone.plugins</span><span class="w"> </span><span class="kn">import</span> <span class="n">PluginRegistry</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">registry</span> <span class="o">=</span> <span class="n">PluginRegistry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;/path/to/project&#39;</span><span class="p">)</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># Fetch a file from any supported URL</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">registry</span><span class="o">.</span><span class="n">fetch</span><span class="p">(</span><span class="s1">&#39;gs://my-bucket/data.csv&#39;</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="s1">&#39;data/local.csv&#39;</span><span class="p">))</span>
+</code></pre></div>
+<h3 id="writing-custom-plugins">Writing Custom Plugins<a class="headerlink" href="#writing-custom-plugins" title="Permanent link">&para;</a></h3>
+<p>Implement one or more plugin protocols (<code>AuthProvider</code>, <code>URLHandler</code>, <code>FormatHandler</code>) and register via entry points:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># In your plugin&#39;s pyproject.toml</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">[project.entry-points.</span><span class="s2">&quot;sunstone.plugins&quot;</span><span class="k">]</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">my-plugin</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_package:MyPlugin&quot;</span>
+</code></pre></div>
+<h3 id="plugin-configuration">Plugin Configuration<a class="headerlink" href="#plugin-configuration" title="Permanent link">&para;</a></h3>
+<p>Configuration uses cascading precedence:</p>
+<ol>
+<li><code>datasets.yaml</code> → <code>plugins.&lt;name&gt;</code> section (highest priority)</li>
+<li><code>pyproject.toml</code> → <code>[tool.sunstone.plugins.&lt;name&gt;]</code></li>
+<li>Environment variables → <code>SUNSTONE_PLUGIN_&lt;NAME&gt;_&lt;KEY&gt;</code></li>
+</ol>
+<h2 id="unit-aware-arithmetic">Unit-Aware Arithmetic<a class="headerlink" href="#unit-aware-arithmetic" title="Permanent link">&para;</a></h2>
+<p>sunstone-py integrates with <a href="https://pint.readthedocs.io/">Pint</a> for unit-aware column operations. When columns have units set via <code>set_field_metadata()</code>, arithmetic operations validate unit compatibility.</p>
+<h3 id="unit-modes">Unit Modes<a class="headerlink" href="#unit-modes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SUNSTONE_UNIT_MODE</span><span class="o">=</span>auto<span class="w">  </span><span class="c1"># or: strict, relaxed (default)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_unit_mode</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">set_unit_mode</span><span class="p">(</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>relaxed</code></td>
+<td>No unit validation (default)</td>
+</tr>
+<tr>
+<td><code>strict</code></td>
+<td>Raises <code>UnitError</code> on incompatible operations</td>
+</tr>
+<tr>
+<td><code>auto</code></td>
+<td>Auto-converts compatible units, warns on mismatch</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone.units</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_unit_mode</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">set_unit_mode</span><span class="p">(</span><span class="s1">&#39;auto&#39;</span><span class="p">)</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="n">df</span><span class="o">.</span><span class="n">set_field_metadata</span><span class="p">(</span><span class="s1">&#39;distance_km&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;km&#39;</span><span class="p">)</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">df</span><span class="o">.</span><span class="n">set_field_metadata</span><span class="p">(</span><span class="s1">&#39;distance_miles&#39;</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;mile&#39;</span><span class="p">)</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="c1"># In auto mode, merging DataFrames with km and miles on the same</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="c1"># column will automatically convert to a common unit</span>
+</code></pre></div>
+<h3 id="qudt-round-tripping">QUDT Round-Tripping<a class="headerlink" href="#qudt-round-tripping" title="Permanent link">&para;</a></h3>
+<p>Units stored as <a href="http://qudt.org/">QUDT</a> URIs in <code>datasets.yaml</code> are preserved through read/write cycles. The original URI is stored in <code>FieldSchema.unit_source</code> so it round-trips without loss.</p>
+<h2 id="license-compatibility">License Compatibility<a class="headerlink" href="#license-compatibility" title="Permanent link">&para;</a></h2>
+<p>sunstone-py treats licenses as a first-class part of lineage: every input declares a <code>source.license</code>, every output declares an effective license (its own, its <code>packages[]</code> entry, or the top-level <code>package.license</code>), and the compatibility between them is checked automatically at write time.</p>
+<p>There are three layers of license handling, intentionally graded from soft to hard:</p>
+<ol>
+<li><strong>Lint (<code>sunstone lint</code>)</strong> — <code>R005</code> flags a dataset that has no license at all; <code>R006</code> flags a license string that isn't a recognised SPDX identifier or <code>LicenseRef-*</code> form.</li>
+<li><strong>CLI audit (<code>sunstone license check</code>)</strong> — runs the compatibility engine across every output's <code>wasDerivedFrom</code> chain and exits non-zero on conflict. Use it in CI. See the <a href="../cli/#license-commands">CLI Guide</a>.</li>
+<li><strong>Write-time enforcement</strong> — <code>to_csv()</code> / <code>to_parquet()</code> raise <a href="../errors/#licensecompatibilityerror"><code>LicenseCompatibilityError</code></a> when the target license is incompatible with a source license in the current session lineage. When no target license is declared, one is auto-derived from the sources (inheriting a single source's license, or picking the most restrictive license that satisfies all sources) and persisted to <code>datasets.yaml</code>. Pass <code>check_license=False</code> to skip on a specific write.</li>
+</ol>
+<h3 id="how-the-compatibility-engine-works">How the Compatibility Engine Works<a class="headerlink" href="#how-the-compatibility-engine-works" title="Permanent link">&para;</a></h3>
+<p>Each license in the embedded registry is described by four boolean properties — <code>public_domain</code>, <code>attribution</code>, <code>share_alike</code>, <code>non_commercial</code> — plus a <code>family</code> tag for ShareAlike. A <code>(source → target)</code> pair is checked against this rule set:</p>
+<table>
+<thead>
+<tr>
+<th>Source property</th>
+<th>Constraint on target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>public_domain</code></td>
+<td>None — compatible with anything.</td>
+</tr>
+<tr>
+<td><code>share_alike</code></td>
+<td>Target must also be <code>share_alike</code> <strong>and</strong> share the same <code>family</code>. (<code>CC-BY-SA-4.0</code> and <code>CC-BY-SA-3.0</code> are <em>different</em> families on purpose — Creative Commons treats them as one-way upgradable, not mutually equivalent.)</td>
+</tr>
+<tr>
+<td><code>non_commercial</code></td>
+<td>Target must also be <code>non_commercial</code>.</td>
+</tr>
+<tr>
+<td><code>attribution</code> (without SA/NC)</td>
+<td>Target must be <code>attribution</code> <em>or</em> <code>share_alike</code> (SA implies attribution).</td>
+</tr>
+</tbody>
+</table>
+<p>A check fails as soon as any source/target pair violates the rules; the resulting <code>LicenseCompatibilityResult</code> lists every conflict and a <code>suggestions</code> list of registry licenses that <em>would</em> satisfy all known sources. The most-restrictive ordering — used by <code>get_most_restrictive_license()</code> and by suggestion ranking — is <code>ShareAlike &gt; NonCommercial &gt; Attribution &gt; Public Domain</code>.</p>
+<h3 id="embedded-license-registry">Embedded License Registry<a class="headerlink" href="#embedded-license-registry" title="Permanent link">&para;</a></h3>
+<p>The registry is intentionally focused on common research-data licenses. Anything outside it must use a <code>LicenseRef-*</code> identifier; unregistered <code>LicenseRef-*</code> ids pass lint <code>R006</code> but are reported as <code>unknown_sources</code> by the compatibility engine and excluded from the rule check.</p>
+<table>
+<thead>
+<tr>
+<th>SPDX id</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CC0-1.0</code>, <code>PDDL-1.0</code>, <code>LicenseRef-US-PD</code></td>
+<td>Public domain</td>
+</tr>
+<tr>
+<td><code>CC-BY-4.0</code>, <code>CC-BY-3.0</code>, <code>CC-BY-3.0-IGO</code></td>
+<td>Attribution only</td>
+</tr>
+<tr>
+<td><code>ODC-By-1.0</code>, <code>LicenseRef-OGL-3.0</code>, <code>NLOD-1.0</code>, <code>NLOD-2.0</code></td>
+<td>Attribution only</td>
+</tr>
+<tr>
+<td><code>CC-BY-SA-4.0</code>, <code>CC-BY-SA-3.0</code>, <code>ODbL-1.0</code></td>
+<td>Attribution + ShareAlike (each is its own family)</td>
+</tr>
+<tr>
+<td><code>CC-BY-NC-4.0</code>, <code>CC-BY-NC-3.0-IGO</code></td>
+<td>Attribution + NonCommercial</td>
+</tr>
+<tr>
+<td><code>CC-BY-NC-SA-4.0</code>, <code>CC-BY-NC-SA-3.0</code>, <code>CC-BY-NC-SA-3.0-IGO</code></td>
+<td>Attribution + NonCommercial + ShareAlike (each is its own family)</td>
+</tr>
+</tbody>
+</table>
+<p>Adding a license is a one-line append to <code>_REGISTRY_ENTRIES</code> in <code>src/sunstone/licenses.py</code>. The full set is also available programmatically via <code>sunstone.licenses.known_licenses()</code>.</p>
+<h3 id="worked-example">Worked Example<a class="headerlink" href="#worked-example" title="Permanent link">&para;</a></h3>
+<p>A source <code>un-members</code> is licensed <code>CC-BY-NC-4.0</code>. You merge it with a <code>CC-BY-4.0</code> input and try to publish under <code>CC-BY-4.0</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">result</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>    <span class="s2">&quot;outputs/derived.csv&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    <span class="n">slug</span><span class="o">=</span><span class="s2">&quot;derived&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Derived Data&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">license</span><span class="o">=</span><span class="s2">&quot;CC-BY-4.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="p">)</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="c1"># raises LicenseCompatibilityError:</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="c1">#   CC-BY-NC-4.0 is NonCommercial: derivatives must also be NonCommercial, not CC-BY-4.0</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="c1">#   Suggested compatible target licenses: CC-BY-NC-4.0, CC-BY-NC-SA-4.0, CC-BY-NC-3.0-IGO</span>
+</code></pre></div>
+<p>The fix is to widen the output to a NonCommercial license — or, if you have rights to do so, to remove the NC source from the lineage. The engine does not let you "wash out" a NonCommercial source by mixing it with a permissive one; that is the correct behaviour under Creative Commons.</p>
+<h3 id="auto-derived-target-licenses">Auto-Derived Target Licenses<a class="headerlink" href="#auto-derived-target-licenses" title="Permanent link">&para;</a></h3>
+<p>When the output has source licenses but no declared target (no <code>license:</code> on the dataset, no <code>packages[].license</code> / <code>package.license</code> covering it, and no <code>license=</code> argument to the writer), the writer derives a target automatically:</p>
+<ul>
+<li><strong>One unique source license</strong> — the output inherits it.</li>
+<li><strong>Multiple compatible source licenses</strong> — the writer picks the most restrictive license that satisfies every source (e.g., <code>CC-BY-4.0</code> + <code>CC-BY-NC-4.0</code> → <code>CC-BY-NC-4.0</code>).</li>
+<li><strong>Mutually incompatible sources, or unknown licenses among multiples</strong> — <code>LicenseCompatibilityError</code>. The writer refuses to guess; declare an explicit <code>license:</code> to proceed.</li>
+</ul>
+<p>Any auto-derived license is persisted to <code>datasets.yaml</code> so future reads and <code>sunstone license check</code> runs see it as declared.</p>
+<h3 id="conflicting-licenses">Conflicting Licenses<a class="headerlink" href="#conflicting-licenses" title="Permanent link">&para;</a></h3>
+<p>An explicitly declared target license that is incompatible with a source license is always a hard failure (<code>LicenseCompatibilityError</code>) — silently publishing under the wrong license can be a legal problem. Combine <code>sunstone lint --warnings-as-errors</code> (catches missing licenses at lint time) with <code>sunstone license check</code> (catches conflicts) in CI to make both classes hard failures before publish.</p>
+<h2 id="dataset-metadata">Dataset Metadata<a class="headerlink" href="#dataset-metadata" title="Permanent link">&para;</a></h2>
+<p>Every dataset in <code>datasets.yaml</code> has rich metadata:</p>
+<h3 id="required-fields">Required Fields<a class="headerlink" href="#required-fields" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Human-Readable Name</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">machine-readable-slug</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">path/to/file.csv</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">column_name</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span><span class="w">  </span><span class="c1"># or number, integer, boolean, date, datetime</span>
+</code></pre></div>
+<h3 id="optional-fields">Optional Fields<a class="headerlink" href="#optional-fields" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Top-level publishing configuration (applies to all outputs)</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="nt">publish</span><span class="p">:</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket-name/path/</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">flatten</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">  </span><span class="c1"># optional: flatten directory structure</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example Dataset</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">    </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data/example.csv</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="w">    </span><span class="c1"># Source attribution for inputs</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Data Provider Name</span>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a><span class="w">      </span><span class="nt">location</span><span class="p">:</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="w">        </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.com/data.csv</span>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="w">      </span><span class="nt">attributedTo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Organization or Person</span>
+<a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="w">      </span><span class="nt">acquiredAt</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-15&#39;</span>
+<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a><span class="w">      </span><span class="nt">acquisitionMethod</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-download</span><span class="w">  </span><span class="c1"># or api, web-scraping, etc.</span>
+<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a><span class="w">      </span><span class="nt">license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+<a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>
+<a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a><span class="w">    </span><span class="c1"># Strict mode flag</span>
+<a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a><span class="w">    </span><span class="nt">strict</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>
+<a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Output Dataset</span>
+<a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a><span class="w">    </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">output-example</span>
+<a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outputs/example.csv</span>
+<a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a>
+<a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a><span class="w">    </span><span class="c1"># Strict mode flag</span>
+<a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a><span class="w">    </span><span class="nt">strict</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-21-32" name="__codelineno-21-32" href="#__codelineno-21-32"></a>
+<a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a><span class="w">    </span><span class="c1"># Lineage metadata (auto-generated)</span>
+<a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a><span class="w">    </span><span class="nt">lineage</span><span class="p">:</span>
+<a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a><span class="w">      </span><span class="nt">content_hash</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">abc123...</span>
+<a id="__codelineno-21-36" name="__codelineno-21-36" href="#__codelineno-21-36"></a><span class="w">      </span><span class="nt">created_at</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-02-04T10:00:00&#39;</span>
+<a id="__codelineno-21-37" name="__codelineno-21-37" href="#__codelineno-21-37"></a><span class="w">      </span><span class="nt">sources</span><span class="p">:</span>
+<a id="__codelineno-21-38" name="__codelineno-21-38" href="#__codelineno-21-38"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-dataset</span>
+</code></pre></div>
+<h3 id="publishing-configuration">Publishing Configuration<a class="headerlink" href="#publishing-configuration" title="Permanent link">&para;</a></h3>
+<p>The top-level <code>publish</code> section controls how data packages are published:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="nt">publish</span><span class="p">:</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                              </span><span class="c1"># Required: enable publishing</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://bucket/datasets/project-name/</span><span class="w">     </span><span class="c1"># GCS upload destination</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://data.example.com/project-name/</span><span class="w"> </span><span class="c1"># Optional: public URL base for datapackage.json</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">flatten</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                             </span><span class="c1"># Optional: flatten directory structure</span>
+</code></pre></div>
+<p><strong>Path Resolution:</strong></p>
+<ul>
+<li>If <code>to</code> ends with <code>.json</code>: Used as the datapackage filename</li>
+<li><code>gs://bucket/countries.json</code> → datapackage at <code>gs://bucket/countries.json</code></li>
+<li>
+<p>Data files in <code>gs://bucket/</code> (relative to datapackage directory)</p>
+</li>
+<li>
+<p>If <code>to</code> doesn't end with <code>.json</code>: Treated as a directory</p>
+</li>
+<li><code>gs://bucket/datasets/project/</code> → datapackage at <code>gs://bucket/datasets/project/datapackage.json</code></li>
+<li>Data files in <code>gs://bucket/datasets/project/</code></li>
+</ul>
+<p><strong>Public URL Option (<code>as</code>):</strong></p>
+<p>When your GCS bucket is served via a CDN or custom domain, use <code>as</code> to set the public-facing URLs in <code>datapackage.json</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="nt">publish</span><span class="p">:</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">to</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gs://my-bucket/datasets/project/</span><span class="w">      </span><span class="c1"># Files uploaded here</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">as</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://data.example.com/project/</span><span class="w">     </span><span class="c1"># URLs in datapackage.json use this base</span>
+</code></pre></div>
+<ul>
+<li>Files are uploaded to <code>gs://my-bucket/datasets/project/outputs/data.csv</code></li>
+<li>But <code>datapackage.json</code> contains: <code>"path": "https://data.example.com/project/outputs/data.csv"</code></li>
+</ul>
+<p>This allows data consumers to fetch files directly from your public URL.</p>
+<p><strong>Flatten Option:</strong></p>
+<ul>
+<li><code>flatten: false</code> (default): Preserves directory structure from <code>location</code> field</li>
+<li>
+<p><code>location: outputs/data/file.csv</code> → <code>gs://bucket/project/outputs/data/file.csv</code></p>
+</li>
+<li>
+<p><code>flatten: true</code>: Puts all files in same directory as datapackage.json</p>
+</li>
+<li><code>location: outputs/data/file.csv</code> → <code>gs://bucket/project/file.csv</code></li>
+</ul>
+<h2 id="validation-tools">Validation Tools<a class="headerlink" href="#validation-tools" title="Permanent link">&para;</a></h2>
+<p>Check notebooks and scripts for correct import usage:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sunstone</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="c1"># Check a single notebook</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">sunstone</span><span class="o">.</span><span class="n">check_notebook_imports</span><span class="p">(</span><span class="s1">&#39;analysis.ipynb&#39;</span><span class="p">)</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="c1"># Check all notebooks in project</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="n">results</span> <span class="o">=</span> <span class="n">sunstone</span><span class="o">.</span><span class="n">validate_project_notebooks</span><span class="p">(</span><span class="s1">&#39;/path/to/project&#39;</span><span class="p">)</span>
+<a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a><span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">is_valid</span><span class="p">:</span>
+<a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+<a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+</code></pre></div>
+<p><strong>What validation checks:</strong>
+- Files use <code>from sunstone import pandas as pd</code> instead of plain pandas
+- No direct pandas imports in data processing code
+- Proper usage of <code>project_path</code> parameter</p>
+<h2 id="project-path-configuration">Project Path Configuration<a class="headerlink" href="#project-path-configuration" title="Permanent link">&para;</a></h2>
+<p><code>read_csv</code>, <code>read_excel</code>, <code>read_json</code>, <code>read_dataset</code>, and the <code>DataFrame</code> constructor all need to know which project's <code>datasets.yaml</code> to consult. They accept a <code>project_path=</code> argument; when none is given, they fall back to a process-wide default, and finally to <code>Path.cwd()</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sunstone</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone</span><span class="w"> </span><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="c1"># 1. Set once for the entire process (recommended in notebooks/scripts)</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="n">sunstone</span><span class="o">.</span><span class="n">set_project_path</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;inputs/data.csv&#39;</span><span class="p">)</span>          <span class="c1"># uses configured path</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="c1"># 2. Pass explicitly per call (overrides the default)</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;inputs/data.csv&#39;</span><span class="p">,</span> <span class="n">project_path</span><span class="o">=</span><span class="s1">&#39;/other/project&#39;</span><span class="p">)</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="c1"># 3. Scoped override</span>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="k">with</span> <span class="n">sunstone</span><span class="o">.</span><span class="n">use_project_path</span><span class="p">(</span><span class="s1">&#39;/temporary/project&#39;</span><span class="p">):</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;inputs/other.csv&#39;</span><span class="p">)</span>
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="c1"># default is restored after the with block</span>
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a><span class="c1"># Read or clear the configured default</span>
+<a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a><span class="nb">print</span><span class="p">(</span><span class="n">sunstone</span><span class="o">.</span><span class="n">get_project_path</span><span class="p">())</span>
+<a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a><span class="n">sunstone</span><span class="o">.</span><span class="n">clear_project_path</span><span class="p">()</span>
+</code></pre></div>
+<p>The configured value is held in a <code>contextvars.ContextVar</code>, so it is safe across threads and async tasks.</p>
+<h2 id="organizing-datasets-across-files">Organizing Datasets Across Files<a class="headerlink" href="#organizing-datasets-across-files" title="Permanent link">&para;</a></h2>
+<p>For projects with many datasets, <code>datasets.yaml</code> can pull in additional files via an <code>include:</code> directive:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># datasets.yaml</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="nt">package</span><span class="p">:</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-project</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="nt">include</span><span class="p">:</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">datasets/inputs.yaml</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">datasets/outputs.yaml</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="c1"># Top-level inputs/outputs/packages here are still allowed</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="nt">inputs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="nt">outputs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</code></pre></div>
+<p>Each included file may declare its own <code>inputs:</code>, <code>outputs:</code>, and <code>packages:</code> lists. Top-level configuration that affects the whole project (<code>defaults</code>, <code>rdfPrefixes</code>, <code>package</code>, <code>publish</code>, <code>min_sunstone_version</code>) is not allowed in included files — only in the main <code>datasets.yaml</code>.</p>
+<p>Other rules:</p>
+<ul>
+<li>Includes are not nested — an included file cannot itself contain an <code>include:</code> key.</li>
+<li>Slug collisions across files are an error: every dataset slug and every package name must be unique across the merged set.</li>
+<li>Paths are relative to the file containing the <code>include:</code> directive.</li>
+</ul>
+<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<h3 id="sunstone_dataframe_strict">SUNSTONE_DATAFRAME_STRICT<a class="headerlink" href="#sunstone_dataframe_strict" title="Permanent link">&para;</a></h3>
+<p>Enable strict mode globally:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SUNSTONE_DATAFRAME_STRICT</span><span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="c1"># or</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">SUNSTONE_DATAFRAME_STRICT</span><span class="o">=</span><span class="nb">true</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="c1"># Now all operations are strict by default</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;input.csv&#39;</span><span class="p">)</span>  <span class="c1"># strict=True implied</span>
+</code></pre></div>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<h3 id="start-relaxed-lock-for-production">Start Relaxed, Lock for Production<a class="headerlink" href="#start-relaxed-lock-for-production" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Development</strong>: Use relaxed mode for exploration</li>
+<li><strong>Refinement</strong>: Review auto-generated <code>datasets.yaml</code> entries</li>
+<li><strong>Production</strong>: Lock datasets with <code>sunstone dataset lock</code></li>
+</ol>
+<h3 id="lint-before-you-ship">Lint Before You Ship<a class="headerlink" href="#lint-before-you-ship" title="Permanent link">&para;</a></h3>
+<p>Run <code>sunstone lint</code> to catch missing licenses, units, descriptions, and slugs that don't follow project conventions before publishing. In CI, use <code>sunstone lint --warnings-as-errors</code> to make recommended-but-not-required metadata mandatory. See the <a href="../cli/#lint-command">CLI Guide</a> for the full rule list.</p>
+<h3 id="document-sources-thoroughly">Document Sources Thoroughly<a class="headerlink" href="#document-sources-thoroughly" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UN Member States</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="w">    </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">un-members</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/un_members.csv</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">United Nations</span>
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="w">      </span><span class="nt">location</span><span class="p">:</span>
+<a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="w">        </span><span class="nt">data</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://www.un.org/en/about-us/member-states</span>
+<a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="w">      </span><span class="nt">attributedTo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">United Nations</span>
+<a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="w">      </span><span class="nt">acquiredAt</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-15&#39;</span>
+<a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="w">      </span><span class="nt">acquisitionMethod</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-download</span>
+<a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a><span class="w">      </span><span class="nt">license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Public Domain</span>
+<a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="w">      </span><span class="nt">notes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a><span class="w">        </span><span class="no">Downloaded from the official UN website.</span>
+<a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a><span class="w">        </span><span class="no">Data accurate as of January 2025.</span>
+</code></pre></div>
+<h3 id="use-descriptive-slugs">Use Descriptive Slugs<a class="headerlink" href="#use-descriptive-slugs" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># Good</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">school-enrollment-by-district</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teacher-demographics-2025</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="c1"># Avoid</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data1</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">output</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">final_final_v2</span>
+</code></pre></div>
+<h3 id="track-operations-explicitly">Track Operations Explicitly<a class="headerlink" href="#track-operations-explicitly" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="c1"># Instead of chaining without description</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="n">result</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">complex_function</span><span class="p">)</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>
+<a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="c1"># Add operation description for lineage</span>
+<a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">apply_operation</span><span class="p">(</span>
+<a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>    <span class="n">complex_function</span><span class="p">,</span>
+<a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a>    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Apply enrollment adjustment factors&quot;</span>
+<a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a><span class="p">)</span>
+</code></pre></div>
+<h3 id="version-your-datasets">Version Your Datasets<a class="headerlink" href="#version-your-datasets" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">School Summary v2.1</span>
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a><span class="w">    </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">school-summary-v2-1</span>
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a><span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outputs/school-summary-v2.1.csv</span>
+</code></pre></div>
+<p>Or use the <code>version</code> field in package metadata when building data packages.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
