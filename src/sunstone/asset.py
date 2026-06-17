@@ -28,6 +28,7 @@ class AssetKind(Enum):
     ARRAY = "array"
     TILES = "tiles"
     BLOB = "blob"
+    GEOFEATURES = "geofeatures"
 
 
 @dataclass
@@ -81,6 +82,12 @@ class Asset:
         if self.kind is not AssetKind.BLOB:
             raise IncompatibleAssetKindError(expected=AssetKind.BLOB, actual=self.kind)
         return cast(bytes, self.payload)
+
+    def as_geofeatures(self) -> Any:
+        """Return the geopandas GeoDataFrame payload (typed Any: core has no geopandas dep)."""
+        if self.kind is not AssetKind.GEOFEATURES:
+            raise IncompatibleAssetKindError(expected=AssetKind.GEOFEATURES, actual=self.kind)
+        return self.payload
 
     def derive(
         self,

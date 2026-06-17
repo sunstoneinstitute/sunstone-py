@@ -474,3 +474,18 @@ class TestInferFieldSchema:
         assert type_map["active"] == "boolean"
         assert type_map["created"] == "datetime"
         assert type_map["label"] == "string"
+
+
+def test_geofeatures_kind_and_accessor():
+    import pytest
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.errors import IncompatibleAssetKindError
+    from sunstone.lineage import Metadata
+
+    payload = object()  # stand-in for a GeoDataFrame
+    a = Asset(payload=payload, kind=AssetKind.GEOFEATURES, metadata=Metadata())
+    assert a.as_geofeatures() is payload
+
+    t = Asset(payload=[], kind=AssetKind.TABULAR, metadata=Metadata())
+    with pytest.raises(IncompatibleAssetKindError):
+        t.as_geofeatures()
