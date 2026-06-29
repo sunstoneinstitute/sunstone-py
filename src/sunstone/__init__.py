@@ -251,14 +251,14 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
 }
 
 # Submodules exposed via attribute access (`sunstone.<name>`).
-_LAZY_SUBMODULES: frozenset[str] = frozenset({"errors", "packaging", "pandas"})
+_LAZY_SUBMODULES: frozenset[str] = frozenset({"errors", "packaging", "pandas", "polars"})
 
 
 if TYPE_CHECKING:
     # Eager-looking imports for the benefit of type checkers and IDEs. These
     # statements are never executed at runtime; they only inform static
     # analysis about the surface available on the `sunstone` namespace.
-    from . import errors, packaging, pandas  # noqa: F401
+    from . import errors, packaging, pandas, polars  # noqa: F401
     from .asset import Asset, AssetKind  # noqa: F401
     from .component import ComponentSchema  # noqa: F401
     from .config import (  # noqa: F401
