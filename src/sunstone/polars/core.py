@@ -100,3 +100,39 @@ class DataFrame(MetadataMixin):
 
     def __str__(self) -> str:
         return str(self.data)
+
+    def _wrap(self, result: Any) -> Any:
+        # Only DataFrame-returning ops are re-wrapped; Series, scalars, tuples
+        # (e.g. .shape), and lazy/group-by intermediates pass through unchanged
+        # — correct for an eager facade.
+        import polars as pl
+
+        if isinstance(result, pl.DataFrame):
+            child = self._asset.derive(result, derived_from=[self._asset])
+            child.metadata.lineage.engine = "polars"
+            # derive() builds fresh child lineage that does not carry the
+            # parent's project_path; propagate it (and datasets_file) so derived
+            # frames can still resolve datasets.yaml on write.
+            return DataFrame(
+                asset=child,
+                strict=self.strict_mode,
+                project_path=self.metadata.lineage.project_path,
+                datasets_file=self._datasets_file,
+            )
+        return result
+
+    def __getattr__(self, name: str) -> Any:
+        # Guard against recursion before _asset exists (construction/unpickle).
+        if name == "_asset" or name.startswith("__"):
+            raise AttributeError(name)
+        attr = getattr(self._asset.as_polars(), name)
+        if callable(attr):
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return self._wrap(attr(*args, **kwargs))
+
+            return wrapper
+        return self._wrap(attr)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._wrap(self._asset.as_polars()[key])
