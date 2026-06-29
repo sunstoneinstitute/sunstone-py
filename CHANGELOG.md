@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: `sunstone.polars.DataFrame` facade over a polars-backed Asset.
 - Added: `sunstone.polars` readers (`read_csv`/`read_parquet`/`read_json`/`read_dataset`) with lineage tracking.
 - Added: polars facade chains operations, propagating source lineage (op-level Activity tracking is deferred).
+- Added: `sunstone.polars` writers (`write_csv`/`write_parquet`/`write_json`) via the central write path.
 
 ## [1.14.2] - 2026-06-29
 

@@ -33,6 +33,12 @@ class LineageError(SunstoneError):
     pass
 
 
+class LineageWarning(UserWarning):
+    """Emitted when a write operation has incomplete lineage (e.g. no Activity)."""
+
+    pass
+
+
 class UnitError(SunstoneError):
     """Raised when a unit operation fails (incompatible dimensions, unparseable unit, etc.)."""
 

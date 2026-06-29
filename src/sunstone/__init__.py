@@ -79,8 +79,10 @@ def read(
     fields.
 
     ``payload`` selects the returned Asset's payload type — ``"pandas"``
-    (default) or ``"polars"``; it maps 1:1 to the ``engine`` recorded on
-    lineage.
+    (default) or ``"polars"``. It chooses the parser only; ``sunstone.read``
+    returns a bare Asset with empty ``Metadata`` (no lineage sources and no
+    ``engine`` stamp). For lineage-tracked reads use the engine facades —
+    ``sunstone.pandas.read_*`` or ``sunstone.polars.read_*``.
     """
     from .dataframe import _read_tabular_asset
     from .datasets import DatasetsManager
@@ -193,6 +195,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
     "DatasetNotFoundError": ("sunstone.exceptions", "DatasetNotFoundError"),
     "DatasetValidationError": ("sunstone.exceptions", "DatasetValidationError"),
     "LineageError": ("sunstone.exceptions", "LineageError"),
+    "LineageWarning": ("sunstone.exceptions", "LineageWarning"),
     "StrictModeError": ("sunstone.exceptions", "StrictModeError"),
     "SunstoneError": ("sunstone.exceptions", "SunstoneError"),
     "UnitError": ("sunstone.exceptions", "UnitError"),
@@ -286,6 +289,7 @@ if TYPE_CHECKING:
         DatasetNotFoundError,
         DatasetValidationError,
         LineageError,
+        LineageWarning,
         StrictModeError,
         SunstoneError,
         UnitError,
@@ -379,6 +383,8 @@ __all__ = [
     "use_project_path",
     # Pandas-like interface
     "pandas",
+    # Polars-like interface
+    "polars",
     # Errors (re-exported from pandas.errors)
     "errors",
     # Validation utilities
@@ -414,6 +420,7 @@ __all__ = [
     "DatasetValidationError",
     "StrictModeError",
     "LineageError",
+    "LineageWarning",
     "UnitError",
     "IncompatibleAssetKindError",
     # Context and session

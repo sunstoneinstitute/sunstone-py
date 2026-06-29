@@ -136,3 +136,54 @@ class DataFrame(MetadataMixin):
 
     def __getitem__(self, key: Any) -> Any:
         return self._wrap(self._asset.as_polars()[key])
+
+    # ------------------------------------------------------------------
+    # Write facades
+    # ------------------------------------------------------------------
+
+    def write_csv(
+        self,
+        path: str,
+        *,
+        slug: str,
+        name: str,
+        license: Optional[str] = None,
+        check_license: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        """Write to CSV with lineage tracking. ``slug`` and ``name`` are required."""
+        from .write import _write
+
+        _write(self, path, format="csv", slug=slug, name=name, license=license, check_license=check_license, **kwargs)
+
+    def write_parquet(
+        self,
+        path: str,
+        *,
+        slug: str,
+        name: str,
+        license: Optional[str] = None,
+        check_license: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        """Write to Parquet with lineage tracking. ``slug`` and ``name`` are required."""
+        from .write import _write
+
+        _write(
+            self, path, format="parquet", slug=slug, name=name, license=license, check_license=check_license, **kwargs
+        )
+
+    def write_json(
+        self,
+        path: str,
+        *,
+        slug: str,
+        name: str,
+        license: Optional[str] = None,
+        check_license: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        """Write to JSON with lineage tracking. ``slug`` and ``name`` are required."""
+        from .write import _write
+
+        _write(self, path, format="json", slug=slug, name=name, license=license, check_license=check_license, **kwargs)
