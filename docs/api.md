@@ -890,6 +890,37 @@ Convert relative path to absolute project path.
 
 **Returns:** `Path`
 
+### Process-level cache
+
+By default every `to_csv`/`to_parquet`/`write` call constructs a fresh `DatasetsManager`,
+which re-parses `datasets.yaml` (plus includes and the lock file) each time. For pipelines
+that write many outputs in one process, wrap the work in `datasets_manager_cache()` to share
+a single manager per resolved `datasets.yaml` path.
+
+```python
+from sunstone import datasets_manager_cache
+
+with datasets_manager_cache():
+    for df in frames:
+        df.to_parquet(...)  # reuses one cached manager
+```
+
+#### `datasets_manager_cache()`
+
+Context manager that activates a per-resolved-path manager cache for its duration. Nesting is
+safe (inner uses share the outer cache; the cache is cleared on the outermost exit). Cached
+managers are mtime-checked, so an external edit to `datasets.yaml` is picked up automatically.
+
+#### `get_datasets_manager(project_path, datasets_file=None)`
+
+Cache-aware acquisition. With no active `datasets_manager_cache()` context it constructs a
+fresh `DatasetsManager` (unchanged legacy behavior); inside a context it returns a shared
+instance keyed by the resolved datasets file path.
+
+#### `clear_datasets_manager_cache()`
+
+Drop any cached managers. Mainly useful for test isolation.
+
 ## Linting
 
 ```python

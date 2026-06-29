@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.14.2] - 2026-06-29
+
+- Added: `datasets_manager_cache()` context shares one `DatasetsManager` per `datasets.yaml`, cutting repeated re-parsing in multi-output pipelines.
+
 ## [1.14.1] - 2026-06-18
 
 - Changed: "No URL handler found" for `gs://`/`s3://`/`r2://` now names the extra to install (e.g. `sunstone-py[gcs]`).
