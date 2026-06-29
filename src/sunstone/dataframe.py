@@ -274,7 +274,9 @@ class DataFrame:
         """Get a DatasetsManager for the current project."""
         if self.metadata.lineage.project_path is None:
             raise ValueError("Project path not set")
-        return DatasetsManager(
+        from .datasets import get_datasets_manager
+
+        return get_datasets_manager(
             self.metadata.lineage.project_path,
             datasets_file=self._datasets_file,
         )

@@ -178,6 +178,9 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
     # DataFrame and datasets manager
     "DataFrame": ("sunstone.dataframe", "DataFrame"),
     "DatasetsManager": ("sunstone.datasets", "DatasetsManager"),
+    "datasets_manager_cache": ("sunstone.datasets", "datasets_manager_cache"),
+    "clear_datasets_manager_cache": ("sunstone.datasets", "clear_datasets_manager_cache"),
+    "get_datasets_manager": ("sunstone.datasets", "get_datasets_manager"),
     # Errors (sunstone-specific)
     "IncompatibleAssetKindError": ("sunstone.errors", "IncompatibleAssetKindError"),
     # Exceptions
@@ -260,7 +263,12 @@ if TYPE_CHECKING:
     )
     from .context import ExecutionContext, detect_execution_context  # noqa: F401
     from .dataframe import DataFrame  # noqa: F401
-    from .datasets import DatasetsManager  # noqa: F401
+    from .datasets import (  # noqa: F401
+        DatasetsManager,
+        clear_datasets_manager_cache,
+        datasets_manager_cache,
+        get_datasets_manager,
+    )
     from .env import (  # noqa: F401
         DataEnvironment,
         Environment,
@@ -344,6 +352,9 @@ __all__ = [
     # Main classes
     "DataFrame",
     "DatasetsManager",
+    "datasets_manager_cache",
+    "clear_datasets_manager_cache",
+    "get_datasets_manager",
     # Top-level I/O
     "read",
     "write",
