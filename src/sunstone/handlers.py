@@ -66,14 +66,18 @@ _EXTENSION_MAP: dict[str, str] = {
     ".json": "json",
     ".xlsx": "excel",
     ".tsv": "tsv",
+    ".parquet": "parquet",
 }
 
 # Format strings supported for reads (kept module-level so existence checks
 # don't drag pandas in). The actual reader callables are resolved lazily by
 # ``_get_reader`` below to keep ``import sunstone.handlers`` free of pandas.
-_READER_FORMATS: frozenset[str] = frozenset({"csv", "json", "excel", "tsv"})
+_READER_FORMATS: frozenset[str] = frozenset({"csv", "json", "excel", "tsv", "parquet"})
 
-# Format string -> pandas writer method name on DataFrame
+# Format string -> pandas writer method name on DataFrame. CSV-only by design;
+# ``can_write`` reports the default (pandas) engine's capability. The polars
+# engine writes additional formats via ``_POLARS_WRITER_MAP`` (opt-in, not
+# gated by ``can_write``).
 _WRITER_MAP: dict[str, str] = {
     "csv": "to_csv",
 }
@@ -95,14 +99,40 @@ def _get_reader(fmt: str) -> Callable[..., "pd.DataFrame"]:
         return _pd.read_excel
     if fmt == "tsv":
         return lambda path, **kw: _pd.read_csv(path, sep="\t", **kw)
+    if fmt == "parquet":
+        return _pd.read_parquet
     raise KeyError(fmt)
 
 
-class BuiltinFormatHandler:
-    """Handles CSV, JSON, Excel, and TSV formats using pandas.
+def _get_polars_reader(fmt: str) -> "Callable[..., object]":
+    """Resolve a polars reader lazily (keeps import sunstone.handlers cheap)."""
+    import polars as pl
 
-    Returns/accepts `Asset` natively (protocol v2). The bare DataFrame I/O is
-    factored into `_read_to_dataframe` / `_write_dataframe` for internal reuse.
+    if fmt == "csv":
+        return pl.read_csv  # type: ignore[no-any-return]
+    if fmt == "json":
+        return pl.read_json  # type: ignore[no-any-return]
+    if fmt == "parquet":
+        return pl.read_parquet  # type: ignore[no-any-return]
+    if fmt == "tsv":
+        return lambda src, **kw: pl.read_csv(src, separator="\t", **kw)
+    raise ValueError(f"Format {fmt!r} is not supported by the polars engine (supported: csv, json, parquet, tsv)")
+
+
+_POLARS_WRITER_MAP: dict[str, str] = {
+    "csv": "write_csv",
+    "json": "write_json",
+    "parquet": "write_parquet",
+}
+
+
+class BuiltinFormatHandler:
+    """Handles CSV, JSON, Excel, TSV, and Parquet tabular formats.
+
+    Reads/writes via pandas by default, or via polars when ``engine="polars"``
+    is passed to ``read``/``write``. Returns/accepts `Asset` natively
+    (protocol v2). The bare DataFrame I/O is factored into
+    `_read_to_dataframe` / `_write_dataframe` for internal reuse.
     """
 
     __sunstone_handler_protocol__ = 2
@@ -154,12 +184,29 @@ class BuiltinFormatHandler:
         reader = _get_reader(str(fmt))
         return reader(stream, **kwargs)
 
+    def _read_to_polars(self, stream: "BinaryIO | Path", **kwargs: object) -> object:
+        fmt = kwargs.pop("format", None)
+        path = kwargs.pop("path", None)
+        kwargs.pop("dialect", None)  # polars dialect handling is out-of-scope
+        if isinstance(stream, Path) and path is None:
+            path = stream
+        if fmt is None and path is not None:
+            fmt = self._resolve_format(str(path), None)
+        if fmt is None:
+            fmt = "csv"
+        reader = _get_polars_reader(str(fmt))
+        return reader(stream, **kwargs)
+
     def read(self, stream: BinaryIO | Path, **kwargs: object) -> "Asset":
         from .asset import Asset, AssetKind
         from .lineage import Metadata
 
-        df = self._read_to_dataframe(stream, **kwargs)
-        return Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+        engine = kwargs.pop("engine", "pandas")
+        if engine == "polars":
+            payload: object = self._read_to_polars(stream, **kwargs)
+        else:
+            payload = self._read_to_dataframe(stream, **kwargs)
+        return Asset(payload=payload, kind=AssetKind.TABULAR, metadata=Metadata())
 
     def can_write(self, path: str, format: str | None) -> bool:
         fmt = self._resolve_format(path, format)
@@ -181,7 +228,27 @@ class BuiltinFormatHandler:
         writer = getattr(df, method_name)
         writer(stream, **kwargs)
 
+    def _write_polars(self, asset: object, stream: "BinaryIO", **kwargs: object) -> None:
+        pdf = asset.as_polars() if hasattr(asset, "as_polars") else asset  # type: ignore[union-attr]
+        fmt = kwargs.pop("format", None)
+        path = kwargs.pop("path", None)
+        kwargs.pop("dialect", None)
+        if fmt is None and path is not None:
+            fmt = self._resolve_format(str(path), None)
+        if fmt is None:
+            fmt = "csv"
+        if str(fmt) not in _POLARS_WRITER_MAP:
+            raise ValueError(
+                f"Format {fmt!r} is not supported for writing with the polars engine (supported: csv, json, parquet)"
+            )
+        method_name = _POLARS_WRITER_MAP[str(fmt)]
+        getattr(pdf, method_name)(stream, **kwargs)  # type: ignore[union-attr]
+
     def write(self, asset: object, stream: BinaryIO, **kwargs: object) -> None:
+        engine = kwargs.pop("engine", "pandas")
+        if engine == "polars":
+            self._write_polars(asset, stream, **kwargs)
+            return
         df = asset.as_table() if hasattr(asset, "as_table") else asset
         self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
 

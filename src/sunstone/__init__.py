@@ -61,6 +61,7 @@ def read(
     kind: "AssetKind | None" = None,
     metadata: "Metadata | None" = None,
     extras: dict[str, Any] | None = None,
+    payload: str = "pandas",
     **kw: object,
 ) -> "Asset":
     """Read any registered format into an `Asset`.
@@ -76,6 +77,10 @@ def read(
     reconstruction path — consumers rebuilding an Asset from a catalog row
     where the catalog (not the file) is the source of truth for envelope
     fields.
+
+    ``payload`` selects the returned Asset's payload type — ``"pandas"``
+    (default) or ``"polars"``; it maps 1:1 to the ``engine`` recorded on
+    lineage.
     """
     from .dataframe import _read_tabular_asset
     from .datasets import DatasetsManager
@@ -113,7 +118,8 @@ def read(
             asset = handler.read(loc, **kw)  # type: ignore[attr-defined]
 
     if asset is None:
-        asset = _read_tabular_asset(path, format=format, **kw)
+        engine = "polars" if payload == "polars" else "pandas"
+        asset = _read_tabular_asset(path, format=format, engine=engine, **kw)
 
     # Apply overrides (full replacement — catalog rows win over file content).
     if kind is not None:

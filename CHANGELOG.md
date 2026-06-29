@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Added: `Asset.as_polars()` typed accessor for polars-payload assets.
+- Added: `sunstone.read(path, payload="polars")` returns a polars-payload Asset.
 
 ## [1.14.2] - 2026-06-29
 
