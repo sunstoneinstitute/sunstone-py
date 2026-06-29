@@ -263,3 +263,33 @@ def test_derive_chains_activities_through_transient_intermediate():
     assert source_slugs == ["root"]
     assert c.metadata.lineage.activity is not None
     assert c.metadata.lineage.activity.id == "op-1"
+
+
+# --- as_polars() ---
+
+
+def _tabular(payload) -> Asset:
+    return Asset(payload=payload, kind=AssetKind.TABULAR, metadata=Metadata())
+
+
+def test_as_polars_returns_payload() -> None:
+    pl = pytest.importorskip("polars")
+    frame = pl.DataFrame({"a": [1, 2]})
+    asset = _tabular(frame)
+    assert asset.as_polars() is frame
+
+
+def test_as_polars_wrong_kind_raises() -> None:
+    pytest.importorskip("polars")
+    asset = Asset(payload=b"x", kind=AssetKind.BLOB, metadata=Metadata())
+    with pytest.raises(IncompatibleAssetKindError):
+        asset.as_polars()
+
+
+def test_as_polars_on_pandas_payload_raises_typeerror() -> None:
+    pytest.importorskip("polars")
+    import pandas as pd
+
+    asset = _tabular(pd.DataFrame({"a": [1]}))
+    with pytest.raises(TypeError, match="pl.from_pandas"):
+        asset.as_polars()

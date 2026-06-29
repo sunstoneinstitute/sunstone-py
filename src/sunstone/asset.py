@@ -12,6 +12,7 @@ from .lineage import Metadata
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
+    import polars as pl
 
     from .lineage import LineageMetadata
 
@@ -62,6 +63,25 @@ class Asset:
         if self.kind is not AssetKind.TABULAR:
             raise IncompatibleAssetKindError(expected=AssetKind.TABULAR, actual=self.kind)
         return cast("pd.DataFrame", self.payload)
+
+    def as_polars(self) -> "pl.DataFrame":
+        """Return the payload as a polars DataFrame (no conversion).
+
+        Raises IncompatibleAssetKindError if kind is not TABULAR, and TypeError
+        if the payload is a pandas DataFrame (use pl.from_pandas explicitly;
+        lineage-preserving conversion is Spec 5).
+        """
+        if self.kind is not AssetKind.TABULAR:
+            raise IncompatibleAssetKindError(expected=AssetKind.TABULAR, actual=self.kind)
+        import polars as pl
+
+        if not isinstance(self.payload, pl.DataFrame):
+            type_name = type(self.payload).__module__ + "." + type(self.payload).__qualname__
+            raise TypeError(
+                f"Asset payload is {type_name}, not a polars.DataFrame. "
+                "If it is a pandas DataFrame, convert explicitly with pl.from_pandas(asset.as_table())."
+            )
+        return self.payload
 
     def as_raster(self) -> "np.ndarray":
         if self.kind is not AssetKind.RASTER:
