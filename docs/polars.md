@@ -66,7 +66,9 @@ df = asset.as_polars()
 ```
 
 The `payload=` argument is the dispatch knob; the format handler
-remains the same.
+remains the same. `payload=` names the returned Asset's payload type;
+the same selection is recorded internally as the `engine` field on
+lineage — same value (`"polars"`), different layer.
 
 ## Lineage parity
 
