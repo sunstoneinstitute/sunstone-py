@@ -465,6 +465,11 @@ class LineageMetadata:
     """Field-level derivation detail (prov:qualifiedDerivation).
     Propagated through DataFrame operations."""
 
+    engine: Optional[str] = None
+    """Engine that produced the in-memory representation: "pandas" / "polars"
+    / None (legacy / unspecified). Provenance only; omitted from serialised
+    output when None so unchanged lock files don't churn."""
+
     def add_source(self, dataset: DatasetMetadata) -> None:
         """
         Add a source dataset to the lineage.
@@ -559,6 +564,8 @@ class LineageMetadata:
             result["created_at"] = self.created_at.isoformat()
         if self.data_hash is not None:
             result["data_hash"] = self.data_hash
+        if self.engine is not None:
+            result["engine"] = self.engine
         return result
 
 

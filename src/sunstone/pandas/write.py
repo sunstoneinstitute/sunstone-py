@@ -265,6 +265,7 @@ class WriteMixin:
         # 2. DataFrame's own lineage sources (from read/merge/concat)
         # 3. Fall back to session-accumulated sources (when sources is None)
         effective_lineage = self.metadata.lineage
+        effective_lineage.engine = "pandas"
         if sources is not None:
             effective_lineage.sources = list(sources)
         elif not effective_lineage.sources and lineage_data.get("sources"):
@@ -439,6 +440,7 @@ class WriteMixin:
         # 2. DataFrame's own lineage sources (from read/merge/concat)
         # 3. Fall back to session-accumulated sources (when sources is None)
         effective_lineage = self.metadata.lineage
+        effective_lineage.engine = "pandas"
         if sources is not None:
             effective_lineage.sources = list(sources)
         elif not effective_lineage.sources and lineage_data.get("sources"):

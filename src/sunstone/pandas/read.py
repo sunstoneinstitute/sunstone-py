@@ -173,6 +173,7 @@ class ReadMixin:
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.engine = "pandas"
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), slug)
 
@@ -303,6 +304,7 @@ class ReadMixin:
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.engine = "pandas"
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
 
@@ -401,6 +403,7 @@ class ReadMixin:
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.engine = "pandas"
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
 
@@ -499,6 +502,7 @@ class ReadMixin:
 
         # Create lineage metadata
         metadata = Metadata(lineage=LineageMetadata(project_path=str(manager.project_path)))
+        metadata.lineage.engine = "pandas"
         metadata.lineage.add_source(dataset)
         metadata.lineage.populate_field_derivations(list(df.columns), dataset.slug)
 
