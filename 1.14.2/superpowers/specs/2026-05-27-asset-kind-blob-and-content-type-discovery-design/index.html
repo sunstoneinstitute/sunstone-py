@@ -1,0 +1,1357 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.14.2/superpowers/specs/2026-05-27-asset-kind-blob-and-content-type-discovery-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>AssetKind.BLOB and Content-Type Discovery - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-05-27-asset-kind-blob-and-content-type-discovery-design.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#assetkindblob-and-content-type-discovery" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              AssetKind.BLOB and Content-Type Discovery
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-add-assetkindblob" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1. Add AssetKind.BLOB
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-built-in-blobformathandler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2. Built-in BlobFormatHandler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-contentdescriptor-content_descriptors-and-extensions-on-formathandler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3. ContentDescriptor, content_descriptors(), and extensions() on FormatHandler
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d4-built-in-handler-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D4. Built-in handler updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-pluginregistry-discovery-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5. PluginRegistry discovery view
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d6-the-assetkind-round-trip-helper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D6. The AssetKind round-trip helper
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration / Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test Plan
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#open-questions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open Questions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="assetkindblob-and-content-type-discovery">AssetKind.BLOB and Content-Type Discovery<a class="headerlink" href="#assetkindblob-and-content-type-discovery" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-05-27
+<strong>Status:</strong> Proposed
+<strong>Related:</strong> <code>2026-05-12-generic-format-handler-asset-envelope-design.md</code> (Asset envelope), <code>2026-04-07-dataframe-metadata-design.md</code> (Metadata model).
+<strong>Driving consumer:</strong> <code>data-platform</code> non-tabular catalog support (<code>../../data-platform/docs/superpowers/specs/2026-05-27-non-tabular-catalog-support-design.md</code>).</p>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>The <code>Asset</code> envelope today covers four kinds: <code>TABULAR</code>, <code>RASTER</code>, <code>ARRAY</code>, <code>TILES</code>. Real-world data packages routinely include opaque-binary artefacts that don't fit any of these — PDF reports, Word documents (<code>.doc</code>, <code>.docx</code>), PowerPoint decks (<code>.ppt</code>, <code>.pptx</code>), RTF, plain text, and similar. Consumers (e.g. the Sunstone data-platform catalog) want to land these alongside arrays and rasters through the same <code>sunstone.read</code> / <code>sunstone.write</code> API, with the same lineage and metadata story, even though sunstone-py has no semantic interpretation of the payload beyond "bytes."</p>
+<p>Separately, downstream consumers want to identify formats by <strong>canonical MIME type</strong> (with parameters where applicable) rather than by sunstone-py's internal short-name format string. The current <code>FormatHandler</code> protocol exposes <code>can_read(path, format) -&gt; bool</code> but no MIME identity, and the <code>PluginRegistry</code> exposes the handler list but no way to enumerate "what content types do we know about." The data-platform spec calls this out as a gap: it has to either map short-names to MIMEs itself (duplicated source of truth) or push the canonical identity into sunstone-py.</p>
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Add a fifth <code>AssetKind</code> for opaque binaries, so consumers can ingest and version PDF/DOCX/PPTX/etc. through the same envelope API as rasters and arrays.</li>
+<li>Provide built-in format handlers for the common document formats so <code>sunstone.read("report.pdf")</code> returns a meaningful <code>Asset</code> without requiring an external plugin.</li>
+<li>Make canonical content identity discoverable from the registry along two axes — payload <code>content_type</code> (MIME) and transport/storage <code>content_encoding</code> (mirroring HTTP semantics, so e.g. <code>.tar.gz</code> is <code>application/x-tar</code> with <code>gzip</code> encoding) — so downstream consumers can map "what sunstone knows about" onto their own catalog schemas without duplicating the format catalogue.</li>
+<li>Preserve full backwards compatibility for existing plugin authors. New protocol surface is optional with sensible defaults.</li>
+</ul>
+<h2 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Text extraction, OCR, search indexing, or any interpretation of blob payloads beyond reading their bytes. Downstream consumers can layer that on top; sunstone-py stays neutral.</li>
+<li>Mime-sniffing on file contents. Detection remains extension-based plus explicit-format-string, as today. Content-aware sniffing is a separate concern.</li>
+<li>A handler taxonomy for media (audio, video, images). Could come later; not part of this spec. If a future need surfaces, those kinds either fit under BLOB or earn their own <code>AssetKind</code>.</li>
+<li>Compression / decompression of blob payloads. The handler stores and returns the raw bytes as written.</li>
+</ul>
+<h2 id="design-decisions">Design Decisions<a class="headerlink" href="#design-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="d1-add-assetkindblob">D1. Add <code>AssetKind.BLOB</code><a class="headerlink" href="#d1-add-assetkindblob" title="Permanent link">&para;</a></h3>
+<p>Extend the existing closed enum in <code>sunstone.asset.AssetKind</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AssetKind</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">TABULAR</span> <span class="o">=</span> <span class="s2">&quot;tabular&quot;</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">RASTER</span> <span class="o">=</span> <span class="s2">&quot;raster&quot;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">ARRAY</span> <span class="o">=</span> <span class="s2">&quot;array&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">TILES</span> <span class="o">=</span> <span class="s2">&quot;tiles&quot;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">BLOB</span> <span class="o">=</span> <span class="s2">&quot;blob&quot;</span>   <span class="c1"># NEW — opaque byte payload</span>
+</code></pre></div>
+<p>Semantics:</p>
+<ul>
+<li><code>Asset(kind=BLOB).payload</code> is <code>bytes</code>. No coercion to/from strings, ndarrays, or DataFrames at the envelope layer.</li>
+<li><code>Asset.extras</code> MAY carry advisory metadata (e.g. <code>extras["media_type"]</code> repeating the canonical MIME, <code>extras["original_filename"]</code> for round-tripping), but the envelope itself doesn't mandate any extras key.</li>
+<li>A new typed accessor mirrors the existing ones:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">as_blob</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">AssetKind</span><span class="o">.</span><span class="n">BLOB</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="k">raise</span> <span class="n">IncompatibleAssetKindError</span><span class="p">(</span><span class="n">expected</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">BLOB</span><span class="p">,</span> <span class="n">actual</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">payload</span><span class="p">)</span>
+</code></pre></div>
+<p><code>derive()</code> works without changes for BLOB payloads — the child payload is just new bytes.</p>
+<h3 id="d2-built-in-blobformathandler">D2. Built-in <code>BlobFormatHandler</code><a class="headerlink" href="#d2-built-in-blobformathandler" title="Permanent link">&para;</a></h3>
+<p>A new internal handler in <code>sunstone/handlers.py</code> (registered alongside <code>BuiltinFormatHandler</code>, <code>ParquetFormatHandler</code>, etc.) handles the common document/binary formats end-to-end:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">BlobFormatHandler</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">__sunstone_handler_protocol__</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># produces Asset</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">_CONTENT_TYPES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="c1"># extension : (canonical_mime, *aliases)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="s2">&quot;.pdf&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;application/pdf&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">&quot;.rtf&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;application/rtf&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">&quot;.txt&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;text/plain&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="s2">&quot;.doc&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;application/msword&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="s2">&quot;.docx&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;application/vnd.openxmlformats-officedocument.wordprocessingml.document&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="s2">&quot;.ppt&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;application/vnd.ms-powerpoint&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="s2">&quot;.pptx&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;application/vnd.openxmlformats-officedocument.presentationml.presentation&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="s2">&quot;.xls&quot;</span><span class="p">:</span>  <span class="p">(</span><span class="s2">&quot;application/vnd.ms-excel&quot;</span><span class="p">,),</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="c1"># NOTE: .xlsx is intentionally NOT here — pandas/openpyxl-backed tabular handler claims it.</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>read(stream) -&gt; Asset</code> reads the full stream into <code>bytes</code> and returns <code>Asset(kind=BLOB, payload=&lt;bytes&gt;, metadata=Metadata(...), extras={"media_type": &lt;mime&gt;})</code>.</li>
+<li><code>write(asset, stream)</code> writes <code>asset.as_blob()</code> verbatim.</li>
+<li><code>can_read(path, format)</code> matches when the extension or explicit format string maps to one of <code>_CONTENT_TYPES</code>.</li>
+<li><code>supports_native_metadata_extraction() -&gt; False</code>. The handler does not parse PDF/DOC structure to extract titles/authors; that's deliberately out of scope. A later spec can layer optional metadata extraction (e.g. pdfminer) behind an extras dependency without changing this contract.</li>
+<li><code>supports_sunstone_metadata_embedding() -&gt; False</code>. Opaque binary formats don't have a generic place to round-trip sunstone metadata. Consumers (like data-platform) carry the <code>Metadata</code> blob externally.</li>
+</ul>
+<p>Registration in <code>PluginRegistry._register_internal_handlers()</code> happens <strong>last</strong> among <code>FormatHandler</code>s, so more specific handlers (<code>ParquetFormatHandler</code>, <code>BuiltinFormatHandler</code> for csv/xlsx, format-specific plugins) win on extensions they also recognize. The blob handler is the residual.</p>
+<h3 id="d3-contentdescriptor-content_descriptors-and-extensions-on-formathandler">D3. <code>ContentDescriptor</code>, <code>content_descriptors()</code>, and <code>extensions()</code> on <code>FormatHandler</code><a class="headerlink" href="#d3-contentdescriptor-content_descriptors-and-extensions-on-formathandler" title="Permanent link">&para;</a></h3>
+<p>Identity is two-dimensional, mirroring HTTP semantics: <strong>what the payload is</strong> (<code>Content-Type</code>) and <strong>how it has been encoded for transport/storage</strong> (<code>Content-Encoding</code>). A <code>.tar.gz</code> is <code>application/x-tar</code> with <code>gzip</code> encoding; a <code>.csv.gz</code> is <code>text/csv</code> with <code>gzip</code> encoding; a plain <code>.csv</code> is <code>text/csv</code> with no encoding. Conflating the two axes into a single MIME string forces non-standard composites (e.g. <code>application/x-tar+gzip</code>) and prevents the registry from answering "what tar handlers do we have, regardless of compression?"</p>
+<p>A small descriptor type captures both:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># sunstone/handlers_meta.py (new module)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">ContentDescriptor</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;What a handler reads/writes. Mirrors HTTP Content-Type + Content-Encoding.&quot;&quot;&quot;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span>                    <span class="c1"># canonical MIME, no parameters</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">content_encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># &quot;gzip&quot;, &quot;br&quot;, &quot;zstd&quot;, &quot;deflate&quot;, None for identity</span>
+</code></pre></div>
+<p>Extend the <code>FormatHandler</code> protocol with two optional methods:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">FormatHandler</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="c1"># ... existing methods unchanged ...</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">content_descriptors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">ContentDescriptor</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return (content_type, content_encoding) pairs this handler reads/writes.</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="sd">        Optional; default treated as empty tuple by the registry. A handler may</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="sd">        return multiple descriptors if it natively handles several encodings of</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="sd">        the same payload type (e.g. tar both raw and gzip-compressed).&quot;&quot;&quot;</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="o">...</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">extensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return file extensions (including leading dot) this handler recognises,</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="sd">        including compound extensions (e.g. &quot;.tar.gz&quot;). Optional; default empty.&quot;&quot;&quot;</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="o">...</span>
+</code></pre></div>
+<p>Both methods are <strong>optional</strong>. The <code>PluginRegistry</code> calls them via <code>getattr(handler, "content_descriptors", lambda: ())()</code> so external plugins without them keep working unchanged. Built-in handlers implement them. New plugin authors are encouraged to as well — the registry's discovery view (D5) only sees handlers that declare.</p>
+<p><strong>Decompression behavior</strong>: handlers receive raw bytes including any declared <code>content_encoding</code>. A handler that declares <code>ContentDescriptor("text/csv", "gzip")</code> is responsible for decompressing the gzip stream internally (e.g. <code>gzip.GzipFile(fileobj=stream)</code> before parsing). This preserves byte-exact round-trips for <code>BLOB</code> payloads (the bytes are what was written) and keeps the framework simple — there is no global decompression layer that handlers must opt out of. A future spec can introduce shared decompression utilities or a transparent-decode option if real handlers prove the boilerplate painful.</p>
+<p>This is <em>additive</em> to the existing protocol; the <code>__sunstone_handler_protocol__</code> marker stays at <code>2</code>. The handler can declare these methods regardless of whether it produces DataFrames or Assets.</p>
+<h3 id="d4-built-in-handler-updates">D4. Built-in handler updates<a class="headerlink" href="#d4-built-in-handler-updates" title="Permanent link">&para;</a></h3>
+<p>Each built-in handler declares its <code>ContentDescriptor</code>s and extensions. All built-in handlers operate on uncompressed payloads, so <code>content_encoding</code> is <code>None</code> throughout the initial round of declarations:</p>
+<table>
+<thead>
+<tr>
+<th>Handler</th>
+<th><code>content_descriptors()</code></th>
+<th><code>extensions()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BuiltinFormatHandler</code> (csv/xlsx via pandas)</td>
+<td><code>(ContentDescriptor("text/csv"), ContentDescriptor("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))</code></td>
+<td><code>(".csv", ".xlsx")</code></td>
+</tr>
+<tr>
+<td><code>ParquetFormatHandler</code></td>
+<td><code>(ContentDescriptor("application/vnd.apache.parquet"),)</code></td>
+<td><code>(".parquet",)</code></td>
+</tr>
+<tr>
+<td><code>NpzFormatHandler</code></td>
+<td><code>(ContentDescriptor("application/x-numpy-npz"),)</code></td>
+<td><code>(".npz",)</code></td>
+</tr>
+<tr>
+<td><code>BlobFormatHandler</code> (D2)</td>
+<td>one <code>ContentDescriptor(&lt;mime&gt;)</code> per entry in <code>_CONTENT_TYPES</code></td>
+<td>all keys from <code>_CONTENT_TYPES</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>StoreFormatHandler</code> implementations (<code>ZarrStoreHandler</code>, <code>Hdf5StoreHandler</code>) gain the same optional methods. Suggested values:</p>
+<table>
+<thead>
+<tr>
+<th>Store handler</th>
+<th><code>content_descriptors()</code></th>
+<th><code>extensions()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ZarrStoreHandler</code></td>
+<td><code>(ContentDescriptor("application/x-zarr"),)</code></td>
+<td><code>(".zarr",)</code></td>
+</tr>
+<tr>
+<td><code>Hdf5StoreHandler</code></td>
+<td><code>(ContentDescriptor("application/x-hdf5"), ContentDescriptor("application/x-netcdf"))</code></td>
+<td><code>(".h5", ".hdf5", ".nc", ".nc4")</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>application/x-zarr</code> and <code>application/x-hdf5</code> are not IANA-registered but follow conventional usage; they're treated as canonical by sunstone-py's registry and by downstream consumers.</p>
+<p>Compressed-variant handlers (e.g. a future <code>TarGzFormatHandler</code> that handles tar archives in gzip-encoded form) are out of scope for this spec. The protocol shape is ready for them; concrete handlers ship in their own follow-ups.</p>
+<h3 id="d5-pluginregistry-discovery-view">D5. <code>PluginRegistry</code> discovery view<a class="headerlink" href="#d5-pluginregistry-discovery-view" title="Permanent link">&para;</a></h3>
+<p>Add four accessor methods to <code>PluginRegistry</code> for discovery by downstream consumers:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PluginRegistry</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="c1"># ...</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">known_content_descriptors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="n">ContentDescriptor</span><span class="p">]:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Union of content_descriptors() across all registered format/store</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="sd">        handlers that declare them. Handlers without the method contribute nothing.&quot;&quot;&quot;</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">known_content_types</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Convenience projection — the set of content_type strings present in</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="sd">        known_content_descriptors(), regardless of encoding.&quot;&quot;&quot;</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">known_extensions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">FormatHandler</span> <span class="o">|</span> <span class="n">StoreFormatHandler</span><span class="p">]:</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Map of declared extension -&gt; handler (last-registered wins on conflict).&quot;&quot;&quot;</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">handler_for_content</span><span class="p">(</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="n">content_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="n">content_encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FormatHandler</span> <span class="o">|</span> <span class="n">StoreFormatHandler</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;First handler whose declared content_descriptors() contains a matching</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="sd">        (content_type, content_encoding) pair. content_type lookup strips</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="sd">        parameters; e.g. &quot;text/csv; charset=utf-8&quot; matches &quot;text/csv&quot;.</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="sd">        Returns None if no handler claims the pair.&quot;&quot;&quot;</span>
+</code></pre></div>
+<p>These are the methods downstream consumers (e.g. the Sunstone data-platform catalog) call to populate their own registries.</p>
+<p>Existing <code>can_read(path, format)</code> / <code>can_write(path, format)</code> paths are untouched. The new methods are for <strong>enumeration</strong>, not dispatch — dispatch continues through <code>can_read</code>.</p>
+<h3 id="d6-the-assetkind-round-trip-helper">D6. The AssetKind round-trip helper<a class="headerlink" href="#d6-the-assetkind-round-trip-helper" title="Permanent link">&para;</a></h3>
+<p>Add a small helper for consumers needing to reconstruct an <code>Asset</code> from a stored URI plus pre-loaded metadata (the data-platform query session needs this):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># sunstone/__init__.py public API</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n">AssetKind</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>         <span class="n">metadata</span><span class="p">:</span> <span class="n">Metadata</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>         <span class="n">extras</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>         <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read a file as an Asset.</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sd">    When `metadata` / `extras` / `kind` are provided, they OVERRIDE any values</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="sd">    the handler would have produced. This is the path consumers use when</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="sd">    reconstructing an Asset from a catalog row — the canonical metadata lives</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="sd">    in the catalog, not embedded in the file.</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="sd">    &quot;&quot;&quot;</span>
+</code></pre></div>
+<p>Currently <code>sunstone.read()</code> doesn't accept these overrides; this adds them. Calling without them keeps the current behavior (handler-produced metadata).</p>
+<h2 id="migration-compatibility">Migration / Compatibility<a class="headerlink" href="#migration-compatibility" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Plugin authors with v1 handlers</strong> (DataFrame-returning): no change. The <code>TabularDataFrameAdapter</code> continues to wrap them. They contribute nothing to <code>known_content_types()</code> until they opt in by adding <code>content_types()</code> / <code>extensions()</code>.</li>
+<li><strong>Plugin authors with v2 handlers</strong> (Asset-returning): no change required. Adding <code>content_types()</code> / <code>extensions()</code> is recommended but optional.</li>
+<li><strong>Existing <code>AssetKind</code> consumers</strong>: BLOB is a new closed-enum variant. Any code doing <code>match asset.kind:</code> exhaustively should add a BLOB arm. Anything using <code>asset.kind is AssetKind.X</code> keeps working.</li>
+<li><strong><code>sunstone.read()</code> signature change</strong>: adding three optional kwargs (<code>kind</code>, <code>metadata</code>, <code>extras</code>) is backwards-compatible — existing callers pass none.</li>
+</ul>
+<h2 id="test-plan">Test Plan<a class="headerlink" href="#test-plan" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Unit: <code>BlobFormatHandler.read()</code> / <code>write()</code> round-trips a small PDF, DOCX, RTF, and TXT verbatim (byte-equal).</li>
+<li>Unit: <code>BlobFormatHandler.can_read()</code> returns True for each <code>_CONTENT_TYPES</code> extension, False for <code>.csv</code> / <code>.xlsx</code> / <code>.parquet</code>.</li>
+<li>Unit: <code>PluginRegistry.known_content_types()</code> includes every MIME from D4 after default registration.</li>
+<li>Unit: <code>PluginRegistry.known_content_descriptors()</code> includes a <code>ContentDescriptor("text/csv", None)</code> (and equivalents for the other built-ins).</li>
+<li>Unit: <code>PluginRegistry.handler_for_content("text/csv; charset=utf-8")</code> returns the csv handler (parameter stripping, default encoding=None).</li>
+<li>Unit: <code>PluginRegistry.handler_for_content("text/csv", content_encoding="gzip")</code> returns None when no compressed-csv handler is registered.</li>
+<li>Unit: <code>sunstone.read("foo.pdf", metadata=Metadata(slug="x"))</code> returns an Asset whose <code>metadata.slug == "x"</code> (overrides applied).</li>
+<li>Integration: register a fake v1 (DataFrame) plugin without <code>content_types()</code>, confirm registry doesn't crash and the plugin still dispatches via <code>can_read</code>.</li>
+</ul>
+<h2 id="open-questions">Open Questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<p>None.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

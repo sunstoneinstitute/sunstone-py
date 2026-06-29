@@ -1,0 +1,1715 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.14.2/superpowers/specs/2026-04-23-parquet-metadata-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Parquet Metadata Embedding & Hash Cleanup - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-04-23-parquet-metadata-design.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#parquet-metadata-embedding-hash-cleanup" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Parquet Metadata Embedding &amp; Hash Cleanup
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-formathandler-protocol-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. FormatHandler Protocol Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. FormatHandler Protocol Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metadata-transport-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata transport convention
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builtinformathandler-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BuiltinFormatHandler split
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-parquet-metadata-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Parquet Metadata Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Parquet Metadata Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#example-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#field-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Field mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prior-art" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prior art
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-metadata-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Metadata Serialization
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Metadata Serialization">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#to_jsonld-dict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_jsonld() -&gt; dict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadatafrom_jsonlddoc-dict-metadata-classmethod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata.from_jsonld(doc: dict) -&gt; Metadata (classmethod)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineagemetadatato_dict-update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LineageMetadata.to_dict() update
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-read-path-metadata-restoration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Read Path -- Metadata Restoration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Read Path -- Metadata Restoration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#merge-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Merge strategy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-write-path-metadata-embedding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Write Path -- Metadata Embedding
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Write Path -- Metadata Embedding">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pyarrow-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pyarrow integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trackfalse-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        track=False path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pyarrow-dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pyarrow dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-hash-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Hash Cleanup
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Hash Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#two-distinct-hashes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two distinct hashes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bugs-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bugs fixed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-min_sunstone_version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. min_sunstone_version
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. min_sunstone_version">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Behavior
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-bumping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-bumping
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Migration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#external-plugin-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External plugin compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="parquet-metadata-embedding-hash-cleanup">Parquet Metadata Embedding &amp; Hash Cleanup<a class="headerlink" href="#parquet-metadata-embedding-hash-cleanup" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-04-23
+<strong>Version:</strong> sunstone-py 1.8.0</p>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>Parquet files written by <code>sunstone.pandas</code> contain no metadata. Lineage,
+field descriptions, RDF properties, and provenance exist only in
+<code>datasets.yaml</code> / <code>datasets.lock.yaml</code>. When a Parquet file travels
+outside its project (shared with a collaborator, uploaded to a catalog),
+all context is lost.</p>
+<p>Additionally, the hash system has critical inconsistencies: the CLI and
+DataFrame write paths both write to a field called <code>content_hash</code> but
+compute fundamentally different hashes (file bytes vs. pickled DataFrame),
+use inconsistent prefix formats (<code>sha256:...</code> vs. bare hex), and silently
+overwrite each other.</p>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<p>Three interrelated changes:</p>
+<ol>
+<li><strong>Metadata in Parquet</strong> -- embed a self-contained JSON-LD document in
+   the Parquet file footer.</li>
+<li><strong>Hash cleanup</strong> -- split <code>content_hash</code> into <code>file_hash</code> and
+   <code>data_hash</code> with consistent <code>sha256:</code> prefixes.</li>
+<li><strong><code>min_sunstone_version</code></strong> -- compatibility field in <code>datasets.yaml</code>
+   to manage schema evolution.</li>
+</ol>
+<h2 id="1-formathandler-protocol-changes">1. FormatHandler Protocol Changes<a class="headerlink" href="#1-formathandler-protocol-changes" title="Permanent link">&para;</a></h2>
+<p>The <code>FormatHandler</code> protocol gains one new method:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">FormatHandler</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>  <span class="c1"># NEW</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p><code>supports_metadata()</code> returns <code>True</code> if the handler can embed/extract
+metadata in the file format. It is a method (not an attribute) to prevent
+modification.</p>
+<h3 id="metadata-transport-convention">Metadata transport convention<a class="headerlink" href="#metadata-transport-convention" title="Permanent link">&para;</a></h3>
+<p>Metadata travels between the Sunstone DataFrame and the format handler
+via <code>df.attrs["sunstone_metadata"]</code>:</p>
+<ul>
+<li><strong>Write path:</strong> Before calling <code>format_writer.write()</code>, the Sunstone
+  DataFrame attaches <code>self.metadata</code> to <code>self.data.attrs["sunstone_metadata"]</code>.
+  Handlers where <code>supports_metadata()</code> returns <code>True</code> check for it and
+  embed it. Others ignore it. After the handler returns, the transport
+  copy is removed from attrs.</li>
+<li><strong>Read path:</strong> Handlers where <code>supports_metadata()</code> returns <code>True</code>
+  extract metadata from the file and set <code>df.attrs["sunstone_metadata"]</code>
+  (as a <code>Metadata</code> object) before returning. The Sunstone DataFrame layer
+  merges it into <code>self.metadata</code>.</li>
+</ul>
+<p><code>df.attrs</code> is a transport mechanism, not the backing store for metadata.
+The Sunstone DataFrame's <code>self.metadata</code> remains the authoritative
+in-memory store. <code>pd.DataFrame.attrs</code> does not reliably propagate through
+pandas operations like <code>groupby</code>, <code>merge</code>, or <code>concat</code>.</p>
+<h3 id="builtinformathandler-split">BuiltinFormatHandler split<a class="headerlink" href="#builtinformathandler-split" title="Permanent link">&para;</a></h3>
+<p>The existing <code>BuiltinFormatHandler</code> (CSV, JSON, Excel, Parquet, TSV)
+is split:</p>
+<ul>
+<li><code>BuiltinFormatHandler</code> -- CSV, JSON, Excel, TSV.
+  <code>supports_metadata()</code> returns <code>False</code>.</li>
+<li><code>ParquetFormatHandler</code> -- Parquet only.
+  <code>supports_metadata()</code> returns <code>True</code>.</li>
+</ul>
+<p>Both are registered in the plugin registry. <code>ParquetFormatHandler</code> takes
+priority for <code>.parquet</code> files.</p>
+<h2 id="2-parquet-metadata-format">2. Parquet Metadata Format<a class="headerlink" href="#2-parquet-metadata-format" title="Permanent link">&para;</a></h2>
+<p>The <code>ParquetFormatHandler</code> embeds a JSON-LD document under the
+<code>b"sunstone"</code> key in the Parquet schema metadata (via pyarrow), alongside
+the existing <code>b"pandas"</code> key.</p>
+<h3 id="example-document">Example document<a class="headerlink" href="#example-document" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;@context&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">&quot;dcat&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://www.w3.org/ns/dcat#&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">&quot;dct&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://purl.org/dc/terms/&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">&quot;prov&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://www.w3.org/ns/prov#&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">&quot;si&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://sunstone.institute/rdf/vocab#&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://schema.org/&quot;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span><span class="nt">&quot;@type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dcat:Distribution&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="nt">&quot;si:version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="nt">&quot;dct:identifier&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;climate-summary&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span><span class="nt">&quot;dct:title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Climate Summary&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span><span class="nt">&quot;dct:description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Aggregated climate indicators by region&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">  </span><span class="nt">&quot;dct:created&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-23T14:30:00&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="nt">&quot;si:dataHash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256:abc123...&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nt">&quot;prov:wasDerivedFrom&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">&quot;dct:identifier&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw-climate-data&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">&quot;dct:title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Raw Climate Data&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="nt">&quot;dcat:downloadURL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;inputs/raw_climate.csv&quot;</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">  </span><span class="nt">&quot;si:fields&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="nt">&quot;temperature&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="w">      </span><span class="nt">&quot;dct:description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Mean surface temperature&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">      </span><span class="nt">&quot;si:unit&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;degC&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">      </span><span class="nt">&quot;prov:wasDerivedFrom&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;raw-climate-data&quot;</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="w">    </span><span class="nt">&quot;region&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="w">      </span><span class="nt">&quot;dct:description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Geographic region code&quot;</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="field-mapping">Field mapping<a class="headerlink" href="#field-mapping" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metadata field</th>
+<th>JSON-LD key</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slug</code></td>
+<td><code>dct:identifier</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>dct:title</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td><code>dct:description</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>lineage.created_at</code></td>
+<td><code>dct:created</code></td>
+<td>ISO 8601</td>
+</tr>
+<tr>
+<td><code>lineage.data_hash</code></td>
+<td><code>si:dataHash</code></td>
+<td>With <code>sha256:</code> prefix</td>
+</tr>
+<tr>
+<td><code>lineage.sources</code></td>
+<td><code>prov:wasDerivedFrom</code></td>
+<td>Array of source objects</td>
+</tr>
+<tr>
+<td><code>lineage.field_derivations</code></td>
+<td><code>si:fields</code> per-column</td>
+<td><code>prov:wasDerivedFrom</code> on each field</td>
+</tr>
+<tr>
+<td><code>field_metadata</code></td>
+<td><code>si:fields</code></td>
+<td>Per-column dict (unit, description, type)</td>
+</tr>
+<tr>
+<td><code>rdf_prefixes</code></td>
+<td>Merged into <code>@context</code></td>
+<td>User prefixes added alongside defaults</td>
+</tr>
+<tr>
+<td><code>custom_properties</code></td>
+<td>Top-level keys</td>
+<td>Already use full URIs or prefixed names</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Excluded:</strong> <code>lineage.project_path</code> (local filesystem, not portable).</p>
+<h3 id="prior-art">Prior art<a class="headerlink" href="#prior-art" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>DataDoc</strong> (<code>b"datadoc"</code> key) -- JSON-LD in Parquet footer for
+  variable-level metadata. Closest existing implementation.</li>
+<li><strong>GeoParquet</strong> (<code>b"geo"</code> key) -- JSON in Parquet footer for geometry
+  metadata. OGC standard.</li>
+<li><strong>h5rdmtoolbox</strong> -- RDF triples as HDF5 attributes
+  (object=subject, key=predicate, value=object).</li>
+<li><strong>W3C DCAT v3</strong> -- vocabulary for describing datasets as RDF resources.</li>
+<li><strong>W3C PROV-O</strong> -- vocabulary for provenance/lineage.</li>
+</ul>
+<p>JSON-LD was chosen because it is valid JSON (readable by non-RDF tools
+like DuckDB, pandas) while also being full RDF (interpretable by semantic
+tools via <code>@context</code>).</p>
+<h2 id="3-metadata-serialization">3. Metadata Serialization<a class="headerlink" href="#3-metadata-serialization" title="Permanent link">&para;</a></h2>
+<p>Two new methods on the <code>Metadata</code> class:</p>
+<h3 id="to_jsonld-dict"><code>to_jsonld() -&gt; dict</code><a class="headerlink" href="#to_jsonld-dict" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Builds <code>@context</code> from default prefixes (<code>dcat</code>, <code>dct</code>, <code>prov</code>, <code>si</code>,
+  <code>schema</code>) merged with user's <code>rdf_prefixes</code></li>
+<li>Maps fields to their RDF predicates per the table above</li>
+<li>Expands prefixed names in <code>custom_properties</code> to full URIs</li>
+<li>Excludes <code>project_path</code></li>
+<li>Includes <code>si:version: "1.0"</code> for future schema evolution</li>
+</ul>
+<h3 id="metadatafrom_jsonlddoc-dict-metadata-classmethod"><code>Metadata.from_jsonld(doc: dict) -&gt; Metadata</code> (classmethod)<a class="headerlink" href="#metadatafrom_jsonlddoc-dict-metadata-classmethod" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Extracts known fields back into the typed dataclass</li>
+<li>Unrecognized top-level keys go into <code>custom_properties</code> (forward
+  compatibility -- a file from sunstone 1.9 doesn't lose data when
+  read by 1.8)</li>
+<li>Prefixes from <code>@context</code> go into <code>rdf_prefixes</code></li>
+<li>Gracefully handles missing fields (a minimal document with just
+  <code>dct:identifier</code> is valid)</li>
+</ul>
+<h3 id="lineagemetadatato_dict-update"><code>LineageMetadata.to_dict()</code> update<a class="headerlink" href="#lineagemetadatato_dict-update" title="Permanent link">&para;</a></h3>
+<p>Updated to use new field names (<code>data_hash</code> instead of <code>content_hash</code>)
+and include <code>sha256:</code> prefix.</p>
+<h2 id="4-read-path-metadata-restoration">4. Read Path -- Metadata Restoration<a class="headerlink" href="#4-read-path-metadata-restoration" title="Permanent link">&para;</a></h2>
+<p>When reading a Parquet file via <code>read_dataset()</code>:</p>
+<ol>
+<li>Format handler reads the file, checks for <code>b"sunstone"</code> in Parquet
+   schema metadata.</li>
+<li>If present, deserializes via <code>Metadata.from_jsonld()</code> and sets
+   <code>df.attrs["sunstone_metadata"]</code>.</li>
+<li>Sunstone DataFrame layer merges it into <code>self.metadata</code>.</li>
+</ol>
+<h3 id="merge-strategy">Merge strategy<a class="headerlink" href="#merge-strategy" title="Permanent link">&para;</a></h3>
+<p><code>datasets.yaml</code> wins on all conflicts, silently. No warnings in either
+strict or relaxed mode.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slug</code>, <code>name</code>, <code>description</code></td>
+<td><code>datasets.yaml</code> if set, else embedded</td>
+</tr>
+<tr>
+<td><code>field_metadata</code></td>
+<td><code>datasets.yaml</code> overrides per-column, embedded fills gaps</td>
+</tr>
+<tr>
+<td><code>rdf_prefixes</code></td>
+<td>Merged, <code>datasets.yaml</code> wins on duplicate prefix</td>
+</tr>
+<tr>
+<td><code>custom_properties</code></td>
+<td>Merged, <code>datasets.yaml</code> wins on duplicate key</td>
+</tr>
+<tr>
+<td><code>lineage.sources</code></td>
+<td><code>datasets.yaml</code> (lock file) is authoritative</td>
+</tr>
+<tr>
+<td><code>data_hash</code></td>
+<td>Lock file is authoritative</td>
+</tr>
+</tbody>
+</table>
+<p>When no <code>datasets.yaml</code> exists (standalone Parquet file), embedded
+metadata is used as-is.</p>
+<h2 id="5-write-path-metadata-embedding">5. Write Path -- Metadata Embedding<a class="headerlink" href="#5-write-path-metadata-embedding" title="Permanent link">&para;</a></h2>
+<p>When writing a Parquet file via <code>to_parquet()</code>:</p>
+<ol>
+<li>Sunstone DataFrame attaches <code>self.metadata</code> to
+   <code>self.data.attrs["sunstone_metadata"]</code>.</li>
+<li>Calls <code>format_writer.write(self.data, stream, **kwargs)</code>.</li>
+<li><code>ParquetFormatHandler.write()</code> detects metadata in <code>df.attrs</code>, calls
+   <code>metadata.to_jsonld()</code>, and injects JSON bytes into pyarrow schema
+   metadata under <code>b"sunstone"</code>.</li>
+<li>After the handler returns, transport copy is removed from attrs.</li>
+</ol>
+<h3 id="pyarrow-integration">pyarrow integration<a class="headerlink" href="#pyarrow-integration" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pa</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyarrow.parquet</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pq</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">table</span> <span class="o">=</span> <span class="n">pa</span><span class="o">.</span><span class="n">Table</span><span class="o">.</span><span class="n">from_pandas</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">existing_meta</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">existing_meta</span><span class="p">[</span><span class="sa">b</span><span class="s2">&quot;sunstone&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">jsonld_doc</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">table</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">replace_schema_metadata</span><span class="p">(</span><span class="n">existing_meta</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">pq</span><span class="o">.</span><span class="n">write_table</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span>
+</code></pre></div>
+<p>This replaces the current <code>df.to_parquet(stream)</code> call in the handler.</p>
+<h3 id="trackfalse-path">track=False path<a class="headerlink" href="#trackfalse-path" title="Permanent link">&para;</a></h3>
+<p>Metadata is NOT attached to attrs. The handler writes a plain Parquet
+file with no <code>b"sunstone"</code> key.</p>
+<h3 id="pyarrow-dependency">pyarrow dependency<a class="headerlink" href="#pyarrow-dependency" title="Permanent link">&para;</a></h3>
+<p>pyarrow is already an optional dependency for Parquet support. The
+<code>ParquetFormatHandler</code> imports it at use time, same pattern as GCS/S3
+handlers.</p>
+<h2 id="6-hash-cleanup">6. Hash Cleanup<a class="headerlink" href="#6-hash-cleanup" title="Permanent link">&para;</a></h2>
+<h3 id="two-distinct-hashes">Two distinct hashes<a class="headerlink" href="#two-distinct-hashes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Hash</th>
+<th>Field name</th>
+<th>What's hashed</th>
+<th>Where stored</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File hash</td>
+<td><code>file_hash</code></td>
+<td>Raw bytes of the file on disk</td>
+<td><code>datasets.lock.yaml</code></td>
+<td><code>sha256:...</code></td>
+</tr>
+<tr>
+<td>Data hash</td>
+<td><code>data_hash</code></td>
+<td>DataFrame content via pickle</td>
+<td><code>datasets.lock.yaml</code> + Parquet footer</td>
+<td><code>sha256:...</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>compute_dataframe_hash()</code> returns <code>sha256:</code>-prefixed string.</li>
+<li>CLI <code>resolve</code> command writes <code>file_hash</code> (not <code>content_hash</code>).</li>
+<li>DataFrame write path writes <code>data_hash</code> (not <code>content_hash</code>).</li>
+<li><code>update_output_lineage</code> change-detection (<code>datasets.py:959</code>) uses
+  <code>data_hash</code>.</li>
+<li>All hash comparisons are prefix-aware: bare hex from old lock files
+  is treated as <code>sha256:</code> for backwards compatibility on read.</li>
+</ul>
+<h3 id="bugs-fixed">Bugs fixed<a class="headerlink" href="#bugs-fixed" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>Prefix mismatch</strong> -- CLI stored <code>sha256:...</code>, DataFrame stored bare
+   hex. Now both are consistently prefixed.</li>
+<li><strong>Silent overwrite</strong> -- CLI resolve overwrote DataFrame's hash. Now
+   they are separate fields.</li>
+<li><strong>Comparison failure</strong> -- <code>datasets.py:959</code> compared prefixed vs.
+   unprefixed values. Now <code>data_hash</code> is always prefixed.</li>
+<li><strong>Test inconsistencies</strong> -- <code>test_dataframe.py</code> expected 64 chars,
+   <code>test_lock_file.py</code> expected prefix. Updated for new field names
+   and consistent format.</li>
+</ol>
+<h2 id="7-min_sunstone_version">7. <code>min_sunstone_version</code><a class="headerlink" href="#7-min_sunstone_version" title="Permanent link">&para;</a></h2>
+<p>A new field in <code>datasets.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">min_sunstone_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.8.0&quot;</span>
+</code></pre></div>
+<h3 id="behavior">Behavior<a class="headerlink" href="#behavior" title="Permanent link">&para;</a></h3>
+<ul>
+<li>On any <code>datasets.yaml</code> load, the library compares
+  <code>min_sunstone_version</code> against the running library version.</li>
+<li>If the library is too old, raises a clear error:
+  <code>"This project requires sunstone-py &gt;= 1.8.0 (you have 1.7.0). Run: uv add sunstone-py@latest"</code></li>
+<li>If absent, no check -- full backwards compatibility with pre-1.8
+  projects.</li>
+<li>Uses standard semver comparison (major.minor.patch).</li>
+</ul>
+<h3 id="auto-bumping">Auto-bumping<a class="headerlink" href="#auto-bumping" title="Permanent link">&para;</a></h3>
+<p>The library always writes the current format. On any write to
+<code>datasets.lock.yaml</code>, if <code>min_sunstone_version</code> is absent or lower
+than <code>1.8.0</code>, it is set to <code>1.8.0</code>.</p>
+<p>The invariant is: <strong>if we write it, we declare it.</strong></p>
+<h2 id="8-migration">8. Migration<a class="headerlink" href="#8-migration" title="Permanent link">&para;</a></h2>
+<p><code>sunstone dataset migrate</code> gains these steps:</p>
+<ol>
+<li><strong>Rename <code>content_hash</code></strong> -- in all lock file entries, rename to
+   <code>file_hash</code> and add <code>sha256:</code> prefix if bare hex.</li>
+<li><strong>Compute <code>data_hash</code></strong> -- for each output that exists on disk, read
+   the file, parse to DataFrame, compute hash, store with prefix.</li>
+<li><strong>Set <code>min_sunstone_version</code></strong> -- add <code>min_sunstone_version: "1.8.0"</code>
+   to <code>datasets.yaml</code>.</li>
+<li><strong>Idempotent</strong> -- running migrate twice produces the same result.</li>
+</ol>
+<p>Migration does NOT rewrite Parquet files to embed metadata. That happens
+on the next <code>to_parquet()</code> call.</p>
+<p>Migration is a convenience, not a requirement. Projects that never run
+it still work -- the library reads <code>content_hash</code> as a fallback for
+<code>file_hash</code> on read, and the first write produces the new format and
+bumps <code>min_sunstone_version</code>.</p>
+<h2 id="external-plugin-compatibility">External plugin compatibility<a class="headerlink" href="#external-plugin-compatibility" title="Permanent link">&para;</a></h2>
+<p>The <code>FormatHandler</code> protocol change is backwards compatible. The
+<code>PluginRegistry</code> checks for <code>supports_metadata</code> with <code>hasattr()</code> before
+calling it. Existing plugins that don't implement the method are treated
+as not supporting metadata. Plugins should add the method to opt in.</p>
+<p>The Iceberg plugin (in the data-platform repo) is a known consumer
+that should implement <code>supports_metadata() -&gt; True</code> and embed the
+JSON-LD document in Iceberg table properties.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
