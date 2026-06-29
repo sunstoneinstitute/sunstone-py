@@ -2,10 +2,12 @@
 Parser and manager for datasets.yaml files.
 """
 
+import contextlib
+import contextvars
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ruamel.yaml import YAML
 
@@ -38,6 +40,98 @@ _yaml.preserve_quotes = True
 _yaml.default_flow_style = False
 _yaml.width = 4096
 _yaml.indent(mapping=2, sequence=4, offset=2)
+
+
+def _mtime_ns(path: Path) -> Optional[int]:
+    """Return the ``st_mtime_ns`` of ``path``, or ``None`` if it doesn't exist."""
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return None
+
+
+def _resolve_datasets_file(
+    project_path: Union[str, Path],
+    datasets_file: Optional[Union[str, Path]] = None,
+) -> Path:
+    """Resolve the absolute datasets file path the same way ``DatasetsManager``
+    does, for use as a cache key. Mirrors ``DatasetsManager.__init__``."""
+    base = Path(project_path).resolve()
+    if datasets_file is not None:
+        df_path = Path(datasets_file)
+        resolved = df_path if df_path.is_absolute() else base / df_path
+    else:
+        resolved = base / "datasets.yaml"
+    return resolved.resolve()
+
+
+# --- Opt-in process-level manager cache -------------------------------------
+# When a cache context is active this holds a dict mapping resolved datasets-file
+# path (str) -> shared DatasetsManager. It is ``None`` when no context is active,
+# in which case acquisition always constructs a fresh manager (legacy behavior).
+_manager_cache: "contextvars.ContextVar[Optional[Dict[str, DatasetsManager]]]" = contextvars.ContextVar(
+    "sunstone_datasets_manager_cache", default=None
+)
+
+
+@contextlib.contextmanager
+def datasets_manager_cache() -> Iterator[None]:
+    """Activate a process-level ``DatasetsManager`` cache for the duration of the
+    ``with`` block.
+
+    While active, :func:`get_datasets_manager` reuses a single manager instance
+    per resolved ``datasets_file`` path instead of reloading from disk on every
+    acquisition. This is an opt-in optimization: outside this context behavior is
+    unchanged (every acquisition constructs a fresh manager).
+
+    Nesting is safe: an inner context shares the outer cache, and the cache is
+    only cleared when the outermost context exits.
+    """
+    previous = _manager_cache.get()
+    cache: Dict[str, DatasetsManager] = previous if previous is not None else {}
+    token = _manager_cache.set(cache)
+    try:
+        yield
+    finally:
+        _manager_cache.reset(token)
+        if previous is None:
+            cache.clear()
+
+
+def clear_datasets_manager_cache() -> None:
+    """Drop all cached managers in the currently active cache (if any).
+
+    Primarily for test isolation; a no-op when no cache context is active.
+    """
+    cache = _manager_cache.get()
+    if cache is not None:
+        cache.clear()
+
+
+def get_datasets_manager(
+    project_path: Union[str, Path],
+    datasets_file: Optional[Union[str, Path]] = None,
+) -> "DatasetsManager":
+    """Acquire a ``DatasetsManager``, reusing a cached instance when a
+    :func:`datasets_manager_cache` context is active and the cached instance is
+    still valid (the on-disk files match the mtimes recorded at its last
+    load/save).
+
+    Without an active cache context this is equivalent to constructing a fresh
+    ``DatasetsManager(project_path, datasets_file)``.
+    """
+    cache = _manager_cache.get()
+    if cache is None:
+        return DatasetsManager(project_path, datasets_file)
+
+    key = str(_resolve_datasets_file(project_path, datasets_file))
+    cached = cache.get(key)
+    if cached is not None and not cached._is_stale():
+        return cached
+
+    manager = DatasetsManager(project_path, datasets_file)
+    cache[key] = manager
+    return manager
 
 
 def _parse_dialect(data: Any) -> Optional[CsvDialect]:
@@ -133,6 +227,9 @@ class DatasetsManager:
         self._data: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._lock_data: Dict[str, Any] = {}
+        # mtime stamps used by the opt-in manager cache to detect external edits.
+        self._datasets_mtime_ns: Optional[int] = None
+        self._lock_mtime_ns: Optional[int] = None
         self._load(check_version=True)
 
     @staticmethod
@@ -285,15 +382,35 @@ class DatasetsManager:
                     )
                     break
 
+        # Record the mtimes that correspond to the state we just loaded.
+        self._stamp_mtimes()
+
     @property
     def lock_data(self) -> Dict[str, Any]:
         """Return the lock file data."""
         return self._lock_data
 
+    def _stamp_mtimes(self) -> None:
+        """Record the current on-disk mtimes of the datasets and lock files.
+
+        Used by the opt-in manager cache to tell whether a cached instance's
+        files were changed by something other than the instance itself.
+        """
+        self._datasets_mtime_ns = _mtime_ns(self.datasets_file)
+        self._lock_mtime_ns = _mtime_ns(self.lock_file)
+
+    def _is_stale(self) -> bool:
+        """Return True if the datasets or lock file on disk differs from the
+        mtime recorded at the last load/save (i.e. an external writer touched it)."""
+        return (
+            _mtime_ns(self.datasets_file) != self._datasets_mtime_ns or _mtime_ns(self.lock_file) != self._lock_mtime_ns
+        )
+
     def _save(self) -> None:
         """Save the current data back to datasets.yaml."""
         with open(self.datasets_file, "w") as f:
             _yaml.dump(self._data, f)
+        self._stamp_mtimes()
 
     def _save_lock(self) -> None:
         """Save the current lock data to datasets.lock.yaml."""
@@ -305,6 +422,7 @@ class DatasetsManager:
         with open(self.lock_file, "w") as f:
             f.write("# Auto-generated by sunstone. Do not edit manually.\n")
             _yaml.dump(self._lock_data, f)
+        self._stamp_mtimes()
 
     def _parse_source_location(self, loc_data: Dict[str, Any]) -> SourceLocation:
         """Parse source location data from YAML."""
