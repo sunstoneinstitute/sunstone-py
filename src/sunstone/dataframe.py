@@ -14,6 +14,7 @@ from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+from .resolution import looks_like_slug
 
 if TYPE_CHECKING:
     from .asset import Asset
@@ -563,7 +564,7 @@ class DataFrame:
 
         # Determine if this is a slug or a file path
         # Slugs don't contain path separators and typically use kebab-case
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             # Delegate to read_dataset with CSV format
@@ -595,8 +596,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:
@@ -689,7 +691,7 @@ class DataFrame:
         location = str(filepath_or_buffer)
 
         # Determine if this is a slug or a file path
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             return cls.read_dataset(
@@ -720,8 +722,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:
@@ -808,7 +811,7 @@ class DataFrame:
         location = str(filepath_or_buffer)
 
         # Determine if this is a slug or a file path
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             return cls.read_dataset(
@@ -839,8 +842,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:

@@ -272,6 +272,21 @@ class TestStrictMode:
             strict_df.to_csv("/tmp/test_output.csv", index=False)
 
 
+def test_read_csv_with_cwd_relative_path_from_subdir(project_copy: Path, monkeypatch: Any) -> None:
+    from sunstone import pandas as pd
+
+    monkeypatch.chdir(project_copy / "outputs")
+    df = pd.read_csv(
+        "../inputs/official_un_member_states_raw.csv",
+        project_path=project_copy,
+        fetch_from_url=False,
+    )
+    # Lineage is derived from the registered dataset, not the raw path.
+    sources = df.metadata.lineage.sources
+    assert any(s.slug == "official-un-member-states" for s in sources)
+    assert len(df.data) > 0
+
+
 class TestReadDataset:
     """Tests for read_dataset() functionality with format auto-detection."""
 
