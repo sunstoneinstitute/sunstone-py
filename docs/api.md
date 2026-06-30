@@ -187,7 +187,7 @@ Uniform envelope across kinds.
 
 **Typed kind accessors** (raise `IncompatibleAssetKindError` on mismatch):
 
-- `asset.as_table() -> pandas.DataFrame`
+- `asset.as_pandas() -> pandas.DataFrame` (`as_table()` is a backwards-compatible alias)
 - `asset.as_polars() -> polars.DataFrame`
 - `asset.as_raster() -> numpy.ndarray`
 - `asset.as_array() -> dict[str, numpy.ndarray]`
@@ -257,7 +257,7 @@ Stored on `Metadata.component_metadata` keyed by component name.
 
 ### `IncompatibleAssetKindError`
 
-Raised when a typed accessor (`as_table`, `as_raster`, ...) or a handler
+Raised when a typed accessor (`as_pandas`, `as_raster`, ...) or a handler
 is called with an asset whose `kind` does not match.
 
 ```python

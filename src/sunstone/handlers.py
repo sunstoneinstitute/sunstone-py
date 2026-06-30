@@ -249,7 +249,7 @@ class BuiltinFormatHandler:
         if engine == "polars":
             self._write_polars(asset, stream, **kwargs)
             return
-        df = asset.as_table() if hasattr(asset, "as_table") else asset
+        df = asset.as_pandas() if hasattr(asset, "as_pandas") else asset
         self._write_dataframe(df, stream, **kwargs)  # type: ignore[arg-type]
 
     def content_descriptors(self) -> tuple["ContentDescriptor", ...]:
@@ -351,8 +351,8 @@ class ParquetFormatHandler:
         # Accept either an Asset (preferred, protocol v2) or a bare DataFrame
         # (legacy call sites). When given a bare DataFrame, the legacy
         # `df.attrs["sunstone_metadata"]` channel is honored as a fallback.
-        if hasattr(asset, "as_table"):
-            df = asset.as_table()  # type: ignore[attr-defined]
+        if hasattr(asset, "as_pandas"):
+            df = asset.as_pandas()  # type: ignore[attr-defined]
             metadata_obj = getattr(asset, "metadata", None)
         else:
             df = cast(pd.DataFrame, asset)

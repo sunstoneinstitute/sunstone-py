@@ -78,18 +78,24 @@ def test_profile_accessor_reads_extras():
     assert asset.crs == "EPSG:4326"
 
 
-def test_as_table_returns_payload_when_kind_matches():
+def test_as_pandas_returns_payload_when_kind_matches():
     df = pd.DataFrame({"x": [1]})
     asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
-    assert asset.as_table() is df
+    assert asset.as_pandas() is df
 
 
-def test_as_table_raises_on_wrong_kind():
+def test_as_pandas_raises_on_wrong_kind():
     asset = Asset(payload=np.zeros((2, 2)), kind=AssetKind.RASTER, metadata=Metadata())
     with pytest.raises(IncompatibleAssetKindError) as exc_info:
-        asset.as_table()
+        asset.as_pandas()
     assert exc_info.value.expected is AssetKind.TABULAR
     assert exc_info.value.actual is AssetKind.RASTER
+
+
+def test_as_table_is_backwards_compatible_alias():
+    df = pd.DataFrame({"x": [1]})
+    asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+    assert asset.as_table() is asset.as_pandas()
 
 
 def test_as_raster_as_array_as_tiles_round_trip():

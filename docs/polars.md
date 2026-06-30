@@ -8,7 +8,7 @@ mirroring `sunstone.pandas`.
 - **AssetKind:** `AssetKind.TABULAR`
 - **Payload:** `polars.DataFrame`
 - **Typed accessor:** `Asset.as_polars() -> polars.DataFrame`
-  (alongside `Asset.as_table()` for pandas).
+  (alongside `Asset.as_pandas()` for pandas).
 - **Status:** Supported (eager mode). Install with the `[polars]`
   extra: `pip install 'sunstone-py[polars]'`. Operation-level
   `Activity` tracking for chained polars ops is deferred — derived
@@ -31,8 +31,8 @@ import sunstone
 sunstone.set_project_path(".")
 
 df = pl.read_csv("inputs/schools.csv")            # -> sunstone.polars.DataFrame
-clean = df.filter(pl.col("students") > 0)          # chained polars ops
-clean.write_csv("outputs/clean.csv", slug="clean-schools", name="Clean Schools")
+has_students = df.filter(pl.col("students") > 0)  # chained polars ops
+has_students.write_csv("outputs/has_students.csv", slug="schools-with-students", name="Schools with students")
 ```
 
 `pl.read_csv`/`read_parquet`/`read_json`/`read_dataset` resolve a slug
@@ -61,7 +61,7 @@ The roadmap items that unlocked first-class polars support, now in
 place:
 
 1. **Polars-aware accessor.** `Asset.as_polars() -> pl.DataFrame`
-   alongside `as_table()`, raising `TypeError` on a pandas payload
+   alongside `as_pandas()`, raising `TypeError` on a pandas payload
    (convert explicitly with `pl.from_pandas`).
 2. **Polars-returning format handlers.** `BuiltinFormatHandler` takes
    an `engine="polars"` knob on read/write, parsing/writing CSV, JSON,

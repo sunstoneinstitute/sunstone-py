@@ -6,7 +6,8 @@ supported.
 
 - **AssetKind:** `AssetKind.TABULAR`
 - **Payload:** `pandas.DataFrame`
-- **Typed accessor:** `Asset.as_table() -> pandas.DataFrame`
+- **Typed accessor:** `Asset.as_pandas() -> pandas.DataFrame`
+  (`as_table()` remains as a backwards-compatible alias)
 - **DataFrame facade:** `sunstone.DataFrame` (drop-in pandas wrapper)
 
 ## Status
@@ -28,7 +29,7 @@ import sunstone as ss
 asset = ss.read("inputs/schools.csv")
 assert asset.kind is ss.AssetKind.TABULAR
 
-df = asset.as_table()              # pandas.DataFrame
+df = asset.as_pandas()             # pandas.DataFrame
 df_filtered = df[df["enrollment"] > 100]
 
 child = asset.derive(
