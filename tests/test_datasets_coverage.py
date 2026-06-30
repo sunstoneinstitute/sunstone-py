@@ -146,11 +146,12 @@ class TestFindDatasetByLocation:
         assert result is not None
         assert result.slug == "abs-output"
 
-    def test_resolved_paths_match(self, tmp_path: Path) -> None:
-        """Line 391: resolved paths match even with different relative forms."""
+    def test_resolved_paths_match(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Resolved paths match even with different relative forms (cwd-based)."""
         project = self._make_project(tmp_path)
         mgr = DatasetsManager(project)
-        # Use a different relative path that resolves to the same file
+        monkeypatch.chdir(project)
+        # Use a different relative path that resolves to the same file when cwd==project.
         result = mgr.find_dataset_by_location("./outputs/../outputs/data.csv")
         assert result is not None
         assert result.slug == "test-output"
@@ -167,11 +168,10 @@ class TestFindDatasetByLocation:
         assert result.slug == "test-output"
 
     def test_fallback_matching_dataset_location_missing(self, tmp_path: Path) -> None:
-        """Lines 402-414: fallback when dataset location doesn't exist but requested does."""
+        """Fuzzy same-filename fallback is no longer supported; wrong location returns None."""
         project = tmp_path / "project"
         project.mkdir()
         (project / "inputs").mkdir()
-        # The dataset yaml points to a non-existent path
         actual_file = project / "inputs" / "data.csv"
         actual_file.write_text("a,b\n1,2\n")
         data = {
@@ -187,11 +187,10 @@ class TestFindDatasetByLocation:
         }
         _write_datasets_yaml(project, data)
         mgr = DatasetsManager(project)
-        # The file exists at inputs/data.csv, dataset points to old_dir/data.csv
-        # Same filename but dataset_loc doesn't exist - triggers fallback at lines 402+
+        # The dataset is registered at old_dir/data.csv; looking up inputs/data.csv
+        # must NOT match under the new strict path-based resolution.
         result = mgr.find_dataset_by_location("inputs/data.csv")
-        assert result is not None
-        assert result.slug == "missing-input"
+        assert result is None
 
     def test_find_by_absolute_requested_path(self, tmp_path: Path) -> None:
         """Line 388: requested location is absolute, converted to relative."""
