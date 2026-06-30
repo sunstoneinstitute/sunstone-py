@@ -72,6 +72,13 @@ stacked = pl.concat([q1, q2, q3])                    # combined lineage
 Note: unlike raw polars, the facade `extend` is **non-mutating** — it
 leaves the caller untouched and returns a new facade DataFrame.
 
+These relational ops live on the eager facade only. Once you call
+`df.lazy()`, you are operating on a raw polars `LazyFrame` (wrapped in a
+pass-through proxy), so its `join`/`concat`/etc. expect raw polars
+arguments — pass `other.data`, not the facade. Mixing a facade into a
+lazy op fails loudly with a `TypeError` rather than silently dropping
+lineage.
+
 ## How it works
 
 The roadmap items that unlocked first-class polars support, now in
