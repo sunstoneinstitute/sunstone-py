@@ -79,3 +79,12 @@ class TestErrorsReExport:
             text=True,
         )
         assert result.returncode == 0, f"mypy failed:\n{result.stdout}{result.stderr}"
+
+
+def test_slug_conflict_error_is_sunstone_and_value_error():
+    from sunstone.exceptions import SlugConflictError, SunstoneError
+
+    err = SlugConflictError("boom")
+    assert isinstance(err, SunstoneError)
+    assert isinstance(err, ValueError)
+    assert str(err) == "boom"

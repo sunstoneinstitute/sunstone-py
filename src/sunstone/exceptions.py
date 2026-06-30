@@ -21,6 +21,13 @@ class StrictModeError(SunstoneError):
     pass
 
 
+class SlugConflictError(SunstoneError, ValueError):
+    """Raised when an explicit ``slug=`` disagrees with the dataset that the
+    positional path already resolves to in datasets.yaml."""
+
+    pass
+
+
 class DatasetValidationError(SunstoneError):
     """Raised when dataset metadata fails validation."""
 
