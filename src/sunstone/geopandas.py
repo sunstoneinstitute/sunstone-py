@@ -16,6 +16,7 @@ from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError
 from .lineage import Metadata
 from .plugins import PluginRegistry
+from .resolution import resolve_to_dataset
 
 
 class GeoDataFrame:
@@ -65,7 +66,7 @@ class GeoDataFrame:
 def _read(slug_or_path: str, fmt: str, project_path: str | Path | None) -> GeoDataFrame:
     project = Path(project_path) if project_path is not None else get_project_path()
     manager = DatasetsManager(project)
-    dataset = manager.find_dataset_by_slug(slug_or_path)
+    dataset = resolve_to_dataset(slug_or_path, manager)
     if dataset is None:
         raise DatasetNotFoundError(f"Dataset '{slug_or_path}' not found in datasets.yaml.")
     location = str(manager.get_absolute_path(dataset.location))
@@ -96,7 +97,7 @@ def read_file(slug_or_path: str, project_path: str | Path | None = None) -> GeoD
     """Auto-detect geojson vs topojson from the dataset's format/extension."""
     project = Path(project_path) if project_path is not None else get_project_path()
     manager = DatasetsManager(project)
-    dataset = manager.find_dataset_by_slug(slug_or_path)
+    dataset = resolve_to_dataset(slug_or_path, manager)
     fmt = dataset.format if dataset and dataset.format else None
     if fmt is None and dataset is not None and dataset.location.endswith(".topojson"):
         fmt = "topojson"
