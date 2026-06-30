@@ -63,11 +63,12 @@ summary.to_csv(
 )
 ```
 
-Relative file paths resolve against the current working directory (like plain
-`open()`), and are matched against `datasets.yaml` by their fully-resolved
-absolute path. Pass the file path; register it in `datasets.yaml`; `slug=` is an
-optional override only needed when auto-registering a brand-new output in relaxed
-mode.
+Relative file paths are *matched* against `datasets.yaml` by resolving them
+against the current working directory (like plain `open()`). Note: when
+auto-registering a brand-new output, the file is written relative to the project
+root (where `datasets.yaml` lives), not the current working directory. Pass the
+file path; register it in `datasets.yaml`; `slug=` is an optional override only
+needed when auto-registering a brand-new output in relaxed mode.
 
 `sunstone.DataFrame` is a facade over a TABULAR `Asset`. Both routes
 record identical lineage; pick `sunstone.pandas` for code that should

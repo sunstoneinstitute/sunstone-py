@@ -113,7 +113,7 @@ result.to_csv(
 
 ### Key Differences from Plain Pandas
 
-1. **Project path**: Relative file paths resolve against the current working directory (like plain `open()`), and are matched against `datasets.yaml` by their fully-resolved absolute path. Set `sunstone.set_project_path(...)` (recommended) to tell sunstone where `datasets.yaml` lives, pass it explicitly via `project_path=`, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for scoped overrides.
+1. **Project path**: Relative file paths are *matched* against `datasets.yaml` by resolving them against the current working directory (like plain `open()`). Note: when auto-registering a brand-new output, the file is written relative to the project root (where `datasets.yaml` lives), not the current working directory. Set `sunstone.set_project_path(...)` (recommended) to tell sunstone where `datasets.yaml` lives, pass it explicitly via `project_path=`, or rely on the `Path.cwd()` fallback. Use `with sunstone.use_project_path(...):` for scoped overrides.
 2. **Dataset registration**: All reads/writes must be in `datasets.yaml`
 3. **Access underlying data**: Use `.data` to access the pandas DataFrame directly
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` only when auto-registering a brand-new output in relaxed mode; if the output path is already registered in `datasets.yaml`, no `slug=`/`name=` is needed. Both can be set via `df.metadata.slug`/`df.metadata.name` or passed as arguments.

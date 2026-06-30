@@ -88,3 +88,12 @@ def test_slug_conflict_error_is_sunstone_and_value_error():
     assert isinstance(err, SunstoneError)
     assert isinstance(err, ValueError)
     assert str(err) == "boom"
+
+
+def test_slug_conflict_error_exported_from_top_level():
+    import sunstone
+
+    assert sunstone.SlugConflictError is not None
+    from sunstone.exceptions import SlugConflictError
+
+    assert sunstone.SlugConflictError is SlugConflictError
