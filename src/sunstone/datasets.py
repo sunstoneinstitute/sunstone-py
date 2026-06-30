@@ -230,9 +230,9 @@ class DatasetsManager:
         # mtime stamps used by the opt-in manager cache to detect external edits.
         self._datasets_mtime_ns: Optional[int] = None
         self._lock_mtime_ns: Optional[int] = None
-        # Cached {resolved_abs_path -> (dataset_data, dtype)} index for fast,
-        # cwd-correct, symlink-safe path matching. Invalidated on every load/save
-        # via _stamp_mtimes.
+        # Cached (by_string, by_abspath) location index for fast, cwd-correct,
+        # symlink-safe path matching. See _get_location_index. Invalidated on
+        # every load/save via _stamp_mtimes.
         self._location_index: Optional[tuple[Dict[str, Any], Dict[Path, Any]]] = None
         self._load(check_version=True)
 
