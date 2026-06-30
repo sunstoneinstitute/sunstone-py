@@ -132,6 +132,83 @@ def test_reader_wins_over_real_polars() -> None:
     assert spl.read_csv.__module__ == "sunstone.polars.io"
 
 
+def test_group_by_agg_returns_facade_with_sources(project_path) -> None:
+    import sunstone.polars as spl
+
+    df = spl.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False)
+    col = df.data.columns[0]
+    result = df.group_by(col).agg(spl.len())
+    assert isinstance(result, spl.DataFrame)
+    assert not isinstance(result, pl.DataFrame)
+    assert result.metadata.lineage.sources == df.metadata.lineage.sources
+    assert result.metadata.lineage.engine == "polars"
+
+
+def test_group_by_agg_result_is_writable() -> None:
+    df = DataFrame(pl.DataFrame({"k": ["a", "a", "b"], "v": [1, 2, 3]}))
+    result = df.group_by("k").agg(pl.col("v").sum())
+    assert isinstance(result, DataFrame)
+    assert callable(getattr(result, "write_csv"))
+
+
+def test_lazy_returns_proxy_not_raw_lazyframe() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2, 3]}))
+    lazy = df.lazy()
+    assert not isinstance(lazy, pl.LazyFrame)
+
+
+def test_lazy_roundtrip_returns_facade_with_sources(project_path) -> None:
+    import sunstone.polars as spl
+
+    df = spl.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False)
+    col = df.data.columns[0]
+    result = df.lazy().filter(pl.col(col).is_not_null()).collect()
+    assert isinstance(result, spl.DataFrame)
+    assert not isinstance(result, pl.DataFrame)
+    assert result.metadata.lineage.sources == df.metadata.lineage.sources
+    assert result.metadata.lineage.engine == "polars"
+
+
+def test_lazy_chain_stays_proxied_then_collects() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2, 3, 4], "b": [10, 20, 30, 40]}))
+    result = df.lazy().filter(pl.col("a") >= 2).select("b").collect()
+    assert isinstance(result, DataFrame)
+    assert not isinstance(result, pl.DataFrame)
+    assert result.data.columns == ["b"]
+    assert result.data.height == 3
+
+
+def test_non_dataframe_intermediate_results_pass_through() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2, 3]}))
+    assert df.shape == (3, 1)
+    assert isinstance(df.shape, tuple)
+    assert df.columns == ["a"]
+    assert isinstance(df.columns, list)
+
+
+def test_group_by_remains_iterable() -> None:
+    df = DataFrame(pl.DataFrame({"k": ["a", "a", "b"], "v": [1, 2, 3]}))
+    groups = list(df.group_by("k"))
+    assert len(groups) == 2
+    # Iteration yields raw polars (key, sub_frame) tuples, matching pre-proxy behavior.
+    for _key, sub in groups:
+        assert isinstance(sub, pl.DataFrame)
+
+
+def test_lazy_proxy_repr_preserves_underlying() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2, 3]}))
+    text = repr(df.lazy())
+    assert "_Proxy" not in text
+    assert "LazyFrame" in text
+
+
+def test_group_by_dynamic_returns_facade() -> None:
+    df = DataFrame(pl.DataFrame({"t": [0, 1, 2, 3, 4], "v": [1, 2, 3, 4, 5]}))
+    result = df.group_by_dynamic("t", every="2i").agg(pl.col("v").sum())
+    assert isinstance(result, DataFrame)
+    assert not isinstance(result, pl.DataFrame)
+
+
 def test_facade_submodule_not_shadowed_by_real_polars() -> None:
     # On a fresh import, accessing the bare `io` name must resolve to the facade
     # submodule, never the real polars.io (regression guard for the fallback).

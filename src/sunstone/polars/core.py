@@ -15,6 +15,25 @@ if TYPE_CHECKING:
     from sunstone.asset import Asset
 
 
+# Polars group-by / lazy intermediates that _wrap routes through a _Proxy.
+# Built once on first use to honor this file's "no module-level polars import"
+# style (polars is imported lazily everywhere else here too).
+_INTERMEDIATE_TYPES: Optional[tuple[type, ...]] = None
+
+
+def _intermediate_types() -> tuple[type, ...]:
+    global _INTERMEDIATE_TYPES
+    if _INTERMEDIATE_TYPES is None:
+        import polars as pl
+
+        # Private polars import path, coupled to the polars version (works on
+        # 1.42.0). Co-located here so a future ImportError is easy to diagnose.
+        from polars.dataframe.group_by import DynamicGroupBy, GroupBy, RollingGroupBy
+
+        _INTERMEDIATE_TYPES = (GroupBy, RollingGroupBy, DynamicGroupBy, pl.LazyFrame)
+    return _INTERMEDIATE_TYPES
+
+
 class DataFrame(MetadataMixin):
     """Facade over an Asset whose payload is a polars DataFrame.
 
@@ -102,9 +121,10 @@ class DataFrame(MetadataMixin):
         return str(self.data)
 
     def _wrap(self, result: Any) -> Any:
-        # Only DataFrame-returning ops are re-wrapped; Series, scalars, tuples
-        # (e.g. .shape), and lazy/group-by intermediates pass through unchanged
-        # — correct for an eager facade.
+        # Three-way dispatch: DataFrame results re-wrap as a facade (carrying
+        # source lineage); group-by / lazy-frame intermediates get a _Proxy that
+        # routes downstream results back through this same _wrap; everything else
+        # (Series, scalars, tuples like .shape) passes through unchanged.
         import polars as pl
 
         if isinstance(result, pl.DataFrame):
@@ -119,6 +139,8 @@ class DataFrame(MetadataMixin):
                 project_path=self.metadata.lineage.project_path,
                 datasets_file=self._datasets_file,
             )
+        if isinstance(result, _intermediate_types()):
+            return _Proxy(result, self)
         return result
 
     def __getattr__(self, name: str) -> Any:
@@ -187,3 +209,47 @@ class DataFrame(MetadataMixin):
         from .write import _write
 
         _write(self, path, format="json", slug=slug, name=name, license=license, check_license=check_license, **kwargs)
+
+
+class _Proxy:
+    """Lineage-carrying wrapper around polars group-by / lazy intermediates.
+
+    Holds the raw intermediate (``_raw``) and the facade ``DataFrame`` that
+    produced it (``_owner``). Delegated attributes route their results back
+    through ``_owner._wrap``, so a ``LazyFrame`` op returning another
+    ``LazyFrame`` stays proxied, while ``GroupBy.agg(...)`` / ``LazyFrame.collect()``
+    returning a ``pl.DataFrame`` land back as facade DataFrames with lineage.
+    """
+
+    def __init__(self, raw: Any, owner: "DataFrame") -> None:
+        self._raw = raw
+        self._owner = owner
+
+    def __getattr__(self, name: str) -> Any:
+        # Delegated call *args/**kwargs are NOT unwrapped, so passing a facade
+        # DataFrame into a delegated polars method (e.g. a future
+        # ``lazy.join(other)``) is unsupported — pass raw polars objects.
+        #
+        # Guard internal names so attribute access during construction does not
+        # recurse before _raw/_owner exist.
+        if name in ("_raw", "_owner") or name.startswith("__"):
+            raise AttributeError(name)
+        attr = getattr(self._raw, name)
+        if callable(attr):
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return self._owner._wrap(attr(*args, **kwargs))
+
+            return wrapper
+        return self._owner._wrap(attr)
+
+    def __iter__(self) -> Any:
+        # Implicit protocol dunders are looked up on the type, not via
+        # __getattr__, so iteration (e.g. ``for key, sub in df.group_by(k)``)
+        # must be forwarded explicitly. Yielded tuples stay raw, matching the
+        # pre-proxy passthrough behavior.
+        return iter(self._raw)
+
+    def __repr__(self) -> str:
+        # Preserve the underlying LazyFrame/GroupBy repr (notebook display).
+        return repr(self._raw)
