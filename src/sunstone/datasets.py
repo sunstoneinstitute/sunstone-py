@@ -230,6 +230,10 @@ class DatasetsManager:
         # mtime stamps used by the opt-in manager cache to detect external edits.
         self._datasets_mtime_ns: Optional[int] = None
         self._lock_mtime_ns: Optional[int] = None
+        # Cached (by_string, by_abspath) location index for fast, cwd-correct,
+        # symlink-safe path matching. See _get_location_index. Invalidated on
+        # every load/save via _stamp_mtimes.
+        self._location_index: Optional[tuple[Dict[str, Any], Dict[Path, Any]]] = None
         self._load(check_version=True)
 
     @staticmethod
@@ -398,6 +402,8 @@ class DatasetsManager:
         """
         self._datasets_mtime_ns = _mtime_ns(self.datasets_file)
         self._lock_mtime_ns = _mtime_ns(self.lock_file)
+        # Any load or save changes the dataset set; drop the derived index.
+        self._location_index = None
 
     def _is_stale(self) -> bool:
         """Return True if the datasets or lock file on disk differs from the
@@ -874,9 +880,43 @@ class DatasetsManager:
                     continue
         return None
 
-    def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
+    def _get_location_index(self) -> "tuple[Dict[str, Any], Dict[Path, Any]]":
+        """Build (and cache) the resolved-location index.
+
+        Returns ``(by_string, by_abspath)`` where ``by_string`` maps the raw
+        stored ``location`` string to ``(dataset_data, dtype)`` (covers URLs and
+        exact relative strings) and ``by_abspath`` maps each dataset location,
+        resolved against ``project_path`` and symlink-canonicalized, to the same.
+        Earlier datasets win on collisions (``setdefault``).
         """
-        Find a dataset by its file location.
+        if self._location_index is None:
+            by_string: Dict[str, Any] = {}
+            by_abspath: Dict[Path, Any] = {}
+            for dtype, key in (("input", "inputs"), ("output", "outputs")):
+                for dataset_data in self._data.get(key, []):
+                    loc = dataset_data["location"]
+                    by_string.setdefault(loc, (dataset_data, dtype))
+                    if "://" in str(loc):
+                        continue
+                    loc_path = Path(loc)
+                    abs_path = (
+                        loc_path.resolve() if loc_path.is_absolute() else (self.project_path / loc_path).resolve()
+                    )
+                    by_abspath.setdefault(abs_path, (dataset_data, dtype))
+            self._location_index = (by_string, by_abspath)
+        return self._location_index
+
+    def find_dataset_by_location(self, location: str, dataset_type: Optional[str] = None) -> Optional[DatasetMetadata]:
+        """Find a dataset by its file location.
+
+        Resolution order:
+          1. Exact string match against the stored ``location`` — covers URLs and
+             registered relative strings, and is independent of the cwd (backward
+             compatible).
+          2. Filesystem match — the positional path is resolved against the
+             **current working directory** (matching pandas/polars), then compared
+             fully-resolved and symlink-canonicalized against each dataset's
+             location resolved against ``project_path``.
 
         Args:
             location: The file path or URL to search for.
@@ -885,69 +925,29 @@ class DatasetsManager:
         Returns:
             DatasetMetadata if found, None otherwise.
         """
-        # Normalize location to handle both absolute and relative paths
-        location_path = Path(location)
-        if location_path.is_absolute():
-            # Try to make it relative to project path
-            try:
-                location = str(location_path.relative_to(self.project_path))
-            except ValueError:
-                # Not relative to project path, use as-is
-                location = str(location_path)
-        else:
-            location = str(location_path)
+        by_string, by_abspath = self._get_location_index()
 
-        search_types = ["input", "output"] if dataset_type is None else [dataset_type]
+        def _accept(entry: Any) -> Optional[DatasetMetadata]:
+            dataset_data, dtype = entry
+            if dataset_type is None or dtype == dataset_type:
+                return self._parse_dataset(dataset_data, dtype)
+            return None
 
-        # Resolve the requested location to an absolute path
-        location_path = Path(location)
-        if not location_path.is_absolute():
-            location_abs = (self.project_path / location_path).resolve()
-        else:
-            location_abs = location_path.resolve()
+        # 1. Exact string match (URLs, registered relative strings).
+        entry = by_string.get(location)
+        if entry is not None:
+            result = _accept(entry)
+            if result is not None:
+                return result
 
-        for dtype in search_types:
-            key = "inputs" if dtype == "input" else "outputs"
-            for dataset_data in self._data.get(key, []):
-                dataset_location = dataset_data["location"]
-
-                # Try multiple resolution strategies:
-                # 1. Direct string match
-                if dataset_location == location:
-                    return self._parse_dataset(dataset_data, dtype)
-
-                # 2. Resolve dataset location as-is
-                dataset_loc = Path(dataset_location)
-                if not dataset_loc.is_absolute():
-                    dataset_abs = (self.project_path / dataset_loc).resolve()
-                else:
-                    dataset_abs = dataset_loc.resolve()
-
-                if dataset_abs == location_abs:
-                    return self._parse_dataset(dataset_data, dtype)
-
-                # 3. If the requested location exists, and just the filename matches,
-                #    check if they point to the same existing file
-                if location_abs.exists() and dataset_abs.exists():
-                    if location_abs.samefile(dataset_abs):
-                        return self._parse_dataset(dataset_data, dtype)
-
-                # 4. If requested location exists but dataset location in yaml doesn't,
-                #    check if the filename matches (for cases where the directory changed)
-                if location_abs.exists() and not dataset_abs.exists():
-                    if dataset_loc.name == location_path.name:
-                        # Same filename - this might be a match
-                        if (
-                            location_abs.samefile(self.project_path / dataset_loc.name)
-                            if (self.project_path / dataset_loc.name).exists()
-                            else False
-                        ):
-                            return self._parse_dataset(dataset_data, dtype)
-                        # Check in common subdirectories
-                        for subdir in ["inputs", "outputs", "data"]:
-                            candidate = self.project_path / subdir / dataset_loc.name
-                            if candidate.exists() and location_abs.samefile(candidate):
-                                return self._parse_dataset(dataset_data, dtype)
+        # 2. Filesystem match, resolved against cwd. Skip URL-like inputs.
+        if "://" not in location:
+            target_abs = Path(location).expanduser().resolve()
+            entry = by_abspath.get(target_abs)
+            if entry is not None:
+                result = _accept(entry)
+                if result is not None:
+                    return result
 
         return None
 

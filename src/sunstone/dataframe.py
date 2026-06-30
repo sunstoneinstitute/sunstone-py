@@ -14,6 +14,7 @@ from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError, StrictModeError
 from .lineage import DatasetMetadata, FieldSchema, LineageMetadata, Metadata, compute_dataframe_hash
+from .resolution import check_slug_conflict, looks_like_slug, portable_location
 
 if TYPE_CHECKING:
     from .asset import Asset
@@ -563,7 +564,7 @@ class DataFrame:
 
         # Determine if this is a slug or a file path
         # Slugs don't contain path separators and typically use kebab-case
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             # Delegate to read_dataset with CSV format
@@ -595,8 +596,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:
@@ -689,7 +691,7 @@ class DataFrame:
         location = str(filepath_or_buffer)
 
         # Determine if this is a slug or a file path
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             return cls.read_dataset(
@@ -720,8 +722,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:
@@ -808,7 +811,7 @@ class DataFrame:
         location = str(filepath_or_buffer)
 
         # Determine if this is a slug or a file path
-        is_slug = "/" not in location and "\\" not in location and not Path(location).suffix
+        is_slug = looks_like_slug(location)
 
         if is_slug:
             return cls.read_dataset(
@@ -839,8 +842,9 @@ class DataFrame:
                     f"Dataset at '{location}' not found in datasets.yaml. Please add it to datasets.yaml first."
                 )
 
-        # Use the requested location
-        absolute_path = manager.get_absolute_path(location)
+        # Resolve the file from the registered dataset location (the positional
+        # path may be cwd-relative or symlinked; dataset.location is canonical).
+        absolute_path = manager.get_absolute_path(dataset.location)
 
         # If file doesn't exist and we have a source URL, fetch it
         if not absolute_path.exists() and fetch_from_url:
@@ -963,6 +967,10 @@ class DataFrame:
         # Try to find existing dataset
         dataset = manager.find_dataset_by_location(location, "output")
 
+        # An explicit slug= that disagrees with the dataset already registered at
+        # this path is a conflict (per design: explicit must not silently override).
+        check_slug_conflict(dataset, slug)
+
         if dataset is None:
             if self.strict_mode:
                 raise StrictModeError(
@@ -970,7 +978,7 @@ class DataFrame:
                     f"In strict mode, outputs must be pre-registered."
                 )
             else:
-                # Relaxed mode: auto-register
+                # Relaxed mode: auto-register with a portable, project-relative location
                 effective_slug = slug or self.metadata.slug
                 effective_name = name or self.metadata.name
                 if effective_slug is None or effective_name is None:
@@ -983,11 +991,19 @@ class DataFrame:
                 # Build field schema merging explicit metadata with inferred dtypes
                 fields = self._build_field_schema()
 
-                # Register the new output with full metadata
+                # Register the new output with a portable, project-relative location.
+                # Normalise relative paths against project_path first so that
+                # portable_location always receives an absolute path and produces
+                # a correct project-relative POSIX location regardless of cwd.
+                _abs_loc = (
+                    location
+                    if "://" in location or Path(location).is_absolute()
+                    else str((manager.project_path / location).resolve())
+                )
                 dataset = manager.add_output_dataset(
                     name=effective_name,
                     slug=effective_slug,
-                    location=location,
+                    location=portable_location(_abs_loc, manager.project_path),
                     fields=fields,
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,
@@ -1125,6 +1141,10 @@ class DataFrame:
         # Try to find existing dataset
         dataset = manager.find_dataset_by_location(location, "output")
 
+        # An explicit slug= that disagrees with the dataset already registered at
+        # this path is a conflict (per design: explicit must not silently override).
+        check_slug_conflict(dataset, slug)
+
         if dataset is None:
             if self.strict_mode:
                 raise StrictModeError(
@@ -1132,7 +1152,7 @@ class DataFrame:
                     f"In strict mode, outputs must be pre-registered."
                 )
             else:
-                # Relaxed mode: auto-register
+                # Relaxed mode: auto-register with a portable, project-relative location
                 effective_slug = slug or self.metadata.slug
                 effective_name = name or self.metadata.name
                 if effective_slug is None or effective_name is None:
@@ -1145,11 +1165,19 @@ class DataFrame:
                 # Build field schema merging explicit metadata with inferred dtypes
                 fields = self._build_field_schema()
 
-                # Register the new output with full metadata
+                # Register the new output with a portable, project-relative location.
+                # Normalise relative paths against project_path first so that
+                # portable_location always receives an absolute path and produces
+                # a correct project-relative POSIX location regardless of cwd.
+                _abs_loc = (
+                    location
+                    if "://" in location or Path(location).is_absolute()
+                    else str((manager.project_path / location).resolve())
+                )
                 dataset = manager.add_output_dataset(
                     name=effective_name,
                     slug=effective_slug,
-                    location=location,
+                    location=portable_location(_abs_loc, manager.project_path),
                     fields=fields,
                     description=self.metadata.description,
                     rdf_prefixes=self.metadata.rdf_prefixes,

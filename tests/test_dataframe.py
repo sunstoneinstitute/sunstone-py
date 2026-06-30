@@ -272,6 +272,21 @@ class TestStrictMode:
             strict_df.to_csv("/tmp/test_output.csv", index=False)
 
 
+def test_read_csv_with_cwd_relative_path_from_subdir(project_copy: Path, monkeypatch: Any) -> None:
+    from sunstone import pandas as pd
+
+    monkeypatch.chdir(project_copy / "outputs")
+    df = pd.read_csv(
+        "../inputs/official_un_member_states_raw.csv",
+        project_path=project_copy,
+        fetch_from_url=False,
+    )
+    # Lineage is derived from the registered dataset, not the raw path.
+    sources = df.metadata.lineage.sources
+    assert any(s.slug == "official-un-member-states" for s in sources)
+    assert len(df.data) > 0
+
+
 class TestReadDataset:
     """Tests for read_dataset() functionality with format auto-detection."""
 
@@ -1103,3 +1118,32 @@ def test_pinned_format_overrides_extension(tmp_path):
 
     with pytest.raises(ValueError, match="geojson|geofeatures"):
         DataFrame.read_dataset("world", project_path=tmp_path)
+
+
+def test_to_csv_slug_conflict_with_registered_path_raises(project_copy: Path) -> None:
+    from sunstone import pandas as pd
+    from sunstone.exceptions import SlugConflictError
+
+    df = pd.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_copy)
+    with pytest.raises(SlugConflictError):
+        df.to_csv(
+            "outputs/current_un_member_states.csv",  # registered as 'current-un-member-states'
+            slug="a-different-slug",
+            name="Mismatch",
+        )
+
+
+def test_to_csv_autoregister_stores_portable_location(project_copy: Path, monkeypatch: Any) -> None:
+    from sunstone import pandas as pd
+    from sunstone.datasets import DatasetsManager
+
+    df = pd.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_copy)
+    # Write from an unrelated cwd using an absolute path inside the project.
+    monkeypatch.chdir(project_copy / "inputs")
+    target = project_copy / "outputs" / "fresh_output.csv"
+    df.to_csv(str(target), slug="fresh-output", name="Fresh Output")
+
+    manager = DatasetsManager(project_copy)
+    ds = manager.find_dataset_by_slug("fresh-output", "output")
+    assert ds is not None
+    assert ds.location == "outputs/fresh_output.csv"  # portable, project-relative POSIX
