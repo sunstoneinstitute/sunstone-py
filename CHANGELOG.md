@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added: polars support via `sunstone.polars` — a lineage-tracking `DataFrame` facade with `read_csv`/`read_parquet`/`read_json`/`read_dataset` and `write_csv`/`write_parquet`/`write_json`.
 - Added: `Asset.as_polars()` accessor and `sunstone.read(path, payload="polars")` for polars-payload assets.
 - Changed: renamed `Asset.as_table()` to `Asset.as_pandas()` for pandas/polars symmetry (`as_table()` kept as an alias).
+- Added: `sunstone.polars` now forwards unknown symbols to the real polars library, so the full `pl.*` namespace (e.g. `pl.concat`, `pl.Float64`, `pl.LazyFrame`) is available.
 
 ## [1.14.2] - 2026-06-29
 

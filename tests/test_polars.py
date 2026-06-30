@@ -97,3 +97,53 @@ def test_derived_frame_keeps_project_path(project_path) -> None:
     df = spl.read_csv("inputs/official_un_member_states_raw.csv", project_path=project_path, strict=False)
     out = df.filter(pl.col(df.data.columns[0]).is_not_null())
     assert out.metadata.lineage.project_path == df.metadata.lineage.project_path
+
+
+def test_unknown_symbols_forward_to_real_polars() -> None:
+    import sunstone.polars as spl
+
+    # Functions and dtypes not explicitly re-exported should resolve to the real polars objects.
+    assert spl.concat is pl.concat
+    assert spl.struct is pl.struct
+    assert spl.Float64 is pl.Float64
+    assert spl.LazyFrame is pl.LazyFrame
+
+
+def test_nonexistent_symbol_raises_attribute_error() -> None:
+    import sunstone.polars as spl
+
+    with pytest.raises(AttributeError):
+        spl.definitely_not_a_real_symbol
+
+
+def test_facade_names_win_over_real_polars() -> None:
+    import sunstone.polars as spl
+    from sunstone.polars.core import DataFrame as FacadeDataFrame
+
+    assert spl.DataFrame is FacadeDataFrame
+    assert spl.DataFrame is not pl.DataFrame
+
+
+def test_reader_wins_over_real_polars() -> None:
+    import sunstone.polars as spl
+
+    # The facade reader must not be shadowed by polars.read_csv.
+    assert spl.read_csv is not pl.read_csv
+    assert spl.read_csv.__module__ == "sunstone.polars.io"
+
+
+def test_facade_submodule_not_shadowed_by_real_polars() -> None:
+    # On a fresh import, accessing the bare `io` name must resolve to the facade
+    # submodule, never the real polars.io (regression guard for the fallback).
+    import subprocess
+    import sys
+
+    code = (
+        "import sunstone.polars as spl, polars;"
+        "assert spl.io is not polars.io, spl.io;"
+        "assert spl.io.__name__ == 'sunstone.polars.io', spl.io.__name__;"
+        "print('ok')"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
