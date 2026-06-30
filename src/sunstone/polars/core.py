@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from sunstone.config import get_project_path
 from sunstone.lineage import Metadata
 from .metadata import MetadataMixin
+from .ops import OpsMixin
 
 if TYPE_CHECKING:
     import polars as pl
@@ -34,7 +35,7 @@ def _intermediate_types() -> tuple[type, ...]:
     return _INTERMEDIATE_TYPES
 
 
-class DataFrame(MetadataMixin):
+class DataFrame(MetadataMixin, OpsMixin):
     """Facade over an Asset whose payload is a polars DataFrame.
 
     ``df.asset`` is the underlying Asset; ``df.data`` returns the polars

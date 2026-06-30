@@ -55,6 +55,23 @@ so source lineage propagates; non-DataFrame results (Series, scalars,
 attaches column-level metadata that flows to `datasets.yaml` on write,
 the same as the pandas facade.
 
+## Relational operations
+
+Multi-frame operations are first-class on the facade: `df1.join(df2,
+on=...)`, `join_asof`, `vstack`, `hstack`, `extend`, and the top-level
+`pl.concat([df1, df2])`. They accept facade DataFrames directly (no
+need to pass `.data`), combine lineage so the result carries every
+parent's sources, and merge field metadata (first wins). Overlapping
+value columns are unit-checked, warning on incompatible units.
+
+```python
+joined = customers.join(orders, on="customer_id")   # both are facades
+stacked = pl.concat([q1, q2, q3])                    # combined lineage
+```
+
+Note: unlike raw polars, the facade `extend` is **non-mutating** — it
+leaves the caller untouched and returns a new facade DataFrame.
+
 ## How it works
 
 The roadmap items that unlocked first-class polars support, now in

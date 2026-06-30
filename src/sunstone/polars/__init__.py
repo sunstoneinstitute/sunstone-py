@@ -25,6 +25,8 @@ from polars import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from .core import DataFrame
 
 __all__ = [
@@ -32,6 +34,7 @@ __all__ = [
     "read_parquet",
     "read_json",
     "read_dataset",
+    "concat",
     "DataFrame",
     "Series",
     "col",
@@ -39,6 +42,19 @@ __all__ = [
     "when",
     "Int64",
 ]
+
+
+def concat(items: "Sequence[DataFrame]", **kwargs: Any) -> "DataFrame":
+    """Concatenate facade DataFrames, combining lineage from all parents.
+
+    Mirrors ``polars.concat`` but accepts Sunstone facade DataFrames, unwraps
+    each ``.data``, and re-wraps the result carrying every input's sources. This
+    module-level definition shadows the ``__getattr__`` fallback to raw
+    ``polars.concat``.
+    """
+    from .ops import concat as _concat
+
+    return _concat(items, **kwargs)
 
 
 def __getattr__(name: str) -> Any:

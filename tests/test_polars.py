@@ -103,7 +103,6 @@ def test_unknown_symbols_forward_to_real_polars() -> None:
     import sunstone.polars as spl
 
     # Functions and dtypes not explicitly re-exported should resolve to the real polars objects.
-    assert spl.concat is pl.concat
     assert spl.struct is pl.struct
     assert spl.Float64 is pl.Float64
     assert spl.LazyFrame is pl.LazyFrame
@@ -224,3 +223,186 @@ def test_facade_submodule_not_shadowed_by_real_polars() -> None:
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: relational operations (join / join_asof / vstack / hstack / extend
+# + top-level concat) — facade-aware, lineage-combining.
+# ---------------------------------------------------------------------------
+
+
+def _frame_with_slug(data: dict, slug: str) -> DataFrame:
+    """Build a facade DataFrame whose asset carries a slug, so derive() records
+    it as a lineage source (mirrors how readers seed sources)."""
+    df = DataFrame(pl.DataFrame(data))
+    df.asset.metadata.slug = slug
+    df.asset.metadata.name = slug.upper()
+    return df
+
+
+def _source_slugs(df: DataFrame) -> set:
+    return {s.slug for s in df.metadata.lineage.sources}
+
+
+def test_join_returns_facade_with_both_parent_sources() -> None:
+    df1 = _frame_with_slug({"k": [1, 2, 3], "left_val": [10, 20, 30]}, "left-src")
+    df2 = _frame_with_slug({"k": [1, 2, 3], "right_val": [100, 200, 300]}, "right-src")
+
+    out = df1.join(df2, on="k")
+
+    assert isinstance(out, DataFrame)
+    assert not isinstance(out, pl.DataFrame)
+    assert set(out.data.columns) == {"k", "left_val", "right_val"}
+    assert out.data.sort("k")["right_val"].to_list() == [100, 200, 300]
+    assert _source_slugs(out) == {"left-src", "right-src"}
+    assert out.metadata.lineage.engine == "polars"
+    assert out.metadata.lineage.activity is None
+
+
+def test_join_accepts_facade_other_without_dot_data() -> None:
+    # The whole point: passing a facade DataFrame (not .data) must work.
+    df1 = DataFrame(pl.DataFrame({"k": [1, 2], "a": [1, 2]}))
+    df2 = DataFrame(pl.DataFrame({"k": [1, 2], "b": [3, 4]}))
+    out = df1.join(df2, on="k")
+    assert isinstance(out, DataFrame)
+    assert out.data.height == 2
+
+
+def test_join_asof_returns_facade_with_both_sources() -> None:
+    df1 = _frame_with_slug({"t": [1, 5, 10], "left": [1, 2, 3]}, "asof-left")
+    df2 = _frame_with_slug({"t": [1, 6], "right": [9, 8]}, "asof-right")
+    out = df1.join_asof(df2, on="t")  # both already sorted on t
+    assert isinstance(out, DataFrame)
+    assert _source_slugs(out) == {"asof-left", "asof-right"}
+
+
+def test_vstack_combines_rows_and_lineage() -> None:
+    df1 = _frame_with_slug({"a": [1, 2], "b": [3, 4]}, "top")
+    df2 = _frame_with_slug({"a": [5], "b": [6]}, "bottom")
+    out = df1.vstack(df2)
+    assert isinstance(out, DataFrame)
+    assert out.data.shape == (3, 2)
+    assert out.data["a"].to_list() == [1, 2, 5]
+    assert _source_slugs(out) == {"top", "bottom"}
+
+
+def test_hstack_combines_columns_and_lineage() -> None:
+    df1 = _frame_with_slug({"a": [1, 2]}, "lhs")
+    df2 = _frame_with_slug({"b": [3, 4]}, "rhs")
+    out = df1.hstack(df2)
+    assert isinstance(out, DataFrame)
+    assert out.data.columns == ["a", "b"]
+    assert out.data.shape == (2, 2)
+    assert _source_slugs(out) == {"lhs", "rhs"}
+
+
+def test_extend_does_not_mutate_caller() -> None:
+    df1 = _frame_with_slug({"a": [1, 2], "b": [3, 4]}, "base")
+    df2 = _frame_with_slug({"a": [5], "b": [6]}, "more")
+    before = df1.data.height
+    out = df1.extend(df2)
+    # Caller untouched (non-mutating divergence from raw polars).
+    assert df1.data.height == before == 2
+    assert isinstance(out, DataFrame)
+    assert out.data.height == 3
+    assert out.data["a"].to_list() == [1, 2, 5]
+    assert _source_slugs(out) == {"base", "more"}
+
+
+def test_top_level_concat_combines_rows_and_both_sources() -> None:
+    import sunstone.polars as spl
+
+    df1 = _frame_with_slug({"a": [1, 2], "b": [3, 4]}, "c1")
+    df2 = _frame_with_slug({"a": [5, 6], "b": [7, 8]}, "c2")
+    out = spl.concat([df1, df2])
+    assert isinstance(out, DataFrame)
+    assert not isinstance(out, pl.DataFrame)
+    assert out.data.height == 4
+    assert out.data["a"].to_list() == [1, 2, 5, 6]
+    assert _source_slugs(out) == {"c1", "c2"}
+    assert out.metadata.lineage.engine == "polars"
+
+
+def test_concat_shadows_raw_polars_concat() -> None:
+    import sunstone.polars as spl
+
+    assert spl.concat is not pl.concat
+
+
+def test_join_combines_field_metadata() -> None:
+    df1 = DataFrame(pl.DataFrame({"k": [1, 2], "left_val": [1.0, 2.0]}))
+    df1.set_field_metadata("left_val", unit="kg", description="left amount")
+    df2 = DataFrame(pl.DataFrame({"k": [1, 2], "right_val": [3.0, 4.0]}))
+    df2.set_field_metadata("right_val", unit="m", description="right length")
+
+    out = df1.join(df2, on="k")
+    assert out.metadata.field_metadata["left_val"].unit == "kg"
+    assert out.metadata.field_metadata["left_val"].description == "left amount"
+    assert out.metadata.field_metadata["right_val"].unit == "m"
+
+
+def test_concat_combines_field_metadata_first_wins() -> None:
+    import sunstone.polars as spl
+
+    df1 = DataFrame(pl.DataFrame({"v": [1.0, 2.0]}))
+    df1.set_field_metadata("v", unit="kg", description="from df1")
+    df2 = DataFrame(pl.DataFrame({"v": [3.0, 4.0]}))
+    df2.set_field_metadata("v", unit="kg", description="from df2")
+
+    out = spl.concat([df1, df2])
+    assert out.metadata.field_metadata["v"].unit == "kg"
+    assert out.metadata.field_metadata["v"].description == "from df1"
+
+
+def test_join_incompatible_units_warns() -> None:
+    df1 = DataFrame(pl.DataFrame({"k": [1, 2], "v": [1.0, 2.0]}))
+    df1.set_field_metadata("v", unit="meter")
+    df2 = DataFrame(pl.DataFrame({"k": [1, 2], "v": [3.0, 4.0]}))
+    df2.set_field_metadata("v", unit="second")
+    with pytest.warns(UserWarning, match="incompatible dimensions"):
+        df1.join(df2, on="k")
+
+
+def test_vstack_incompatible_units_warns() -> None:
+    df1 = DataFrame(pl.DataFrame({"v": [1.0, 2.0]}))
+    df1.set_field_metadata("v", unit="meter")
+    df2 = DataFrame(pl.DataFrame({"v": [3.0]}))
+    df2.set_field_metadata("v", unit="second")
+    with pytest.warns(UserWarning, match="incompatible dimensions"):
+        df1.vstack(df2)
+
+
+def test_hstack_accepts_raw_series_list() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2]}))
+    out = df.hstack([pl.Series("c", [9, 8])])
+    assert isinstance(out, DataFrame)
+    assert out.data.columns == ["a", "c"]
+    assert out.data["c"].to_list() == [9, 8]
+
+
+def test_hstack_raw_dataframe_raises_typeerror() -> None:
+    df = DataFrame(pl.DataFrame({"a": [1, 2]}))
+    with pytest.raises(TypeError, match="lineage"):
+        df.hstack(pl.DataFrame({"b": [3, 4]}))
+
+
+def test_concat_three_frames_unions_all_sources() -> None:
+    import sunstone.polars as spl
+
+    df1 = _frame_with_slug({"a": [1]}, "s1")
+    df2 = _frame_with_slug({"a": [2]}, "s2")
+    df3 = _frame_with_slug({"a": [3]}, "s3")
+    out = spl.concat([df1, df2, df3])
+    assert out.data["a"].to_list() == [1, 2, 3]
+    assert _source_slugs(out) == {"s1", "s2", "s3"}
+
+
+def test_join_left_right_on_validates_shared_value_column() -> None:
+    df1 = DataFrame(pl.DataFrame({"lk": [1, 2], "v": [1.0, 2.0]}))
+    df1.set_field_metadata("v", unit="meter")
+    df2 = DataFrame(pl.DataFrame({"rk": [1, 2], "v": [3.0, 4.0]}))
+    df2.set_field_metadata("v", unit="second")
+    with pytest.warns(UserWarning, match="incompatible dimensions"):
+        out = df1.join(df2, left_on="lk", right_on="rk")
+    assert isinstance(out, DataFrame)
+    assert not isinstance(out, pl.DataFrame)
