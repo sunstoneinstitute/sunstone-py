@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Changed: File paths in read_csv/to_csv and friends now resolve against cwd, so reads/writes from subdirectories match datasets.yaml.
+- Added: geopandas readers (read_geojson/read_topojson/read_file) accept a file path, not only a dataset slug.
+- Changed: Passing slug= that conflicts with the dataset registered at the given path now raises SlugConflictError.
+
 ## [1.14.2] - 2026-06-29
 
 - Added: `datasets_manager_cache()` context shares one `DatasetsManager` per `datasets.yaml`, cutting repeated re-parsing in multi-output pipelines.

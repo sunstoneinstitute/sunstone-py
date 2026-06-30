@@ -75,8 +75,10 @@ gpd.GeoDataFrame(gdf.asset.derive(
 )).to_geojson("outputs/dense.geojson")
 ```
 
-The read helpers resolve a slug or path against `datasets.yaml` and return a
-`sunstone.geopandas.GeoDataFrame` facade over a `GEOFEATURES` asset:
+The read helpers accept either a dataset slug or a file path and return a
+`sunstone.geopandas.GeoDataFrame` facade over a `GEOFEATURES` asset. File paths
+resolve against the current working directory and are matched against `datasets.yaml`
+by fully-resolved absolute path; a slug (no path separator) bypasses this resolution.
 
 - `read_geojson(slug_or_path, project_path=None)` — read GeoJSON
 - `read_topojson(slug_or_path, project_path=None)` — read TopoJSON

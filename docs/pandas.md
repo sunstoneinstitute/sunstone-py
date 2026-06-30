@@ -57,11 +57,17 @@ df = pd.read_csv("inputs/schools.csv")
 summary = df[df["enrollment"] > 100].groupby("district").sum()
 summary.to_csv(
     "outputs/summary.csv",
-    slug="school-summary",
+    slug="school-summary",    # omit if the path is already registered in datasets.yaml
     name="School Enrollment Summary",
     index=False,
 )
 ```
+
+Relative file paths resolve against the current working directory (like plain
+`open()`), and are matched against `datasets.yaml` by their fully-resolved
+absolute path. Pass the file path; register it in `datasets.yaml`; `slug=` is an
+optional override only needed when auto-registering a brand-new output in relaxed
+mode.
 
 `sunstone.DataFrame` is a facade over a TABULAR `Asset`. Both routes
 record identical lineage; pick `sunstone.pandas` for code that should

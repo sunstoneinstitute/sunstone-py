@@ -95,12 +95,14 @@ from pathlib import Path
 PROJECT_PATH = Path.cwd()
 
 # Read data - lineage automatically tracked
+# Relative paths resolve against cwd and are matched against datasets.yaml
 df = pd.read_csv('data/schools.csv', project_path=PROJECT_PATH)
 
 # Transform using familiar pandas operations
 result = df[df['enrollment'] > 100].groupby('district').sum()
 
 # Save with automatic lineage tracking and dataset registration
+# slug/name are optional if 'outputs/summary.csv' is already in datasets.yaml
 result.to_csv(
     'outputs/summary.csv',
     slug='school-summary',
@@ -158,7 +160,7 @@ auto = gpd.read_file('regions')
 # Access the underlying geopandas.GeoDataFrame
 print(gdf.data.crs)
 
-# Write with lineage tracking (slug + name required for new outputs)
+# Write with lineage tracking (slug + name needed only for new outputs not in datasets.yaml)
 gdf.to_geojson('output.geojson', slug='regions-out', name='Regions Output')
 gdf.to_topojson('output.topojson', slug='regions-topo', name='Regions TopoJSON')
 ```
