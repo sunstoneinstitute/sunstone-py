@@ -1103,3 +1103,26 @@ def test_pinned_format_overrides_extension(tmp_path):
 
     with pytest.raises(ValueError, match="geojson|geofeatures"):
         DataFrame.read_dataset("world", project_path=tmp_path)
+
+
+def test_read_stamps_pandas_engine(project_path) -> None:
+    import sunstone
+
+    df = sunstone.DataFrame.read_csv(
+        "inputs/official_un_member_states_raw.csv",
+        project_path=project_path,
+        strict=False,
+    )
+    assert df.metadata.lineage.engine == "pandas"
+
+
+def test_write_stamps_pandas_engine(project_copy) -> None:
+    import sunstone
+
+    df = sunstone.DataFrame.read_csv(
+        "inputs/official_un_member_states_raw.csv",
+        project_path=project_copy,
+        strict=False,
+    )
+    df.to_csv("outputs/out.csv", slug="out-data", name="Out", index=False)
+    assert df.metadata.lineage.engine == "pandas"

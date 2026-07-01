@@ -78,18 +78,24 @@ def test_profile_accessor_reads_extras():
     assert asset.crs == "EPSG:4326"
 
 
-def test_as_table_returns_payload_when_kind_matches():
+def test_as_pandas_returns_payload_when_kind_matches():
     df = pd.DataFrame({"x": [1]})
     asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
-    assert asset.as_table() is df
+    assert asset.as_pandas() is df
 
 
-def test_as_table_raises_on_wrong_kind():
+def test_as_pandas_raises_on_wrong_kind():
     asset = Asset(payload=np.zeros((2, 2)), kind=AssetKind.RASTER, metadata=Metadata())
     with pytest.raises(IncompatibleAssetKindError) as exc_info:
-        asset.as_table()
+        asset.as_pandas()
     assert exc_info.value.expected is AssetKind.TABULAR
     assert exc_info.value.actual is AssetKind.RASTER
+
+
+def test_as_table_is_backwards_compatible_alias():
+    df = pd.DataFrame({"x": [1]})
+    asset = Asset(payload=df, kind=AssetKind.TABULAR, metadata=Metadata())
+    assert asset.as_table() is asset.as_pandas()
 
 
 def test_as_raster_as_array_as_tiles_round_trip():
@@ -263,3 +269,33 @@ def test_derive_chains_activities_through_transient_intermediate():
     assert source_slugs == ["root"]
     assert c.metadata.lineage.activity is not None
     assert c.metadata.lineage.activity.id == "op-1"
+
+
+# --- as_polars() ---
+
+
+def _tabular(payload) -> Asset:
+    return Asset(payload=payload, kind=AssetKind.TABULAR, metadata=Metadata())
+
+
+def test_as_polars_returns_payload() -> None:
+    pl = pytest.importorskip("polars")
+    frame = pl.DataFrame({"a": [1, 2]})
+    asset = _tabular(frame)
+    assert asset.as_polars() is frame
+
+
+def test_as_polars_wrong_kind_raises() -> None:
+    pytest.importorskip("polars")
+    asset = Asset(payload=b"x", kind=AssetKind.BLOB, metadata=Metadata())
+    with pytest.raises(IncompatibleAssetKindError):
+        asset.as_polars()
+
+
+def test_as_polars_on_pandas_payload_raises_typeerror() -> None:
+    pytest.importorskip("polars")
+    import pandas as pd
+
+    asset = _tabular(pd.DataFrame({"a": [1]}))
+    with pytest.raises(TypeError, match="pl.from_pandas"):
+        asset.as_polars()

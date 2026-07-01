@@ -58,7 +58,7 @@ jobs:
       run: uv run ruff format --check src/sunstone
 
     - name: Run mypy
-      run: uv run mypy src/sunstone
+      run: uv run --extra polars mypy src/sunstone
 
   test:
     needs: check-skip

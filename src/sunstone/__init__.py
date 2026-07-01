@@ -61,6 +61,7 @@ def read(
     kind: "AssetKind | None" = None,
     metadata: "Metadata | None" = None,
     extras: dict[str, Any] | None = None,
+    payload: str = "pandas",
     **kw: object,
 ) -> "Asset":
     """Read any registered format into an `Asset`.
@@ -76,6 +77,12 @@ def read(
     reconstruction path — consumers rebuilding an Asset from a catalog row
     where the catalog (not the file) is the source of truth for envelope
     fields.
+
+    ``payload`` selects the returned Asset's payload type — ``"pandas"``
+    (default) or ``"polars"``. It chooses the parser only; ``sunstone.read``
+    returns a bare Asset with empty ``Metadata`` (no lineage sources and no
+    ``engine`` stamp). For lineage-tracked reads use the engine facades —
+    ``sunstone.pandas.read_*`` or ``sunstone.polars.read_*``.
     """
     from .dataframe import _read_tabular_asset
     from .datasets import DatasetsManager
@@ -113,7 +120,8 @@ def read(
             asset = handler.read(loc, **kw)  # type: ignore[attr-defined]
 
     if asset is None:
-        asset = _read_tabular_asset(path, format=format, **kw)
+        engine = "polars" if payload == "polars" else "pandas"
+        asset = _read_tabular_asset(path, format=format, engine=engine, **kw)
 
     # Apply overrides (full replacement — catalog rows win over file content).
     if kind is not None:
@@ -187,6 +195,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
     "DatasetNotFoundError": ("sunstone.exceptions", "DatasetNotFoundError"),
     "DatasetValidationError": ("sunstone.exceptions", "DatasetValidationError"),
     "LineageError": ("sunstone.exceptions", "LineageError"),
+    "LineageWarning": ("sunstone.exceptions", "LineageWarning"),
     "StrictModeError": ("sunstone.exceptions", "StrictModeError"),
     "SunstoneError": ("sunstone.exceptions", "SunstoneError"),
     "UnitError": ("sunstone.exceptions", "UnitError"),
@@ -245,14 +254,14 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
 }
 
 # Submodules exposed via attribute access (`sunstone.<name>`).
-_LAZY_SUBMODULES: frozenset[str] = frozenset({"errors", "packaging", "pandas"})
+_LAZY_SUBMODULES: frozenset[str] = frozenset({"errors", "packaging", "pandas", "polars"})
 
 
 if TYPE_CHECKING:
     # Eager-looking imports for the benefit of type checkers and IDEs. These
     # statements are never executed at runtime; they only inform static
     # analysis about the surface available on the `sunstone` namespace.
-    from . import errors, packaging, pandas  # noqa: F401
+    from . import errors, packaging, pandas, polars  # noqa: F401
     from .asset import Asset, AssetKind  # noqa: F401
     from .component import ComponentSchema  # noqa: F401
     from .config import (  # noqa: F401
@@ -280,6 +289,7 @@ if TYPE_CHECKING:
         DatasetNotFoundError,
         DatasetValidationError,
         LineageError,
+        LineageWarning,
         StrictModeError,
         SunstoneError,
         UnitError,
@@ -373,6 +383,8 @@ __all__ = [
     "use_project_path",
     # Pandas-like interface
     "pandas",
+    # Polars-like interface
+    "polars",
     # Errors (re-exported from pandas.errors)
     "errors",
     # Validation utilities
@@ -408,6 +420,7 @@ __all__ = [
     "DatasetValidationError",
     "StrictModeError",
     "LineageError",
+    "LineageWarning",
     "UnitError",
     "IncompatibleAssetKindError",
     # Context and session

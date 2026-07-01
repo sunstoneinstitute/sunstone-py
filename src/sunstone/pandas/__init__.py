@@ -21,29 +21,37 @@ Example:
     >>> result.to_csv('output.csv', slug='output-data', name='Output Data')
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pandas as _pd
+if TYPE_CHECKING:
+    from .core import DataFrame
 
-from .dataframe import DataFrame
-
-# Re-export commonly used pandas types and functions
+# Re-export commonly used pandas types and functions.
 # This allows scripts to use `from sunstone import pandas as pd` and still
 # access standard pandas utilities like pd.Timestamp, pd.NaT, etc.
 #
-# NOTE: DataFrame is our wrapped version from .dataframe
-# For vanilla pandas DataFrame, use _pd.DataFrame directly if needed
-Timestamp = _pd.Timestamp
-NaT = _pd.NaT
-isna = _pd.isna
-isnull = _pd.isnull
-notna = _pd.notna
-notnull = _pd.notnull
-to_datetime = _pd.to_datetime
-to_numeric = _pd.to_numeric
-to_timedelta = _pd.to_timedelta
-Series = _pd.Series  # Re-export pandas Series
+# The `X as X` form is the canonical explicit re-export pattern that type
+# checkers (mypy, pyright) recognise — necessary here because this package
+# is also named `pandas`, and bare `Timestamp = pandas.Timestamp` aliases
+# trip pyright's "type alias cannot use itself" check via the shared name.
+#
+# NOTE: DataFrame is our wrapped version from .core. For the
+# upstream pandas DataFrame, do `import pandas; pandas.DataFrame` locally.
+from pandas import (
+    NaT as NaT,
+    Series as Series,
+    Timestamp as Timestamp,
+    isna as isna,
+    isnull as isnull,
+    notna as notna,
+    notnull as notnull,
+    to_datetime as to_datetime,
+    to_numeric as to_numeric,
+    to_timedelta as to_timedelta,
+)
 
 __all__ = [
     "read_csv",
@@ -65,6 +73,22 @@ __all__ = [
     "to_numeric",
     "to_timedelta",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy-load DataFrame to keep ``import sunstone.pandas`` cheap.
+
+    Resolving ``DataFrame`` pulls in pandas (via :mod:`sunstone.pandas.core`
+    and the mixin modules). Deferring that to first access via PEP 562's
+    module-level ``__getattr__`` keeps the package import lightweight for
+    callers that only want :func:`read_csv` etc. or the re-exported pandas
+    symbols above.
+    """
+    if name == "DataFrame":
+        from .core import DataFrame as _DataFrame
+
+        return _DataFrame
+    raise AttributeError(f"module 'sunstone.pandas' has no attribute {name!r}")
 
 
 def read_dataset(
@@ -121,6 +145,8 @@ def read_dataset(
         >>> # With additional reader arguments
         >>> df = pd.read_dataset('data-file', encoding='utf-8', skiprows=1)
     """
+    from .core import DataFrame
+
     return DataFrame.read_dataset(
         slug=slug,
         project_path=project_path,
@@ -175,6 +201,8 @@ def read_csv(
         >>> # With additional pandas arguments
         >>> df = pd.read_csv('schools.csv', encoding='utf-8', skiprows=1)
     """
+    from .core import DataFrame
+
     return DataFrame.read_csv(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,
@@ -225,6 +253,8 @@ def read_excel(
         >>> # Load by file path with explicit project path
         >>> df = pd.read_excel('data.xlsx', project_path='/path/to/project')
     """
+    from .core import DataFrame
+
     return DataFrame.read_excel(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,
@@ -275,6 +305,8 @@ def read_json(
         >>> # Load by file path with explicit project path
         >>> df = pd.read_json('data.json', project_path='/path/to/project')
     """
+    from .core import DataFrame
+
     return DataFrame.read_json(
         filepath_or_buffer=filepath_or_buffer,
         project_path=project_path,

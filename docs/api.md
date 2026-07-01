@@ -156,7 +156,7 @@ Closed enum of supported asset kinds.
 
 **Values:**
 
-- `AssetKind.TABULAR` — `pandas.DataFrame`
+- `AssetKind.TABULAR` — `pandas.DataFrame` or `polars.DataFrame`
 - `AssetKind.RASTER` — `numpy.ndarray` (single payload, e.g. GeoTIFF)
 - `AssetKind.ARRAY` — `dict[str, numpy.ndarray]` (multi-variable n-D arrays)
 - `AssetKind.TILES` — tile pyramid descriptor
@@ -187,7 +187,8 @@ Uniform envelope across kinds.
 
 **Typed kind accessors** (raise `IncompatibleAssetKindError` on mismatch):
 
-- `asset.as_table() -> pandas.DataFrame`
+- `asset.as_pandas() -> pandas.DataFrame` (`as_table()` is a backwards-compatible alias)
+- `asset.as_polars() -> polars.DataFrame`
 - `asset.as_raster() -> numpy.ndarray`
 - `asset.as_array() -> dict[str, numpy.ndarray]`
 - `asset.as_tiles() -> Any`
@@ -256,7 +257,7 @@ Stored on `Metadata.component_metadata` keyed by component name.
 
 ### `IncompatibleAssetKindError`
 
-Raised when a typed accessor (`as_table`, `as_raster`, ...) or a handler
+Raised when a typed accessor (`as_pandas`, `as_raster`, ...) or a handler
 is called with an asset whose `kind` does not match.
 
 ```python
@@ -421,6 +422,43 @@ Concatenate DataFrames with combined lineage.
 ```python
 result = pd.concat([df1, df2, df3], ignore_index=True)
 ```
+
+## polars Module
+
+Polars-backed tabular API mirroring the pandas module, with lineage
+tracking (eager mode). Requires the `[polars]` extra.
+
+```python
+from sunstone import polars as pl
+```
+
+### Functions
+
+- `read_dataset(slug, project_path=None, strict=None, fetch_from_url=True, format=None, **kwargs) -> DataFrame`
+- `read_csv(filepath_or_buffer, project_path=None, strict=None, fetch_from_url=True, **kwargs) -> DataFrame`
+- `read_parquet(...) -> DataFrame`
+- `read_json(...) -> DataFrame`
+
+Each resolves a slug or registered path against `datasets.yaml` and
+returns a `sunstone.polars.DataFrame` with construction-time lineage
+(`engine="polars"`).
+
+### `sunstone.polars.DataFrame`
+
+Facade over an `AssetKind.TABULAR` Asset whose payload is a
+`polars.DataFrame`.
+
+- `df.asset` — underlying `Asset`
+- `df.data` — the `polars.DataFrame` (`asset.as_polars()`)
+- `df.metadata` — `Metadata` container
+- `df.set_field_metadata(column, *, description=None, unit=None, source=None, type=None, constraints=None, custom_properties=None) -> DataFrame`
+- `df.write_csv(path, *, slug, name, license=None, check_license=True, **kwargs)`
+- `df.write_parquet(...)` / `df.write_json(...)`
+- Unknown attributes delegate to the underlying polars frame;
+  DataFrame-returning ops re-wrap and propagate source lineage.
+
+See [polars.md](polars.md) for usage, the `payload=`/`engine=`
+terminology, and lineage-parity notes.
 
 ## DataFrame Class
 

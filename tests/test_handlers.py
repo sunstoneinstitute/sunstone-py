@@ -40,8 +40,10 @@ class TestBuiltinFormatHandlerCanRead:
         # Excel parsing must pass format="excel" explicitly.
         assert not handler.can_read("data.xls", None)
 
-    def test_parquet_not_handled(self, handler):
-        assert not handler.can_read("data.parquet", None)
+    def test_parquet_handled(self, handler):
+        # Parquet is a recognized tabular read format (pandas via pyarrow,
+        # or polars via engine="polars").
+        assert handler.can_read("data.parquet", None)
 
     def test_tsv(self, handler):
         assert handler.can_read("data.tsv", None)
@@ -780,6 +782,50 @@ class TestLocalFileHandlerOpen:
         with local_handler.open(str(f), "wb") as stream:
             stream.write(b"data")
         assert f.read_bytes() == b"data"
+
+
+def test_builtin_handler_reads_csv_as_polars() -> None:
+    pl = pytest.importorskip("polars")
+    from sunstone.asset import AssetKind
+
+    raw = b"a,b\n1,x\n2,y\n"
+    handler = BuiltinFormatHandler()
+    asset = handler.read(io.BytesIO(raw), format="csv", path="t.csv", engine="polars")
+    assert asset.kind is AssetKind.TABULAR
+    assert isinstance(asset.payload, pl.DataFrame)
+    assert asset.payload.columns == ["a", "b"]
+
+
+def test_builtin_handler_writes_polars_csv() -> None:
+    pl = pytest.importorskip("polars")
+    from sunstone.asset import Asset, AssetKind
+    from sunstone.lineage import Metadata
+
+    asset = Asset(payload=pl.DataFrame({"a": [1, 2]}), kind=AssetKind.TABULAR, metadata=Metadata())
+    buf = io.BytesIO()
+    BuiltinFormatHandler().write(asset, buf, format="csv", path="t.csv", engine="polars")
+    assert buf.getvalue().startswith(b"a\n1\n2")
+
+
+def test_builtin_handler_reads_parquet_as_polars() -> None:
+    pl = pytest.importorskip("polars")
+    from sunstone.asset import AssetKind
+
+    buf = io.BytesIO()
+    pl.DataFrame({"a": [1, 2], "b": ["x", "y"]}).write_parquet(buf)
+    buf.seek(0)
+    asset = BuiltinFormatHandler().read(buf, format="parquet", path="t.parquet", engine="polars")
+    assert asset.kind is AssetKind.TABULAR
+    assert isinstance(asset.payload, pl.DataFrame)
+    assert asset.payload.columns == ["a", "b"]
+    assert asset.payload.height == 2
+
+
+def test_builtin_handler_polars_unsupported_format_raises() -> None:
+    pytest.importorskip("polars")
+    handler = BuiltinFormatHandler()
+    with pytest.raises(ValueError, match="not supported by the polars engine"):
+        handler.read(io.BytesIO(b"x"), format="excel", path="t.xlsx", engine="polars")
 
 
 @pytest.mark.filterwarnings("ignore:fetch_from_url is deprecated:DeprecationWarning")

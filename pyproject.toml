@@ -58,6 +58,9 @@ geo = [
     "pyogrio>=0.8",
     "topojson>=1.9",
 ]
+polars = [
+    "polars>=1.42.0",
+]
 
 [project.license]
 text = "MIT"

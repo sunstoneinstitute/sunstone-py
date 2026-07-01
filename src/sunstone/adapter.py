@@ -62,7 +62,7 @@ class TabularDataFrameAdapter:
     # --- Write ---
 
     def write(self, asset: Asset, stream: BinaryIO, **kw: Any) -> None:
-        df = asset.as_table()
+        df = asset.as_pandas()
         if self.supports_sunstone_metadata_embedding():
             df.attrs["sunstone_metadata"] = asset.metadata
             try:

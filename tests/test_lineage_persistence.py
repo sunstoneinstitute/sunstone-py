@@ -179,3 +179,18 @@ class TestFieldDerivationPersistence:
         assert result.metadata.lineage.field_derivations is not None
         # Both derivations: (a, ds1) and (a, ds2) are distinct because source_entity differs
         assert len(result.metadata.lineage.field_derivations) == 2
+
+
+def test_engine_field_defaults_to_none() -> None:
+    lm = LineageMetadata()
+    assert lm.engine is None
+
+
+def test_engine_omitted_when_none() -> None:
+    lm = LineageMetadata()
+    assert "engine" not in lm.to_dict()
+
+
+def test_engine_serialized_when_set() -> None:
+    lm = LineageMetadata(engine="polars")
+    assert lm.to_dict()["engine"] == "polars"
