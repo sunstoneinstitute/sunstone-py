@@ -40,7 +40,9 @@ Format as [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Use these ca
 - `- Fixed:` — bug fixes
 - `- Removed:` — removed features
 
-Be concise but descriptive. Each entry should be one line. Do NOT include the version header line — the release script adds that. The release script also clears the `[Unreleased]` section automatically, so don't worry about duplication.
+Be concise but descriptive. Each entry should be one line. Fold multiple lines describing the same change into a single line. Keep every line user-focused, internal CI refactors are not interesting for the user. Rephrase and reorganize as necessary.
+
+Do NOT include the version header line — the release script adds that. The release script also clears the `[Unreleased]` section automatically, so don't worry about duplication.
 
 ## Step 4: Confirm with user
 
