@@ -10,6 +10,7 @@ A Python library for managing datasets with lineage tracking in data science pro
 - **Automatic Lineage Tracking**: Track data provenance through all operations automatically
 - **Dataset Management**: Integration with `datasets.yaml` for organized dataset registration
 - **Pandas-Compatible API**: Familiar pandas-like interface via `from sunstone import pandas as pd` (CSV, Excel, JSON)
+- **Polars Support**: Lineage-tracking polars facade via `from sunstone import polars as pl` (requires the `[polars]` extra)
 - **Geospatial Support**: Lineage-tracking GeoJSON/TopoJSON read/write via `from sunstone import geopandas as gpd` (requires the `[geo]` extra)
 - **Plugin System**: Extensible architecture for custom auth providers, URL handlers, and format handlers via entry points
 - **Strict/Relaxed Modes**: Control whether operations can modify `datasets.yaml`
@@ -221,6 +222,7 @@ pip install sunstone-py          # Core + HTTP + local file handling
 pip install sunstone-py[gcs]     # Adds GCS (gs://) support
 pip install sunstone-py[s3]      # Adds S3 (s3://) and R2 (r2://) support
 pip install sunstone-py[geo]     # Adds GeoJSON/TopoJSON vector support
+pip install sunstone-py[polars]  # Adds the polars DataFrame facade
 pip install sunstone-py[gcs,s3]  # Both
 ```
 

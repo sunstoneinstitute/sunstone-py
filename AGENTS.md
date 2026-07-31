@@ -13,75 +13,64 @@ The `sunstone-py` package provides:
 - **Validation tools**: Check notebooks and scripts for correct import usage
 - **Metadata system**: Unified container for dataset-level and field-level metadata that flows through operations to write time
 - **Pandas-like API**: Familiar interface for data scientists via `from sunstone import pandas as pd`
+- **Polars-like API**: Same, for polars via `from sunstone import polars as pl` (requires the `[polars]` extra)
 
 ## Package Structure
 
 ```
-.
-├── pyproject.toml
-├── README.md
-├── src
-│   └── sunstone
-│       ├── __init__.py
-│       ├── cli.py
-│       ├── context.py
-│       ├── dataframe.py
-│       ├── datasets.py
-│       ├── errors.py
-│       ├── exceptions.py
-│       ├── field_types.py
-│       ├── geopandas.py
-│       ├── handlers.py
-│       ├── handlers_gcs.py
-│       ├── handlers_geo.py
-│       ├── handlers_s3.py
-│       ├── lineage.py
-│       ├── packaging.py
-│       ├── pandas.py
-│       ├── plugins.py
-│       ├── py.typed
-│       ├── queries.py
-│       ├── session.py
-│       ├── ssrf.py
-│       └── validation.py
-├── templates
-│   ├── analysis_notebook.ipynb
-│   ├── analysis_notebook.py
-│   └── README.md
-└── tests
-    ├── conftest.py
-    ├── test_cli.py
-    ├── test_context.py
-    ├── test_dataframe.py
-    ├── test_dataframe_coverage.py
-    ├── test_datasets.py
-    ├── test_datasets_coverage.py
-    ├── test_errors.py
-    ├── test_handlers.py
-    ├── test_handlers_gcs.py
-    ├── test_handlers_s3.py
-    ├── test_lineage_flow.py
-    ├── test_lineage_persistence.py
-    ├── test_metadata.py
-    ├── test_packaging.py
-    ├── test_pandas_compatibility.py
-    ├── test_plugins.py
-    ├── test_queries.py
-    ├── test_rdf.py
-    ├── test_remaining_coverage.py
-    ├── test_session.py
-    ├── test_ssrf.py
-    ├── test_validation.py
-    └── testdata
-        └── UNMembersProject
-            ├── create_un_members_dataset.py
-            ├── datasets.yaml
-            ├── inputs
-            │   └── official_un_member_states_raw.csv
-            ├── outputs
-            ├── pyproject.toml
-            └── uv.lock
+src/sunstone
+├── __init__.py
+├── adapter.py           # DataFrame/engine adapter protocol
+├── asset.py             # Asset envelope (payload + kind + metadata)
+├── cli.py
+├── component.py
+├── config.py
+├── context.py
+├── dataframe.py         # sunstone.DataFrame facade over a TABULAR Asset
+├── datasets.py
+├── derive_policies.py
+├── env.py               # environment/config resolution (sunstone env ...)
+├── errors.py
+├── exceptions.py
+├── field_types.py       # field value-type registry
+├── geopandas.py         # lineage-tracking geopandas facade
+├── handlers.py          # built-in format/URL handlers
+├── handlers_gcs.py      # gs://            [gcs]
+├── handlers_geo.py      # GeoJSON/TopoJSON [geo]
+├── handlers_hdf5.py     # HDF5/NetCDF-4    [hdf5]
+├── handlers_meta.py
+├── handlers_npz.py      # NumPy .npz
+├── handlers_s3.py       # s3:// and r2://  [s3]
+├── handlers_zarr.py     # Zarr             [zarr]
+├── licenses.py
+├── lineage.py
+├── lint.py
+├── packaging.py         # data-package build/push
+├── pandas/              # lineage-tracking pandas facade
+│   ├── core.py          #   DataFrame
+│   ├── metadata.py
+│   ├── ops.py           #   operation boundary -> Asset.derive
+│   ├── read.py
+│   └── write.py
+├── plugins.py           # plugin protocols + PluginRegistry
+├── polars/              # lineage-tracking polars facade   [polars]
+│   ├── core.py          #   DataFrame (+ passthrough to real pl.*)
+│   ├── io.py
+│   ├── metadata.py
+│   ├── ops.py           #   relational ops, multi-parent lineage
+│   └── write.py
+├── queries.py
+├── rdf.py               # IRI / LangString / TypedLiteral
+├── resource.py
+├── session.py
+├── ssrf.py
+├── units.py
+└── validation.py
 ```
+
+Tests live in `tests/`, with fixture projects under `tests/testdata/`.
+Extended docs are in `docs/` (`pandas.md`, `polars.md`, `geopandas.md`,
+`api.md`, `formats.md`, ADRs under `docs/adr/`).
 
 ## Usage for Data Scientists
 
@@ -135,6 +124,7 @@ Key modules:
 - `handlers_s3.py` — `S3URLHandler` for `s3://` and `r2://` URLs (requires `sunstone-py[s3]`)
 - `handlers_geo.py` — GeoJSON/TopoJSON format handler for `GEOFEATURES` assets (requires `sunstone-py[geo]`)
 - `geopandas.py` — Lineage-tracking geopandas facade (`read_geojson`/`read_topojson`/`read_file`, `GeoDataFrame`)
+- `polars/` — Lineage-tracking polars facade (`read_csv`/`read_parquet`/`write_*`, `DataFrame`, `pl.*` passthrough; requires `sunstone-py[polars]`)
 - `field_types.py` — Field value-type registry for column-level type metadata
 - `packaging.py` — Library functions for building and pushing data packages via URLHandler
 

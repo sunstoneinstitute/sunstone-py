@@ -4,7 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-- Added: polars support — `sunstone.polars` lineage-tracking `DataFrame` facade (read/write, group-by, lazy chains, joins, full `pl.*` passthrough), plus `Asset.as_polars()` and `sunstone.read(path, payload="polars")`.
+## [1.15.0] - 2026-07-31
+
+- Added: polars support via `from sunstone import polars as pl` — a lineage-tracking DataFrame facade (read/write, group-by, lazy chains, joins, full `pl.*` passthrough), plus `Asset.as_polars()` and `sunstone.read(path, payload="polars")`.
 - Changed: renamed `Asset.as_table()` to `Asset.as_pandas()` for pandas/polars symmetry (`as_table()` kept as an alias).
 
 ## [1.14.2] - 2026-06-29
