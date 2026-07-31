@@ -1,0 +1,1331 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.15.0/adr/0001-lance-for-vector-and-multimodal-assets/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR 0001: Lance for vector-bearing and multimodal assets; embeddings are a column, not a kind - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../0001-lance-for-vector-and-multimodal-assets.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0001-lance-for-vector-bearing-and-multimodal-assets-embeddings-are-a-column-not-a-kind" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR 0001: Lance for vector-bearing and multimodal assets; embeddings are a column, not a kind
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-embeddings-are-a-column-type-index-descriptor-not-a-new-assetkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Embeddings are a column type + index descriptor — not a new AssetKind
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-lance-is-the-default-storage-handler-for-vector-bearing-and-multimodal-assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Lance is the default storage handler for vector-bearing and multimodal assets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-default-handler-is-chosen-per-kind-context-lance-only-where-it-is-differentiated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Default handler is chosen per (kind, context); Lance only where it is differentiated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-lance-does-not-replace-iceberg-for-plain-tabular-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Lance does not replace Iceberg for plain tabular data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-lance-does-not-supersede-the-concept-embeddings-catalog-research-stack-adr-0003" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Lance does not supersede the concept-embeddings catalog (research-stack ADR 0003)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-lance-versions-are-physical-storage-history-not-authoritative-provenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Lance versions are physical storage history, not authoritative provenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-geospatial-and-scientific-grid-kinds-stay-non-lance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Geospatial and scientific-grid kinds stay non-Lance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives-considered" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#relationship-to-other-adrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Relationship to other ADRs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="adr-0001-lance-for-vector-bearing-and-multimodal-assets-embeddings-are-a-column-not-a-kind">ADR 0001: Lance for vector-bearing and multimodal assets; embeddings are a column, not a kind<a class="headerlink" href="#adr-0001-lance-for-vector-bearing-and-multimodal-assets-embeddings-are-a-column-not-a-kind" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status</strong>: Proposed</li>
+<li><strong>Date</strong>: 2026-06-30</li>
+<li><strong>Deciders</strong>: sunstone-py maintainers (@stigsb @Kesara03)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p><code>sunstone-py</code> models data as an <code>Asset</code> — a uniform envelope (<code>payload</code>, <code>kind</code>,
+<code>metadata</code>, <code>extras</code>) over a <strong>closed</strong> <code>AssetKind</code> enum (<code>TABULAR</code>, <code>RASTER</code>,
+<code>ARRAY</code>, <code>TILES</code>, <code>BLOB</code>, <code>GEOFEATURES</code>). The enum is deliberately closed:
+<em>"New kinds (point clouds, meshes, audio) require adding a variant here. Plugin
+authors cannot extend this enum."</em> Storage is fully decoupled behind two plugin
+protocols — <code>FormatHandler</code> (single-file: Parquet, <code>.npz</code>, GeoJSON…) and
+<code>StoreFormatHandler</code> (directory/location: Zarr, HDF5…) — discovered via a
+<code>PluginRegistry</code> over entry points, with built-ins loaded last so externals can
+override. Formats embed the sunstone <code>Metadata</code> (JSON-LD: slug, RDF prefixes,
+per-component schema, PROV-O lineage) in-file where the format allows.</p>
+<p>We increasingly need to store <strong>embeddings</strong> and, more broadly, <strong>multimodal</strong>
+data: a raw document or image <em>together with</em> its extracted text, its vector
+representation, and structured metadata. Today vectors have no good home:</p>
+<ul>
+<li><code>AssetKind.ARRAY</code> is <code>dict[str, ndarray]</code> for <em>scientific multidimensional</em>
+  data (climate grids, neuroimaging volumes) — free-floating named arrays with no
+  notion of "row = an entity," and no similarity-search operation.</li>
+<li><code>AssetKind.BLOB</code> is opaque bytes — no schema, no index.</li>
+</ul>
+<p>Neither supports the two things an embedding store actually needs: <strong>row-to-entity
+alignment</strong> (each vector travels with an id and its metadata/source) and <strong>ANN
+vector search</strong> (which needs an index).</p>
+<p><strong>Lance</strong> (Apache 2.0, Arrow-native, independent <code>lance-format</code> governance; file
+format 2.1 stable, <code>pylance</code> 7.x) is built for exactly this. It is a <em>multimodal</em>
+columnar format: scalars, native vector columns (<code>FixedSizeList&lt;float&gt;</code>), and
+large binary blobs co-exist as columns in one versioned dataset with fast
+random/range access, and it carries <strong>on-disk ANN indexes</strong> (IVF-PQ, IVF-HNSW)
+that live with the data on object storage. Parquet↔Lance conversion is a two-line,
+lossless Arrow round-trip. Caveats: optimistic/single-writer concurrency,
+compaction must be scheduled, the large-blob "Blob v2" encoding rides format 2.2
+(still maturing), <code>pylance</code> is PyPI-labelled alpha despite production use, and its
+engine/tool ecosystem is narrower than Parquet's.</p>
+<p>A prior decision must be reconciled, not contradicted: <strong>research-stack ADR 0003</strong>
+already stores <em>concept</em> embeddings as an Iceberg <code>list&lt;float&gt;</code> table in
+data-platform's <code>embeddings</code> namespace, discovered by <code>(scheme, model)</code> and
+loaded into the extraction runtime for in-process similarity. This ADR must
+coexist with that.</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-embeddings-are-a-column-type-index-descriptor-not-a-new-assetkind">1. Embeddings are a column type + index descriptor — <strong>not</strong> a new <code>AssetKind</code><a class="headerlink" href="#1-embeddings-are-a-column-type-index-descriptor-not-a-new-assetkind" title="Permanent link">&para;</a></h3>
+<p>We do <strong>not</strong> add <code>AssetKind.EMBEDDING</code>. The closed enum stays as-is. A vector is a
+<code>FixedSizeList&lt;float&gt;</code> <strong>column</strong> on a <code>TABULAR</code> (or multimodal) asset, carrying an
+<strong>index descriptor</strong> — dimension, distance metric, index type and parameters — in
+the column's <code>component_metadata</code> (the same per-component channel already used for
+tabular columns, raster bands, and array variables).</p>
+<p>Rationale: an embedding store is <strong>row/entity-aligned</strong> (row = chunk/document/image
++ id + metadata + optionally the source blob), which is <code>TABULAR</code>-shaped, not
+<code>ARRAY</code>-shaped. "Fixed-size float" is incidental; the load-bearing differences are
+the per-row identity and the <em>search</em> operation. "Searchable vector" is therefore a
+property of a <strong>column</strong>, not of a payload <strong>kind</strong> — which is also exactly how
+Lance models it. Keeping it column-level avoids a core enum change per use case and
+keeps the kind taxonomy about payload <em>shape</em>.</p>
+<h3 id="2-lance-is-the-default-storage-handler-for-vector-bearing-and-multimodal-assets">2. Lance is the default storage handler for vector-bearing and multimodal assets<a class="headerlink" href="#2-lance-is-the-default-storage-handler-for-vector-bearing-and-multimodal-assets" title="Permanent link">&para;</a></h3>
+<p>Implement a <code>LanceStoreHandler</code> (directory-based <code>StoreFormatHandler</code>,
+<code>__sunstone_handler_protocol__ = 2</code>) supporting <code>TABULAR</code> and <code>BLOB</code> (and <code>ARRAY</code>
+where on-disk vectors/versioning are explicitly wanted). It:</p>
+<ul>
+<li>embeds the sunstone <code>Metadata</code> JSON-LD in Lance schema metadata (same trick as
+  <code>ParquetFormatHandler</code>);</li>
+<li>persists vector columns and builds/loads the ANN index inside the <code>.lance</code>
+  dataset;</li>
+<li>registers via entry point, so it is discovered with no change to the registry.</li>
+</ul>
+<h3 id="3-default-handler-is-chosen-per-kind-context-lance-only-where-it-is-differentiated">3. Default handler is chosen per <code>(kind, context)</code>; Lance only where it is differentiated<a class="headerlink" href="#3-default-handler-is-chosen-per-kind-context-lance-only-where-it-is-differentiated" title="Permanent link">&para;</a></h3>
+<p>"Preferred handler" means an <strong>overridable default</strong> (callers can still name a
+format), and the default depends on context — <code>sunstone-py</code> local files vs the
+data-platform Iceberg catalog:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>sunstone-py default</th>
+<th>data-platform default</th>
+<th>Lance?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TABULAR</td>
+<td>Parquet</td>
+<td><strong>Iceberg</strong></td>
+<td>only when vector-bearing</td>
+</tr>
+<tr>
+<td>BLOB (incl. multimodal)</td>
+<td>Lance or raw bytes</td>
+<td>Lance / object-store sidecar</td>
+<td><strong>yes</strong></td>
+</tr>
+<tr>
+<td>ARRAY (sci. multidim)</td>
+<td>Zarr / HDF5</td>
+<td>Zarr sidecar</td>
+<td>no (unless vectors+versioning)</td>
+</tr>
+<tr>
+<td>RASTER</td>
+<td>COG / GeoTIFF</td>
+<td>COG sidecar</td>
+<td>no</td>
+</tr>
+<tr>
+<td>TILES</td>
+<td>MBTiles / PMTiles</td>
+<td>sidecar</td>
+<td>no</td>
+</tr>
+<tr>
+<td>GEOFEATURES</td>
+<td>GeoParquet</td>
+<td>GeoParquet sidecar</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>"Embeddings" is not a row in this table — it is a TABULAR/multimodal asset <em>with a
+vector column</em> (Decision 1), and that is the case where Lance becomes the default.</p>
+<h3 id="4-lance-does-not-replace-iceberg-for-plain-tabular-data">4. Lance does <strong>not</strong> replace Iceberg for plain tabular data<a class="headerlink" href="#4-lance-does-not-replace-iceberg-for-plain-tabular-data" title="Permanent link">&para;</a></h3>
+<p>In data-platform, Iceberg stays the <strong>tabular spine</strong> (catalog identity, DuckDB
+attach, time-travel, schema evolution, the pointer-table design). Lance is a
+<strong>sidecar</strong> for vector/multimodal assets, not a second table format for ordinary
+tables — running both as competing table formats is operational tax with no
+incremental gain, and Lance's per-write versioning merely overlaps Iceberg
+snapshots.</p>
+<h3 id="5-lance-does-not-supersede-the-concept-embeddings-catalog-research-stack-adr-0003">5. Lance does <strong>not</strong> supersede the concept-embeddings catalog (research-stack ADR 0003)<a class="headerlink" href="#5-lance-does-not-supersede-the-concept-embeddings-catalog-research-stack-adr-0003" title="Permanent link">&para;</a></h3>
+<p>The boundary is <strong>scale and access pattern</strong>, not dogma:</p>
+<ul>
+<li><strong>Stay Iceberg <code>list&lt;float&gt;</code> (ADR 0003):</strong> small, fixed <code>(scheme, model)</code>
+  exact-lookup tables loaded into the extractor and searched <strong>in-process</strong> (the
+  concept embeddings — thousands of rows).</li>
+<li><strong>Use Lance:</strong> large-scale, multimodal, or <strong>on-disk-ANN</strong> corpora — document /
+  passage embeddings co-located with their source blobs, too big to hold in memory
+  or wanting search to run against object storage.</li>
+</ul>
+<p>The two coexist. If the concept-embeddings table ever outgrows in-memory search,
+migrating it to Lance is a two-line Arrow conversion (non-breaking) — at which
+point ADR 0003 is revisited, not before.</p>
+<h3 id="6-lance-versions-are-physical-storage-history-not-authoritative-provenance">6. Lance versions are physical storage history, not authoritative provenance<a class="headerlink" href="#6-lance-versions-are-physical-storage-history-not-authoritative-provenance" title="Permanent link">&para;</a></h3>
+<p>Lance creates a new version per write; we treat that as storage-layer history for
+time-travel/debugging only. The <strong>PROV-O / JSON-LD lineage in <code>Metadata</code> remains
+the source of truth</strong> (consistent with data-platform ADR 0002 making the knowledge
+graph canonical). Do not build the provenance model <em>on</em> Lance versions.</p>
+<h3 id="7-geospatial-and-scientific-grid-kinds-stay-non-lance">7. Geospatial and scientific-grid kinds stay non-Lance<a class="headerlink" href="#7-geospatial-and-scientific-grid-kinds-stay-non-lance" title="Permanent link">&para;</a></h3>
+<p><code>RASTER</code> → COG/GeoTIFF, <code>TILES</code> → MBTiles/PMTiles, <code>GEOFEATURES</code> → GeoParquet,
+<code>ARRAY</code> → Zarr/HDF5. Lance has no geometry-native typing and would degrade these to
+WKB or tensor blobs, discarding window reads, overviews, reprojection, and
+per-tile access. These kinds keep their format-aware handlers.</p>
+<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Add <code>AssetKind.EMBEDDING</code> as a "stricter <code>ARRAY</code>."</strong> Rejected. It mistakes a
+  column-level concern (a searchable vector) for a payload-shape concern, forces a
+  core enum change, and fragments a multimodal row (blob + text + vector +
+  metadata) into separate assets when Lance wants them as one row. An embedding
+  table is <code>TABULAR</code>-shaped, not <code>ARRAY</code>-shaped.</li>
+<li><strong>Store embeddings as <code>ARRAY</code> (<code>dict[str, ndarray]</code>).</strong> Rejected. No row/entity
+  alignment, nowhere natural for ids/metadata/index, no ANN. Technically
+  expressible (<code>{"vectors": (N,D), "ids": (N,)}</code>) but it throws away the
+  co-location and the index that make embeddings useful.</li>
+<li><strong>Lance as a general Parquet/Iceberg replacement for tabular.</strong> Rejected
+  (Decision 4): two table formats = operational tax; versioning overlaps Iceberg;
+  no incremental value for plain tables; Parquet/Iceberg remain the safer
+  interchange/catalog substrate.</li>
+<li><strong>Adopt LanceDB (the embedded vector DB) rather than the Lance format.</strong>
+  Deferred. The platform already owns a catalog and a lineage layer, so we take the
+  <strong>format primitive</strong> (<code>pylance</code>) as a storage handler now and can layer LanceDB
+  for serving later <strong>without changing the underlying files</strong>.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>New work in <code>sunstone-py</code>:</strong> a <code>LanceStoreHandler</code>; a vector-column type +
+  index descriptor convention in <code>component_metadata</code>; and a vector-search (<code>knn</code>)
+  query seam. Pin <code>pylance</code> versions given the alpha label and test upgrades.</li>
+<li><strong>data-platform auto-adopts</strong> via <code>ContentRegistry.register_from_sunstone()</code> with
+  no code change — Lance assets ride the planned sidecar/pointer-table path as
+  <code>SIDECAR</code>; the drift tests flag the new content descriptor. This fills the
+  <strong>storage half</strong> of data-platform ADR 0002's "vector-search API seam" follow-up.</li>
+<li><strong>New capability:</strong> the multimodal <em>document-corpus asset</em> — one Lance dataset =
+  raw document blob + text chunks + embeddings + claim/entity metadata, versioned
+  together and ANN-searchable — becomes directly expressible.</li>
+<li><strong>Operational:</strong> compaction and old-version cleanup must be scheduled for Lance
+  datasets; writes must be batched (single-writer/optimistic concurrency);
+  validate ANN recall (notably IVF-HNSW defaults) on real embeddings before
+  trusting defaults.</li>
+<li><strong>Maturity watch:</strong> the large-blob "Blob v2" encoding rides format 2.2 — validate
+  large-media range reads before committing heavy media to Lance; Parquet/GeoParquet
+  remain the choice for long-term interchange where any tool must read it.</li>
+<li><strong>Forward-compatible with ADR 0003:</strong> the concept-embeddings table can migrate
+  Iceberg→Lance later as a lossless two-line Arrow conversion if it ever needs
+  on-disk ANN.</li>
+</ul>
+<h2 id="relationship-to-other-adrs">Relationship to other ADRs<a class="headerlink" href="#relationship-to-other-adrs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>research-stack ADR 0003</strong> (concept-embeddings catalog contract) — coexists;
+  this ADR draws the Iceberg-vs-Lance boundary (Decision 5), does not supersede it.</li>
+<li><strong>data-platform ADR 0002</strong> (graph is the canonical metadata store; vector-search
+  API seam as a follow-up) — this ADR supplies the storage half of that seam and
+  defers to the graph for canonical provenance (Decision 6).</li>
+<li><strong>data-platform ADR 0001</strong> (sunstone URL scheme) — Lance datasets are addressed
+  through the same object-store URI scheme.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

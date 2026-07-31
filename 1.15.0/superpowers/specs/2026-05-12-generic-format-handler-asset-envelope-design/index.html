@@ -1,0 +1,2332 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.15.0/superpowers/specs/2026-05-12-generic-format-handler-asset-envelope-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Generic Format Handler and Asset Envelope Design - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-05-12-generic-format-handler-asset-envelope-design.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#generic-format-handler-and-asset-envelope-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Generic Format Handler and Asset Envelope Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#non-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-single-generic-protocol-payload-type-is-any" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1. Single generic protocol; payload type is Any
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-asset-envelope-is-the-uniform-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2. Asset envelope is the uniform container
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-convenience-accessors-over-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3. Convenience accessors over extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3b-typed-kind-accessors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3b. Typed kind accessors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d4-assetderive-is-the-canonical-provenance-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D4. Asset.derive() is the canonical provenance event
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-dispatch-entry-points-stay-flat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5. Dispatch entry points stay flat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d6-backwards-compatibility-adapter-as-default-no-breaking-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D6. Backwards compatibility: adapter-as-default, no breaking change
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#protocol-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protocol Definitions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Protocol Definitions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#formathandler-stream-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FormatHandler (stream-based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storeformathandler-location-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StoreFormatHandler (location-based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kindderivepolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        KindDerivePolicy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rdf-value-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RDF Value Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata-mapping-sugar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata mapping sugar
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kind-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kind Taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metadata-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metadata Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#identity-content-hashing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Identity &amp; Content Hashing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units-gating-dependency-for-non-tabular-handlers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units (gating dependency for non-tabular handlers)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-code-walkthrough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client Code Walkthrough
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Client Code Walkthrough">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#multi-parent-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Multi-parent example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backwards-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backwards Compatibility
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Backwards Compatibility">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dataframe-returning-plugins-existing-pattern-still-first-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DataFrame-returning plugins (existing pattern, still first-class)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asset-returning-plugins-new-pattern-opt-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset-returning plugins (new pattern, opt-in)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#existing-user-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Existing user code
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-registry-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin Registry compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deprecation-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecation Warnings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migration-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#follow-up-specs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Follow-up Specs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolved-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolved Decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="generic-format-handler-and-asset-envelope-design">Generic Format Handler and Asset Envelope Design<a class="headerlink" href="#generic-format-handler-and-asset-envelope-design" title="Permanent link">&para;</a></h1>
+<p><strong>Date:</strong> 2026-05-12
+<strong>Status:</strong> Approved (all decisions resolved 2026-05-13)
+<strong>Supersedes:</strong> Portions of <code>2026-04-03-stream-based-plugin-io-design.md</code> (the <code>FormatHandler</code> protocol section).
+<strong>Related:</strong> <code>2026-04-07-dataframe-metadata-design.md</code> (metadata model that the <code>Asset</code> envelope generalises). See <code>2026-05-12-asset-envelope-open-decisions.md</code> for the design-decision audit trail.</p>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>The current <code>FormatHandler</code> protocol is rigidly tabular:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>This forecloses on three classes of data that data scientists want sunstone to help them
+manage with the same lineage and RDF-metadata story that DataFrames enjoy today:</p>
+<ol>
+<li><strong>Rasters</strong> — GeoTIFF, Cloud-Optimized GeoTIFF, NetCDF, HDF5. Native shape is an
+   <code>ndarray</code> with georeferencing metadata (CRS, transform, nodata).</li>
+<li><strong>Dense array bundles</strong> — NumPy <code>.npz</code>, Zarr stores, embeddings on disk. Native shape
+   is a dict-of-arrays or a chunked array.</li>
+<li><strong>Tile pyramids</strong> — XYZ tile directories, MBTiles, vector tiles. Native shape is a
+   pyramid descriptor plus the underlying chunked store.</li>
+</ol>
+<p>None of these are pandas DataFrames. Forcing them through the current protocol would
+either coerce them into something tabular (lossy and silly) or require a parallel,
+duplicated plugin system per kind.</p>
+<p>The library also has a longer-term ambition — discovering datasets by language ("Sentinel-2
+NDVI rasters over East Africa, 2024") — that depends on <strong>every kind of dataset carrying
+the same RDF-capable metadata bag</strong>. Today, only DataFrames do.</p>
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>One plugin protocol that supports tabular, raster, array, tile, and future kinds of
+  data without per-kind sharding of the entry-point API.</li>
+<li>Uniform metadata: every readable artefact carries the same <code>Metadata</code> container
+  (the unified container in <code>sunstone.lineage</code> — lineage, slug/name, description,
+  <code>rdf_prefixes</code>, <code>custom_properties</code>/RDF triples, <code>field_metadata</code>,
+  <code>component_metadata</code>, <code>identity</code>) regardless of payload type. <code>DatasetMetadata</code>
+  remains the YAML-row class; it is <em>not</em> what <code>Asset.metadata</code> holds.</li>
+<li>Explicit, lightweight provenance: deriving a new asset from an existing one is a single
+  method call that records <code>prov:wasDerivedFrom</code> automatically and supports
+  multi-parent derivation.</li>
+<li><strong>Zero backwards-compatibility break for plugin authors.</strong> Plugins returning
+  <code>pd.DataFrame</code> (with optional <code>df.attrs["sunstone_metadata"]</code>) keep working
+  unchanged via a normalising adapter; plugins returning <code>Asset</code> get richer control.
+  Both paths are first-class and supported indefinitely.</li>
+<li>The existing DataFrame ergonomics (<code>sunstone.DataFrame</code> wrapper with <code>.metadata</code>,
+  pandas-compatible operations) remain unchanged for tabular data.</li>
+</ul>
+<h2 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Implementing GeoTIFF, NPZ, or tile handlers. Each is a separate plan that builds on
+  this protocol.</li>
+<li>Building the natural-language discovery layer. Downstream work; this design provides
+  the metadata substrate.</li>
+<li>Designing the per-kind required RDF shape (DCAT/PROV/GeoSPARQL/SOSA mappings,
+  unit/QUDT bridging). Tracked as a <strong>gating dependency</strong> for non-tabular handlers in
+  a follow-up spec — it must land before the first GeoTIFF handler.</li>
+<li>Forcing every kind through a single concrete container class. Plugin authors choose
+  their native payload type; the envelope is what's uniform, not the payload.</li>
+<li>Replacing the <code>sunstone.DataFrame</code> wrapper. It stays as the user-facing facade for
+  tabular work; internally it becomes a thin facade over an <code>Asset</code>.</li>
+</ul>
+<h2 id="design-decisions">Design Decisions<a class="headerlink" href="#design-decisions" title="Permanent link">&para;</a></h2>
+<h3 id="d1-single-generic-protocol-payload-type-is-any">D1. Single generic protocol; payload type is <code>Any</code><a class="headerlink" href="#d1-single-generic-protocol-payload-type-is-any" title="Permanent link">&para;</a></h3>
+<p><code>FormatHandler.read()</code> returns a sunstone-owned envelope (<code>Asset</code>) with an <code>Any</code>-typed
+<code>payload</code> field. Plugins decide the concrete payload type (DataFrame, <code>numpy.ndarray</code>,
+<code>dict[str, np.ndarray]</code>, a tile-pyramid descriptor object, ...).</p>
+<p>For formats whose I/O is not a single byte-stream (XYZ tile directories, MBTiles,
+Zarr stores, partitioned Parquet, object-store prefixes), a parallel
+<code>StoreFormatHandler</code> protocol takes a <code>ResourceLocation</code> instead of a <code>BinaryIO</code>. See
+the Protocol Definitions section.</p>
+<h3 id="d2-asset-envelope-is-the-uniform-container">D2. Asset envelope is the uniform container<a class="headerlink" href="#d2-asset-envelope-is-the-uniform-container" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AssetKind</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">TABULAR</span> <span class="o">=</span> <span class="s2">&quot;tabular&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">RASTER</span>  <span class="o">=</span> <span class="s2">&quot;raster&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">ARRAY</span>   <span class="o">=</span> <span class="s2">&quot;array&quot;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">TILES</span>   <span class="o">=</span> <span class="s2">&quot;tiles&quot;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">Asset</span><span class="p">:</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n">AssetKind</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="n">Metadata</span>              <span class="c1"># the unified container from sunstone.lineage</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">extras</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>          <span class="c1"># kind-specific accessories (profile, CRS, chunks, ...)</span>
+</code></pre></div>
+<p><code>kind</code> is a <strong>closed enum</strong>. Adding a new kind requires extending <code>AssetKind</code> upstream
+rather than letting third-party plugins invent strings. This makes dispatch,
+validation, and the typed accessors below (<code>as_table()</code>, <code>as_raster()</code>, ...) total over
+the kind space.</p>
+<p>Kind-specific detail (rasterio profile, Zarr chunk spec, tile zoom range) lives in
+<code>extras</code> to keep the envelope shape stable. <strong>Payload is the data, for every kind.</strong>
+<code>extras</code> carry metadata <em>about</em> the data, never copies of it.</p>
+<p><strong>Metadata sourcing convention.</strong> The <code>metadata</code> field is always populated, but
+<em>who</em> populates it is layered:</p>
+<ul>
+<li>Handlers extract whatever embedded metadata the file format carries and return it on
+  the <code>Asset</code> (subject to their <code>supports_native_metadata_extraction()</code> /
+  <code>supports_sunstone_metadata_embedding()</code> answers — see D6). If the format has no
+  embedded metadata, handlers return an <code>Asset</code> with a minimal <code>Metadata</code> (slug/name
+  both <code>None</code>; lineage default-initialised; rdf_prefixes/custom_properties left
+  empty). Asset kind is carried on <code>Asset.kind</code>, not on the metadata.</li>
+<li>The calling layer (<code>ss.read</code>, <code>read_csv</code>, etc.) merges this with metadata resolved
+  from <code>datasets.yaml</code>, with <code>datasets.yaml</code> taking precedence on conflicts. Merge
+  order: defaults → <code>datasets.yaml</code> row → embedded file metadata → user mutations
+  after read.</li>
+<li>After merge, the calling layer reassigns <code>asset.metadata</code> to the merged instance.</li>
+</ul>
+<p>Plugin authors don't need to know about <code>datasets.yaml</code>. They populate what the file
+itself tells them.</p>
+<p><strong>Tabular ownership.</strong> <code>sunstone.DataFrame</code> becomes a thin facade over an <code>Asset</code>:
+<code>df.data</code> returns <code>asset.as_table()</code>; <code>df.metadata</code> returns <code>asset.metadata</code> (same
+instance, not a copy). User mutations to <code>df.metadata.description</code> flow into
+<code>datasets.yaml</code> on write as before.</p>
+<h3 id="d3-convenience-accessors-over-extras">D3. Convenience accessors over <code>extras</code><a class="headerlink" href="#d3-convenience-accessors-over-extras" title="Permanent link">&para;</a></h3>
+<p>Common kind-specific fields surface as read-only properties on <code>Asset</code> that delegate to
+<code>extras</code>. They exist because users computing on assets shouldn't have to remember the
+<code>extras</code> key naming for each kind, and writers need a uniform way to validate before
+serialising.</p>
+<ul>
+<li><strong><code>asset.profile</code> → <code>extras.get("profile")</code> (raster).</strong> A rasterio-style profile dict
+  (<code>dtype</code>, <code>count</code>, <code>transform</code>, <code>crs</code>, <code>nodata</code>, <code>compression</code>, ...) — everything a
+  GeoTIFF writer needs to round-trip a raster. Users computing band math read it to
+  preserve geo-referencing; writers inspect it to validate that the payload's shape
+  and dtype agree with what they're about to serialise.</li>
+<li><strong><code>asset.crs</code> → <code>extras.get("crs")</code> (raster, tiles).</strong> Coordinate reference system,
+  exposed uniformly across kinds so cross-kind code (reprojection helpers, discovery
+  queries like "what's in EPSG:4326?", footprint computation) doesn't branch on <code>kind</code>.</li>
+</ul>
+<p>These are read-only sugar over <code>extras</code>. Plugin authors populate <code>extras["profile"]</code>,
+<code>extras["crs"]</code> as appropriate. Note: there is no <code>asset.arrays</code> accessor — for
+<code>AssetKind.ARRAY</code>, the payload <em>is</em> the <code>dict[str, ndarray]</code>, accessed via
+<code>asset.as_array()</code>. Duplicating it in <code>extras</code> would invite unnecessary copies.</p>
+<h3 id="d3b-typed-kind-accessors">D3b. Typed kind accessors<a class="headerlink" href="#d3b-typed-kind-accessors" title="Permanent link">&para;</a></h3>
+<p>Asset payloads are statically <code>Any</code>, but most downstream code knows what kind it's
+operating on. To avoid <code>cast(...)</code> litter and to fail loudly on kind mismatch, <code>Asset</code>
+exposes typed accessors:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">asset</span><span class="o">.</span><span class="n">as_table</span><span class="p">()</span>   <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>                <span class="c1"># raises IncompatibleAssetKindError if kind != TABULAR</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">asset</span><span class="o">.</span><span class="n">as_raster</span><span class="p">()</span>  <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>                  <span class="c1"># raises if kind != RASTER</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">asset</span><span class="o">.</span><span class="n">as_array</span><span class="p">()</span>   <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>       <span class="c1"># raises if kind != ARRAY</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">asset</span><span class="o">.</span><span class="n">as_tiles</span><span class="p">()</span>   <span class="o">-&gt;</span> <span class="n">TilePyramid</span>                 <span class="c1"># raises if kind != TILES</span>
+</code></pre></div>
+<p>Each accessor checks <code>self.kind</code> and either returns <code>self.payload</code> typed appropriately
+or raises <code>IncompatibleAssetKindError</code>. Pure runtime checks plus type-checker hints —
+no payload transformation.</p>
+<h3 id="d4-assetderive-is-the-canonical-provenance-event">D4. <code>Asset.derive()</code> is the canonical provenance event<a class="headerlink" href="#d4-assetderive-is-the-canonical-provenance-event" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">derive</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">slug</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n">AssetKind</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">derived_from</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="s2">&quot;Asset&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">metadata_updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">extras_updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">inherit_custom_properties</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Asset&quot;</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>Calling <code>.derive()</code> returns a new <code>Asset</code> that:</p>
+<ul>
+<li>Carries the new <code>payload</code>.</li>
+<li>Inherits <code>kind</code> and <strong>deep-copies</strong> <code>extras</code> (no shared mutable state with the
+  parent), then applies <code>extras_updates</code>. The relevant <code>KindDerivePolicy</code> then runs
+  to invalidate stale kind-specific fields — e.g., the <code>RASTER</code> policy drops
+  <code>profile["count"]</code>, <code>profile["dtype"]</code>, <code>profile["nodata"]</code> when the new payload's
+  shape or dtype differs from the parent's. Default policy is a no-op.</li>
+<li>Forks <code>metadata</code>:</li>
+<li><strong><code>slug</code> clears to <code>None</code></strong> unless explicitly provided. Writers must then require
+    a non-None slug — matching today's <code>df.to_csv(slug=...)</code> contract.</li>
+<li><strong><code>name</code> clears to <code>None</code></strong> unless explicitly provided. (A derived NDVI asset
+    shouldn't silently carry the parent's "Sentinel-2 SR" name.)</li>
+<li><strong><code>custom_properties</code> do NOT inherit by default.</strong> Semantic claims about data
+    (<code>sosa:observedProperty = "surface-reflectance"</code>) are not provenance; inheriting
+    them onto a derivative would make false RDF statements. Opt in with
+    <code>inherit_custom_properties=True</code> for cases where the claims genuinely carry
+    forward (e.g., a re-projection that preserves the observed property).
+    <code>metadata_updates</code> is the explicit per-key override channel.</li>
+<li><code>description</code>, <code>rdf_prefixes</code>, <code>identity</code>, and <code>field_metadata</code> /
+    <code>component_metadata</code> follow the same rule: not inherited by default; specify in
+    <code>metadata_updates</code>.</li>
+<li><strong>Records <code>prov:wasDerivedFrom</code> for each parent.</strong> <code>derived_from</code> defaults to
+  <code>[self]</code> (single-parent derive); pass an iterable to record multi-parent lineage for
+  mosaics, joins, stacks, etc.</li>
+</ul>
+<p><strong>Unsaved parents (transient intermediates).</strong> When a parent in <code>derived_from</code> has no
+slug (it was a transient intermediate, e.g., <code>B</code> in a chain <code>A → B → C</code>), <code>derive()</code>
+collapses past it:</p>
+<ul>
+<li><code>child.lineage.sources</code> inherits <code>parent.lineage.sources</code> (i.e., the slugged
+  upstream <code>A</code>, not the slugless <code>B</code>). This keeps <code>sources</code> clean and identifiable —
+  no blank-node noise.</li>
+<li><code>child.lineage.activity</code> chains: the new activity record is appended to the parent's
+  activity chain rather than replacing it. The full op chain <code>A → B → C</code> is preserved
+  in <code>lineage.activity</code>, just not in <code>lineage.sources</code>.</li>
+</ul>
+<p>This gives discoverable identity (<code>sources</code> are real, slugged datasets) and complete
+operation history (<code>activity</code> captures every transform) without forcing transients to
+materialise to disk.</p>
+<h3 id="d5-dispatch-entry-points-stay-flat">D5. Dispatch entry points stay flat<a class="headerlink" href="#d5-dispatch-entry-points-stay-flat" title="Permanent link">&para;</a></h3>
+<p>Top-level reader/writer functions in <code>sunstone</code> autodispatch:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">asset</span> <span class="o">=</span> <span class="n">sunstone</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;inputs/sentinel2_2024_07.tif&quot;</span><span class="p">)</span>    <span class="c1"># returns Asset</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">sunstone</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">asset</span><span class="p">,</span> <span class="s2">&quot;outputs/ndvi_202407.tif&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><strong>Dispatch order:</strong></p>
+<ol>
+<li><strong><code>datasets.yaml</code> <code>format</code> field</strong> is the primary signal when the path resolves to
+   a registered dataset entry. This handles ambiguous cases that file extensions
+   can't disambiguate (Zarr stores, partitioned Parquet directories, XYZ tile
+   pyramids, cloud prefixes without extensions).</li>
+<li><strong>Store-vs-stream classification</strong> by the resolved <code>ResourceLocation</code> —
+   directory/prefix → <code>StoreFormatHandler</code>; single file → <code>FormatHandler</code>.</li>
+<li><strong>Extension-based fallback</strong> for ad-hoc reads outside of <code>datasets.yaml</code>.</li>
+<li><strong>Explicit <code>kind=</code> / <code>format=</code> parameter</strong> on <code>ss.read</code> as a final override.</li>
+</ol>
+<p>The kind-specific sugar (<code>sunstone.pandas.read_csv</code>, the DataFrame wrapper) remains
+in place for tabular work and internally produces an <code>Asset</code> of
+<code>kind=AssetKind.TABULAR</code>. Users who never touch non-tabular data never see the
+envelope.</p>
+<h3 id="d6-backwards-compatibility-adapter-as-default-no-breaking-change">D6. Backwards compatibility: adapter-as-default, no breaking change<a class="headerlink" href="#d6-backwards-compatibility-adapter-as-default-no-breaking-change" title="Permanent link">&para;</a></h3>
+<p>The <code>Asset</code> wrapper is essentially free at runtime — a dataclass holding four
+references, constructed once per read. There is no performance reason to break the
+existing plugin contract.</p>
+<p><strong>Both plugin styles are first-class and supported indefinitely:</strong></p>
+<ol>
+<li><strong>DataFrame-returning plugins</strong> (today's CSV, JSON, Excel, TSV, Parquet, plus all
+   external plugins on <code>sunstone.plugins</code>). Implement
+   <code>read(stream) -&gt; pd.DataFrame</code>; optionally embed sunstone metadata via
+   <code>df.attrs["sunstone_metadata"]</code> (the existing Parquet pattern). The registry
+   normalises into an <code>Asset</code> via <code>LegacyFormatHandlerAdapter</code> (renamed to
+   <code>TabularDataFrameAdapter</code> to drop the "legacy" framing). No deprecation timeline.</li>
+<li><strong>Asset-returning plugins</strong> (new). Implement <code>read(stream) -&gt; Asset</code>. Required for
+   non-tabular kinds; optional for tabular plugins that want richer control over
+   embedded metadata, kind-specific extras, or multi-asset returns.</li>
+</ol>
+<p><strong>Capability split for embedded metadata.</strong> The old <code>supports_metadata()</code> predicate
+conflates two distinct capabilities. New protocol:</p>
+<ul>
+<li><code>supports_native_metadata_extraction()</code> — handler can extract format-native
+  metadata (CRS/transform/band tags from GeoTIFF, CF dimensions from NetCDF, schema
+  from Parquet, EXIF from PNG). Most read handlers say <code>True</code>; the question is what
+  they choose to populate on the <code>Asset</code>.</li>
+<li><code>supports_sunstone_metadata_embedding()</code> — handler can round-trip a full Sunstone
+  <code>Metadata</code> blob (slug, RDF triples, lineage) into and out of the file format.
+  Parquet says <code>True</code>; PNG says <code>False</code> (no clean embedding target). Read paths
+  consult the first; write paths consult the second.</li>
+</ul>
+<p>Detection between styles uses an explicit capability marker (a class-level
+attribute, e.g., <code>__sunstone_handler_protocol__ = 2</code>), not return-annotation
+inspection. Plugins set the attribute when they migrate; absence = DataFrame-style.</p>
+<h2 id="protocol-definitions">Protocol Definitions<a class="headerlink" href="#protocol-definitions" title="Permanent link">&para;</a></h2>
+<h3 id="formathandler-stream-based">FormatHandler (stream-based)<a class="headerlink" href="#formathandler-stream-based" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">FormatHandler</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Handler for formats whose I/O is a single byte stream.&quot;&quot;&quot;</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">__sunstone_handler_protocol__</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>  <span class="c1"># capability marker</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Asset&quot;</span><span class="p">:</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read stream into an Asset. The Asset&#39;s `kind` is set by the handler.&quot;&quot;&quot;</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>        <span class="o">...</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">:</span> <span class="s2">&quot;Asset&quot;</span><span class="p">,</span> <span class="n">stream</span><span class="p">:</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">AssetKind</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+</code></pre></div>
+<h3 id="storeformathandler-location-based">StoreFormatHandler (location-based)<a class="headerlink" href="#storeformathandler-location-based" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">ResourceLocation</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A path, directory, or URL prefix understood by URLHandler.</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sd">    Single-file: backed by `open_byte_stream()`.</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="sd">    Directory/prefix: backed by `list()`, `subpath()`, `as_path()` for handlers</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sd">    that need random access (SQLite/MBTiles), partition enumeration (Hive/Parquet),</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="sd">    or chunked reads (Zarr).</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">as_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">is_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">glob</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="s2">&quot;ResourceLocation&quot;</span><span class="p">]:</span> <span class="o">...</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">subpath</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rel</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ResourceLocation&quot;</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">open_byte_stream</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BinaryIO</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="nd">@runtime_checkable</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="k">class</span><span class="w"> </span><span class="nc">StoreFormatHandler</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Handler for formats whose I/O needs store/location access, not a byte stream.</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="sd">    Examples: MBTiles (single file but random SQL access), XYZ tile directories,</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="sd">    Zarr stores, partitioned Parquet, object-store prefixes.</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a>    <span class="n">__sunstone_handler_protocol__</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">ResourceLocation</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">ResourceLocation</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Asset&quot;</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">ResourceLocation</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">:</span> <span class="s2">&quot;Asset&quot;</span><span class="p">,</span> <span class="n">location</span><span class="p">:</span> <span class="n">ResourceLocation</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">AssetKind</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+</code></pre></div>
+<h3 id="asset">Asset<a class="headerlink" href="#asset" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone.lineage</span><span class="w"> </span><span class="kn">import</span> <span class="n">Metadata</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="k">class</span><span class="w"> </span><span class="nc">AssetKind</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">TABULAR</span> <span class="o">=</span> <span class="s2">&quot;tabular&quot;</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>    <span class="n">RASTER</span>  <span class="o">=</span> <span class="s2">&quot;raster&quot;</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">ARRAY</span>   <span class="o">=</span> <span class="s2">&quot;array&quot;</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="n">TILES</span>   <span class="o">=</span> <span class="s2">&quot;tiles&quot;</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="k">class</span><span class="w"> </span><span class="nc">Asset</span><span class="p">:</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n">AssetKind</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="n">Metadata</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="n">extras</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>    <span class="c1"># Convenience accessors over extras</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="nd">@property</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">profile</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extras</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;profile&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>    <span class="nd">@property</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">crs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">extras</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;crs&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>    <span class="c1"># Typed kind accessors — raise IncompatibleAssetKindError on mismatch</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">as_table</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">:</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>            <span class="k">raise</span> <span class="n">IncompatibleAssetKindError</span><span class="p">(</span><span class="n">expected</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,</span> <span class="n">actual</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">payload</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">as_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;np.ndarray&quot;</span><span class="p">:</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">AssetKind</span><span class="o">.</span><span class="n">RASTER</span><span class="p">:</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>            <span class="k">raise</span> <span class="n">IncompatibleAssetKindError</span><span class="p">(</span><span class="n">expected</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">RASTER</span><span class="p">,</span> <span class="n">actual</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">payload</span>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">as_array</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;np.ndarray&quot;</span><span class="p">]:</span>
+<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">AssetKind</span><span class="o">.</span><span class="n">ARRAY</span><span class="p">:</span>
+<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a>            <span class="k">raise</span> <span class="n">IncompatibleAssetKindError</span><span class="p">(</span><span class="n">expected</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">ARRAY</span><span class="p">,</span> <span class="n">actual</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">payload</span>
+<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">as_tiles</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">AssetKind</span><span class="o">.</span><span class="n">TILES</span><span class="p">:</span>
+<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a>            <span class="k">raise</span> <span class="n">IncompatibleAssetKindError</span><span class="p">(</span><span class="n">expected</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TILES</span><span class="p">,</span> <span class="n">actual</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">payload</span>
+<a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a>
+<a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">derive</span><span class="p">(</span>
+<a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a>        <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a>        <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a>        <span class="n">slug</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a>        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a>        <span class="n">kind</span><span class="p">:</span> <span class="n">AssetKind</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a>        <span class="n">derived_from</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="s2">&quot;Asset&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a>        <span class="n">metadata_updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a>        <span class="n">extras_updates</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a>        <span class="n">inherit_custom_properties</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Asset&quot;</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<h3 id="kindderivepolicy">KindDerivePolicy<a class="headerlink" href="#kindderivepolicy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">KindDerivePolicy</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Hook called from Asset.derive() to invalidate stale kind-specific extras</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="sd">    when the payload changes shape, dtype, or other kind-relevant invariants.&quot;&quot;&quot;</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">parent</span><span class="p">:</span> <span class="n">Asset</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">child</span><span class="p">:</span> <span class="n">Asset</span><span class="p">,</span>  <span class="c1"># already-constructed, extras inherited+updated, before return</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span> <span class="o">...</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="c1"># Registry mapping kind → policy. Plugins may register policies for new kinds.</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">KIND_DERIVE_POLICIES</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">AssetKind</span><span class="p">,</span> <span class="n">KindDerivePolicy</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">AssetKind</span><span class="o">.</span><span class="n">RASTER</span><span class="p">:</span> <span class="n">_raster_invalidate_stale_profile</span><span class="p">,</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="c1"># AssetKind.ARRAY: default no-op</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="c1"># AssetKind.TILES: default no-op</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="p">}</span>
+</code></pre></div>
+<p>The <code>RASTER</code> policy drops <code>profile["count"]</code>, <code>profile["dtype"]</code>, <code>profile["nodata"]</code>
+when the child's payload <code>ndim</code>/<code>shape</code>/<code>dtype</code> differ from the parent's. Geographic
+fields (<code>transform</code>, <code>crs</code>) are preserved by default since most derivations preserve
+spatial reference.</p>
+<h3 id="rdf-value-types">RDF Value Types<a class="headerlink" href="#rdf-value-types" title="Permanent link">&para;</a></h3>
+<p>User-facing RDF values stay simple. <code>custom_properties</code> accept ordinary Python
+literals; three thin wrapper types cover the cases where the type system needs help.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">IRI</span><span class="p">(</span><span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;An IRI reference. Subclasses str so it&#39;s still string-comparable and</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="sd">    JSON-serialisable, but distinguishable from a string literal.</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="sd">    Prefix resolution happens at serialise time using metadata.rdf_prefixes.&quot;&quot;&quot;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">LangString</span><span class="p">:</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="n">value</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="n">lang</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># BCP 47 tag, e.g., &quot;en&quot;, &quot;fr-CA&quot;</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="k">class</span><span class="w"> </span><span class="nc">TypedLiteral</span><span class="p">:</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>    <span class="n">value</span><span class="p">:</span> <span class="n">Any</span>           <span class="c1"># Python literal that doesn&#39;t infer to the right xsd type</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="n">datatype</span><span class="p">:</span> <span class="nb">str</span>        <span class="c1"># e.g., &quot;xsd:double&quot;</span>
+</code></pre></div>
+<p><strong>Default serialisation rules</strong> at write time:</p>
+<ul>
+<li><code>str</code> literal → <code>xsd:string</code></li>
+<li><code>int</code> → <code>xsd:integer</code>; <code>float</code>/<code>Decimal</code> → <code>xsd:double</code>/<code>xsd:decimal</code></li>
+<li><code>bool</code> → <code>xsd:boolean</code></li>
+<li><code>datetime</code> → <code>xsd:dateTime</code>; <code>date</code> → <code>xsd:date</code></li>
+<li><code>IRI(...)</code> → JSON-LD <code>{"@id": "..."}</code> (or expanded URI)</li>
+<li><code>LangString(...)</code> → <code>{"@value": "...", "@language": "..."}</code></li>
+<li><code>TypedLiteral(...)</code> → <code>{"@value": "...", "@type": "..."}</code></li>
+</ul>
+<p>JSON-LD is the internal storage format. Users never see it — they write
+<code>asset.metadata["sosa:observedProperty"] = IRI("sosa:NDVI")</code> or
+<code>asset.metadata["dcterms:created"] = datetime(2024, 7, 1)</code>.</p>
+<h3 id="metadata-mapping-sugar">Metadata mapping sugar<a class="headerlink" href="#metadata-mapping-sugar" title="Permanent link">&para;</a></h3>
+<p><code>Metadata</code> grows mapping-style access proxying to <code>custom_properties</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">asset</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;sosa:observedProperty&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">IRI</span><span class="p">(</span><span class="s2">&quot;sosa:NDVI&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="s2">&quot;dcat:theme&quot;</span> <span class="ow">in</span> <span class="n">asset</span><span class="o">.</span><span class="n">metadata</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">del</span> <span class="n">asset</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dct:spatial&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p><code>__setitem__</code> lazy-initialises <code>custom_properties = {}</code> on first set. Colon-bearing
+keys are treated as RDF prefixed names; bare keys raise <code>ValueError</code> (use
+<code>metadata.field_to_set = value</code> for non-RDF attributes).</p>
+<h2 id="kind-taxonomy">Kind Taxonomy<a class="headerlink" href="#kind-taxonomy" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th><code>kind</code></th>
+<th>Typical payload</th>
+<th>Typical <code>extras</code> keys</th>
+<th>Handler protocol</th>
+<th>First handler target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AssetKind.TABULAR</code></td>
+<td><code>pd.DataFrame</code> (facade: <code>sunstone.DataFrame</code>)</td>
+<td>—</td>
+<td><code>FormatHandler</code> (single file) or <code>StoreFormatHandler</code> (partitioned Parquet)</td>
+<td>existing handlers</td>
+</tr>
+<tr>
+<td><code>AssetKind.RASTER</code></td>
+<td><code>numpy.ndarray</code> (bands, H, W)</td>
+<td><code>profile</code>, <code>crs</code>, <code>transform</code></td>
+<td><code>FormatHandler</code> or <code>StoreFormatHandler</code> (Zarr)</td>
+<td>GeoTIFF</td>
+</tr>
+<tr>
+<td><code>AssetKind.ARRAY</code></td>
+<td><code>dict[str, numpy.ndarray]</code></td>
+<td>dimension labels, chunking</td>
+<td><code>FormatHandler</code> (.npz) or <code>StoreFormatHandler</code> (Zarr)</td>
+<td>NumPy <code>.npz</code></td>
+</tr>
+<tr>
+<td><code>AssetKind.TILES</code></td>
+<td>tile-pyramid descriptor object</td>
+<td><code>zoom_min</code>, <code>zoom_max</code>, <code>crs</code></td>
+<td><code>StoreFormatHandler</code></td>
+<td>MBTiles / XYZ</td>
+</tr>
+</tbody>
+</table>
+<p><code>AssetKind</code> is closed. Same payload kind can be served by either handler protocol
+depending on whether the file is single-file or store-backed. Partitioned Parquet
+is <code>TABULAR</code> but uses <code>StoreFormatHandler</code> because the dataset is a directory of
+files, not a single byte stream.</p>
+<h2 id="metadata-model">Metadata Model<a class="headerlink" href="#metadata-model" title="Permanent link">&para;</a></h2>
+<p><code>Metadata</code> (in <code>sunstone.lineage</code>) is the asset-level container, used uniformly across
+all kinds. Fields:</p>
+<ul>
+<li><code>slug: str | None</code>, <code>name: str | None</code> — project-local identity.</li>
+<li><code>identity: str | None</code> — globally stable URI template (see Identity section).</li>
+<li><code>description: str | None</code>.</li>
+<li><code>lineage: LineageMetadata</code> — PROV-O sources, activity chain, derivations.</li>
+<li><code>rdf_prefixes: dict[str, str] | None</code> — namespace map.</li>
+<li><code>custom_properties: dict[str, Any] | None</code> — keyed by <code>prefix:term</code>; values are
+  Python literals or <code>IRI</code>/<code>LangString</code>/<code>TypedLiteral</code> wrappers.</li>
+<li><code>field_metadata: dict[str, FieldSchema]</code> — per-column metadata for tabular kinds
+  (existing).</li>
+<li><code>component_metadata: dict[str, ComponentSchema]</code> — per-component metadata for any
+  kind (raster bands, array variables, tile layers; tabular <code>field_metadata</code> becomes
+  a typed view onto this for backwards compatibility).</li>
+</ul>
+<p><code>ComponentSchema</code> is a neutral structure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">ComponentSchema</span><span class="p">:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">component_kind</span><span class="p">:</span> <span class="nb">str</span>   <span class="c1"># &quot;column&quot; | &quot;band&quot; | &quot;variable&quot; | &quot;layer&quot;</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">units</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>       <span class="c1"># Pint-parsable; emitted as qudt:unit IRI</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">custom_properties</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># per-component RDF triples</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="n">derived_from</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FieldDerivation</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div>
+<p>The same shape covers <code>current_un_member_states.Country</code> (a column), <code>sentinel2.B04</code>
+(a band), <code>era5.temperature</code> (a variable in a NetCDF), <code>osm_basemap.water</code> (a tile
+layer). Discovery code reads via <code>ComponentSchema</code> uniformly.</p>
+<p><code>LineageMetadata.field_derivations</code> remains tabular-specific in interpretation. The
+new generalisation flows through <code>ComponentSchema.derived_from</code>.</p>
+<p>The <code>DatasetMetadata</code> class (also in <code>sunstone.lineage</code>) is the <em>YAML-row</em> class — it
+represents a <code>datasets.yaml</code> entry, with <code>location</code>, <code>dataset_type</code>, <code>source</code>, etc.
+The two classes overlap on RDF/identity fields but are not interchangeable.
+<code>Asset.metadata</code> holds <code>Metadata</code>; <code>DatasetMetadata</code> is only used internally for
+<code>datasets.yaml</code> round-tripping.</p>
+<h2 id="identity-content-hashing">Identity &amp; Content Hashing<a class="headerlink" href="#identity-content-hashing" title="Permanent link">&para;</a></h2>
+<p>Two-axis identity for cross-project / cross-environment discovery:</p>
+<p><strong>1. <code>Metadata.identity: str | None</code></strong> — URI template, supports the existing
+sunstone-py env-var interpolation syntax:</p>
+<ul>
+<li><code>sunstone://namespace/path/asset@1.0.0</code> (sunstone-native URI)</li>
+<li><code>https://${DATASET_BASE_URL}/table@1.0.0</code> (env-interpolated for dev/staging/prod)</li>
+</ul>
+<p>At write time the template is materialised into a concrete <code>@id</code> using the resolved
+env vars; <code>dct:identifier</code> continues to carry the project-local <code>slug</code>.</p>
+<p><strong>Default identity</strong> when <code>identity is None</code> on write:
+<code>sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}</code> derived from the package's
+declared name and version. Users who don't care get a sensible default; users who
+do override the template once.</p>
+<p><strong>2. <code>LineageMetadata.data_hash</code></strong> (existing <code>si:dataHash</code>) — content-hash identity,
+machine-stable across environments. Cross-project "is this the same bytes?" matching.</p>
+<p>Discovery queries can join on either axis: namespaced URIs for human lookup, content
+hashes for byte-identical detection.</p>
+<h2 id="units-gating-dependency-for-non-tabular-handlers">Units (gating dependency for non-tabular handlers)<a class="headerlink" href="#units-gating-dependency-for-non-tabular-handlers" title="Permanent link">&para;</a></h2>
+<p>Non-tabular components (raster bands, array variables) frequently carry units
+("kelvin", "m/s"). The unit story is reserved for the RDF-shape follow-up spec, but
+the decisions are locked here:</p>
+<ul>
+<li><strong>Pint</strong> is the canonical declaration and internal representation everywhere —
+  tabular fields, raster bands, array variables. Units are Pint-parsable strings in
+  <code>ComponentSchema.units</code>.</li>
+<li><strong>For numpy-array consumers</strong> wanting unit-aware compute: <code>band.as_quantity()</code> /
+  <code>variable.as_quantity()</code> returns <code>unyt.unyt_array.from_pint(pint_quantity)</code>. <code>unyt</code>
+  has the stronger numpy-subclass integration; Pint is the declaration system.</li>
+<li><strong>For RDF emission</strong>, units map to <code>qudt:unit</code> IRIs via a small Pint→QUDT mapping
+  table (one-shot).</li>
+<li><strong>Escape hatch</strong>: <code>as_quantity(backend="pint")</code> for callers who prefer
+  <code>pint.Quantity</code> over <code>unyt.unyt_array</code>.</li>
+</ul>
+<p>The follow-up spec must land before the first GeoTIFF handler ships.</p>
+<h2 id="client-code-walkthrough">Client Code Walkthrough<a class="headerlink" href="#client-code-walkthrough" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sunstone</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ss</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone.rdf</span><span class="w"> </span><span class="kn">import</span> <span class="n">IRI</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">asset</span> <span class="o">=</span> <span class="n">ss</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;inputs/sentinel2_2024_07.tif&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">asset</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Sentinel-2 surface reflectance, July 2024&quot;</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="n">asset</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;sosa:observedProperty&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">IRI</span><span class="p">(</span><span class="s2">&quot;sosa:surfaceReflectance&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">asset</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;dcat:theme&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;earth-observation&quot;</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">red</span><span class="p">,</span> <span class="n">nir</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">as_raster</span><span class="p">()[</span><span class="mi">2</span><span class="p">],</span> <span class="n">asset</span><span class="o">.</span><span class="n">as_raster</span><span class="p">()[</span><span class="mi">3</span><span class="p">]</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="n">ndvi</span> <span class="o">=</span> <span class="p">(</span><span class="n">nir</span> <span class="o">-</span> <span class="n">red</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">nir</span> <span class="o">+</span> <span class="n">red</span><span class="p">)</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="n">out</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>    <span class="n">payload</span><span class="o">=</span><span class="n">ndvi</span><span class="p">,</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>    <span class="n">slug</span><span class="o">=</span><span class="s2">&quot;sentinel2-ndvi-202407&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Sentinel-2 NDVI, July 2024&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>    <span class="n">metadata_updates</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;sosa:observedProperty&quot;</span><span class="p">:</span> <span class="n">IRI</span><span class="p">(</span><span class="s2">&quot;sosa:NDVI&quot;</span><span class="p">)},</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="p">)</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">ss</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">&quot;outputs/ndvi_202407.tif&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>What happens under the hood:</p>
+<ol>
+<li><code>ss.read</code> resolves the path via <code>datasets.yaml</code> → picks the GeoTIFF handler →
+   handler returns an <code>Asset(kind=AssetKind.RASTER, payload=ndarray, extras={"profile": ...})</code>.</li>
+<li><code>asset.metadata["..."] = ...</code> writes via <code>__setitem__</code> lazy-init
+   <code>custom_properties</code>. IRI values are tagged for JSON-LD <code>{"@id": ...}</code> serialisation.</li>
+<li><code>asset.derive(payload=ndvi, ...)</code> constructs the child <code>Asset</code>: extras
+   deep-copied, <code>RASTER</code> derive policy drops stale <code>profile["count"]</code>/<code>["dtype"]</code>
+   because shape changed from <code>(N_bands, H, W)</code> to <code>(H, W)</code>. Child metadata gets new
+   slug/name; <code>custom_properties</code> are reset (not inherited) and <code>metadata_updates</code>
+   replaces with NDVI's claim. Lineage records <code>prov:wasDerivedFrom = parent</code>; the
+   parent has a slug (<code>sentinel2-2024-07</code>), so it shows up in <code>child.lineage.sources</code>.</li>
+<li><code>ss.write</code> picks the writer for <code>.tif</code>, hands it the <code>Asset</code>. If the asset has no
+   <code>identity</code>, sunstone applies the default
+   <code>sunstone://${PACKAGE_NAME}/sentinel2-ndvi-202407@${PACKAGE_VERSION}</code> template.
+   <code>datasets.yaml</code> updates with the asset's metadata (slug/name/location/identity/
+   custom_properties).</li>
+</ol>
+<h3 id="multi-parent-example">Multi-parent example<a class="headerlink" href="#multi-parent-example" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">tiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">ss</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;inputs/tile_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.tif&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">mosaic_array</span> <span class="o">=</span> <span class="n">stitch</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">as_raster</span><span class="p">()</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tiles</span><span class="p">))</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">mosaic</span> <span class="o">=</span> <span class="n">tiles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">payload</span><span class="o">=</span><span class="n">mosaic_array</span><span class="p">,</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">slug</span><span class="o">=</span><span class="s2">&quot;ne-africa-mosaic-2024&quot;</span><span class="p">,</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Northeast Africa Mosaic, 2024&quot;</span><span class="p">,</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">derived_from</span><span class="o">=</span><span class="n">tiles</span><span class="p">,</span>    <span class="c1"># all four sources recorded in lineage</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="p">)</span>
+</code></pre></div>
+<h2 id="backwards-compatibility">Backwards Compatibility<a class="headerlink" href="#backwards-compatibility" title="Permanent link">&para;</a></h2>
+<p><strong>Zero break for plugin authors and end users.</strong></p>
+<h3 id="dataframe-returning-plugins-existing-pattern-still-first-class">DataFrame-returning plugins (existing pattern, still first-class)<a class="headerlink" href="#dataframe-returning-plugins-existing-pattern-still-first-class" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">CSVHandler</span><span class="p">:</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="c1"># No __sunstone_handler_protocol__ attribute → registry uses adapter</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+<p>The registry wraps this in <code>TabularDataFrameAdapter</code> (the renamed, no-longer-"legacy"
+adapter) that normalises to <code>Asset(kind=AssetKind.TABULAR, payload=df, metadata=...)</code>
+and unwraps on write. Plugins that embed metadata via <code>df.attrs["sunstone_metadata"]</code>
+(e.g., Parquet) keep working — the adapter preserves the round-trip.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">TabularDataFrameAdapter</span><span class="p">:</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Standard normaliser for DataFrame-returning handlers.</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="sd">    Not deprecated; this is the canonical path for plugins that don&#39;t want</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="sd">    the richer Asset return type.&quot;&quot;&quot;</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="nb">object</span><span class="p">):</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span> <span class="o">=</span> <span class="n">handler</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="p">,</span> <span class="s2">&quot;supports_metadata&quot;</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="kc">False</span><span class="p">)()</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="o">.</span><span class="n">can_read</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>        <span class="n">embedded</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;sunstone_metadata&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;attrs&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">embedded</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">embedded</span><span class="p">,</span> <span class="n">Metadata</span><span class="p">)</span> <span class="k">else</span> <span class="n">Metadata</span><span class="p">()</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>        <span class="k">return</span> <span class="n">Asset</span><span class="p">(</span><span class="n">payload</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="o">.</span><span class="n">can_write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">)</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>        <span class="n">df</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">as_table</span><span class="p">()</span>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a>        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports_sunstone_metadata_embedding</span><span class="p">():</span>
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a>            <span class="n">df</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;sunstone_metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">asset</span><span class="o">.</span><span class="n">metadata</span>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a>            <span class="k">try</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a>            <span class="k">finally</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;sunstone_metadata&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_h</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,)</span>
+</code></pre></div>
+<h3 id="asset-returning-plugins-new-pattern-opt-in">Asset-returning plugins (new pattern, opt-in)<a class="headerlink" href="#asset-returning-plugins-new-pattern-opt-in" title="Permanent link">&para;</a></h3>
+<p>Plugins that want richer control declare the protocol marker and return <code>Asset</code>
+directly. Required for any non-tabular kind. Concrete sketches:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># CSV — stream-based, no metadata (same as above but Asset-native)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">CSVAssetHandler</span><span class="p">:</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">__sunstone_handler_protocol__</span> <span class="o">=</span> <span class="mi">2</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>        <span class="k">return</span> <span class="n">Asset</span><span class="p">(</span><span class="n">payload</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">stream</span><span class="p">),</span> <span class="n">kind</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">Metadata</span><span class="p">())</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span> <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>        <span class="n">asset</span><span class="o">.</span><span class="n">as_table</span><span class="p">()</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,)</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>
+<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="c1"># Partitioned Parquet — store-based, native + sunstone metadata</span>
+<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="k">class</span><span class="w"> </span><span class="nc">PartitionedParquetHandler</span><span class="p">:</span>
+<a id="__codelineno-16-17" name="__codelineno-16-17" href="#__codelineno-16-17"></a>    <span class="n">__sunstone_handler_protocol__</span> <span class="o">=</span> <span class="mi">2</span>
+<a id="__codelineno-16-18" name="__codelineno-16-18" href="#__codelineno-16-18"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-16-19" name="__codelineno-16-19" href="#__codelineno-16-19"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-16-20" name="__codelineno-16-20" href="#__codelineno-16-20"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span>
+<a id="__codelineno-16-21" name="__codelineno-16-21" href="#__codelineno-16-21"></a>        <span class="k">return</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;parquet-partitioned&quot;</span> <span class="ow">or</span> <span class="p">(</span>
+<a id="__codelineno-16-22" name="__codelineno-16-22" href="#__codelineno-16-22"></a>            <span class="n">location</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">location</span><span class="o">.</span><span class="n">list</span><span class="p">(</span><span class="s2">&quot;*.parquet&quot;</span><span class="p">))</span>
+<a id="__codelineno-16-23" name="__codelineno-16-23" href="#__codelineno-16-23"></a>        <span class="p">)</span>
+<a id="__codelineno-16-24" name="__codelineno-16-24" href="#__codelineno-16-24"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span>
+<a id="__codelineno-16-25" name="__codelineno-16-25" href="#__codelineno-16-25"></a>        <span class="n">ds</span> <span class="o">=</span> <span class="n">pyarrow</span><span class="o">.</span><span class="n">parquet</span><span class="o">.</span><span class="n">ParquetDataset</span><span class="p">(</span><span class="n">location</span><span class="o">.</span><span class="n">as_path</span><span class="p">())</span>
+<a id="__codelineno-16-26" name="__codelineno-16-26" href="#__codelineno-16-26"></a>        <span class="n">blob</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">schema</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;sunstone_metadata&quot;</span><span class="p">)</span>
+<a id="__codelineno-16-27" name="__codelineno-16-27" href="#__codelineno-16-27"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">Metadata</span><span class="o">.</span><span class="n">from_jsonld</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">blob</span><span class="p">))</span> <span class="k">if</span> <span class="n">blob</span> <span class="k">else</span> <span class="n">Metadata</span><span class="p">()</span>
+<a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a>        <span class="n">meta</span><span class="o">.</span><span class="n">field_metadata</span> <span class="o">=</span> <span class="n">_schema_to_field_metadata</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">schema</span><span class="p">)</span>
+<a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a>        <span class="k">return</span> <span class="n">Asset</span><span class="p">(</span><span class="n">payload</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">to_pandas</span><span class="p">(),</span> <span class="n">kind</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,</span>
+<a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a>                     <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;partition_keys&quot;</span><span class="p">:</span> <span class="n">ds</span><span class="o">.</span><span class="n">partitioning</span><span class="p">})</span>
+<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span> <span class="o">...</span>
+<a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TABULAR</span><span class="p">,)</span>
+<a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a>
+<a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>
+<a id="__codelineno-16-35" name="__codelineno-16-35" href="#__codelineno-16-35"></a><span class="c1"># MBTiles — store-based (single file, random SQL access, not byte-stream)</span>
+<a id="__codelineno-16-36" name="__codelineno-16-36" href="#__codelineno-16-36"></a><span class="k">class</span><span class="w"> </span><span class="nc">MBTilesHandler</span><span class="p">:</span>
+<a id="__codelineno-16-37" name="__codelineno-16-37" href="#__codelineno-16-37"></a>    <span class="n">__sunstone_handler_protocol__</span> <span class="o">=</span> <span class="mi">2</span>
+<a id="__codelineno-16-38" name="__codelineno-16-38" href="#__codelineno-16-38"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_native_metadata_extraction</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-16-39" name="__codelineno-16-39" href="#__codelineno-16-39"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supports_sunstone_metadata_embedding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-16-40" name="__codelineno-16-40" href="#__codelineno-16-40"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">can_read_store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="nb">format</span><span class="p">):</span>
+<a id="__codelineno-16-41" name="__codelineno-16-41" href="#__codelineno-16-41"></a>        <span class="k">return</span> <span class="n">location</span><span class="o">.</span><span class="n">as_path</span><span class="p">()</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">&quot;.mbtiles&quot;</span> <span class="ow">or</span> <span class="nb">format</span> <span class="o">==</span> <span class="s2">&quot;mbtiles&quot;</span>
+<a id="__codelineno-16-42" name="__codelineno-16-42" href="#__codelineno-16-42"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Asset</span><span class="p">:</span>
+<a id="__codelineno-16-43" name="__codelineno-16-43" href="#__codelineno-16-43"></a>        <span class="n">db</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">location</span><span class="o">.</span><span class="n">as_path</span><span class="p">())</span>
+<a id="__codelineno-16-44" name="__codelineno-16-44" href="#__codelineno-16-44"></a>        <span class="n">native</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT name, value FROM metadata&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+<a id="__codelineno-16-45" name="__codelineno-16-45" href="#__codelineno-16-45"></a>        <span class="n">zoom_min</span><span class="p">,</span> <span class="n">zoom_max</span> <span class="o">=</span> <span class="n">_query_zoom_range</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+<a id="__codelineno-16-46" name="__codelineno-16-46" href="#__codelineno-16-46"></a>        <span class="k">if</span> <span class="s2">&quot;sunstone_metadata&quot;</span> <span class="ow">in</span> <span class="n">native</span><span class="p">:</span>
+<a id="__codelineno-16-47" name="__codelineno-16-47" href="#__codelineno-16-47"></a>            <span class="n">meta</span> <span class="o">=</span> <span class="n">Metadata</span><span class="o">.</span><span class="n">from_jsonld</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">native</span><span class="p">[</span><span class="s2">&quot;sunstone_metadata&quot;</span><span class="p">]))</span>
+<a id="__codelineno-16-48" name="__codelineno-16-48" href="#__codelineno-16-48"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-16-49" name="__codelineno-16-49" href="#__codelineno-16-49"></a>            <span class="n">meta</span> <span class="o">=</span> <span class="n">Metadata</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="n">native</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;description&quot;</span><span class="p">))</span>
+<a id="__codelineno-16-50" name="__codelineno-16-50" href="#__codelineno-16-50"></a>        <span class="k">return</span> <span class="n">Asset</span><span class="p">(</span>
+<a id="__codelineno-16-51" name="__codelineno-16-51" href="#__codelineno-16-51"></a>            <span class="n">payload</span><span class="o">=</span><span class="n">TilePyramid</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="n">db</span><span class="p">,</span> <span class="n">zoom_min</span><span class="o">=</span><span class="n">zoom_min</span><span class="p">,</span> <span class="n">zoom_max</span><span class="o">=</span><span class="n">zoom_max</span><span class="p">),</span>
+<a id="__codelineno-16-52" name="__codelineno-16-52" href="#__codelineno-16-52"></a>            <span class="n">kind</span><span class="o">=</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TILES</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">meta</span><span class="p">,</span>
+<a id="__codelineno-16-53" name="__codelineno-16-53" href="#__codelineno-16-53"></a>            <span class="n">extras</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;zoom_min&quot;</span><span class="p">:</span> <span class="n">zoom_min</span><span class="p">,</span> <span class="s2">&quot;zoom_max&quot;</span><span class="p">:</span> <span class="n">zoom_max</span><span class="p">,</span>
+<a id="__codelineno-16-54" name="__codelineno-16-54" href="#__codelineno-16-54"></a>                    <span class="s2">&quot;crs&quot;</span><span class="p">:</span> <span class="n">native</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;crs&quot;</span><span class="p">,</span> <span class="s2">&quot;EPSG:3857&quot;</span><span class="p">)})</span>
+<a id="__codelineno-16-55" name="__codelineno-16-55" href="#__codelineno-16-55"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span> <span class="o">...</span>
+<a id="__codelineno-16-56" name="__codelineno-16-56" href="#__codelineno-16-56"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">supported_kinds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="n">AssetKind</span><span class="o">.</span><span class="n">TILES</span><span class="p">,)</span>
+</code></pre></div>
+<h3 id="existing-user-code">Existing user code<a class="headerlink" href="#existing-user-code" title="Permanent link">&para;</a></h3>
+<p><code>sunstone.pandas.read_csv()</code>, <code>df.to_csv()</code>, <code>df.metadata.*</code>, <code>df.lineage</code> — all keep
+working unchanged. <code>sunstone.DataFrame</code> is now a thin facade over an <code>Asset</code> of
+<code>kind=AssetKind.TABULAR</code>, but users who don't touch non-tabular data never see the
+envelope.</p>
+<h3 id="plugin-registry-compatibility">Plugin Registry compatibility<a class="headerlink" href="#plugin-registry-compatibility" title="Permanent link">&para;</a></h3>
+<p><code>PluginRegistry.get_format_handlers()</code> continues to return registered handlers
+without modification. A new accessor <code>get_asset_format_handlers()</code> returns the same
+handlers normalised via adapters (i.e., every returned handler conforms to the new
+<code>Asset</code>-returning protocol shape regardless of plugin style). Code that wants
+uniformity uses the new accessor; code that wants raw access keeps the old one.</p>
+<h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>ss.read(path)</code> with no handler match → <code>UnknownFormatError</code>, unchanged.</li>
+<li><code>ss.write(asset, path)</code> where the writer's <code>supported_kinds()</code> doesn't include
+  <code>asset.kind</code> → <code>IncompatibleAssetKindError</code> with the asset's kind and the
+  handler's supported kinds in the message.</li>
+<li><code>asset.as_table()</code> / <code>as_raster()</code> / etc. on the wrong kind →
+  <code>IncompatibleAssetKindError</code>.</li>
+<li><code>asset.derive(payload=...)</code> with <code>payload</code> shape incompatible with <code>kind</code> is <strong>not</strong>
+  validated by <code>derive()</code> itself; sunstone treats <code>kind</code> as descriptive. The
+  <code>KindDerivePolicy</code> may invalidate stale extras based on the change; validation
+  proper is the writer's job.</li>
+<li><code>asset.metadata["bare-key"] = ...</code> (no colon) → <code>ValueError</code>. Mapping sugar
+  enforces prefixed RDF names.</li>
+</ul>
+<h2 id="deprecation-warnings">Deprecation Warnings<a class="headerlink" href="#deprecation-warnings" title="Permanent link">&para;</a></h2>
+<p>The <code>LegacyFormatHandlerAdapter</code> framing is gone — there is no deprecated path. The
+only deprecation in this design is the legacy <code>supports_metadata()</code> predicate, which
+is being split into <code>supports_native_metadata_extraction()</code> /
+<code>supports_sunstone_metadata_embedding()</code>. Warning policy:</p>
+<ul>
+<li>Emit on <strong>first actual use</strong>, not at handler-registration time, to avoid breaking
+  <code>warnings-as-errors</code> users at import time.</li>
+<li>One warning per handler class, not per call.</li>
+<li>Honour <code>SUNSTONE_SUPPRESS_LEGACY_WARNINGS=1</code> env var as an escape hatch for
+  CI pipelines.</li>
+</ul>
+<h2 id="testing-strategy">Testing Strategy<a class="headerlink" href="#testing-strategy" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Unit tests for <code>Asset</code> construction, <code>derive()</code> lineage recording (single + multi
+  parent), <code>extras</code> deep-copy isolation, slug/name clearing, custom_properties opt-in
+  inheritance.</li>
+<li>Tests for the <code>RASTER</code> <code>KindDerivePolicy</code>: profile invalidation when shape/dtype
+  change; preservation when they don't.</li>
+<li>Round-trip tests for <code>TabularDataFrameAdapter</code>: an existing Parquet handler keeps
+  producing identical results when invoked through <code>ss.read</code>/<code>ss.write</code>, including
+  <code>df.attrs["sunstone_metadata"]</code> round-trip.</li>
+<li>A <code>DummyRasterHandler</code> returning <code>Asset(kind=AssetKind.RASTER, payload=np.zeros(...))</code>
+  exercises the non-tabular path without pulling in rasterio (kept optional).</li>
+<li>IRI / LangString / TypedLiteral serialisation round-trip into JSON-LD.</li>
+<li>Metadata mapping sugar: <code>__setitem__</code>, <code>__getitem__</code>, <code>__delitem__</code>, <code>__contains__</code>,
+  bare-key rejection.</li>
+<li>Multi-parent <code>derive()</code>: <code>child.lineage.sources</code> contains snapshots of all slugged
+  parents; unsaved-parent collapse preserves grandparent identity.</li>
+<li>Identity template materialisation: env-var interpolation, default derivation when
+  <code>identity is None</code>.</li>
+<li><code>StoreFormatHandler</code> with a <code>DummyZarrHandler</code> returning an <code>Asset</code> from a
+  <code>ResourceLocation</code>-backed directory.</li>
+<li>Integration test in the <code>UNMembersProject</code> fixture: tabular workflows are
+  byte-identical pre- and post-refactor.</li>
+</ul>
+<h2 id="migration-path">Migration Path<a class="headerlink" href="#migration-path" title="Permanent link">&para;</a></h2>
+<p>No breaking changes. Phased rollout:</p>
+<ol>
+<li><strong>Substrate.</strong> Introduce <code>Asset</code>, <code>AssetKind</code>, <code>IRI</code>/<code>LangString</code>/<code>TypedLiteral</code>,
+   <code>Metadata</code> mapping sugar, <code>ComponentSchema</code>, <code>Metadata.identity</code>, <code>Metadata.component_metadata</code>,
+   the <code>KindDerivePolicy</code> registry, <code>IncompatibleAssetKindError</code>. No behaviour change
+   yet — adding types only.</li>
+<li><strong>Adapter as default.</strong> Introduce <code>TabularDataFrameAdapter</code>, normalise all
+   DataFrame-returning handler results into <code>Asset</code> at the registry boundary.
+   Existing <code>DataFrame.read_dataset</code>/<code>read_csv</code>/<code>read_excel</code> paths get a
+   <code>_read_tabular_asset()</code> helper that unwraps an <code>Asset</code> payload back to a DataFrame
+   and merges metadata consistently. All existing tests pass unchanged.</li>
+<li><strong>Asset-returning entry points.</strong> Add <code>ss.read</code> / <code>ss.write</code> autodispatch
+   returning/accepting <code>Asset</code>, plus <code>Asset.derive()</code> with provenance recording
+   (single + multi-parent, unsaved-parent activity chaining). Tabular sugar
+   (<code>sunstone.pandas.*</code>, <code>DataFrame.to_csv</code>) unchanged.</li>
+<li><strong><code>StoreFormatHandler</code> protocol + dispatch.</strong> Add <code>ResourceLocation</code>,
+   <code>StoreFormatHandler</code>, <code>datasets.yaml</code>-format-first dispatch order in
+   <code>PluginRegistry</code>, <code>get_asset_format_handlers()</code> accessor.</li>
+<li><strong>Migrate built-ins.</strong> Move <code>BuiltinFormatHandler</code> and <code>ParquetFormatHandler</code> to
+   the new <code>Asset</code>-returning protocol natively. (These are currently appended
+   directly inside <code>PluginRegistry._discover()</code> — adapter-wrapping doesn't apply.)</li>
+<li><strong>First non-tabular handler.</strong> GeoTIFF, in its own design, gated on the RDF-shape
+   follow-up spec landing first.</li>
+</ol>
+<p>External plugins migrate at their own pace by setting
+<code>__sunstone_handler_protocol__ = 2</code> and switching their return type to <code>Asset</code>. No
+deprecation timeline; both paths supported.</p>
+<h2 id="follow-up-specs">Follow-up Specs<a class="headerlink" href="#follow-up-specs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Per-kind RDF profiles</strong> — required triples per <code>AssetKind</code> (CRS, bbox, temporal
+  coverage, bands, units, license, content hash). DCAT/PROV/GeoSPARQL/SOSA mappings.
+  QUDT unit IRIs. JSON-LD context. <strong>Gating dependency for the first non-tabular
+  handler.</strong></li>
+<li><strong>Units in non-tabular metadata</strong> — folded into the RDF profile spec above. Pint
+  declarations, unyt bridging, QUDT IRI mapping table.</li>
+<li><strong><code>Resource</code> abstraction</strong> — convergence target for <code>FormatHandler</code> and
+  <code>StoreFormatHandler</code> if/when stream-based handlers also benefit from the
+  store-aware interface. Plugin-author migration only; user-facing API unchanged.</li>
+</ul>
+<h2 id="resolved-decisions">Resolved Decisions<a class="headerlink" href="#resolved-decisions" title="Permanent link">&para;</a></h2>
+<p>Captured here for the record; full discussion in
+<code>2026-05-12-asset-envelope-open-decisions.md</code>.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>DataFrame wrapper vs Asset ownership</td>
+<td><code>sunstone.DataFrame</code> becomes a facade over <code>Asset</code>; <code>df.metadata is asset.metadata</code>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>Metadata</code> mapping sugar</td>
+<td>Add <code>__getitem__</code>/<code>__setitem__</code>/<code>__delitem__</code>/<code>__contains__</code> proxying to <code>custom_properties</code> with lazy init; bare keys reject.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>derive()</code> multi-parent</td>
+<td>Add <code>derived_from: Iterable[Asset] \| None = None</code> kwarg, default <code>[self]</code>.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>derive()</code> name inheritance</td>
+<td>Both <code>slug</code> and <code>name</code> clear to <code>None</code> unless explicitly provided.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>derive()</code> custom_properties propagation</td>
+<td>Do NOT inherit by default; opt in via <code>inherit_custom_properties=True</code>.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Extras mutability on derive</td>
+<td>Deep-copy.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Per-kind derive policies</td>
+<td><code>KindDerivePolicy</code> registry keyed on <code>AssetKind</code>. <code>RASTER</code> policy invalidates stale profile fields on shape/dtype change.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Unsaved parents in <code>derived_from</code></td>
+<td>Collapse: child inherits parent's <code>sources</code>; child's <code>activity</code> chains parent's activity + new derive op.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Array payload vs <code>extras["arrays"]</code> overlap</td>
+<td>Drop <code>asset.arrays</code>. Payload IS the data for every kind.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Tile / store-based protocol</td>
+<td>Parallel <code>StoreFormatHandler</code> taking <code>ResourceLocation</code> instead of <code>BinaryIO</code>.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Autodispatch</td>
+<td><code>datasets.yaml</code> <code>format</code> field is primary signal; store-vs-stream classification by <code>ResourceLocation</code>; extension as fallback.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Legacy vs new handler distinction</td>
+<td>Zero BC break. Capability marker <code>__sunstone_handler_protocol__ = 2</code>. Adapter is the default normaliser, not "legacy".</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>supports_metadata()</code> split</td>
+<td><code>supports_native_metadata_extraction()</code> + <code>supports_sunstone_metadata_embedding()</code>.</td>
+</tr>
+<tr>
+<td>14</td>
+<td><code>PluginRegistry.get_format_handlers()</code> migration</td>
+<td>Add <code>get_asset_format_handlers()</code> returning adapter-normalised handlers; keep <code>get_format_handlers()</code> for raw access.</td>
+</tr>
+<tr>
+<td>15</td>
+<td>RDF discovery shape</td>
+<td>Separate gating-dependency follow-up spec. Pint canonical + <code>unyt.from_pint</code> for numpy + QUDT IRI mapping.</td>
+</tr>
+<tr>
+<td>16</td>
+<td>RDF value typing</td>
+<td>Three small wrappers <code>IRI</code>, <code>LangString</code>, <code>TypedLiteral</code>. Python literals default. JSON-LD is internal only.</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Stable <code>@id</code></td>
+<td><code>Metadata.identity: str \| None</code> URI template with env-var interpolation. Default <code>sunstone://${PACKAGE_NAME}/${SLUG}@${PACKAGE_VERSION}</code>.</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Component metadata</td>
+<td>Neutral <code>ComponentSchema</code> in <code>Metadata.component_metadata</code>. <code>field_metadata</code> becomes a typed view over column components.</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Deprecation warning timing</td>
+<td>First-use, once per handler class. <code>SUNSTONE_SUPPRESS_LEGACY_WARNINGS=1</code> env-var escape hatch.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>AssetKind</code> open vs closed</td>
+<td>Closed enum (resolved in spec round 1 per crit).</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>derive()</code> always records <code>wasDerivedFrom</code></td>
+<td>Yes; transients should be raw payloads, not <code>Asset</code>.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>Asset.payload</code> laziness</td>
+<td>Out of scope; lazy payload types (e.g., <code>RasterRef</code>) implementable without envelope changes.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

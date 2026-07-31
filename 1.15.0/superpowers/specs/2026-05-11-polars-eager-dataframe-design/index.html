@@ -1,0 +1,1739 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.15.0/superpowers/specs/2026-05-11-polars-eager-dataframe-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Polars Eager DataFrame Design - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-05-11-polars-eager-dataframe-design.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#polars-eager-dataframe-design" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Polars Eager DataFrame Design
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#module-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#public-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pldataframe-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pl.DataFrame Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#construction-time-lineage-payload" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Construction-Time Lineage Payload
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lineage-schema-additions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lineage Schema Additions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#op-boundary-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Op Boundary Contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write Path
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-reuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plugin Reuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dependency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#errors-and-warnings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors and Warnings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#order-of-implementation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Order of Implementation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#boundaries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boundaries
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Boundaries">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#in-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance Criteria
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#update-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update Log
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Update Log">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2026-05-22-substantially-revised-after-asset-envelope-landed-on-main" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2026-05-22 — substantially revised after Asset envelope landed on main
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2026-05-22-addendum-after-cli-lazy-load-landed-beddbd8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2026-05-22 — addendum after CLI lazy-load landed (beddbd8)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="polars-eager-dataframe-design">Polars Eager DataFrame Design<a class="headerlink" href="#polars-eager-dataframe-design" title="Permanent link">&para;</a></h1>
+<p><strong>Date</strong>: 2026-05-11 (revised 2026-05-22)
+<strong>Status</strong>: Approved — substantially revised after Asset envelope landed on <code>main</code>
+<strong>Tracks</strong>: GitHub issue #62 (Polars support)
+<strong>Sequence</strong>: First sub-spec of the polars integration. Depends on Spec 0 (pandas package refactor). Followed by Spec 2 (operation-level lineage), Spec 3 (LazyFrame), Spec 4 (units), Spec 5 (cross-engine interop).</p>
+<blockquote>
+<p><strong>Revision note (2026-05-22).</strong> The Asset envelope (PR #63), centralized
+<code>sunstone.read()</code> / <code>sunstone.write()</code> dispatch, PROV-O Activity-based lineage,
+<code>datasets.lock.yaml</code> split, license auto-derive from sources, and the
+published <code>docs/polars.md</code> roadmap have all landed since the original
+draft. Several core design decisions changed as a result: the polars facade
+is now a thin wrapper over an <code>AssetKind.TABULAR</code> <code>Asset</code> (not a parallel
+implementation), construction-time lineage uses main's actual fields
+(<code>sources</code>, <code>data_hash</code>, <code>activity</code>, <code>field_derivations</code>), and the proposed
+<code>derived_from</code> / <code>derivation_status</code> fields are dropped in favour of the
+existing <code>Asset.derive()</code> parent-chain mechanism. The only new
+<code>LineageMetadata</code> field is <code>engine</code>. See the Update Log at the bottom for
+the full diff.</p>
+</blockquote>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>Issue #62 requests Polars support as a drop-in replacement for pandas with the same Sunstone guarantees: automatic lineage, table/column metadata, units, and dataset-registration integration. The full surface area is roughly equivalent to the existing pandas integration and is too large for a single spec.</p>
+<p>This spec covers the foundational slice: <strong>eager-mode read and write of Polars DataFrames through the Asset envelope, with construction-time lineage</strong>. Operation-level lineage (PROV-O <code>Activity</code> composition), LazyFrame support, units, and cross-engine interop are explicitly out of scope and deferred to later sub-specs.</p>
+<p><code>docs/polars.md</code> already commits Sunstone to four roadmap items:</p>
+<ol>
+<li>A polars-aware <code>Asset.as_polars()</code> accessor alongside <code>as_table()</code>.</li>
+<li>Polars-returning format handlers (parametrise the existing <code>BuiltinFormatHandler</code> with an <code>engine=</code> knob).</li>
+<li>A <code>sunstone.polars</code> DataFrame facade mirroring <code>sunstone.pandas</code>.</li>
+<li>A field-metadata bridge (mostly free — <code>ComponentSchema</code> is already engine-neutral).</li>
+</ol>
+<p>The committed user-facing dispatch knob is <code>ss.read(path, payload="polars")</code>. Spec 1 delivers items 1–3 and confirms item 4 needs no new code beyond an inference path at read time.</p>
+<p><strong>Terminology — <code>payload=</code> vs <code>engine</code>.</strong> The public knob is <code>payload=</code> because <code>read()</code> returns an <code>Asset</code> and the argument selects that Asset's payload type — it mirrors the envelope's own vocabulary (<code>Asset.payload</code>, <code>as_table()</code>, <code>as_polars()</code>). The same choice is recorded internally as the <code>engine</code> field on <code>LineageMetadata</code> and switches <code>BuiltinFormatHandler(engine=...)</code>, because at that layer the concern is <em>which engine produced the representation</em> (provenance), not <em>what you get back</em>. The two map 1:1 — <code>payload="polars"</code> ⇄ <code>engine="polars"</code> — so the difference is layer, not meaning.</p>
+<p>When the user reaches for a Polars operation on a Spec-1 DataFrame, the facade must communicate honestly that operation-level lineage is not yet tracked, without forcing the user to drop out of the facade API. This is the central design tension Spec 1 resolves — and the resolution is now straightforward: <code>Asset.derive(child_payload, derived_from=[parent_asset])</code> produces a child lineage with parent sources but no <code>Activity</code>. The absence of an <code>Activity</code> chain is the honest, observable signal that ops are untracked.</p>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<h3 id="module-layout">Module Layout<a class="headerlink" href="#module-layout" title="Permanent link">&para;</a></h3>
+<p><code>src/sunstone/polars/</code> is a package, mirroring the post-Spec-0 layout of <code>src/sunstone/pandas/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/sunstone/polars/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── __init__.py        # Public re-exports
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── core.py            # DataFrame class
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── io.py              # read_csv / read_parquet / read_json / read_dataset / write_*
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── metadata.py        # Property accessors, set_field_metadata
+</code></pre></div>
+<p>No file exceeds 400 lines. The split is by responsibility, not by polars method group.</p>
+<h3 id="public-api">Public API<a class="headerlink" href="#public-api" title="Permanent link">&para;</a></h3>
+<p><code>from sunstone import polars as pl</code> exposes:</p>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pl.read_csv</code></td>
+<td>Sunstone facade</td>
+<td>Thin wrapper over <code>sunstone.read(path, payload="polars")</code>; returns <code>sunstone.polars.DataFrame</code></td>
+</tr>
+<tr>
+<td><code>pl.read_parquet</code></td>
+<td>Sunstone facade</td>
+<td>Same shape</td>
+</tr>
+<tr>
+<td><code>pl.read_json</code></td>
+<td>Sunstone facade</td>
+<td>Same shape</td>
+</tr>
+<tr>
+<td><code>pl.read_dataset</code></td>
+<td>Sunstone facade</td>
+<td>Slug-based; resolves location via <code>DatasetsManager</code> then delegates as above</td>
+</tr>
+<tr>
+<td><code>pl.DataFrame</code></td>
+<td>Sunstone facade</td>
+<td><code>sunstone.polars.core.DataFrame</code></td>
+</tr>
+<tr>
+<td><code>pl.Series</code>, <code>pl.col</code>, <code>pl.lit</code>, <code>pl.when</code>, <code>pl.LazyFrame</code>, dtypes (<code>pl.Int64</code>, ...)</td>
+<td>Pass-through</td>
+<td>Re-exported from upstream <code>polars</code></td>
+</tr>
+</tbody>
+</table>
+<p>Two writer surfaces, both delegating to <code>sunstone.write(self.asset, path, format=...)</code>:</p>
+<ul>
+<li><code>df.write_csv(path, slug=..., name=..., ...)</code></li>
+<li><code>df.write_parquet(path, slug=..., name=..., ...)</code></li>
+<li><code>df.write_json(path, slug=..., name=..., ...)</code></li>
+</ul>
+<p>Polars' native <code>write_*</code> naming is preserved (rather than pandas' <code>to_*</code>), so muscle memory carries over. The facade methods stamp <code>slug</code> / <code>name</code> onto <code>self.asset.metadata</code> and hand off to <code>sunstone.write()</code>, which runs the centralized write path: license auto-derive + enforcement, identity URI materialisation, <code>datasets.lock.yaml</code> update, plugin dispatch, and per-dataset CSV dialect honor (all engine-neutral).</p>
+<p>A new typed accessor lands as part of this spec: <code>Asset.as_polars() -&gt; pl.DataFrame</code> (analogous to <code>as_table()</code>). It raises <code>IncompatibleAssetKindError</code> if the asset's <code>kind</code> is not <code>TABULAR</code>, and <code>TypeError</code> if the payload is not a <code>polars.DataFrame</code> (e.g., it's a <code>pandas.DataFrame</code> — call <code>as_table()</code> and convert with <code>pl.from_pandas()</code> explicitly; Spec 5 lands lineage-preserving cross-engine conversion).</p>
+<p><strong>Not in Spec 1:</strong> <code>pl.read_excel</code> (requires <code>xlsx2csv</code>/<code>fastexcel</code> extras — separate spec), <code>pl.scan_csv</code> / <code>pl.scan_parquet</code> (lazy readers — Spec 3), <code>pl.concat</code>, <code>pl.merge</code> (operations — Spec 2).</p>
+<h3 id="pldataframe-class"><code>pl.DataFrame</code> Class<a class="headerlink" href="#pldataframe-class" title="Permanent link">&para;</a></h3>
+<p>Composition over an <code>Asset</code>, mirroring how <code>sunstone.pandas.DataFrame</code> is a facade over a <code>TABULAR</code> Asset:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">DataFrame</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">asset</span><span class="p">:</span> <span class="n">Asset</span>                    <span class="c1"># underlying Asset (kind=TABULAR, payload=pl.DataFrame)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">strict_mode</span><span class="p">:</span> <span class="nb">bool</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="n">data</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Metadata</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="n">asset</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Asset</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="n">strict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="n">project_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">datasets_file</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="p">):</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="o">...</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="nd">@property</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;polars.DataFrame&quot;</span><span class="p">:</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying polars frame (shortcut for `self.asset.as_polars()`).&quot;&quot;&quot;</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset</span><span class="o">.</span><span class="n">as_polars</span><span class="p">()</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="nd">@property</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Metadata</span><span class="p">:</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset</span><span class="o">.</span><span class="n">metadata</span>
+</code></pre></div>
+<p><code>Metadata</code> and <code>LineageMetadata</code> are reused as-is — engine-agnostic by design.</p>
+<p><code>__init__</code> accepts:
+- An existing <code>Asset</code> (used directly when <code>asset=</code> is passed — the primary internal construction path used by <code>pl.read_csv</code> etc.)
+- <code>pl.DataFrame</code> payload (wrapped in a fresh <code>Asset(kind=TABULAR, ...)</code> with any supplied metadata)
+- <code>pd.DataFrame</code> (converted via <code>pl.from_pandas</code> — lineage is <em>not</em> preserved across this conversion; Spec 5)
+- Any other type accepted by <code>pl.DataFrame()</code> constructor (dict, list of dicts, etc.)</p>
+<p>The constructor's positional <code>data=</code> and keyword <code>metadata=</code> mirror the pandas facade signature for ergonomic parity. The <code>lineage=</code> argument that appeared in the original draft is dropped — lineage now lives inside <code>metadata</code>, and there is no longer a reason to pass it separately.</p>
+<h3 id="construction-time-lineage-payload">Construction-Time Lineage Payload<a class="headerlink" href="#construction-time-lineage-payload" title="Permanent link">&para;</a></h3>
+<p>When <code>pl.read_csv(path, slug=...)</code> succeeds, the underlying <code>Asset.metadata.lineage</code> is populated using main's actual <code>LineageMetadata</code> shape:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value at read time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lineage.sources</code></td>
+<td>One-element list with a <code>DatasetMetadata</code> describing the source (slug, name, location, optional <code>Source</code> with license/attribution)</td>
+</tr>
+<tr>
+<td><code>lineage.data_hash</code></td>
+<td>SHA-256 of bytes read (file-content hash), prefixed <code>"sha256:"</code></td>
+</tr>
+<tr>
+<td><code>lineage.field_derivations</code></td>
+<td>Auto-populated via <code>populate_field_derivations(columns, slug)</code> — one <code>FieldDerivation</code> per column, identity mapping</td>
+</tr>
+<tr>
+<td><code>lineage.activity</code></td>
+<td><code>None</code> (Activity is reserved for explicit operations — Spec 2)</td>
+</tr>
+<tr>
+<td><code>lineage.created_at</code></td>
+<td>now</td>
+</tr>
+<tr>
+<td><code>lineage.engine</code></td>
+<td><code>"polars"</code> (new optional field — see below)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>File-content hashing</strong> is the deliberate Spec 1 choice: polars' internal layout differs from pandas, so reusing <code>compute_dataframe_hash</code> (which pickles a pandas frame) would require materialising through pandas. File-content hashing is engine-neutral and matches what <code>datasets.lock.yaml</code> already records. The same approach back-applies to pandas reads in a future cleanup (out of scope here).</p>
+<h3 id="lineage-schema-additions">Lineage Schema Additions<a class="headerlink" href="#lineage-schema-additions" title="Permanent link">&para;</a></h3>
+<p><strong>One</strong> new field on <code>LineageMetadata</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">LineageMetadata</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="c1"># ... existing fields ...</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">engine</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Semantics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>engine</code></td>
+<td><code>"pandas"</code> / <code>"polars"</code> / <code>None</code> (legacy / unspecified). Identifies the engine that produced the in-memory representation. Spec 1 also stamps <code>"pandas"</code> on the pandas facade's reads/writes so future audits can distinguish. Omitted from serialised output when <code>None</code> (no diff for unchanged <code>datasets.lock.yaml</code> files).</td>
+</tr>
+</tbody>
+</table>
+<p>The original draft proposed adding <code>derived_from: Optional[List[LineageMetadata]]</code> and <code>derivation_status: Literal["fresh", "unknown", "tracked"]</code>. <strong>Both are dropped.</strong> Main already encodes derivation lineage through <code>Asset.derive(child_payload, derived_from=[parent_asset, ...])</code>, which calls <code>_build_child_lineage(parents)</code> and composes child lineage from the parents' <code>sources</code> list. The "fresh / unknown / tracked" tri-state collapses to a natural binary: an <code>Asset</code> whose <code>lineage.activity is None</code> but whose <code>lineage.sources</code> is non-empty either came from a direct read (matches <code>data_hash</code>) or from an untracked op chain. Spec 2 will populate <code>Activity</code> for tracked ops; Spec 1 leaves <code>Activity</code> as <code>None</code> and relies on the warning at write time to flag the gap.</p>
+<h3 id="op-boundary-contract">Op Boundary Contract<a class="headerlink" href="#op-boundary-contract" title="Permanent link">&para;</a></h3>
+<p>Spec 1 does <strong>not</strong> track operation-level lineage. The facade lets users chain polars operations naturally, but the absence of an <code>Activity</code> chain communicates the gap honestly to anyone inspecting the lineage.</p>
+<p>Mechanism: <code>DataFrame.__getattr__</code> delegates unknown attribute access to <code>self.asset.payload</code> (the underlying <code>pl.DataFrame</code>). When the delegated call returns a <code>pl.DataFrame</code>, the facade derives a child Asset via:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">child_asset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">new_payload</span><span class="p">,</span>                <span class="c1"># pl.DataFrame returned by the op</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">derived_from</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">asset</span><span class="p">],</span>  <span class="c1"># parent chain composed via _build_child_lineage</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># child_asset.metadata.lineage:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1">#   sources        ← propagated from self.asset (single-parent chain collapses)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1">#   activity       ← None (no op-level tracking yet)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1">#   field_derivations ← carried forward where unambiguous; cleared otherwise</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1">#   data_hash      ← None (recomputed only on write)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="c1">#   engine         ← &quot;polars&quot;</span>
+</code></pre></div>
+<p><code>derived_from=[self.asset]</code> is the canonical PROV-O parent chain on <code>main</code>. Multi-parent ops (joins) pass both parents. When the delegated call returns a non-DataFrame value (e.g. <code>df.height: int</code>, <code>df.columns: list[str]</code>), pass it through unchanged.</p>
+<p>Explicitly implemented dunders that need wrapping behavior (not handled by <code>__getattr__</code>):</p>
+<ul>
+<li><code>__getitem__</code> — wraps DataFrame results, passes through Series results</li>
+<li><code>__len__</code>, <code>__contains__</code>, <code>__iter__</code>, <code>__repr__</code>, <code>__str__</code> — pass-through</li>
+</ul>
+<p>Other dunders (<code>__add__</code>, <code>__sub__</code>, etc.) are out of scope for Spec 1 — those are unit-aware operations (Spec 4).</p>
+<h3 id="write-path">Write Path<a class="headerlink" href="#write-path" title="Permanent link">&para;</a></h3>
+<p><code>df.write_csv(path, slug=..., name=..., ...)</code>:</p>
+<ol>
+<li>Stamp <code>slug</code> and <code>name</code> onto <code>self.asset.metadata</code> (overwriting any pre-existing values supplied at construction time).</li>
+<li>Set <code>self.asset.metadata.lineage.engine = "polars"</code> (idempotent — already stamped at read time).</li>
+<li>Delegate to <code>sunstone.write(self.asset, path, format="csv", **kwargs)</code>. The central write path handles:</li>
+<li>URL handler resolution via <code>PluginRegistry</code></li>
+<li>Plugin dispatch to a polars-aware <code>FormatHandler</code> (see <em>Plugin Reuse</em> below)</li>
+<li>License <strong>auto-derive</strong> from <code>lineage.sources</code> and <strong>enforcement</strong> against the target slot's declared license</li>
+<li>Identity URI materialisation (<code>_materialise_default_identity</code>)</li>
+<li><code>datasets.lock.yaml</code> update with hash + sources, using <code>Path.as_posix()</code> for cross-platform paths</li>
+<li>Per-dataset CSV dialect honor (writes go through the same dialect resolution as pandas)</li>
+<li><strong>Before</strong> delegating, the facade inspects <code>self.asset</code> for the "derivation gap": if <code>lineage.sources</code> indicates the Asset is derived (i.e., the slug differs from any source slug, or there are multiple sources) AND <code>lineage.activity is None</code>, emit a <code>LineageWarning</code> exactly once per write call:<blockquote>
+<p><code>"Output '{slug}' written from a polars DataFrame whose derivation chain has no Activity records. Operation-level lineage is not yet tracked for the polars engine. See Spec 2."</code></p>
+</blockquote>
+</li>
+</ol>
+<p>(The same warning is wired into the pandas path in Spec 2 — once <code>Activity</code> is consistently populated for tracked ops, its absence is a real signal regardless of engine. Spec 1 emits the warning only for polars writes.)</p>
+<p>Same pattern for <code>write_parquet</code> and <code>write_json</code> — the slug/name stamping, warning emission, and <code>sunstone.write()</code> delegation are shared in a helper inside <code>io.py</code>.</p>
+<h3 id="plugin-reuse">Plugin Reuse<a class="headerlink" href="#plugin-reuse" title="Permanent link">&para;</a></h3>
+<p>The <code>FormatHandler</code> protocol on <code>main</code> already returns an <code>Asset</code> and declares <code>supported_kinds()</code>. Plugins can opt into the new protocol with <code>__sunstone_handler_protocol__ = 2</code>; older plugins are wrapped by <code>TabularDataFrameAdapter</code> and still produce <code>Asset(kind=TABULAR, payload=pd.DataFrame, ...)</code>. Spec 1 leverages this directly rather than parallelling it.</p>
+<table>
+<thead>
+<tr>
+<th>Plugin layer</th>
+<th>Reuse in Spec 1</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AuthProvider</code></td>
+<td>Full</td>
+<td>Credential resolution is engine-neutral</td>
+</tr>
+<tr>
+<td><code>URLHandler</code> (HTTP, local, GCS, S3)</td>
+<td>Full</td>
+<td>Returns binary streams; polars consumes them directly</td>
+</tr>
+<tr>
+<td>Built-in <code>FormatHandler</code></td>
+<td><strong>Parametrised</strong></td>
+<td>The existing <code>BuiltinFormatHandler</code> gains an <code>engine: Literal["pandas", "polars"] = "pandas"</code> knob (constructor arg, default preserves current behavior). When <code>engine="polars"</code>, it reads via <code>pl.read_csv</code> / <code>pl.read_parquet</code> / <code>pl.read_json</code> and returns <code>Asset(payload=pl.DataFrame, kind=TABULAR, ...)</code>. <code>sunstone.read(path, payload="polars")</code> instantiates / selects the polars-engine handler.</td>
+</tr>
+<tr>
+<td>External <code>FormatHandler</code> plugins (legacy protocol)</td>
+<td>Unchanged</td>
+<td>They keep returning <code>pd.DataFrame</code> payloads via the adapter. The user opts into polars at the call site; if no polars-engine handler claims the format, the call falls back to pandas with a warning. (A future spec defines an engine-aware claim for external plugins.)</td>
+</tr>
+<tr>
+<td>External <code>FormatHandler</code> plugins (protocol 2)</td>
+<td>Pass-through</td>
+<td>If a third-party plugin returns a polars-payload Asset, the facade accepts it as-is.</td>
+</tr>
+</tbody>
+</table>
+<p><code>PluginRegistry</code> itself is reused unchanged. The polars facade queries it for URL/auth handlers identically to pandas — in fact, it never queries <code>PluginRegistry</code> directly. The <code>sunstone.read()</code> / <code>sunstone.write()</code> entry points do that work centrally.</p>
+<h3 id="dependency">Dependency<a class="headerlink" href="#dependency" title="Permanent link">&para;</a></h3>
+<p>Polars is an <strong>optional extra</strong>: <code>sunstone-py[polars]</code>. Existing pandas-only users do not pay the install cost.</p>
+<p>The polars import is also <strong>lazy</strong>, matching the pattern introduced for pandas in <code>beddbd8</code>. The <code>sunstone</code> package's PEP 562 <code>__getattr__</code> resolves <code>sunstone.polars</code> on first access; <code>import sunstone</code> does not pull polars into <code>sys.modules</code>. Inside <code>src/sunstone/polars/__init__.py</code>, the actual <code>import polars</code> happens at module load (which is fine — by the time the user has done <code>from sunstone import polars</code>, they have already opted in). What does need lazy-import discipline is the polars-engine path inside <code>BuiltinFormatHandler</code>: <code>import polars</code> must happen inside <code>read()</code> / <code>write()</code>, not at module load, so that <code>import sunstone.handlers</code> continues to be cheap.</p>
+<p><code>src/sunstone/polars/__init__.py</code> raises <code>ImportError</code> with a clear message if polars is not installed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_pl</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">&quot;Polars support requires the [polars] extra. &quot;</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">&quot;Install with: pip install sunstone-py[polars]&quot;</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+</code></pre></div>
+<p><code>pyproject.toml</code> adds:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[project.optional-dependencies]</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">polars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;polars&gt;=1.0.0&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p>Pinned minimum version chosen to match Polars' 1.x stable API guarantees.</p>
+<h3 id="errors-and-warnings">Errors and Warnings<a class="headerlink" href="#errors-and-warnings" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from sunstone import polars</code> without <code>[polars]</code> extra</td>
+<td><code>ImportError</code> with install instruction</td>
+</tr>
+<tr>
+<td><code>pl.read_csv("unregistered.csv")</code> in strict mode</td>
+<td><code>DatasetNotFoundError</code> (existing exception, reused)</td>
+</tr>
+<tr>
+<td><code>pl.read_csv("unregistered.csv")</code> in relaxed mode</td>
+<td>Auto-register in <code>datasets.yaml</code>, proceed</td>
+</tr>
+<tr>
+<td>Write of a derived Asset with <code>lineage.activity is None</code> and multi-source/different-slug indicators</td>
+<td><code>LineageWarning</code> (existing pattern, reused), once per write call</td>
+</tr>
+<tr>
+<td>Write with license incompatible with source</td>
+<td><code>LicenseCompatibilityError</code> (existing exception, reused via central write path)</td>
+</tr>
+<tr>
+<td><code>Asset.as_polars()</code> on a non-TABULAR Asset</td>
+<td><code>IncompatibleAssetKindError</code> (existing exception, reused)</td>
+</tr>
+<tr>
+<td><code>Asset.as_polars()</code> on a TABULAR Asset whose payload is <code>pd.DataFrame</code></td>
+<td><code>TypeError</code> with a hint about <code>pl.from_pandas</code> (Spec 5 will land lineage-preserving conversion)</td>
+</tr>
+</tbody>
+</table>
+<p>No new exception types are introduced.</p>
+<h3 id="order-of-implementation">Order of Implementation<a class="headerlink" href="#order-of-implementation" title="Permanent link">&para;</a></h3>
+<p>Each step below is an atomic commit. Tests must pass after every step (or, for steps that add a test before its implementation, the bracket completes within the same commit). Steps are ordered to avoid forward references — every step's implementation can rely only on what landed before it.</p>
+<ol>
+<li>
+<p><strong><code>pyproject.toml</code>: add <code>polars</code> optional extra.</strong> Adds <code>polars = ["polars&gt;=1.0.0"]</code> under <code>[project.optional-dependencies]</code>. Refresh <code>uv.lock</code>. No code yet — verify <code>uv pip install -e .[polars]</code> works in the project venv. Tests still 1281 / 2 skipped.</p>
+</li>
+<li>
+<p><strong><code>LineageMetadata.engine: Optional[str] = None</code>.</strong> Add the field with default <code>None</code>. Update <code>LineageMetadata.to_dict()</code> / serialisation to <strong>omit</strong> the field when <code>None</code> (so <code>datasets.lock.yaml</code> of legacy records doesn't churn). Add a unit test in <code>tests/test_lineage_persistence.py</code> covering: default value, explicit set/get, serialise-when-non-None, omit-when-None. Existing tests keep passing.</p>
+</li>
+<li>
+<p><strong>Pandas facade back-fill: stamp <code>engine="pandas"</code> on reads/writes.</strong> Add the stamp inside the existing pandas read path (<code>pandas/read.py</code> constructor calls) and write path (<code>pandas/write.py</code> lineage updates). Add tests asserting the stamp lands on the resulting lineage. Existing tests pass unchanged.</p>
+</li>
+<li>
+<p><strong><code>Asset.as_polars()</code> typed accessor.</strong> Add to <code>sunstone/asset.py</code> alongside <code>as_table()</code>. Returns <code>polars.DataFrame</code> (via the existing payload). Raises <code>IncompatibleAssetKindError</code> on non-TABULAR Assets. Raises <code>TypeError</code> (with a <code>pl.from_pandas(...)</code> hint) on TABULAR Assets whose payload is a <code>pandas.DataFrame</code>. Tests in <code>tests/test_asset.py</code> (or wherever Asset tests live) cover: success path with a polars payload, <code>IncompatibleAssetKindError</code> path, <code>TypeError</code> path on pandas payload. The polars import inside <code>as_polars</code> must be <strong>lazy</strong> (inside the method body).</p>
+</li>
+<li>
+<p><strong><code>BuiltinFormatHandler</code> gains <code>engine</code> parameter.</strong> Add <code>engine: Literal["pandas", "polars"] = "pandas"</code> to the constructor (or class attribute). When <code>engine="polars"</code>, the <code>read()</code> path uses <code>pl.read_csv</code> / <code>pl.read_parquet</code> / <code>pl.read_json</code> and returns <code>Asset(payload=pl.DataFrame, kind=TABULAR, metadata=Metadata(...))</code>. Write paths follow the same pattern for <code>pl.DataFrame</code> payloads. The <code>import polars</code> happens <strong>inside <code>read()</code> / <code>write()</code></strong>, not at module load — <code>import sunstone.handlers</code> must remain cheap. Add tests covering: polars-engine CSV/Parquet/JSON round-trip via the handler directly (not yet via the facade). Existing pandas tests stay green.</p>
+</li>
+<li>
+<p><strong><code>sunstone.read(path, payload="polars")</code> dispatch knob.</strong> Wire the existing <code>sunstone.read()</code> entry point to honour <code>payload="polars"</code> (and the symmetric <code>payload="pandas"</code>, default) by selecting the engine-appropriate <code>BuiltinFormatHandler</code>. Tests cover the dispatch — same fixture file read both ways yields different payload types but identical lineage shape (modulo <code>engine</code> field). Existing tests stay green.</p>
+</li>
+<li>
+<p><strong><code>src/sunstone/polars/</code> package skeleton + lazy-load wiring.</strong> Create the package with <code>__init__.py</code>, <code>core.py</code>, <code>io.py</code>, <code>metadata.py</code> (initially mostly empty — just the import guard + minimal scaffolding). The package's <code>__init__.py</code> raises <code>ImportError</code> if polars isn't installed, with the install hint. Wire <code>sunstone.polars</code> into <code>sunstone/__init__.py</code>'s PEP 562 <code>__getattr__</code> lazy table — <code>import sunstone</code> must NOT pull <code>polars</code> (or even attempt to). Tests cover: <code>import sunstone</code> succeeds without <code>[polars]</code> extra; <code>from sunstone import polars</code> raises <code>ImportError</code> without the extra; both work cleanly with the extra installed. Lazy-load sys.modules assertion still passes.</p>
+</li>
+<li>
+<p><strong><code>pl.DataFrame</code> facade class (core.py + metadata.py).</strong> Implements:</p>
+</li>
+<li><code>core.py</code>: <code>DataFrame</code> composing an <code>Asset</code>, with <code>asset</code>, <code>data</code> (returns <code>self.asset.as_polars()</code>), <code>metadata</code>, <code>strict_mode</code> properties; <code>__init__</code> accepting <code>asset=</code>, payload <code>data=</code>, <code>metadata=</code>; <code>__getitem__</code>, <code>__len__</code>, <code>__contains__</code>, <code>__iter__</code>, <code>__repr__</code>, <code>__str__</code> dunders.</li>
+<li><code>metadata.py</code>: property accessors (<code>description</code>, <code>rdf_prefixes</code>, <code>custom_properties</code>) and <code>set_field_metadata</code> writing through to both <code>field_metadata</code> (legacy) and <code>component_metadata</code> (ComponentSchema entries).</li>
+</ol>
+<p>Tests cover construction from <code>pl.DataFrame</code>, from existing <code>Asset</code>, from <code>pd.DataFrame</code> (with conversion via <code>pl.from_pandas</code>), and the metadata accessors.</p>
+<ol>
+<li>
+<p><strong>Read facade functions (io.py — reads).</strong> Implement <code>read_csv</code>, <code>read_parquet</code>, <code>read_json</code>, <code>read_dataset</code> as thin wrappers that call <code>sunstone.read(path, payload="polars", ...)</code> and wrap the returned Asset in a <code>pl.DataFrame</code> facade. Slug-based <code>read_dataset</code> resolves location via <code>DatasetsManager</code> then delegates the same way. Tests cover: each reader returns a <code>sunstone.polars.DataFrame</code>; lineage is populated correctly with <code>engine="polars"</code>; strict-mode + relaxed-mode behaviour; URL routing through <code>HttpURLHandler</code> (mock).</p>
+</li>
+<li>
+<p><strong>Op boundary contract (<code>__getattr__</code> in <code>core.py</code>).</strong> Delegate unknown attribute access on <code>pl.DataFrame</code> facade to <code>self.asset.payload</code>. When the delegated call returns a <code>pl.DataFrame</code>, re-wrap via <code>self.asset.derive(new_payload, derived_from=[self.asset])</code>. When it returns a non-DataFrame value, pass through unchanged. Tests cover: <code>df.filter(...)</code>, <code>df.select(...)</code>, <code>df.with_columns(...)</code>, <code>df.group_by(...).agg(...)</code>, <code>df.join(other, ...)</code> all return facade DataFrames with parent chain populated; <code>df.height</code>, <code>df.shape</code>, <code>df.columns</code> pass through unchanged.</p>
+</li>
+<li>
+<p><strong>Write facade methods (io.py — writes + LineageWarning).</strong> Implement <code>write_csv</code>, <code>write_parquet</code>, <code>write_json</code> instance methods on the facade. Each stamps <code>slug</code>/<code>name</code> onto <code>self.asset.metadata</code>, then delegates to <code>sunstone.write(self.asset, path, format=...)</code>. Before the delegation, if the asset is detectably derived (multi-source OR output slug differs from any source slug) AND <code>lineage.activity is None</code>, emit a <code>LineageWarning</code>. Tests cover: end-to-end write of a fresh asset (no warning), write of a derived asset (exactly one warning per call), license compatibility error via central path, <code>datasets.lock.yaml</code> update with POSIX-style path.</p>
+</li>
+<li>
+<p><strong>Docs update: <code>docs/polars.md</code> marks roadmap items 1–3 as done.</strong> Replace the "Roadmap" status with "Supported" for the four roadmap items now landed (Asset.as_polars, polars-returning handlers, sunstone.polars facade, field-metadata bridge). Add a usage example mirroring the pandas examples. Add <code>polars.md</code> link from <code>docs/api.md</code>. No code changes.</p>
+</li>
+</ol>
+<p>Each step ends with <code>uv run pytest --no-cov -q</code> green and <code>uv run mypy src/</code> clean. Pyright in the venv should also be clean for all touched files.</p>
+<p><strong>Step sequencing notes:</strong>
+- Steps 1–6 build the engine-neutral substrate (extra, lineage field, accessor, handler param, dispatch).
+- Steps 7–11 build the polars facade on top of that substrate.
+- Step 12 closes the loop with documentation.
+- The <code>engine="pandas"</code> back-fill (Step 3) lands before the polars work so the test suite gains the new field assertions early.
+- The op boundary (Step 10) lands <em>after</em> reads (Step 9) so basic round-tripping tests exist before the more nuanced derivation logic.
+- The writes (Step 11) land last because they depend on the op boundary's <code>derived_from</code> semantics for the <code>LineageWarning</code> heuristic.</p>
+<h2 id="boundaries">Boundaries<a class="headerlink" href="#boundaries" title="Permanent link">&para;</a></h2>
+<h3 id="in-scope">In scope<a class="headerlink" href="#in-scope" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>src/sunstone/polars/</code> package with <code>__init__.py</code>, <code>core.py</code>, <code>io.py</code>, <code>metadata.py</code></li>
+<li>Reader functions: <code>read_csv</code>, <code>read_parquet</code>, <code>read_json</code>, <code>read_dataset</code> (slug-based) — thin facades over <code>sunstone.read(path, payload="polars")</code></li>
+<li>Writer instance methods: <code>write_csv</code>, <code>write_parquet</code>, <code>write_json</code> — thin facades over <code>sunstone.write(self.asset, path, ...)</code></li>
+<li><code>pl.DataFrame</code> facade class composing an <code>Asset</code> (kind=TABULAR, payload=<code>pl.DataFrame</code>); exposes <code>asset</code>, <code>data</code>, <code>metadata</code>, <code>strict_mode</code></li>
+<li><code>set_field_metadata</code> and metadata property accessors (description, rdf_prefixes, custom_properties) writing through to <code>Metadata</code> and <code>component_metadata</code></li>
+<li><strong><code>Asset.as_polars()</code> typed accessor</strong> on the <code>Asset</code> class (alongside <code>as_table()</code>)</li>
+<li>Construction-time lineage population using current <code>LineageMetadata</code> shape (<code>sources</code>, <code>data_hash</code>, <code>field_derivations</code>, <code>activity=None</code>)</li>
+<li><code>Asset.derive()</code>-based op delegation: unknown attr lookups returning <code>pl.DataFrame</code> are re-wrapped via <code>self.asset.derive(new_payload, derived_from=[self.asset])</code></li>
+<li><strong>One</strong> new <code>LineageMetadata</code> field: <code>engine: Optional[str]</code> (defaults to <code>None</code>, omitted when serialised)</li>
+<li><code>engine="pandas"</code> stamped on the pandas facade's reads/writes (back-fill)</li>
+<li><code>engine="polars"</code> stamped on every polars facade read/write</li>
+<li><code>BuiltinFormatHandler</code> parametrised with <code>engine: Literal["pandas", "polars"] = "pandas"</code> for the polars I/O path</li>
+<li><code>LineageWarning</code> emission when writing a derived Asset that has no <code>Activity</code> chain (Spec 1 emits for polars writes; Spec 2 generalises to pandas)</li>
+<li><code>sunstone-py[polars]</code> optional extra in <code>pyproject.toml</code> (<code>polars&gt;=1.0.0</code>)</li>
+<li>Test coverage parallel to <code>tests/test_dataframe.py</code> and <code>tests/test_lineage_persistence.py</code></li>
+<li>Cross-platform path handling — <code>Path.as_posix()</code> continues to be used by the central write path</li>
+<li>Per-dataset CSV dialect and Windows <code>\n</code> newline default are honored by the polars CSV write path (already wired into the central path)</li>
+<li><strong>Lazy-load discipline</strong>: <code>sunstone.polars</code> is exposed via the PEP 562 <code>__getattr__</code> lazy table in <code>sunstone/__init__.py</code>; <code>import sunstone</code> does not pull polars (or pandas) into <code>sys.modules</code>. The polars-engine code path inside <code>BuiltinFormatHandler</code> imports polars inside <code>read()</code> / <code>write()</code>, not at module load.</li>
+<li>No file in <code>src/sunstone/polars/</code> exceeds 400 lines</li>
+</ol>
+<h3 id="out-of-scope">Out of scope<a class="headerlink" href="#out-of-scope" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Where it goes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Operation-level lineage propagation through polars ops (PROV-O <code>Activity</code> population)</td>
+<td>Spec 2</td>
+</tr>
+<tr>
+<td><code>pl.LazyFrame</code> wrapping, <code>pl.scan_csv</code>, <code>pl.scan_parquet</code></td>
+<td>Spec 3</td>
+</tr>
+<tr>
+<td>Unit-aware arithmetic, Pint-backed columns</td>
+<td>Spec 4</td>
+</tr>
+<tr>
+<td>Lineage-preserving <code>df.to_pandas()</code> / <code>pl.from_pandas()</code></td>
+<td>Spec 5</td>
+</tr>
+<tr>
+<td><code>pl.read_excel</code></td>
+<td>Separate spec (sub-dependency burden)</td>
+</tr>
+<tr>
+<td><code>pl.concat</code>, <code>pl.merge</code> module-level wrappers</td>
+<td>Spec 2 (operations)</td>
+</tr>
+<tr>
+<td>Engine-aware claim semantics for external <code>FormatHandler</code> plugins (legacy protocol)</td>
+<td>Future spec</td>
+</tr>
+<tr>
+<td>Dataframe-content hashing for polars</td>
+<td>Not needed — file-content hash sufficient</td>
+</tr>
+<tr>
+<td><code>derived_from</code> / <code>derivation_status</code> fields on <code>LineageMetadata</code></td>
+<td><strong>Dropped</strong> — derivation lineage is encoded via <code>Asset.derive()</code> parent chain</td>
+</tr>
+<tr>
+<td>Spec 0 (pandas package refactor)</td>
+<td>Separate spec, lands first</td>
+</tr>
+</tbody>
+</table>
+<h2 id="acceptance-criteria">Acceptance Criteria<a class="headerlink" href="#acceptance-criteria" title="Permanent link">&para;</a></h2>
+<p>Each criterion is a pass/fail check that must be satisfied before Spec 1 is considered done.</p>
+<ul>
+<li>[ ] <code>from sunstone import polars as pl</code> works when <code>sunstone-py[polars]</code> is installed; raises <code>ImportError</code> with install instruction otherwise</li>
+<li>[ ] <code>pl.read_csv("input.csv")</code> on a path registered in <code>datasets.yaml</code> returns a <code>sunstone.polars.DataFrame</code> where <code>df.asset.kind is AssetKind.TABULAR</code> and <code>df.asset.payload</code> is a <code>polars.DataFrame</code>; <code>df.data</code> returns the same <code>polars.DataFrame</code></li>
+<li>[ ] After <code>pl.read_csv("input.csv")</code>: <code>df.metadata.lineage.engine == "polars"</code>, <code>df.metadata.lineage.sources</code> contains a single <code>DatasetMetadata</code> for the source, <code>df.metadata.lineage.data_hash</code> matches <code>"sha256:" + hashlib.sha256(file_bytes).hexdigest()</code>, <code>df.metadata.lineage.activity is None</code>, <code>df.metadata.lineage.field_derivations</code> is populated one-per-column</li>
+<li>[ ] <code>pl.read_csv("unregistered.csv")</code> raises <code>DatasetNotFoundError</code> in strict mode</li>
+<li>[ ] <code>pl.read_csv("unregistered.csv")</code> auto-registers in relaxed mode and proceeds</li>
+<li>[ ] <code>pl.read_parquet</code>, <code>pl.read_json</code>, <code>pl.read_dataset(slug)</code> all satisfy the analogous criteria</li>
+<li>[ ] HTTP URL reads route through <code>HttpURLHandler</code> (verified via handler mock asserting it was called with the expected URL)</li>
+<li>[ ] GCS reads route through <code>GcsURLHandler</code> when <code>sunstone-py[gcs,polars]</code> extras installed</li>
+<li>[ ] <code>df.write_csv("output.csv", slug="x", name="X")</code> writes the file via the central <code>sunstone.write()</code> path AND adds/updates the entry in <code>datasets.lock.yaml</code> with a forward-slash POSIX path</li>
+<li>[ ] <code>df.write_parquet</code>, <code>df.write_json</code> satisfy the analogous criteria</li>
+<li>[ ] <code>df.filter(pl.col("a") &gt; 0)</code> returns a <code>sunstone.polars.DataFrame</code> (not raw <code>pl.DataFrame</code>); its <code>asset.metadata.lineage.sources</code> carries the parent's source(s); <code>asset.metadata.lineage.activity is None</code>; <code>asset.metadata.lineage.engine == "polars"</code></li>
+<li>[ ] <code>df.height</code>, <code>df.shape</code>, <code>df.columns</code> (non-DataFrame returns) pass through unchanged</li>
+<li>[ ] <code>df.select(["a", "b"])</code>, <code>df.with_columns(...)</code>, <code>df.group_by("a").agg(...)</code>, <code>df.join(other, on="key")</code> all return wrapped <code>sunstone.polars.DataFrame</code>s whose underlying child <code>Asset</code> was produced via <code>Asset.derive(..., derived_from=[parent_asset, ...])</code></li>
+<li>[ ] Writing a derived Asset with <code>lineage.activity is None</code> emits exactly one <code>LineageWarning</code> per write call</li>
+<li>[ ] Writing an Asset that came straight from a read (no derivation) emits no <code>LineageWarning</code></li>
+<li>[ ] License compatibility check fires on polars writes via the central path (verified by writing with an incompatible target license — <code>LicenseCompatibilityError</code> raised); license auto-derive from <code>lineage.sources</code> is exercised when the target slot has no declared license</li>
+<li>[ ] <code>Asset.as_polars()</code> returns a <code>polars.DataFrame</code> payload; raises <code>IncompatibleAssetKindError</code> on non-TABULAR Assets; raises <code>TypeError</code> on TABULAR Assets whose payload is <code>pd.DataFrame</code></li>
+<li>[ ] Pandas wrapper test suite (<code>tests/test_dataframe.py</code>, <code>tests/test_lineage_persistence.py</code>, <code>tests/test_dataframe_coverage.py</code>) passes unchanged</li>
+<li>[ ] New <code>engine</code> field on <code>LineageMetadata</code> defaults to <code>None</code> for legacy lineage records and is omitted from serialized output when <code>None</code> (no <code>datasets.lock.yaml</code> diff for unchanged files)</li>
+<li>[ ] <code>engine="pandas"</code> is stamped on pandas-facade reads/writes (back-fill) so audits can distinguish engines</li>
+<li>[ ] No file in <code>src/sunstone/polars/</code> exceeds 400 lines</li>
+<li>[ ] CI passes on Windows runner (path handling and CSV newline defaults verified)</li>
+<li>[ ] Public API surface documented in <code>docs/api.md</code>; <code>docs/polars.md</code> updated to mark items 1–3 of the roadmap as <strong>done</strong> and link to this spec</li>
+<li>[ ] <strong>Lazy-load preserved</strong>: <code>python -c "import sunstone"</code> adds neither <code>polars</code> nor <code>pandas</code> to <code>sys.modules</code> (assertion test). <code>python -c "from sunstone import polars"</code> adds <code>polars</code> but still not <code>pandas</code>. <code>python -c "from sunstone import pandas"</code> adds <code>pandas</code> but still not <code>polars</code>.</li>
+<li>[ ] <code>python -c "import sunstone.handlers"</code> does not add <code>polars</code> to <code>sys.modules</code>; reading a CSV with <code>payload="polars"</code> is what triggers the polars import</li>
+</ul>
+<h2 id="update-log">Update Log<a class="headerlink" href="#update-log" title="Permanent link">&para;</a></h2>
+<h3 id="2026-05-22-substantially-revised-after-asset-envelope-landed-on-main">2026-05-22 — substantially revised after Asset envelope landed on <code>main</code><a class="headerlink" href="#2026-05-22-substantially-revised-after-asset-envelope-landed-on-main" title="Permanent link">&para;</a></h3>
+<p>The original 2026-05-11 draft predates several decisions that have since landed. The body of this spec was revised in place; this log records the diff so reviewers can see what was reconciled.</p>
+<p><strong>Architectural shift — facade over Asset, not parallel implementation.</strong>
+- The pandas wrapper is now publicly documented (<code>docs/pandas.md</code>) as a facade over an <code>AssetKind.TABULAR</code> <code>Asset</code>. The polars facade follows the same pattern: <code>pl.DataFrame.asset</code> is the underlying <code>Asset</code> whose <code>payload</code> is a <code>polars.DataFrame</code>.
+- Module-level <code>pl.read_*</code> functions are thin wrappers around <code>sunstone.read(path, payload="polars")</code>. Instance <code>df.write_*</code> methods are thin wrappers around <code>sunstone.write(self.asset, path, ...)</code>.
+- The committed user-facing dispatch knob is <code>ss.read(path, payload="polars")</code>, per <code>docs/polars.md</code>. Spec 1 implements this knob via a parametrised <code>BuiltinFormatHandler(engine="polars")</code>.</p>
+<p><strong><code>LineageMetadata</code> schema change — dropped <code>derived_from</code> and <code>derivation_status</code>.</strong>
+- Main's <code>LineageMetadata</code> carries <code>sources: List[DatasetMetadata]</code>, <code>activity: Optional[Activity]</code> (PROV-O), <code>field_derivations: Optional[List[FieldDerivation]]</code>, <code>data_hash</code>, <code>created_at</code>, <code>project_path</code>. The original draft's proposed <code>source_url</code>, <code>dataset_slug</code>, <code>dataset_hash</code>, <code>format</code>, <code>timestamp</code> field names were aspirational — main's actual field names are used throughout the revised body.
+- The original draft proposed three new fields: <code>engine</code>, <code>derived_from</code>, <code>derivation_status</code>. <strong><code>engine</code> stays.</strong> <strong><code>derived_from</code> is dropped</strong> because <code>Asset.derive(child_payload, derived_from=[parent_asset])</code> already encodes the parent chain through <code>_build_child_lineage(parents)</code>, which composes the child's <code>sources</code> list. <strong><code>derivation_status</code> is dropped</strong> because the tri-state collapses: <code>lineage.activity is None</code> with non-empty <code>sources</code> is the natural signal that an Asset is derived from sources but not op-tracked.
+- The <code>LineageWarning</code> semantics changed accordingly: warning fires on write when an Asset has a derivation indicator (multi-source, or output slug differs from any source slug) AND <code>lineage.activity is None</code>. The polars facade emits this in Spec 1; Spec 2 generalises to pandas.</p>
+<p><strong><code>Asset.as_polars()</code> added as in-scope.</strong>
+- <code>docs/polars.md</code> lists this as roadmap item 1. It moves into Spec 1 as a small typed accessor on <code>Asset</code>, alongside the existing <code>as_table()</code>.</p>
+<p><strong>Plugin protocol re-use — embrace, not avoid.</strong>
+- The new <code>FormatHandler</code> protocol on <code>main</code> already returns <code>Asset</code> and declares <code>supported_kinds()</code>. The original draft said external <code>FormatHandler</code> plugins were "Not supported in Spec 1"; that stance is dropped. Existing legacy handlers wrapped by <code>TabularDataFrameAdapter</code> keep returning pandas payloads, and the user opts into polars at the call site. Protocol-2 plugins can return polars payloads natively.</p>
+<p><strong>Write path — centralised, not duplicated.</strong>
+- The original draft duplicated URL resolution, license enforcement, and <code>datasets.yaml</code> update logic into the polars facade. Main has a centralised <code>sunstone.write(asset, path)</code> that already handles all of this engine-neutrally. The facade now stamps slug/name and delegates.
+- <code>datasets.yaml</code> is the human-authored registry; lineage / hashes go into <code>datasets.lock.yaml</code> (PR #49, confirmed by 0ed3e26's read-side fix). Terminology updated throughout.
+- License auto-derive from <code>lineage.sources</code> (1d779b9) is exercised automatically.
+- Per-dataset CSV dialect (820808a) and Windows <code>\n</code> newline default (02d138c) are inherited from the central path.</p>
+<p><strong><code>read_json</code> already exists.</strong>
+- PR #69 added <code>read_json</code> to <code>sunstone.pandas</code>. The polars version is parallel work, not novel precedent.</p>
+<p><strong>Other minor reconciliations.</strong>
+- Constructor's <code>lineage=</code> argument is dropped — lineage lives inside <code>metadata</code> now and there's no longer a reason to pass it separately.
+- <code>set_field_metadata</code> writes through to both legacy <code>field_metadata</code> and the unified <code>component_metadata</code> (<code>ComponentSchema</code> entries) — same behaviour as the pandas facade gained in 5ce7443.</p>
+<h3 id="2026-05-22-addendum-after-cli-lazy-load-landed-beddbd8">2026-05-22 — addendum after CLI lazy-load landed (beddbd8)<a class="headerlink" href="#2026-05-22-addendum-after-cli-lazy-load-landed-beddbd8" title="Permanent link">&para;</a></h3>
+<p>The CLI lazy-loading refactor (PEP 562 <code>__getattr__</code> in <code>sunstone/__init__.py</code>, deferred <code>import pandas</code> in <code>sunstone.handlers</code>) imposes a constraint Spec 1 must honor:</p>
+<ul>
+<li><strong><code>sunstone.polars</code> is exposed through the same lazy <code>__getattr__</code> mechanism.</strong> <code>import sunstone</code> must not add <code>polars</code> to <code>sys.modules</code>. The polars import only fires when the user does <code>from sunstone import polars</code> (or accesses <code>sunstone.polars</code> directly).</li>
+<li><strong><code>BuiltinFormatHandler(engine="polars")</code> must defer <code>import polars</code> to the read/write call site</strong>, mirroring how the pandas path now uses <code>_get_reader(fmt)</code> to defer pandas. Importing <code>sunstone.handlers</code> must remain cheap.</li>
+<li>The pandas back-fill (<code>engine="pandas"</code> stamp on pandas-facade reads/writes) does not change anything about lazy loading — by the time the pandas facade is involved, pandas is already being imported.</li>
+<li>Three new acceptance criteria capture the lazy-load assertions; one is added to the in-scope list as item 18.</li>
+<li>The "Dependency" section was expanded with a paragraph explaining the lazy-import discipline.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
