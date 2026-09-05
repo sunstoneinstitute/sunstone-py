@@ -18,8 +18,8 @@ sunstone --version
 `sunstone env` manages cascading TOML configuration that overlays values
 on `os.environ` for CLI invocations and Python sessions that call
 `sunstone.activate_environment()`. Environments are useful for storing
-catalog URLs, warehouse names, region settings, and `op://` references
-to secrets without committing them to `datasets.yaml`.
+service URLs, region settings, and `op://` references to secrets
+without committing them to `datasets.yaml`.
 
 **Config file precedence (highest wins for active-environment selection):**
 
@@ -60,21 +60,21 @@ sunstone env use dev --user
 
 `KEY=VAL` entries with a `.` in the key are written to plugin-namespaced
 subtables — handy for per-plugin configuration like
-`data-platform.warehouse=main`.
+`data-platform.graph_url=https://data.dev.example.com`.
 
 ```bash
 # User scope (default)
-sunstone env add dev CATALOG_URL=https://data.dev.example.com
+sunstone env add dev data-platform.graph_url=https://data.dev.example.com
 
 # Mix top-level scalars and a subtable entry
-sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
+sunstone env add dev data-platform.s3_endpoint=http://localhost:9000 GIT_BRANCH=main
 
 # Write to project or system scope instead
-sunstone env add dev CATALOG_URL=https://... --scope project
-sunstone env add dev CATALOG_URL=https://... --scope system
+sunstone env add dev data-platform.graph_url=https://... --scope project
+sunstone env add dev data-platform.graph_url=https://... --scope system
 
 # Replace an existing entry
-sunstone env add dev CATALOG_URL=https://... --overwrite
+sunstone env add dev data-platform.graph_url=https://... --overwrite
 ```
 
 `--scope` accepts `user` (default), `project`, or `system` and applies
@@ -86,8 +86,8 @@ to `add`, `set`, `unset`, and `remove`.
 unspecified keys.
 
 ```bash
-sunstone env set dev CATALOG_URL=https://new.example.com
-sunstone env set dev data-platform.warehouse=staging --scope project
+sunstone env set dev GIT_BRANCH=main
+sunstone env set dev data-platform.graph_url=https://new.example.com --scope project
 ```
 
 If the same environment is also defined in a higher-precedence layer,
@@ -98,7 +98,7 @@ the CLI warns that the update will be shadowed.
 ```bash
 # Remove specific keys (dotted keys target subtables; the subtable is
 # deleted if it ends up empty)
-sunstone env unset dev CATALOG_URL data-platform.warehouse
+sunstone env unset dev GIT_BRANCH data-platform.s3_endpoint
 
 # Remove the entire environment
 sunstone env remove dev
@@ -109,7 +109,7 @@ sunstone env remove dev --scope system
 
 Values of the form `op://vault/item/field` are resolved through 1Password
 CLI at activation time, so secrets stay out of version control. Real env
-vars still win — if `CATALOG_URL` is already set in the shell, the
+vars still win — if `GIT_BRANCH` is already set in the shell, the
 environment value is left alone.
 
 ## Dataset Commands

@@ -533,7 +533,10 @@ def env_add(
     name: str = typer.Argument(..., help="Environment name"),
     entries: list[str] = typer.Argument(
         None,
-        help=("KEY=VAL entries. Dotted keys (e.g. data-platform.warehouse=main) write to plugin-namespaced subtables."),
+        help=(
+            "KEY=VAL entries. Dotted keys (e.g. data-platform.graph_url=https://...) "
+            "write to plugin-namespaced subtables."
+        ),
     ),
     overwrite: bool = typer.Option(False, "--overwrite", help="Replace existing entry"),
     scope: str = typer.Option(
@@ -545,8 +548,8 @@ def env_add(
     """Add a new environment to user config.
 
     Examples:
-        sunstone env add dev CATALOG_URL=https://data.dev.example.com
-        sunstone env add dev data-platform.warehouse=main GIT_BRANCH=main
+        sunstone env add dev data-platform.graph_url=https://data.dev.example.com
+        sunstone env add dev data-platform.s3_endpoint=http://localhost:9000 GIT_BRANCH=main
     """
     from sunstone.env import add_environment
 
@@ -601,7 +604,7 @@ def env_set(
         ...,
         help=(
             "KEY=VAL entries to merge into the environment. Dotted keys "
-            "(e.g. data-platform.warehouse=main) target plugin subtables."
+            "(e.g. data-platform.graph_url=https://...) target plugin subtables."
         ),
     ),
     scope: str = typer.Option(
@@ -651,7 +654,7 @@ def env_unset(
 ) -> None:
     """Remove KEYs from an environment in user config.
 
-    Dotted keys (e.g. data-platform.catalog_url) remove an entry from a
+    Dotted keys (e.g. data-platform.graph_url) remove an entry from a
     plugin subtable; the subtable is deleted if it ends up empty. Missing
     keys are silently ignored.
     """

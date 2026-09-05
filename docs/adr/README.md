@@ -12,7 +12,7 @@ Keep them as short as the decision allows.
 
 Related ADRs in sibling repos:
 
-- **data-platform** `docs/adr/` — catalog, Iceberg/Nessie, graph-as-canonical
+- **data-platform** `docs/adr/` — the Iceberg REST catalog, graph-as-canonical
   metadata store, the non-tabular sidecar/pointer design.
 - **research-stack** `docs/adr/` — ontology profile, concept canonicalization,
   and the concept-embeddings catalog contract (ADR 0003).
