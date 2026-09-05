@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `sunstone env` help examples named data-platform config keys that no longer exist (`catalog_url`, `warehouse`); they now show `graph_url` and `s3_endpoint`.
+
 ## [1.15.0] - 2026-07-31
 
 - Added: polars support via `from sunstone import polars as pl` — a lineage-tracking DataFrame facade (read/write, group-by, lazy chains, joins, full `pl.*` passthrough), plus `Asset.as_polars()` and `sunstone.read(path, payload="polars")`.

@@ -1399,6 +1399,34 @@ Plugins implement one or more of these protocols:
   `sunstone <name>`. Built-in groups (`dataset`, `package`, `lineage`,
   `env`, `license`) are protected from collision.
 
+  `cli_groups()` is called while `sunstone.cli` is still initializing its
+  own module. A plugin that wants to add a subcommand to a *built-in*
+  group must do it from inside `cli_groups()`, where importing
+  `sunstone.cli` is safe:
+
+  ```python
+  def cli_groups(self):
+      from sunstone.cli import env_app     # safe: called during cli init
+
+      @env_app.command("init")
+      def env_init() -> None:
+          """Bootstrap this plugin's environments."""
+          ...
+
+      return [("mygroup", my_app)]
+  ```
+
+  Do not import `sunstone.cli` at plugin *module* import time. That import
+  runs plugin discovery, which loads your plugin module again while it is
+  half-initialized; the registry then caches without your plugin.
+- **`EnvSectionProvider`**: Owns a typed slice of environment
+  configuration. `env_section_name()` returns the TOML subtable key (e.g.
+  `data-platform`); `env_section_model()` returns a callable — a
+  dataclass, Pydantic model, or factory — that takes the subtable's keys
+  as keyword arguments and returns a validated model. The result is
+  available as `Environment.section(name)`. See
+  [Environment Configuration](#environment-configuration).
+
 ### `ResourceLocation`
 
 ```python

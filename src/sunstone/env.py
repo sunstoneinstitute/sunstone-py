@@ -140,8 +140,8 @@ def _merge_environments(*configs: dict) -> dict:
     """Merge environment definitions with field-level precedence.
 
     Later configs take precedence at the field level within each
-    environment.  For example, if system defines ``catalog_url`` and
-    ``s3_endpoint`` for *dev* and user only overrides ``catalog_url``,
+    environment.  For example, if system defines ``graph_url`` and
+    ``s3_endpoint`` for *dev* and user only overrides ``graph_url``,
     the merged result keeps the system ``s3_endpoint``.
     """
     merged: dict[str, dict] = {}

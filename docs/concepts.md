@@ -390,7 +390,9 @@ registry.fetch('gs://my-bucket/data.csv', Path('data/local.csv'))
 
 ### Writing Custom Plugins
 
-Implement one or more plugin protocols (`AuthProvider`, `URLHandler`, `FormatHandler`) and register via entry points:
+Implement one or more plugin protocols (`AuthProvider`, `URLHandler`,
+`FormatHandler`, `StoreFormatHandler`, `CLIProvider`, `EnvSectionProvider` —
+see [Plugin protocols](api.md#plugin-protocols)) and register via entry points:
 
 ```toml
 # In your plugin's pyproject.toml
