@@ -397,12 +397,15 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-app = typer.Typer(help="Sunstone dataset and package management CLI.")
-dataset_app = typer.Typer(help="Manage datasets in datasets.yaml.")
-package_app = typer.Typer(help="Manage data packages.")
-lineage_app = typer.Typer(help="Query dataset lineage.")
-env_app = typer.Typer(help="Manage data platform environments.")
-license_app = typer.Typer(help="Inspect and check dataset licenses.")
+# Plain help/error output (no rich boxes); bare group invocations print help.
+_TYPER_OPTS: dict[str, Any] = {"no_args_is_help": True, "rich_markup_mode": None}
+
+app = typer.Typer(help="Sunstone dataset and package management CLI.", pretty_exceptions_enable=False, **_TYPER_OPTS)
+dataset_app = typer.Typer(help="Manage datasets in datasets.yaml.", **_TYPER_OPTS)
+package_app = typer.Typer(help="Manage data packages.", **_TYPER_OPTS)
+lineage_app = typer.Typer(help="Query dataset lineage.", **_TYPER_OPTS)
+env_app = typer.Typer(help="Manage data platform environments.", rich_markup_mode=None)
+license_app = typer.Typer(help="Inspect and check dataset licenses.", **_TYPER_OPTS)
 
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(package_app, name="package")
