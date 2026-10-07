@@ -136,6 +136,7 @@ Ready to dive in? Here's your learning path:
 5. **[API Reference](api.md)** - Complete API documentation
 6. **[Examples](examples.md)** - Real-world usage patterns and workflows
 7. **[Migration: datasets.lock.yaml](migration-lock-file.md)** - Upgrade guide for v1.7 lock file split
+8. **[Pushing to `sunstone:` namespaces](sunstone-push.md)** - Design for the package-push plugin protocol and GRAPH assets
 
 ## Common Use Cases
 
