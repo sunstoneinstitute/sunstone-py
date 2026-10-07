@@ -60,6 +60,7 @@ nav:
       - Tile pyramids (nbtiles): nbtiles.md
       - Tensors: tensors.md
   - API Reference: api.md
+  - "Pushing to sunstone: namespaces": sunstone-push.md
   - Examples: examples.md
   - Data Package Standard:
       - Frictionless Data: frictionlessdata.md

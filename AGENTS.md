@@ -70,7 +70,7 @@ src/sunstone
 
 Tests live in `tests/`, with fixture projects under `tests/testdata/`.
 Extended docs are in `docs/` (`pandas.md`, `polars.md`, `geopandas.md`,
-`api.md`, `formats.md`, ADRs under `docs/adr/`).
+`api.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
 
 ## Usage for Data Scientists
 
