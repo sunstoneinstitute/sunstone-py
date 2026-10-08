@@ -371,6 +371,10 @@ class PluginRegistry:
                 self.field_types.register(descriptor)
         except ImportError:
             pass  # [geo] extra not installed
+        # RDF handler (Turtle/N-Triples/JSON-LD -> AssetKind.GRAPH).
+        from .handlers_rdf import RdfFormatHandler
+
+        self._format_handlers.append(RdfFormatHandler())  # type: ignore[arg-type]
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)

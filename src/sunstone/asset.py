@@ -30,6 +30,7 @@ class AssetKind(Enum):
     TILES = "tiles"
     BLOB = "blob"
     GEOFEATURES = "geofeatures"
+    GRAPH = "graph"
 
 
 @dataclass
@@ -111,6 +112,12 @@ class Asset:
         """Return the geopandas GeoDataFrame payload (typed Any: core has no geopandas dep)."""
         if self.kind is not AssetKind.GEOFEATURES:
             raise IncompatibleAssetKindError(expected=AssetKind.GEOFEATURES, actual=self.kind)
+        return self.payload
+
+    def as_graph(self) -> Any:
+        """Return the rdflib Graph payload."""
+        if self.kind is not AssetKind.GRAPH:
+            raise IncompatibleAssetKindError(expected=AssetKind.GRAPH, actual=self.kind)
         return self.payload
 
     def derive(

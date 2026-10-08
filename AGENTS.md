@@ -40,6 +40,7 @@ src/sunstone
 ├── handlers_hdf5.py     # HDF5/NetCDF-4    [hdf5]
 ├── handlers_meta.py
 ├── handlers_npz.py      # NumPy .npz
+├── handlers_rdf.py      # Turtle/N-Triples/JSON-LD
 ├── handlers_s3.py       # s3:// and r2://  [s3]
 ├── handlers_zarr.py     # Zarr             [zarr]
 ├── licenses.py
@@ -123,6 +124,7 @@ Key modules:
 - `handlers_gcs.py` — `GcsURLHandler` for `gs://` URLs (requires `sunstone-py[gcs]`)
 - `handlers_s3.py` — `S3URLHandler` for `s3://` and `r2://` URLs (requires `sunstone-py[s3]`)
 - `handlers_geo.py` — GeoJSON/TopoJSON format handler for `GEOFEATURES` assets (requires `sunstone-py[geo]`)
+- `handlers_rdf.py` — Turtle/N-Triples/JSON-LD format handler for `GRAPH` assets
 - `geopandas.py` — Lineage-tracking geopandas facade (`read_geojson`/`read_topojson`/`read_file`, `GeoDataFrame`)
 - `polars/` — Lineage-tracking polars facade (`read_csv`/`read_parquet`/`write_*`, `DataFrame`, `pl.*` passthrough; requires `sunstone-py[polars]`)
 - `field_types.py` — Field value-type registry for column-level type metadata
