@@ -87,7 +87,7 @@ def read(
     """
     from .dataframe import _read_tabular_asset
     from .datasets import DatasetsManager
-    from .plugins import PluginRegistry
+    from .plugins import PluginRegistry, default_read_format
     from .resource import ResourceLocation
 
     # 2. Consult datasets.yaml when no explicit format was given.
@@ -100,6 +100,8 @@ def read(
             entry = dm.find_entry_by_location(path)
             if entry is not None:
                 format = entry.get("format")
+    if format is None:
+        format = default_read_format(path)
 
     # 3. Store-vs-stream classification.
     loc = ResourceLocation(path=path)

@@ -107,13 +107,15 @@ class ReadMixin:
                 )
 
         # Find a format handler (plugin or builtin) for this file
-        from sunstone.plugins import PluginRegistry
+        from sunstone.plugins import PluginRegistry, default_read_format, open_url
 
         registry = PluginRegistry.get(manager.project_path)
 
         # A pinned format in datasets.yaml overrides extension detection.
         if format is None and dataset.format is not None:
             format = dataset.format
+        if format is None:
+            format = default_read_format(dataset.location)
 
         # Try explicit format string first, then extension-based detection
         location = str(absolute_path)
@@ -134,7 +136,7 @@ class ReadMixin:
 
             raise no_url_handler_error(location)
 
-        with url_handler.open(location, "rb") as stream:
+        with open_url(url_handler, location, "rb", format=format) as stream:
             result = format_handler.read(
                 stream,
                 format=format,
@@ -276,7 +278,7 @@ class ReadMixin:
                 )
 
         # Read via format handler registry
-        from sunstone.plugins import PluginRegistry
+        from sunstone.plugins import PluginRegistry, open_url
 
         registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
@@ -290,7 +292,7 @@ class ReadMixin:
 
             raise no_url_handler_error(location)
 
-        with url_handler.open(location, "rb") as stream:
+        with open_url(url_handler, location, "rb", format="csv") as stream:
             result = format_handler.read(
                 stream,
                 format="csv",
@@ -381,7 +383,7 @@ class ReadMixin:
                 )
 
         # Read via format handler registry
-        from sunstone.plugins import PluginRegistry
+        from sunstone.plugins import PluginRegistry, open_url
 
         registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
@@ -395,7 +397,7 @@ class ReadMixin:
 
             raise no_url_handler_error(location)
 
-        with url_handler.open(location, "rb") as stream:
+        with open_url(url_handler, location, "rb", format="excel") as stream:
             result = format_handler.read(stream, format="excel", path=location, **kwargs)
         from sunstone.asset import Asset as _Asset
 
@@ -480,7 +482,7 @@ class ReadMixin:
                 )
 
         # Read via format handler registry
-        from sunstone.plugins import PluginRegistry
+        from sunstone.plugins import PluginRegistry, open_url
 
         registry = PluginRegistry.get(manager.project_path)
         location = str(absolute_path)
@@ -494,7 +496,7 @@ class ReadMixin:
 
             raise no_url_handler_error(location)
 
-        with url_handler.open(location, "rb") as stream:
+        with open_url(url_handler, location, "rb", format="json") as stream:
             result = format_handler.read(stream, format="json", path=location, **kwargs)
         from sunstone.asset import Asset as _Asset
 

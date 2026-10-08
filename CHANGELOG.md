@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: URL handlers can accept a `format=` keyword on `open` to serve the requested format, and extensionless `sunstone:` reads default to Parquet.
 - Changed: the `[geo]` extra registers its field type as `geojson` (was `geometry`); declare GeoSPARQL with `rdfType: geo:Geometry`.
 - Changed: `sunstone package push` refuses a generated datapackage.json or resource that fails the Data Package v2 profile; `package build` warns.
 - Added: `datapackage.json` carries `$schema` and `package.created`/`licenses`/`sources`, and `package.name` sets its name (overriding the project slug).
