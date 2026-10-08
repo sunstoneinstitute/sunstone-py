@@ -420,6 +420,7 @@ Consider using established vocabulary prefixes for interoperability:
 | `prov:` | http://www.w3.org/ns/prov# | Provenance Ontology |
 | `skos:` | http://www.w3.org/2004/02/skos/core# | Simple Knowledge Organization |
 | `dwc:` | http://rs.tdwg.org/dwc/terms/ | Darwin Core (biodiversity) |
+| `geo:` | http://www.opengis.net/ont/geosparql# | OGC GeoSPARQL (geometry classes and datatypes) |
 | `sosa:` | http://www.w3.org/ns/sosa/ | Sensor, Observation, Sample, Actuator |
 | `qudt:` | http://qudt.org/schema/qudt/ | Quantities, Units, Dimensions |
 | `obi:` | http://purl.obolibrary.org/obo/OBI_ | Ontology for Biomedical Investigations |
