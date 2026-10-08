@@ -416,6 +416,10 @@ class DatasetMetadata:
     """CSV dialect (delimiter, quote char, header) for ``text/csv`` datasets.
     ``None`` means use pandas defaults (comma-delimited, double-quote, header row)."""
 
+    primary_key: Optional[List[str]] = None
+    """Frictionless ``primaryKey``: field name(s) that uniquely identify a row.
+    Always a list; the YAML string form is normalized on parse."""
+
 
 def compute_dataframe_hash(df: "pd.DataFrame") -> str:
     """

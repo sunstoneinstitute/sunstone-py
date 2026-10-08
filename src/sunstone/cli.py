@@ -1218,7 +1218,10 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
             prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
             field_dict.update(expand_custom_properties(f.custom_properties, prefixes))
         field_dicts.append(field_dict)
-    return {"fields": field_dicts}
+    schema: dict[str, Any] = {"fields": field_dicts}
+    if ds.primary_key:
+        schema["primaryKey"] = list(ds.primary_key)
+    return schema
 
 
 def _build_non_frictionless_resource_dict(
@@ -1335,6 +1338,9 @@ def build_resource_dict(
                 yaml_field = yaml_fields_by_name.get(field_descriptor.name)
                 if yaml_field and yaml_field.description:
                     field_descriptor.description = yaml_field.description
+
+        if ds.primary_key:
+            resource.schema.primary_key = list(ds.primary_key)
 
         # Convert to dict and add custom RDF properties
         resource_dict: dict[str, Any] = resource.to_dict()
