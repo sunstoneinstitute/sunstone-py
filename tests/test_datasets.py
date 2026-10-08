@@ -1232,3 +1232,136 @@ def test_dataset_format_field_parsed(tmp_path):
     ds = mgr.find_dataset_by_slug("world-borders")
     assert ds is not None
     assert ds.format == "geojson"
+
+
+class TestPublishNamespaceFields:
+    def _manager(self, tmp_path, publish_block: str):
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "datasets.yaml").write_text(
+            "publish:\n"
+            f"{publish_block}"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Result\n"
+            "    slug: result\n"
+            "    location: outputs/result.csv\n"
+            "    publish:\n"
+            "      enabled: true\n"
+            "      as_name: result_v2\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: integer\n"
+        )
+        return DatasetsManager(tmp_path)
+
+    def test_parses_public_dialect_and_as_name(self, tmp_path):
+        m = self._manager(
+            tmp_path,
+            "  enabled: true\n"
+            "  to: sunstone:projects/my_study\n"
+            "  public: true\n"
+            "  dialect:\n"
+            "    delimiter: ';'\n"
+            "    headerRows: [1, 2]\n",
+        )
+        top = m.get_publish_config()
+        assert top.public is True
+        assert top.dialect == {"delimiter": ";", "headerRows": [1, 2]}
+        ds = m.get_all_outputs()[0]
+        assert ds.publish.as_name == "result_v2"
+
+    def test_rejects_unknown_dialect_key(self, tmp_path):
+        with pytest.raises(ValueError, match="sepparator"):
+            self._manager(
+                tmp_path, "  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    sepparator: ';'\n"
+            ).get_publish_config()
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "quoting: minimal",
+            "headerRowCount: 1",
+            "sheetName: data",
+            "caseSensitiveHeader: true",
+        ],
+    )
+    def test_rejects_non_frictionless_csv_dialect_keys(self, tmp_path, line):
+        with pytest.raises(ValueError, match="unknown properties"):
+            self._manager(
+                tmp_path, f"  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    {line}\n"
+            ).get_publish_config()
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "delimiter: 42",
+            "header: 'yes'",
+            "headerRows: [0]",
+            "commentRows: true",
+            "quoteChar: 1",
+            "escapeChar: null",
+        ],
+    )
+    def test_rejects_bad_dialect_values(self, tmp_path, line):
+        key = line.split(":")[0]
+        with pytest.raises(ValueError, match=f"publish.dialect.{key} must be"):
+            self._manager(
+                tmp_path, f"  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    {line}\n"
+            ).get_publish_config()
+
+    def test_accepts_frictionless_dialect_values(self, tmp_path):
+        m = self._manager(
+            tmp_path,
+            "  enabled: true\n  to: sunstone:projects/x\n  dialect:\n"
+            "    escapeChar: '\\\\'\n    doubleQuote: false\n    nullSequence: NA\n    commentChar: '#'\n",
+        )
+        assert m.get_publish_config().dialect["nullSequence"] == "NA"
+
+    def test_public_false_parses_as_false(self, tmp_path):
+        m = self._manager(tmp_path, "  enabled: true\n  to: sunstone:projects/x\n  public: false\n")
+        assert m.get_publish_config().public is False
+
+    def test_public_absent_defaults_false(self, tmp_path):
+        m = self._manager(tmp_path, "  enabled: true\n  to: sunstone:projects/x\n")
+        assert m.get_publish_config().public is False
+
+    @pytest.mark.parametrize("value", ["no", "off", "'false'", "1"])
+    def test_public_non_bool_raises(self, tmp_path, value):
+        with pytest.raises(ValueError, match="publish.public"):
+            self._manager(
+                tmp_path, f"  enabled: true\n  to: sunstone:projects/x\n  public: {value}\n"
+            ).get_publish_config()
+
+    def test_as_name_on_top_level_publish_raises(self, tmp_path):
+        with pytest.raises(ValueError, match="as_name.*dataset"):
+            self._manager(
+                tmp_path, "  enabled: true\n  to: sunstone:projects/x\n  as_name: nope\n"
+            ).get_publish_config()
+
+    def test_as_name_on_singular_package_publish_raises(self, tmp_path):
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "datasets.yaml").write_text(
+            "package:\n  title: T\n"
+            "publish:\n  enabled: true\n  to: sunstone:projects/x\n  as_name: nope\n"
+            "inputs: []\noutputs: []\n"
+        )
+        with pytest.raises(ValueError, match="as_name.*dataset"):
+            DatasetsManager(tmp_path).get_packages()
+
+    def test_as_name_on_packages_entry_publish_raises(self, tmp_path):
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "datasets.yaml").write_text(
+            "packages:\n"
+            "  - name: p\n"
+            "    datasets: [result]\n"
+            "    publish:\n      enabled: true\n      to: sunstone:projects/x\n      as_name: nope\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Result\n    slug: result\n    location: outputs/result.csv\n"
+            "    fields:\n      - name: x\n        type: integer\n"
+        )
+        with pytest.raises(ValueError, match="as_name.*dataset"):
+            DatasetsManager(tmp_path).get_packages()

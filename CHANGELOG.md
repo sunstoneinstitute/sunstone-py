@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone package push` publishes to `sunstone:` namespaces through a package-push plugin, with `--branch`, `--yes`, `--force` and `--replace`.
+- Added: `publish.as_name`, `publish.public` and `publish.dialect` in `datasets.yaml`.
+- Changed: `sunstone package push --env` defaults to `prod`, and blob-store pushes to prod need `--yes`.
 - Added: `AssetKind.GRAPH` and Turtle/N-Triples/JSON-LD read/write (adds rdflib as a dependency).
 - Fixed: `sunstone` CLI and plugin discovery no longer import geopandas, boto3, GCS, zarr or h5py at startup.
 
