@@ -2164,6 +2164,7 @@ source = { editable = "." }
 dependencies = [
     { name = "frictionless" },
     { name = "google-auth" },
+    { name = "jsonschema" },
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "pint" },
@@ -2224,6 +2225,7 @@ requires-dist = [
     { name = "google-auth", specifier = ">=2.43.0" },
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=2.0" },
     { name = "h5py", marker = "extra == 'hdf5'", specifier = ">=3.10" },
+    { name = "jsonschema", specifier = ">=4.18" },
     { name = "ontopint", marker = "extra == 'qudt'", specifier = ">=0.1" },
     { name = "openpyxl", specifier = ">=3.1.0" },
     { name = "pandas", specifier = ">=2.0.0" },
