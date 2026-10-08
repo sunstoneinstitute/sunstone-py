@@ -358,6 +358,29 @@ fields:
     unit: km^2
 ```
 
+### Primary Key
+
+Declare the column(s) that uniquely identify a row with `primaryKey`, next to `fields`.
+It follows the [Frictionless Table Schema](https://datapackage.org/standard/table-schema/#primaryKey):
+a single field name or a list of field names, each of which must be declared in `fields`.
+
+```yaml
+outputs:
+  - name: Population
+    slug: population
+    location: outputs/population.csv
+    fields:
+      - name: country
+        type: string
+      - name: year
+        type: integer
+      - name: value
+        type: number
+    primaryKey: [country, year]
+```
+
+`sunstone package build/push` writes it to `schema.primaryKey` of the resource in `datapackage.json`, always as a list.
+
 ### Deprecation: `df.lineage`
 
 The old `df.lineage` accessor still works but is deprecated. Use `df.metadata.lineage` instead.

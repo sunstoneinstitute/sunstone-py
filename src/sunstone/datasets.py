@@ -159,6 +159,31 @@ def _dialect_to_dict(dialect: CsvDialect) -> dict:
     }
 
 
+def _parse_primary_key(data: Any, slug: str, fields: Optional[List[FieldSchema]]) -> Optional[List[str]]:
+    """Parse a Frictionless ``primaryKey`` (string or list of strings) into a list.
+
+    When ``fields`` are declared, every key must name one of them.
+    """
+    if data is None:
+        return None
+    if isinstance(data, str):
+        keys = [data]
+    elif isinstance(data, list) and data and all(isinstance(k, str) for k in data):
+        keys = list(data)
+    else:
+        raise DatasetValidationError(
+            f"Dataset '{slug}': primaryKey must be a field name or a non-empty list of field names"
+        )
+    if fields is not None:
+        field_names = {f.name for f in fields}
+        unknown = [k for k in keys if k not in field_names]
+        if unknown:
+            raise DatasetValidationError(
+                f"Dataset '{slug}': primaryKey references undeclared field(s): {', '.join(unknown)}"
+            )
+    return keys
+
+
 def _field_schema_to_dict(field: FieldSchema) -> dict:
     """Convert a FieldSchema to a dict for YAML serialization, omitting None values."""
     d: dict = {"name": field.name}
@@ -703,6 +728,7 @@ class DatasetsManager:
             "rdfPrefixes",
             "publish",
             "dialect",
+            "primaryKey",
         }
 
         # Get RDF prefixes with precedence: dataset > top-level > defaults
@@ -823,6 +849,7 @@ class DatasetsManager:
             generated_at_time=generated_at_time,
             field_derivations=field_derivations_parsed,
             dialect=_parse_dialect(dataset_data.get("dialect")),
+            primary_key=_parse_primary_key(dataset_data.get("primaryKey"), slug, fields),
         )
 
     @classmethod

@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `primaryKey` on datasets in `datasets.yaml`, emitted as `schema.primaryKey` in `datapackage.json`.
+
 ## [1.15.1] - 2026-10-07
 
 - Changed: `sunstone` and its command groups print help when run without a subcommand, and CLI output no longer uses boxes.
