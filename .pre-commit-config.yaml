@@ -5,7 +5,9 @@ repos:
   rev: v3.2.0
   hooks:
   - id: trailing-whitespace
+    exclude: ^src/sunstone/profiles/
   - id: end-of-file-fixer
+    exclude: ^src/sunstone/profiles/
   - id: check-yaml
   - id: check-added-large-files
 
