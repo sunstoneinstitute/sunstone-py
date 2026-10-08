@@ -214,7 +214,7 @@ print("✓ Pipeline completed successfully")
 sunstone dataset validate
 
 # Push to production
-sunstone package push --env prod
+sunstone package push --env prod --yes
 ```
 
 ## Exploratory Analysis with Auto-Registration
@@ -463,7 +463,7 @@ push-prod: build
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		uv run sunstone package push --env prod; \
+		uv run sunstone package push --env prod --yes; \
 	fi
 
 clean:

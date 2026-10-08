@@ -8,7 +8,7 @@ from sunstone.lineage import Metadata
 
 
 def test_asset_kind_is_closed_enum():
-    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles", "blob", "geofeatures"}
+    assert {k.value for k in AssetKind} == {"tabular", "raster", "array", "tiles", "blob", "geofeatures", "graph"}
 
 
 def test_asset_kind_blob_exists_with_expected_value():
@@ -299,3 +299,14 @@ def test_as_polars_on_pandas_payload_raises_typeerror() -> None:
     asset = _tabular(pd.DataFrame({"a": [1]}))
     with pytest.raises(TypeError, match="pl.from_pandas"):
         asset.as_polars()
+
+
+def test_graph_kind_and_accessor():
+    assert AssetKind.GRAPH.value == "graph"
+    payload = object()
+    asset = Asset(payload=payload, kind=AssetKind.GRAPH, metadata=Metadata())
+    assert asset.as_graph() is payload
+
+    blob = Asset(payload=b"x", kind=AssetKind.BLOB, metadata=Metadata())
+    with pytest.raises(IncompatibleAssetKindError):
+        blob.as_graph()

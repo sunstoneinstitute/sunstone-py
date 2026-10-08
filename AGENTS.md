@@ -28,6 +28,7 @@ src/sunstone
 ├── context.py
 ├── dataframe.py         # sunstone.DataFrame facade over a TABULAR Asset
 ├── datasets.py
+├── datasets_schema.py   # datasets.yaml key allow-list + Data Package v2 profile validation
 ├── derive_policies.py
 ├── env.py               # environment/config resolution (sunstone env ...)
 ├── errors.py
@@ -40,6 +41,7 @@ src/sunstone
 ├── handlers_hdf5.py     # HDF5/NetCDF-4    [hdf5]
 ├── handlers_meta.py
 ├── handlers_npz.py      # NumPy .npz
+├── handlers_rdf.py      # Turtle/N-Triples/JSON-LD
 ├── handlers_s3.py       # s3:// and r2://  [s3]
 ├── handlers_zarr.py     # Zarr             [zarr]
 ├── licenses.py
@@ -59,6 +61,8 @@ src/sunstone
 │   ├── metadata.py
 │   ├── ops.py           #   relational ops, multi-parent lineage
 │   └── write.py
+├── push.py              # sunstone: namespace push (PushPackage, PackagePushHandler data model)
+├── profiles/            # vendored datapackage.org v2 JSON Schemas (public domain)
 ├── queries.py
 ├── rdf.py               # IRI / LangString / TypedLiteral
 ├── resource.py
@@ -70,7 +74,7 @@ src/sunstone
 
 Tests live in `tests/`, with fixture projects under `tests/testdata/`.
 Extended docs are in `docs/` (`pandas.md`, `polars.md`, `geopandas.md`,
-`api.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
+`api.md`, `datasets-yaml.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
 
 ## Usage for Data Scientists
 
@@ -108,6 +112,7 @@ result.to_csv(
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
 5. **Metadata container**: Use `df.metadata` for dataset-level metadata (description, RDF prefixes, custom properties) and `df.set_field_metadata()` for column-level metadata. All metadata propagates through operations and flows to `datasets.yaml` on write.
 6. **Lineage via metadata**: Access lineage through `df.metadata.lineage` (the old `df.lineage` accessor is deprecated)
+7. **Keys**: `sunstone dataset validate --strict` rejects any `datasets.yaml` key without a `:` that is neither a Data Package v2 property nor a sunstone key (`docs/datasets-yaml.md`).
 
 ## Plugin System
 
@@ -123,12 +128,15 @@ Key modules:
 - `handlers_gcs.py` — `GcsURLHandler` for `gs://` URLs (requires `sunstone-py[gcs]`)
 - `handlers_s3.py` — `S3URLHandler` for `s3://` and `r2://` URLs (requires `sunstone-py[s3]`)
 - `handlers_geo.py` — GeoJSON/TopoJSON format handler for `GEOFEATURES` assets (requires `sunstone-py[geo]`)
+- `handlers_rdf.py` — Turtle/N-Triples/JSON-LD format handler for `GRAPH` assets
 - `geopandas.py` — Lineage-tracking geopandas facade (`read_geojson`/`read_topojson`/`read_file`, `GeoDataFrame`)
 - `polars/` — Lineage-tracking polars facade (`read_csv`/`read_parquet`/`write_*`, `DataFrame`, `pl.*` passthrough; requires `sunstone-py[polars]`)
 - `field_types.py` — Field value-type registry for column-level type metadata
 - `packaging.py` — Library functions for building and pushing data packages via URLHandler
 
 URLHandler uses stream-based `open(url, mode) -> BinaryIO | TextIO` matching Python's built-in `open()`.
+A handler may also accept a keyword-only `format=`, the serialization the caller wants. Read paths call it through `plugins.open_url()`, which omits `format` for handlers that do not accept it.
+Extensionless `sunstone:` reads default to `format="parquet"` (`plugins.default_read_format()`).
 Plugin config uses cascading precedence: `datasets.yaml` → `pyproject.toml` → environment variables (`SUNSTONE_PLUGIN_<NAME>_<KEY>`).
 
 ## Cross-Platform (Windows CI)

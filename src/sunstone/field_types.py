@@ -1,9 +1,9 @@
 """Registry of field (column) value-types for dataset schemas.
 
 Built-in scalar types mirror the Frictionless Table Schema vocabulary. Plugins
-extend this with structured/domain types (e.g. ``geometry``) via
+extend this with structured/domain types (e.g. the geo extra's ``geojson`` cell contract) via
 ``FieldTypeDescriptor`` — see ``PluginRegistry`` classification. This is the
-extensibility seam for non-scalar columns; geometry is the first consumer.
+extensibility seam for non-scalar columns; the geo extra is the first consumer.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class FieldTypeDescriptor:
     description: Optional[str] = None
 
 
-# Frictionless Table Schema scalar types (plus "any").
+# Frictionless Table Schema field types (plus "any"). The geo extra re-registers "geojson" with a cell contract.
 _BUILTIN_SCALAR_TYPES: tuple[str, ...] = (
     "string",
     "number",
@@ -43,6 +43,8 @@ _BUILTIN_SCALAR_TYPES: tuple[str, ...] = (
     "year",
     "yearmonth",
     "duration",
+    "geopoint",
+    "geojson",
     "any",
 )
 

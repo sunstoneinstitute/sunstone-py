@@ -32,6 +32,7 @@ sidecar and still describe itself.
 | NumPy `.npz`    | `.npz`                           | `AssetKind.ARRAY`     | built-in         | **yes** — JSON-LD entry in the archive     |
 | Zarr            | `.zarr` (directory store)        | `AssetKind.ARRAY`     | `sunstone-py[zarr]`  | **yes** — JSON-LD in root group `.attrs` |
 | HDF5 / NetCDF-4 | `.h5`, `.hdf5`, `.he5`, `.nc`, `.nc4` | `AssetKind.ARRAY` | `sunstone-py[hdf5]`  | **yes** — JSON-LD in root attribute      |
+| RDF (Turtle, N-Triples, JSON-LD) | `.ttl`, `.nt`, `.jsonld` | `AssetKind.GRAPH` | built-in | no — sidecar YAML; payload is an `rdflib.Graph` |
 
 See [Tensors](tensors.md) for the array workflow and per-variable
 component metadata. NetCDF-3 (classic) is out of scope — only NetCDF-4,
@@ -219,7 +220,10 @@ inputs:
       header: true
 ```
 
-Fields (all optional, matching the Frictionless `csv` dialect):
+The block accepts the delimited-text properties of the Frictionless
+[Table Dialect](https://datapackage.org/standard/table-dialect/) (see
+[datasets.yaml reference](datasets-yaml.md)); `sunstone dataset validate
+--strict` rejects other keys. The reader and writer use these three:
 
 | Field       | Default | Meaning                                                          |
 |-------------|---------|------------------------------------------------------------------|

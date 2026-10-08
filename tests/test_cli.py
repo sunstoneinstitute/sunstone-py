@@ -4,6 +4,7 @@ Tests for Sunstone CLI.
 
 import contextlib
 import io
+import json
 import logging
 import os
 import shutil
@@ -13,9 +14,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import typer as _typer
-from typer.testing import CliRunner
+from typer.testing import CliRunner, Result
 
-from sunstone.cli import _contributor_to_dict, _package_metadata_to_dict, app, expand_env_vars, is_lfs_pointer
+from sunstone.cli import (
+    DATAPACKAGE_PROFILE_URL,
+    _contributor_to_dict,
+    _package_metadata_to_dict,
+    app,
+    expand_env_vars,
+    is_lfs_pointer,
+)
 from sunstone.lineage import Contributor, PackageEntry, PackageMetadata, PublishConfig
 
 
@@ -375,6 +383,72 @@ inputs:
         assert result.exit_code != 0
         assert "not found" in result.output
 
+    def _write(self, tmp_path: Path, text: str) -> Path:
+        yaml_file = tmp_path / "datasets.yaml"
+        yaml_file.write_text(text)
+        return yaml_file
+
+    _MESSY = (
+        "package:\n  title: T\n  version: 1.0\n"
+        "inputs:\n"
+        "  - name: A\n    slug: a\n    location: a.csv\n    foo: bar\n"
+        "    fields:\n      - name: x\n        type: integer\n        bogus: 1\n"
+        "  - name: B\n    slug: b\n    location: b.csv\n    dialect:\n      sepparator: ';'\n"
+    )
+
+    def test_non_strict_ignores_unknown_keys(self, runner: CliRunner, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(self._write(tmp_path, self._MESSY))])
+        assert result.exit_code == 0, result.output
+
+    def test_strict_reports_unknown_keys_with_path(self, runner: CliRunner, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(self._write(tmp_path, self._MESSY))])
+        assert result.exit_code == 1
+        assert "inputs[0]: unknown key 'foo'" in result.output
+        assert "inputs[0].fields[0]: unknown key 'bogus'" in result.output
+        assert "inputs[1].dialect: unknown key 'sepparator'" in result.output
+        assert "package.version: 1.0 is not of type 'string'" in result.output
+
+    def test_strict_with_dataset_option_narrows_to_that_dataset(self, runner: CliRunner, tmp_path: Path) -> None:
+        yaml_file = self._write(tmp_path, self._MESSY)
+        result = runner.invoke(app, ["dataset", "validate", "--strict", "--dataset", "b", "-f", str(yaml_file)])
+        assert result.exit_code == 1
+        assert "inputs[1].dialect: unknown key 'sepparator'" in result.output
+        assert "inputs[0]" not in result.output
+        assert "package.version" not in result.output
+
+    def test_dataset_option_and_positional_are_merged(self, runner: CliRunner, tmp_path: Path) -> None:
+        yaml_file = self._write(tmp_path, self._MESSY)
+        result = runner.invoke(app, ["dataset", "validate", "--dataset", "a", "b", "-f", str(yaml_file)])
+        assert result.exit_code == 0, result.output
+        assert "2 dataset(s) valid" in result.output
+        result = runner.invoke(app, ["dataset", "validate", "--dataset", "nope", "-f", str(yaml_file)])
+        assert result.exit_code == 1 and "Dataset 'nope' not found" in result.output
+
+    def test_non_strict_accepts_all_table_schema_types(self, runner: CliRunner, tmp_path: Path) -> None:
+        yaml_file = self._write(
+            tmp_path,
+            "inputs:\n  - name: A\n    slug: a\n    location: a.csv\n"
+            "    fields:\n      - name: y\n        type: year\n      - name: g\n        type: geojson\n",
+        )
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(yaml_file)])
+        assert result.exit_code == 0, result.output
+
+    def test_strict_accepts_rdf_and_profile_keys(self, runner: CliRunner, tmp_path: Path) -> None:
+        yaml_file = self._write(
+            tmp_path,
+            "rdfPrefixes:\n  si: https://sunstone.institute/rdf/vocab#\n"
+            "inputs:\n  - name: A\n    slug: a\n    location: a.csv\n    si:category: c\n    encoding: utf-8\n"
+            "    fields:\n      - name: x\n        type: year\n        title: Year\n",
+        )
+        result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(yaml_file)])
+        assert result.exit_code == 0, result.output
+        assert "is valid" in result.output
+
+    def test_top_level_not_a_mapping(self, runner: CliRunner, tmp_path: Path) -> None:
+        result = runner.invoke(app, ["dataset", "validate", "-f", str(self._write(tmp_path, "- just\n- a list\n"))])
+        assert result.exit_code == 1
+        assert "must be a mapping" in result.output
+
 
 class TestDatasetListCommand:
     """Tests for the dataset list command."""
@@ -441,6 +515,130 @@ class TestDatasetLockUnlockCommands:
 class TestPackageBuildCommand:
     """Tests for the package build command."""
 
+    def test_build_expands_geo_rdftype_on_geojson_field(self, runner: CliRunner, test_project: Path) -> None:
+        """type: geojson + rdfType: geo:Geometry is the sunstone form for geometry columns (plan D9)."""
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "places.parquet").write_bytes(b"")
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text() + "  - name: Places\n    slug: places\n    location: outputs/places.parquet\n"
+            "    publish:\n      enabled: true\n"
+            "    fields:\n      - name: geom\n        type: geojson\n        rdfType: geo:Geometry\n"
+        )
+        result = runner.invoke(
+            app, ["package", "build", "-f", str(yaml_path), "-o", str(test_project / "datapackage.json")]
+        )
+        assert result.exit_code == 0, result.output
+        dp = json.loads((test_project / "datapackage.json").read_text())
+        [places] = [r for r in dp["resources"] if r["name"] == "places"]
+        assert places["schema"]["fields"][0] == {
+            "name": "geom",
+            "type": "geojson",
+            "rdfType": "http://www.opengis.net/ont/geosparql#Geometry",
+        }
+
+    def _stub_bad_resource(self, monkeypatch) -> None:
+        import sunstone.cli as cli_mod
+
+        monkeypatch.setattr(cli_mod, "build_resource_dict", lambda ds, m, pc: {"title": ds.name, "encoding": 5})
+
+    def test_build_warns_on_invalid_descriptor(self, runner: CliRunner, test_project: Path, monkeypatch) -> None:
+        """A resource dict the profile rejects produces a warning; the file is still written (plan D3)."""
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        self._stub_bad_resource(monkeypatch)
+
+        result = runner.invoke(
+            app,
+            [
+                "package",
+                "build",
+                "-f",
+                str(test_project / "datasets.yaml"),
+                "-o",
+                str(test_project / "datapackage.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Warning: datapackage" in result.output
+        assert "does not validate against the Data Package v2 profile" in result.output
+        assert "datapackage.resources[0]" in result.output
+        assert (test_project / "datapackage.json").exists()
+
+    def _build(self, runner: CliRunner, test_project: Path) -> tuple[Result, dict]:
+        result = runner.invoke(
+            app,
+            [
+                "package",
+                "build",
+                "-f",
+                str(test_project / "datasets.yaml"),
+                "-o",
+                str(test_project / "datapackage.json"),
+            ],
+        )
+        dp = json.loads((test_project / "datapackage.json").read_text()) if result.exit_code == 0 else {}
+        return result, dp
+
+    def test_build_non_table_dataset_type_stays_out_of_resource(self, runner: CliRunner, test_project: Path) -> None:
+        """A sunstone dataset `type` other than `table` never becomes the resource `type`."""
+        from sunstone.datasets_schema import validate_datapackage_descriptor
+
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        (output_dir / "places.geojson").write_text('{"type": "FeatureCollection", "features": []}')
+        yaml_path = test_project / "datasets.yaml"
+        text = yaml_path.read_text().replace(
+            "    slug: current-un-member-states\n", "    slug: current-un-member-states\n    type: file\n", 1
+        )
+        text += "  - name: Places\n    slug: places\n    type: geojson\n    location: outputs/places.geojson\n"
+        yaml_path.write_text(text)
+
+        result, dp = self._build(runner, test_project)
+        assert result.exit_code == 0, result.output
+        assert "does not validate" not in result.output
+        resources = {r["name"]: r for r in dp["resources"]}
+        assert "type" not in resources["current-un-member-states"]
+        assert "type" not in resources["places"]
+        assert validate_datapackage_descriptor(dp) == []
+
+    def test_build_writes_unquoted_yaml_dates_as_json_strings(self, runner: CliRunner, test_project: Path) -> None:
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        yaml_path = test_project / "datasets.yaml"
+        text = yaml_path.read_text().replace("package:\n", "package:\n  created: 2024-01-02T03:04:05Z\n", 1)
+        text = text.replace(
+            "      - name: Country\n        type: string\n",
+            "      - name: Country\n        type: string\n        example: 2024-01-01\n",
+            1,
+        )
+        yaml_path.write_text(text)
+
+        result, dp = self._build(runner, test_project)
+        assert result.exit_code == 0, result.output
+        assert dp["created"] == "2024-01-02T03:04:05Z"
+        [res] = [r for r in dp["resources"] if r["name"] == "current-un-member-states"]
+        assert res["schema"]["fields"][0]["example"] == "2024-01-01"
+
+    def test_build_table_dataset_type_is_resource_type(self, runner: CliRunner, test_project: Path) -> None:
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text().replace(
+                "    slug: current-un-member-states\n", "    slug: current-un-member-states\n    type: table\n", 1
+            )
+        )
+        result, dp = self._build(runner, test_project)
+        assert result.exit_code == 0, result.output
+        [res] = [r for r in dp["resources"] if r["name"] == "current-un-member-states"]
+        assert res["type"] == "table"
+
     def test_build_package(self, runner: CliRunner, test_project: Path) -> None:
         """Test building a datapackage.json."""
         # Create the output file
@@ -462,6 +660,41 @@ class TestPackageBuildCommand:
         assert result.exit_code == 0
         assert "Created" in result.output
         assert (test_project / "datapackage.json").exists()
+
+    def test_build_emits_package_profile_keys(self, runner: CliRunner, test_project: Path) -> None:
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text().replace(
+                "package:\n",
+                "package:\n  created: '2026-01-01T00:00:00Z'\n  licenses:\n    - name: CC-BY-4.0\n  sources:\n    - title: UN\n",
+                1,
+            )
+        )
+        result = runner.invoke(
+            app, ["package", "build", "-f", str(yaml_path), "-o", str(test_project / "datapackage.json")]
+        )
+        assert result.exit_code == 0, result.output
+        dp = json.loads((test_project / "datapackage.json").read_text())
+        assert dp["created"] == "2026-01-01T00:00:00Z"
+        assert dp["licenses"] == [{"name": "CC-BY-4.0"}]
+        assert dp["sources"] == [{"title": "UN"}]
+        assert dp["$schema"] == DATAPACKAGE_PROFILE_URL
+
+    def test_build_overrides_user_schema(self, runner: CliRunner, test_project: Path) -> None:
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text().replace("package:\n", "package:\n  '$schema': https://example.org/other.json\n", 1)
+        )
+        out = test_project / "datapackage.json"
+        result = runner.invoke(app, ["package", "build", "-f", str(yaml_path), "-o", str(out)])
+        assert result.exit_code == 0, result.output
+        assert json.loads(out.read_text())["$schema"] == DATAPACKAGE_PROFILE_URL
 
     def test_build_no_outputs(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test building with no output datasets."""
@@ -731,6 +964,30 @@ class TestFieldMetadataInDatapackage:
         assert value_field["unit"] == "USD"
         assert value_field["source"] == "world-bank-data"
 
+    def test_field_profile_properties_stay_verbatim_and_rdf_type_expands(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        project = tmp_path / "project"
+        (project / "outputs").mkdir(parents=True)
+        (project / "outputs" / "data.csv").write_text("c\nNorway\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n  enabled: true\n  to: gs://bucket/test/\n"
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: D\n    slug: d\n    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: c\n        type: string\n"
+            "        title: 'dcat:foo'\n"
+            "        rdfType: 'schema:Country'\n"
+        )
+        result = runner.invoke(
+            app, ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(project / "dp.json")]
+        )
+        assert result.exit_code == 0, result.output
+        field = json.loads((project / "dp.json").read_text())["resources"][0]["schema"]["fields"][0]
+        assert field["title"] == "dcat:foo"
+        assert field["rdfType"] == "http://schema.org/Country"
+
     def test_field_rdf_custom_property_in_datapackage(self, runner: CliRunner, tmp_path: Path) -> None:
         """Field-level RDF properties (e.g. sosa:observedProperty) expand into datapackage.json."""
         project = tmp_path / "project"
@@ -789,7 +1046,7 @@ class TestPackagePushCommand:
         content = content.replace("enabled: true", "enabled: false")
         yaml_path.write_text(content)
 
-        result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
+        result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
         assert result.exit_code != 0
         assert "No publishable datasets found" in result.output
 
@@ -802,7 +1059,7 @@ class TestPackagePushCommand:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
             assert "datapackage.json" in result.output
             assert "Package pushed to" in result.output
@@ -817,7 +1074,17 @@ class TestPackagePushCommand:
         handler = _MockURLHandler()
         with handler.patch():
             result = runner.invoke(
-                app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "gs://my-bucket/custom/"]
+                app,
+                [
+                    "package",
+                    "push",
+                    "--env",
+                    "dev",
+                    "-f",
+                    str(test_project / "datasets.yaml"),
+                    "-d",
+                    "gs://my-bucket/custom/",
+                ],
             )
             assert result.exit_code == 0
             # Verify uploads went to the custom bucket path
@@ -831,7 +1098,17 @@ class TestPackagePushCommand:
         (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
 
         result = runner.invoke(
-            app, ["package", "push", "-f", str(test_project / "datasets.yaml"), "-d", "https://example.com/"]
+            app,
+            [
+                "package",
+                "push",
+                "--env",
+                "dev",
+                "-f",
+                str(test_project / "datasets.yaml"),
+                "-d",
+                "https://example.com/",
+            ],
         )
         assert result.exit_code != 0
 
@@ -855,7 +1132,7 @@ class TestPackagePushCommand:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify datapackage.json has public URLs
@@ -891,7 +1168,7 @@ class TestPackagePushCommand:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             # Verify methodology file was uploaded
@@ -931,7 +1208,7 @@ class TestPackagePushCommand:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
             assert result.exit_code == 0
 
             dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
@@ -966,7 +1243,7 @@ class TestPackagePushCommand:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(yaml_path)])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
             assert result.exit_code == 0, result.output
 
             # Methodology file should be uploaded with flattened path (just filename)
@@ -981,6 +1258,364 @@ class TestPackagePushCommand:
             methodology_key = "https://sunstone.institute/rdf/vocab#methodology"
             assert methodology_key in datapackage
             assert datapackage[methodology_key] == "https://data.example.com/un-members/DATA_METHODOLOGY.md"
+
+    def _write_output(self, test_project: Path) -> None:
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "current_un_member_states.csv").write_text("Country,Code\nTest,TST")
+
+    def _set_destination(self, test_project: Path, dest: str) -> Path:
+        import re as _re
+
+        yaml_path = test_project / "datasets.yaml"
+        text = yaml_path.read_text()
+        text = _re.sub(r"(\n  to: ).*", lambda m: m.group(1) + dest, text, count=1)
+        yaml_path.write_text(text)
+        return yaml_path
+
+    def _drop_package_block(self, test_project: Path) -> Path:
+        import re as _re
+
+        yaml_path = test_project / "datasets.yaml"
+        text = _re.sub(r"(?m)^package:\n(?:[ \t].*\n|\n)*", "", yaml_path.read_text(), count=1)
+        assert "package:" not in text
+        yaml_path.write_text(text)
+        return yaml_path
+
+    def test_blob_push_without_package_block_emits_schema(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        yaml_path = self._drop_package_block(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
+        assert result.exit_code == 0, result.output
+        dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+        assert json.loads(handler.uploaded_text[dp_path])["$schema"] == DATAPACKAGE_PROFILE_URL
+
+    def test_namespace_push_without_package_block_emits_schema(self, runner: CliRunner, test_project: Path) -> None:
+        from sunstone.asset import AssetKind
+        from sunstone.push import DatasetPushStatus, PushResult
+
+        self._write_output(test_project)
+        self._drop_package_block(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        calls = []
+
+        class _Plugin:
+            def push(self, package, options):
+                calls.append(package)
+                return PushResult(
+                    push_id="p1",
+                    ok=True,
+                    datasets=tuple(DatasetPushStatus(name=r.name, status="published") for r in package.resources),
+                )
+
+        plugin = _Plugin()
+        registry = MagicMock()
+        registry.find_package_push_handler.side_effect = lambda d: plugin if d.startswith("sunstone:") else None
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(
+                app, ["package", "push", "--env", "dev", "--branch", "feature/x", "-f", str(yaml_path)]
+            )
+        assert result.exit_code == 0, result.output
+        assert calls[0].metadata["$schema"] == DATAPACKAGE_PROFILE_URL
+
+    def _mark_output_as_file(self, test_project: Path) -> Path:
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text().replace(
+                "    slug: current-un-member-states\n", "    slug: current-un-member-states\n    type: file\n", 1
+            )
+        )
+        return yaml_path
+
+    def test_blob_push_accepts_non_table_dataset_type(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        yaml_path = self._mark_output_as_file(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
+        assert result.exit_code == 0, result.output
+        assert "does not validate" not in result.output
+        dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
+        [res] = json.loads(handler.uploaded_text[dp_path])["resources"]
+        assert "type" not in res
+
+    def test_namespace_push_accepts_non_table_dataset_type(self, runner: CliRunner, test_project: Path) -> None:
+        from sunstone.asset import AssetKind
+        from sunstone.push import DatasetPushStatus, PushResult
+
+        self._write_output(test_project)
+        self._mark_output_as_file(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        calls = []
+
+        class _Plugin:
+            def push(self, package, options):
+                calls.append(package)
+                return PushResult(
+                    push_id="p1",
+                    ok=True,
+                    datasets=tuple(DatasetPushStatus(name=r.name, status="published") for r in package.resources),
+                )
+
+        plugin = _Plugin()
+        registry = MagicMock()
+        registry.find_package_push_handler.side_effect = lambda d: plugin if d.startswith("sunstone:") else None
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code == 0, result.output
+        assert len(calls) == 1
+
+    def test_blob_push_to_prod_needs_yes(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+        assert result.exit_code != 0
+        assert "--yes" in result.output
+        assert handler.uploaded_blobs == []
+
+    def test_blob_push_to_prod_with_yes(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "--yes", "-f", str(test_project / "datasets.yaml")])
+        assert result.exit_code == 0, result.output
+
+    def test_sunstone_destination_without_plugin_fails(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        with patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code != 0
+        assert "plugin" in result.output
+
+    def test_namespace_push_refuses_invalid_resource_descriptor(
+        self, runner: CliRunner, test_project: Path, monkeypatch
+    ) -> None:
+        """A resource dict the Data Resource profile rejects stops the push before the plugin runs (plan D3)."""
+        import sunstone.cli as cli_mod
+        from sunstone.asset import AssetKind
+
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        monkeypatch.setattr(cli_mod, "build_resource_dict", lambda ds, m, pc: {"name": ds.slug, "encoding": 5})
+        plugin = MagicMock()
+        plugin.can_handle.return_value = True
+        registry = MagicMock()
+        registry.find_package_push_handler.return_value = plugin
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(app, ["package", "push", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code == 1
+        assert (
+            "resource 'current-un-member-states' does not validate against the Data Package v2 profile" in result.output
+        )
+        assert "resource.encoding: 5 is not of type 'string'" in result.output
+        plugin.push.assert_not_called()
+
+    def test_namespace_push_refuses_invalid_package_metadata(self, runner: CliRunner, test_project: Path) -> None:
+        """Invalid package-level metadata stops a namespace push before the plugin runs."""
+        from sunstone.asset import AssetKind
+
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        yaml_path.write_text(
+            yaml_path.read_text().replace("package:\n", "package:\n  licenses:\n    - title: MIT\n", 1)
+        )
+        plugin = MagicMock()
+        plugin.can_handle.return_value = True
+        registry = MagicMock()
+        registry.find_package_push_handler.return_value = plugin
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(app, ["package", "push", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code == 1
+        assert "datapackage does not validate against the Data Package v2 profile" in result.output
+        assert "licenses" in result.output
+        plugin.push.assert_not_called()
+
+    def test_blob_push_refuses_invalid_descriptor(self, runner: CliRunner, test_project: Path) -> None:
+        """An invalid datapackage.json stops a blob-store push before anything is uploaded."""
+        self._write_output(test_project)
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text().replace("package:\n", "package:\n  licenses:\n    - title: MIT\n", 1)
+        )
+        handler = _MockURLHandler()
+        with handler.patch():
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
+        assert result.exit_code == 1
+        assert "Error:" in result.output
+        assert "does not validate against the Data Package v2 profile" in result.output
+        assert not handler.uploaded_blobs
+        assert not handler.uploaded_text
+
+    def test_sunstone_destination_uses_push_plugin(self, runner: CliRunner, test_project: Path) -> None:
+        from sunstone.asset import AssetKind
+        from sunstone.push import DatasetPushStatus, PushResult
+
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+        calls = []
+
+        class _Plugin:
+            def can_handle(self, destination: str) -> bool:
+                return destination.startswith("sunstone:")
+
+            def push(self, package, options):
+                calls.append((package, options, os.environ.get("SUNSTONE_DATA_ENV")))
+                return PushResult(
+                    push_id="p1",
+                    ok=True,
+                    datasets=tuple(DatasetPushStatus(name=r.name, status="published") for r in package.resources),
+                )
+
+        plugin = _Plugin()
+        registry = MagicMock()
+        registry.find_package_push_handler.side_effect = lambda d: plugin if plugin.can_handle(d) else None
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(
+                app,
+                ["package", "push", "--env", "dev", "--branch", "feature/x", "--force", "-f", str(yaml_path)],
+            )
+
+        assert result.exit_code == 0, result.output
+        (package, options, data_env) = calls[0]
+        assert package.namespace == "projects/un_members"
+        assert options.env == "dev"
+        assert options.branch == "feature-x"
+        assert options.force is True and options.yes is False and options.replace is False
+        assert data_env == "dev"
+        assert "projects/un_members/" in result.output
+        assert "p1" in result.output
+
+    def test_failed_namespace_push_exits_nonzero(self, runner: CliRunner, test_project: Path) -> None:
+        from sunstone.asset import AssetKind
+        from sunstone.push import PushResult
+
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "sunstone:projects/un_members")
+
+        class _Plugin:
+            def can_handle(self, destination: str) -> bool:
+                return True
+
+            def push(self, package, options):
+                return PushResult(push_id="p2", ok=False)
+
+        registry = MagicMock()
+        registry.find_package_push_handler.return_value = _Plugin()
+        with (
+            patch("sunstone.plugins.PluginRegistry.get", return_value=registry),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(app, ["package", "push", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code != 0
+        assert "p2" in result.output
+
+    def _write_mixed_packages(self, test_project: Path) -> Path:
+        yaml_path = test_project / "datasets.yaml"
+        body = yaml_path.read_text().split("\ninputs:", 1)[1]
+        yaml_path.write_text(
+            "packages:\n"
+            "  - name: ns\n"
+            "    datasets: [current-un-member-states]\n"
+            "    publish:\n      enabled: true\n      to: sunstone:projects/un_members\n"
+            "  - name: blob\n"
+            "    datasets: [current-un-member-states]\n"
+            "    publish:\n      enabled: true\n      to: gs://example-bucket/datasets/un-members/\n"
+            "inputs:" + body
+        )
+        return yaml_path
+
+    def _claiming_registry(self, calls: list) -> MagicMock:
+        from sunstone.push import PushResult
+
+        class _Plugin:
+            def can_handle(self, destination: str) -> bool:
+                return destination.startswith("sunstone:")
+
+            def push(self, package, options):
+                calls.append(package)
+                return PushResult(push_id="p3", ok=True)
+
+        plugin = _Plugin()
+        registry = MagicMock()
+        registry.find_package_push_handler.side_effect = lambda d: plugin if plugin.can_handle(d) else None
+        return registry
+
+    def test_mixed_prod_push_without_yes_pushes_nothing(self, runner: CliRunner, test_project: Path) -> None:
+        from sunstone.asset import AssetKind
+
+        self._write_output(test_project)
+        yaml_path = self._write_mixed_packages(test_project)
+        calls: list = []
+        handler = _MockURLHandler()
+        with (
+            handler.patch(),
+            patch("sunstone.plugins.PluginRegistry.get", return_value=self._claiming_registry(calls)),
+            patch("sunstone.push.resource_kind", return_value=AssetKind.TABULAR),
+            patch("sunstone.push._to_parquet", side_effect=lambda source, *a: source),
+            patch.dict(os.environ, {}),
+        ):
+            result = runner.invoke(app, ["package", "push", "--branch", "main", "-f", str(yaml_path)])
+        assert result.exit_code != 0
+        assert "--yes" in result.output
+        assert calls == []
+        assert handler.uploaded_blobs == []
+
+    def test_blob_push_rejects_unknown_env(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(
+                app, ["package", "push", "--env", "production", "-f", str(test_project / "datasets.yaml")]
+            )
+        assert result.exit_code != 0
+        assert "production" in result.output
+        assert handler.uploaded_blobs == []
+
+    def test_blob_push_warns_force_replace_ignored(self, runner: CliRunner, test_project: Path) -> None:
+        self._write_output(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(
+                app,
+                ["package", "push", "--env", "dev", "--force", "-f", str(test_project / "datasets.yaml")],
+            )
+        assert result.exit_code == 0, result.output
+        assert "--force/--replace apply only to sunstone: pushes; ignored for gs://" in result.output
+
+    def test_branch_help_lists_ci_variables(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["package", "push", "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
+        assert "GITHUB_HEAD_REF" in result.output
 
 
 class TestIsLfsPointer:
@@ -1030,7 +1665,7 @@ class TestIsLfsPointer:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code != 0
             assert "LFS pointers" in result.output
             assert "git lfs pull" in result.output
@@ -1330,7 +1965,7 @@ class TestPerDatasetPublish:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(yaml_file)])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_file)])
             assert result.exit_code == 0
             assert "Pushed to 2 destination(s)" in result.output
 
@@ -1397,7 +2032,7 @@ class TestPackageMetadataToDict:
     def test_empty_metadata(self) -> None:
         """Test that all-None metadata produces empty dict."""
         m = PackageMetadata()
-        assert _package_metadata_to_dict(m) == {}
+        assert _package_metadata_to_dict(m) == {"$schema": DATAPACKAGE_PROFILE_URL}
 
     def test_all_scalar_fields(self) -> None:
         """Test metadata with all scalar fields set."""
@@ -1425,7 +2060,7 @@ class TestPackageMetadataToDict:
         """Test that only set fields appear in output."""
         m = PackageMetadata(title="Title Only")
         result = _package_metadata_to_dict(m)
-        assert result == {"title": "Title Only"}
+        assert result == {"title": "Title Only", "$schema": DATAPACKAGE_PROFILE_URL}
         assert "description" not in result
         assert "contributors" not in result
 
@@ -1443,6 +2078,20 @@ class TestPackageMetadataToDict:
             {"title": "Alice", "roles": ["creator"]},
             {"title": "Bob"},
         ]
+
+    def test_name_and_extra_are_emitted(self) -> None:
+        m = PackageMetadata(name="pkg", title="T", extra={"created": "2026-01-01", "licenses": [{"name": "MIT"}]})
+        assert _package_metadata_to_dict(m) == {
+            "name": "pkg",
+            "title": "T",
+            "created": "2026-01-01",
+            "licenses": [{"name": "MIT"}],
+            "$schema": DATAPACKAGE_PROFILE_URL,
+        }
+
+    def test_schema_is_always_the_profile_url(self) -> None:
+        m = PackageMetadata(extra={"$schema": "https://example.org/other.json"})
+        assert _package_metadata_to_dict(m)["$schema"] == DATAPACKAGE_PROFILE_URL
 
 
 class TestBuildDatapackageWithPackageMetadata:
@@ -1510,7 +2159,7 @@ class TestBuildDatapackageWithPackageMetadata:
 
         handler = _MockURLHandler()
         with handler.patch():
-            result = runner.invoke(app, ["package", "push", "-f", str(test_project / "datasets.yaml")])
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(test_project / "datasets.yaml")])
             assert result.exit_code == 0
 
             dp_path = [k for k in handler.uploaded_text if "datapackage.json" in k][0]
@@ -1890,7 +2539,7 @@ class TestParquetResourceSupport:
         with handler.patch():
             result = runner.invoke(
                 app,
-                ["package", "push", "-f", str(parquet_project / "datasets.yaml")],
+                ["package", "push", "--env", "dev", "-f", str(parquet_project / "datasets.yaml")],
             )
 
         assert result.exit_code == 0, f"Command failed: {result.output}"
@@ -2950,3 +3599,22 @@ class TestEnvScopeFlag:
         with open(user_cfg, "rb") as f:
             data = tomllib.load(f)
         assert data["environments"]["dev"]["K"] == "v"
+
+
+def test_effective_publish_carries_package_fields():
+    from sunstone.cli import get_effective_publish
+    from sunstone.lineage import DatasetMetadata, PublishConfig
+
+    top = PublishConfig(enabled=True, to="sunstone:projects/x", public=True, dialect={"delimiter": ";"})
+    ds = DatasetMetadata(
+        name="R",
+        slug="r",
+        location="r.csv",
+        dataset_type="output",
+        publish=PublishConfig(enabled=True, as_name="r_v2"),
+    )
+    eff = get_effective_publish(ds, top)
+    assert eff.public is True
+    assert eff.dialect == {"delimiter": ";"}
+    assert eff.as_name == "r_v2"
+    assert eff.to == "sunstone:projects/x"

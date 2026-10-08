@@ -317,7 +317,7 @@ def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -
     keep it as an Asset.
     """
     from ..asset import Asset
-    from ..plugins import PluginRegistry
+    from ..plugins import PluginRegistry, open_url
 
     # Forward path/format into handler kwargs so legacy handlers that use them
     # for extension-based format inference (e.g. BuiltinFormatHandler) keep
@@ -332,6 +332,6 @@ def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -
             url_handler = registry.find_url_handler(path) or registry.find_url_handler(f"file://{path}")
             if url_handler is None:
                 raise FileNotFoundError(path)
-            with url_handler.open(path, "rb") as stream:
+            with open_url(url_handler, path, "rb", format=format) as stream:
                 return cast(Asset, handler.read(stream, **kw))  # type: ignore[attr-defined]
     raise ValueError(f"No handler for path={path!r} format={format!r}")

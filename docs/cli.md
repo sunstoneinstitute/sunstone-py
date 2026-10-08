@@ -142,30 +142,43 @@ Check that your `datasets.yaml` follows the correct structure:
 # Validate all datasets
 sunstone dataset validate
 
-# Validate specific datasets
+# Validate specific datasets (positional slugs or --dataset, repeatable)
 sunstone dataset validate school-data summary-data
+sunstone dataset validate --dataset school-data --dataset summary-data
+
+# Strict: reject unknown keys and check Data Package property values
+sunstone dataset validate --strict
 
 # Validate with custom file location
 sunstone dataset validate -f path/to/datasets.yaml
 ```
 
-**Validation checks:**
+**Validation checks (always):**
 
-- Required fields (name, slug, location, fields)
-- Valid field types (string, number, integer, boolean, date, datetime)
+- Required fields (name, slug, location, and fields for `type: table`)
+- Field types are Table Schema types or plugin-registered types
 - Duplicate slugs
+- SPDX license identifiers
 - Proper YAML structure
+
+**Additional checks with `--strict`** (see the [datasets.yaml reference](datasets-yaml.md)):
+
+- Every key is a Data Package v2 property at its level or a documented sunstone key; keys containing `:` are custom RDF properties and are not checked
+- Values of Data Package properties (field constraints, `package.version`, `contributors`, dialect blocks, ...) validate against the official v2 profiles
+
+With `--dataset` or positional slugs, only those datasets are checked; package-level and top-level checks are skipped. Use `--strict` in CI to keep `datasets.yaml` clean.
 
 **Example output:**
 ```
-✓ datasets.yaml is valid
+✓ datasets.yaml is valid (strict)
 ```
 
 **Example error:**
 ```
 Validation errors:
   - outputs[0]: missing required field 'fields'
-  - inputs[1].fields[2]: invalid type 'text' (must be one of: string, number, integer, boolean, date, datetime)
+  - inputs[1].fields[2]: invalid type 'text' (must be one of: any, array, boolean, date, datetime, duration, geojson, geopoint, integer, number, object, string, time, year, yearmonth)
+  - inputs[1]: unknown key 'notes' (not a Data Resource property or a sunstone dataset key; custom metadata keys need a prefix such as 'si:notes')
   - Dataset 'school-data' not found
 ```
 
@@ -358,18 +371,33 @@ publish:
 **Commands:**
 
 ```bash
-# Push to configured destination
-sunstone package push
+# Push to configured destination (--env defaults to prod; blob-store pushes to prod need --yes)
+sunstone package push --yes
 
-# Push to environment-specific destination (if publish.to not set)
-sunstone package push --env prod
+# Push to the dev environment (if publish.to not set)
+sunstone package push --env dev
+
+# Push to a sunstone: namespace on a branch
+sunstone package push --env dev --branch my-feature
 
 # Override destination
-sunstone package push -d gs://my-bucket/datasets/project-name/
+sunstone package push --env dev -d gs://my-bucket/datasets/project-name/
 
 # Use custom datasets file
-sunstone package push -f path/to/datasets.yaml
+sunstone package push --env dev -f path/to/datasets.yaml
 ```
+
+**Options:**
+
+| Option | Meaning |
+|---|---|
+| `--env` | Target environment, as configured with `sunstone env`. Default `prod`. |
+| `--branch` | Target branch for `sunstone:` pushes. Default: `GITHUB_HEAD_REF`, `GITHUB_REF_NAME`, then the current git branch. |
+| `--yes` | Confirm a push to a protected ref or to the prod blob store. |
+| `--force` | Allow force operations: incompatible schema, version overwrite, deletes. |
+| `--replace` | Retract metadata not in this push (a force operation). |
+
+`sunstone:` destinations need a package-push plugin (see [sunstone-push.md](sunstone-push.md)).
 
 **Path Resolution:**
 
@@ -435,7 +463,7 @@ publish:
 
 Or via command line:
 ```bash
-sunstone package push -d "gs://${BUCKET}/datasets/${PROJECT}/"
+sunstone package push --env dev -d "gs://${BUCKET}/datasets/${PROJECT}/"
 ```
 
 **Example output:**
@@ -528,7 +556,7 @@ Add validation to your CI/CD pipeline:
 ```bash
 # .github/workflows/validate.yml
 - name: Validate datasets
-  run: sunstone dataset validate
+  run: sunstone dataset validate --strict
 ```
 
 ### Lock Datasets for Production
@@ -557,7 +585,7 @@ sunstone package build
 
 # Push to appropriate environment
 ENV=${1:-dev}
-sunstone package push --env $ENV
+sunstone package push --env $ENV --yes
 ```
 
 ## Shell Completion

@@ -294,6 +294,12 @@ class PackageMetadata:
     image: Optional[str] = None
     """URL to a representative image."""
 
+    name: Optional[str] = None
+    """Package name from ``package.name``; ``packages[]`` entries keep their name on ``PackageEntry`` instead."""
+
+    extra: Dict[str, Any] = field(default_factory=dict)
+    """Other Data Package profile properties (``created``, ``licenses``, ``sources``, ``$schema``), emitted verbatim except ``$schema``, which is replaced by the v2 profile URL."""
+
 
 @dataclass
 class PublishConfig:
@@ -310,6 +316,15 @@ class PublishConfig:
 
     as_url: Optional[str] = None
     """Public base URL for resource paths in datapackage.json. When set, resource paths become full URLs (e.g., https://foo.com/data/bar/file.csv)."""
+
+    as_name: Optional[str] = None
+    """Dataset name in a ``sunstone:`` namespace. Overrides the sanitized slug."""
+
+    public: bool = False
+    """Make a ``sunstone:`` namespace and its datasets readable without a token."""
+
+    dialect: Optional[Dict[str, Any]] = None
+    """Package defaults for CSV/TSV output, as Frictionless Table Dialect properties."""
 
 
 @dataclass

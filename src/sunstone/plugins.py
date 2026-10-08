@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.metadata
+import inspect
 import logging
 import os
 import shutil
@@ -31,6 +32,7 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
+    from .push import PushOptions, PushPackage, PushResult
     from .resource import ResourceLocation, StoreFormatHandler
 
 from .handlers_meta import ContentDescriptor
@@ -63,7 +65,51 @@ class URLHandler(Protocol):
     def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
     @overload
     def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
-    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO: ...
+    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
+        """Open ``url`` as a stream.
+
+        A handler that serves more than one serialization may also accept a
+        keyword-only ``format: str | None = None``: the sunstone format name
+        the caller wants (``parquet``, ``csv``, ``ttl``, ...), ``None`` for its
+        default. Callers go through ``open_url()``, which passes ``format=``
+        only to handlers whose ``open`` accepts it.
+        """
+        ...
+
+
+_accepts_format_cache: dict[type, bool] = {}
+
+
+def _accepts_format(handler: object) -> bool:
+    cls = type(handler)
+    cached = _accepts_format_cache.get(cls)
+    if cached is None:
+        try:
+            params = list(inspect.signature(getattr(cls, "open")).parameters.values())
+        except (TypeError, ValueError, AttributeError):
+            params = []
+        cached = any(p.name == "format" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+        _accepts_format_cache[cls] = cached
+    return cached
+
+
+def open_url(handler: URLHandler, url: str, mode: str = "rb", *, format: str | None = None) -> Any:
+    """Call ``handler.open(url, mode)``, adding ``format=`` only when it is set
+    and the handler's ``open`` accepts it (a ``format`` parameter or ``**kwargs``)."""
+    opener: Any = handler
+    if format is not None and _accepts_format(handler):
+        return opener.open(url, mode, format=format)
+    return opener.open(url, mode)
+
+
+def default_read_format(location: str) -> str | None:
+    """Format for reading ``location`` when neither the caller nor
+    ``datasets.yaml`` names one: ``parquet`` for an extensionless
+    ``sunstone:`` URL (namespace tables are served as Parquet), else ``None``."""
+    if not location.startswith("sunstone:"):
+        return None
+    last = location.rstrip("/").rsplit("/", 1)[-1]
+    return None if "." in last else "parquet"
 
 
 @runtime_checkable
@@ -176,6 +222,19 @@ class EnvSectionProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class PackagePushHandler(Protocol):
+    """Publishes a package to destinations it claims (e.g. sunstone: namespaces)."""
+
+    def can_handle(self, destination: str) -> bool:
+        """True if this plugin claims the destination URL."""
+        ...
+
+    def push(self, package: "PushPackage", options: "PushOptions") -> "PushResult":
+        """Upload resources and metadata, then wait for the server result."""
+        ...
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -271,6 +330,7 @@ class PluginRegistry:
         self.field_types = FieldTypeRegistry()
         self._cli_providers: list[CLIProvider] = []
         self._env_section_providers: list[EnvSectionProvider] = []
+        self._package_push_handlers: list[PackagePushHandler] = []
 
     @classmethod
     def get(cls, project_path: Path | str | None = None) -> PluginRegistry:
@@ -371,6 +431,10 @@ class PluginRegistry:
                 self.field_types.register(descriptor)
         except ImportError:
             pass  # [geo] extra not installed
+        # RDF handler (Turtle/N-Triples/JSON-LD -> AssetKind.GRAPH).
+        from .handlers_rdf import RdfFormatHandler
+
+        self._format_handlers.append(RdfFormatHandler())  # type: ignore[arg-type]
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
@@ -406,6 +470,9 @@ class PluginRegistry:
             registered = True
         if isinstance(plugin, EnvSectionProvider):
             self._env_section_providers.append(plugin)
+            registered = True
+        if isinstance(plugin, PackagePushHandler):
+            self._package_push_handlers.append(plugin)
             registered = True
         if hasattr(plugin, "field_types") and callable(plugin.field_types):
             for descriptor in plugin.field_types():
@@ -543,6 +610,17 @@ class PluginRegistry:
         """Find the first URL handler that can handle the given URL."""
         for handler in self._url_handlers:
             if handler.can_handle(url):
+                return handler
+        return None
+
+    def get_package_push_handlers(self) -> list[PackagePushHandler]:
+        """Return all registered package-push handlers."""
+        return self._package_push_handlers
+
+    def find_package_push_handler(self, destination: str) -> PackagePushHandler | None:
+        """Find the first package-push handler that claims the destination."""
+        for handler in self._package_push_handlers:
+            if handler.can_handle(destination):
                 return handler
         return None
 

@@ -1,6 +1,7 @@
 # Pushing packages to `sunstone:` namespaces
 
-Status: designed, not yet built. This page covers the sunstone-py side.
+Status: the sunstone-py side is built. The push API and the `sunstone_data` plugin are not.
+This page covers the sunstone-py side.
 The data-platform side (push API, storage layout, auth rules, serving
 formats) is specified in data-platform `docs/specs2`.
 
@@ -32,14 +33,20 @@ class PackagePushHandler(Protocol):
         ...
 ```
 
-- `PushPackage`: the resolved resources (path, `AssetKind`, sha256, size,
-  metadata) and package-level metadata.
+- `PushResource`: `slug`, `name`, `path` (Parquet for TABULAR), `kind`
+  (`AssetKind`), `media_type`, `sha256`, `size`, `metadata`.
+- `PushPackage`: `destination`, `namespace`, `resources`, `metadata`,
+  `public`, `dialect`.
 - `PushOptions`: `env`, `branch`, `yes`, `force`, `replace`.
-- `PushResult`: push ID, per-dataset status and the resulting https IRIs.
+- `DatasetPushStatus`: `name`, `status`, `iri`, `message`.
+- `PushResult`: `push_id`, `ok`, `datasets` (tuple of `DatasetPushStatus`).
 
 `sunstone package push` asks the registry for a handler that claims the
-destination. If none does, it falls back to `packaging.push_group`, which stays
-the blob-store path (GCS, S3, R2). Plugins take priority over built-ins.
+destination. If none does, a `sunstone:` destination is an error, not a
+blob-store fallback. Other destinations use `packaging.push_group`, the
+blob-store path (GCS, S3, R2). Plugins take priority over built-ins.
+
+Directory stores (Zarr) and methodology files are not pushed to namespaces.
 
 ## Asset kinds and engines
 
@@ -62,8 +69,7 @@ schema.
 
 `AssetKind.GRAPH` is a first-class RDF payload (`.ttl`, `.jsonld`, `.nt`),
 stored server-side as a named graph. sunstone-py adds an RDF format handler
-backed by rdflib, installed through an optional extra (`sunstone-py[rdf]`).
-The base install gains no rdflib dependency.
+backed by rdflib, which is a base dependency.
 
 Reconciliation with [ADR 0001](adr/0001-lance-for-vector-and-multimodal-assets.md)
 (Lance): embeddings stay vector columns on a TABULAR asset. There is no vector
@@ -76,21 +82,28 @@ mapped to a URL by the active environment.
 
 ```yaml
 publish:
-  to: sunstone:projects/my-study
+  to: sunstone:projects/my_study
   public: true
   dialect:
     delimiter: ","
-    quoting: minimal
+    header: true
+
+outputs:
+  - slug: result
+    publish:
+      as_name: result_v2
 ```
 
 | Field | Meaning |
 |---|---|
 | `publish.to` | `sunstone:<ns>` names the target namespace. Each resource becomes `<ns>/<slug>` with a sanitized slug. |
-| `publish.as_name` | Overrides the slug for a resource. |
+| `publish.as_name` | Overrides the slug for a resource. Allowed only on a dataset's own `publish:` block. |
 | `publish.public` | `true` makes the package public. Non-public packages need a Keycloak token to read. |
-| `publish.dialect` | Package defaults for CSV and TSV output, using Frictionless Table Dialect properties plus a Sunstone `quoting` property. |
+| `publish.dialect` | Package defaults for CSV and TSV output, using the delimited-text properties of [Frictionless Table Dialect](https://datapackage.org/standard/table-dialect/): `delimiter`, `lineTerminator`, `quoteChar`, `doubleQuote`, `escapeChar`, `nullSequence`, `skipInitialSpace`, `header`, `headerRows`, `headerJoin`, `commentRows`, `commentChar`. Unknown keys and wrong value types are rejected when the file loads. |
 
 Push refuses the `ext/` zone, which is written only by `sunstone data import`.
+
+Push also refuses a generated `datapackage.json` or resource that fails the Data Package v2 profiles. A multi-package push validates each package just before pushing it, so an invalid later package can leave earlier ones published (as with LFS and path-traversal refusals). Run `sunstone package build` (which warns) or `sunstone dataset validate --strict` before pushing several packages.
 
 ## CLI
 
@@ -99,14 +112,18 @@ sunstone package push [--env ENV] [--branch BRANCH] [--yes] [--force] [--replace
 ```
 
 - `--env` selects the environment through the existing `sunstone env` config.
-  The default is `prod`. dev and prod are separate deployments.
-- `--branch` defaults to the current git branch, normalized by the
-  data-platform rule: characters outside `[A-Za-z0-9_.-]` become `-`.
-  In CI the default comes from `GITHUB_HEAD_REF`, then `GITHUB_REF_NAME`. If
-  neither is set, push fails and asks for `--branch`. It never guesses `main`.
+  The default is `prod`. dev and prod are separate deployments. For namespace
+  pushes the CLI sets `SUNSTONE_DATA_ENV` to the value before calling the
+  plugin.
+- `--branch` is used if given. Otherwise the default is `GITHUB_HEAD_REF`,
+  then `GITHUB_REF_NAME`, then the current git branch. If none is available,
+  push fails and asks for `--branch`. It never guesses `main`. The name is
+  normalized by the data-platform rule: characters outside `[A-Za-z0-9_.-]`
+  become `-`, runs of `-` collapse to one, a name not starting with a letter
+  or `_` gets a `_` prefix, and the result is cut to 128 characters.
 - `--yes` is required for manual pushes to a protected ref. The server also
-  requires the `protected-write` role and an auth step-up, which the CLI
-  triggers through its PKCE flow (`acr_values`, `max_age`).
+  requires the `protected-write` role and an auth step-up, which the push
+  plugin performs (`acr_values`, `max_age`).
 - `--force` allows the operations the server protects by branch pattern:
   incompatible schema change, overwriting a named version, deleting removed
   datasets, `--replace` retraction and snapshot expiry. Protected refs
@@ -114,11 +131,10 @@ sunstone package push [--env ENV] [--branch BRANCH] [--yes] [--force] [--replace
 
 ### Blob-store fallback
 
-The `push_group` path (`push_group_to_gcs` in `cli.py`) can no longer assume
-GCS. Rename it and its messages to blob-store terms. The default `--env`
-changes to `prod`, so a GCS push with `--env prod` needs `--yes` and a
-step-up with the `protected-write` role. The CLI enforces this itself because
-GCS cannot. The default change goes under Changed in CHANGELOG.md when built.
+Destinations no plugin claims (`gs://`, `s3://`, `r2://`) use the blob-store
+path (`push_group_to_blob_store` in `cli.py`). A blob-store push with
+`--env prod` needs `--yes`. sunstone-py has no Keycloak client, so it does not
+step up for blob-store pushes.
 
 ## Upload flow (client view)
 
@@ -135,3 +151,10 @@ GCS cannot. The default change goes under Changed in CHANGELOG.md when built.
 The data-platform plugin claims https URLs whose host is a configured env host
 (`data.sunstone.institute`, `data.dev.sunstone.internal`), so they resolve
 like `sunstone:` URLs. Other hosts go through `HttpURLHandler`.
+
+A `sunstone:` URL has no file extension, so reads pass the wanted format to
+`URLHandler.open(url, mode, format=...)` through `sunstone.plugins.open_url()`.
+`open_url()` omits the keyword for handlers whose `open` has no `format`
+parameter or `**kwargs`. An extensionless `sunstone:` read with no `format=`
+argument and no `format:` in `datasets.yaml` asks for `parquet`, so a graph
+dataset in a namespace needs `format: ttl` (or `nt`/`jsonld`).

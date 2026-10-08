@@ -6,11 +6,14 @@ import contextlib
 import contextvars
 import logging
 import shutil
+from datetime import date as _date
+from datetime import datetime as _datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from ruamel.yaml import YAML
 
+from .datasets_schema import PACKAGE_GENERATED_KEYS
 from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import (
     Activity,
@@ -34,12 +37,36 @@ from .lineage import (
 
 logger = logging.getLogger(__name__)
 
+# Data Package properties sunstone maps onto PackageMetadata fields; the rest of the profile goes to ``extra``.
+_PACKAGE_MODELLED_KEYS = frozenset(
+    {"title", "description", "version", "keywords", "license", "contributors", "homepage", "id", "image", "name"}
+)
+_PACKAGE_NON_EXTRA_KEYS = _PACKAGE_MODELLED_KEYS | PACKAGE_GENERATED_KEYS
+
 # Configure ruamel.yaml for round-trip parsing (preserves comments) with proper indentation
 _yaml = YAML()
 _yaml.preserve_quotes = True
 _yaml.default_flow_style = False
 _yaml.width = 4096
 _yaml.indent(mapping=2, sequence=4, offset=2)
+
+
+def _iso_dates(value: Any) -> Any:
+    """Return ``value`` with YAML dates/datetimes (also inside lists and dicts) as ISO 8601 strings.
+
+    Unquoted YAML dates parse to ``date``/``datetime`` objects, which ``datapackage.json`` cannot hold.
+    UTC datetimes end in ``Z``.
+    """
+    if isinstance(value, _datetime):
+        text = value.isoformat()
+        return text[:-6] + "Z" if text.endswith("+00:00") else text
+    if isinstance(value, _date):
+        return value.isoformat()
+    if isinstance(value, list):
+        return [_iso_dates(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _iso_dates(v) for k, v in value.items()}
+    return value
 
 
 def _mtime_ns(path: Path) -> Optional[int]:
@@ -482,6 +509,7 @@ class DatasetsManager:
 
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
         """Parse field schema data from YAML."""
+        from .datasets_schema import field_profile_keys
         from .units import is_qudt_uri, parse_unit_string
 
         known_keys = {"name", "type", "constraints", "description", "unit", "source"}
@@ -500,11 +528,14 @@ class DatasetsManager:
                     unit_value = unit_str
                     unit_source = unit_str
 
-            # Collect any remaining RDF property keys (e.g. sosa:observedProperty)
-            # as field-level custom properties. Non-RDF unknown keys are ignored,
-            # preserving current leniency.
+            # Field-level custom properties: RDF keys (sosa:observedProperty) and Table Schema
+            # properties sunstone does not model (title, format, missingValues, rdfType, ...).
+            # Other unknown keys are ignored; `sunstone dataset validate --strict` reports them.
+            passthrough = field_profile_keys() - known_keys
             custom_properties = {
-                key: value for key, value in field.items() if key not in known_keys and self._is_rdf_property_key(key)
+                key: _iso_dates(value)
+                for key, value in field.items()
+                if key not in known_keys and (self._is_rdf_property_key(key) or key in passthrough)
             }
 
             result.append(
@@ -528,7 +559,8 @@ class DatasetsManager:
         Supports both legacy boolean format and new object format:
         - publish: true -> PublishConfig(enabled=True)
         - publish: false -> None
-        - publish: { enabled: true, to: "...", flatten: false } -> PublishConfig(...)
+        - publish: { enabled: true, to: "...", flatten: false, as: "...",
+          as_name: "...", public: false, dialect: {...} } -> PublishConfig(...)
         """
         if publish_data is None:
             return None
@@ -536,13 +568,36 @@ class DatasetsManager:
             return PublishConfig(enabled=publish_data)
         if isinstance(publish_data, dict):
             enabled = publish_data.get("enabled", False)
+            public = publish_data.get("public", False)
+            if not isinstance(public, bool):
+                raise ValueError(f"publish.public must be true or false, got {public!r}")
             return PublishConfig(
                 enabled=enabled,
                 to=publish_data.get("to"),
                 flatten=publish_data.get("flatten", False),
                 as_url=publish_data.get("as"),
+                as_name=publish_data.get("as_name"),
+                public=public,
+                dialect=self._parse_publish_dialect(publish_data.get("dialect")),
             )
         return None
+
+    def _parse_package_publish(self, publish_data: Any) -> Optional[PublishConfig]:
+        """Parse a top-level or package-level ``publish:`` block, where ``as_name`` is not allowed."""
+        if isinstance(publish_data, dict) and "as_name" in publish_data:
+            raise ValueError("publish.as_name belongs on a dataset's own 'publish:' block, not a package's")
+        return self._parse_publish(publish_data)
+
+    def _parse_publish_dialect(self, data: Any) -> Optional[Dict[str, Any]]:
+        """Check ``publish.dialect`` with the vendored Table Dialect schema (delimited-text keys only)."""
+        if data is None:
+            return None
+        from .datasets_schema import validate_dialect
+
+        errors = validate_dialect(data, "publish.dialect")
+        if errors:
+            raise ValueError("; ".join(errors))
+        return dict(data)
 
     def _parse_activity(self, activity_data: Dict[str, Any]) -> Activity:
         """Parse a PROV-O Activity from YAML lineage data."""
@@ -674,22 +729,24 @@ class DatasetsManager:
         )
 
     def _parse_package(self, package_data: Optional[Dict[str, Any]]) -> Optional[PackageMetadata]:
-        """
-        Parse package metadata from YAML.
+        """Parse a ``package:`` block (or the metadata part of a ``packages[]`` entry).
 
-        Args:
-            package_data: Raw package data from YAML, or None.
-
-        Returns:
-            PackageMetadata if data is present, None otherwise.
+        Data Package properties outside ``_PACKAGE_MODELLED_KEYS`` are kept verbatim in
+        ``PackageMetadata.extra`` so they reach ``datapackage.json``. Other keys are ignored.
         """
         if package_data is None:
             return None
+        from .datasets_schema import package_profile_keys
 
         contributors = None
         if "contributors" in package_data:
             contributors = [self._parse_contributor(c) for c in package_data["contributors"]]
 
+        extra = {
+            key: _iso_dates(value)
+            for key, value in package_data.items()
+            if key in package_profile_keys() and key not in _PACKAGE_NON_EXTRA_KEYS
+        }
         return PackageMetadata(
             title=package_data.get("title"),
             description=package_data.get("description"),
@@ -700,6 +757,8 @@ class DatasetsManager:
             homepage=package_data.get("homepage"),
             id=package_data.get("id"),
             image=package_data.get("image"),
+            name=package_data.get("name"),
+            extra=extra,
         )
 
     def _is_rdf_property_key(self, key: str) -> bool:
@@ -719,6 +778,7 @@ class DatasetsManager:
         standard_fields = {
             "name",
             "slug",
+            "type",
             "description",
             "location",
             "fields",
@@ -1024,7 +1084,7 @@ class DatasetsManager:
         Returns:
             Publish configuration if present, None otherwise.
         """
-        return self._parse_publish(self._data.get("publish"))
+        return self._parse_package_publish(self._data.get("publish"))
 
     def get_package_metadata(self) -> Optional[PackageMetadata]:
         """
@@ -1041,7 +1101,7 @@ class DatasetsManager:
         Supports two mutually exclusive forms:
         - ``package:`` (singular): backward-compatible single package.
           Top-level ``publish:`` is copied into the package entry.
-          Returns a single PackageEntry with ``datasets=None`` (all outputs).
+          Returns a single PackageEntry with ``datasets=None`` (all outputs), named by ``package.name`` when present.
         - ``packages:`` (plural): list of explicit package definitions,
           each with ``name``, ``datasets``, optional metadata and ``publish``.
 
@@ -1076,7 +1136,7 @@ class DatasetsManager:
             if metadata is None:
                 metadata = PackageMetadata()
             publish = self.get_publish_config()
-            return [PackageEntry(metadata=metadata, name=None, publish=publish, datasets=None)]
+            return [PackageEntry(metadata=metadata, name=metadata.name, publish=publish, datasets=None)]
 
         return []
 
@@ -1106,22 +1166,11 @@ class DatasetsManager:
             if slug not in all_slugs:
                 raise ValueError(f"Package '{name}': dataset slug '{slug}' not found in inputs or outputs.")
 
-        # Parse package metadata from remaining fields
-        metadata_keys = {
-            "title",
-            "description",
-            "version",
-            "keywords",
-            "license",
-            "contributors",
-            "homepage",
-            "id",
-            "image",
-        }
-        metadata_data = {k: v for k, v in entry_data.items() if k in metadata_keys}
+        # Everything except the entry's own keys is package metadata (profile keys, license, RDF keys).
+        metadata_data = {k: v for k, v in entry_data.items() if k not in ("name", "datasets", "publish")}
         metadata = (self._parse_package(metadata_data) if metadata_data else None) or PackageMetadata()
 
-        publish = self._parse_publish(entry_data.get("publish"))
+        publish = self._parse_package_publish(entry_data.get("publish"))
 
         return PackageEntry(
             metadata=metadata,

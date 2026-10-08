@@ -8,9 +8,9 @@ import os
 import re
 import sys
 import tomllib
-from enum import Enum
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from urllib.parse import urljoin, urlparse
 
 import typer
@@ -22,6 +22,9 @@ from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
 from .lineage import Contributor, DatasetMetadata, PackageEntry, PackageMetadata, PublishConfig
 
+if TYPE_CHECKING:
+    from .asset import AssetKind
+
 logger = logging.getLogger(__name__)
 
 # Configure ruamel.yaml for round-trip parsing
@@ -29,9 +32,6 @@ _yaml = YAML()
 _yaml.preserve_quotes = True
 _yaml.default_flow_style = False
 _yaml.indent(mapping=2, sequence=4, offset=2)
-
-# Valid field types
-VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime", "array", "object"}
 
 # Pattern for ${VAR} or ${VAR:-default} substitution
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
@@ -316,6 +316,17 @@ def expand_custom_properties(
     return expanded
 
 
+def _expand_field_custom_properties(props: dict[str, Any], prefixes: dict[str, str]) -> dict[str, Any]:
+    """Expand prefixed RDF keys and ``rdfType`` in field custom properties; other Table Schema properties stay verbatim."""
+    out: dict[str, Any] = {}
+    for key, value in props.items():
+        if ":" in key or key == "rdfType":
+            out.update(expand_custom_properties({key: value}, prefixes))
+        else:
+            out[key] = value
+    return out
+
+
 def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig]) -> Optional[PublishConfig]:
     """
     Get the effective publish config for a dataset.
@@ -328,8 +339,7 @@ def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig
     """
     if ds.publish is not None:
         # Per-dataset config takes precedence. Merge with top-level for
-        # missing fields (to, flatten, as_url) when the dataset
-        # doesn't specify them.
+        # missing fields.
         if not ds.publish.enabled:
             return ds.publish  # Explicitly disabled
         if top_level and top_level.enabled:
@@ -338,6 +348,9 @@ def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig
                 to=ds.publish.to or top_level.to,
                 flatten=ds.publish.flatten if ds.publish.flatten else top_level.flatten,
                 as_url=ds.publish.as_url or top_level.as_url,
+                as_name=ds.publish.as_name,
+                public=top_level.public,
+                dialect=top_level.dialect,
             )
         return ds.publish
     if ds.dataset_type == "input":
@@ -730,13 +743,26 @@ def dataset_list(
 @dataset_app.command("validate")
 def dataset_validate(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
-    datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
+    dataset: Optional[list[str]] = typer.Option(
+        None, "--dataset", help="Validate only this dataset slug (repeatable).", autocompletion=complete_dataset_slugs
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Also reject keys that are neither Data Package v2 properties nor sunstone keys, "
+        "and check Data Package property values against the v2 profiles.",
+    ),
+    datasets: Optional[list[str]] = typer.Argument(
+        None, autocompletion=complete_dataset_slugs, help="Dataset slugs to validate (same as --dataset)."
+    ),
 ) -> None:
-    """Validate datasets.
+    """Validate datasets.yaml.
 
-    If no datasets are specified, validates all datasets.
+    Without slugs, validates the whole file including package-level checks. With slugs
+    (positional or --dataset), only those datasets are checked. --strict adds the key and
+    value rules described in docs/datasets-yaml.md.
     """
-    datasets = datasets or []
+    selected = set(datasets or []) | set(dataset or [])
     datasets_path = Path(datasets_file).resolve()
 
     errors: list[str] = []
@@ -751,6 +777,15 @@ def dataset_validate(
 
     if data is None:
         data = {}
+    if not isinstance(data, dict):
+        typer.echo("Validation errors:", err=True)
+        typer.echo("  - datasets.yaml must be a mapping", err=True)
+        sys.exit(1)
+
+    from .datasets_schema import profile_field_types
+    from .plugins import PluginRegistry
+
+    valid_field_types = profile_field_types() | set(PluginRegistry.get(datasets_path.parent).field_types.known())
 
     # Check structure
     if "inputs" not in data and "outputs" not in data:
@@ -758,7 +793,8 @@ def dataset_validate(
 
     # Track slugs for duplicate detection
     all_slugs: dict[str, str] = {}  # slug -> type
-    datasets_to_validate = set(datasets) if datasets else None
+    datasets_to_validate = selected or None
+    selected_locations: set[str] = set()  # "inputs[3]"-style prefixes of the selected datasets
 
     def validate_dataset_entry(ds: dict, ds_type: str, index: int) -> None:
         prefix = f"{ds_type}[{index}]"
@@ -770,6 +806,7 @@ def dataset_validate(
             if slug:
                 all_slugs[slug] = ds_type
             return
+        selected_locations.add(prefix)
 
         # Required fields
         for field in ["name", "slug", "location"]:
@@ -786,7 +823,7 @@ def dataset_validate(
         # Check type
         resource_type = ds.get("type")
 
-        # Check fields
+        # Check fields (under --strict the walker reports missing names and bad types)
         fields = ds.get("fields")
         if resource_type == "table" and fields is None:
             errors.append(f"{prefix}: 'fields' is required for table resources")
@@ -798,14 +835,14 @@ def dataset_validate(
                     if not isinstance(field, dict):
                         errors.append(f"{prefix}.fields[{i}]: must be an object")
                         continue
-                    if "name" not in field:
+                    if "name" not in field and not strict:
                         errors.append(f"{prefix}.fields[{i}]: missing 'name'")
                     if "type" not in field:
                         errors.append(f"{prefix}.fields[{i}]: missing 'type'")
-                    elif field["type"] not in VALID_FIELD_TYPES:
+                    elif not strict and field["type"] not in valid_field_types:
                         errors.append(
                             f"{prefix}.fields[{i}]: invalid type '{field['type']}' "
-                            f"(must be one of: {', '.join(sorted(VALID_FIELD_TYPES))})"
+                            f"(must be one of: {', '.join(sorted(valid_field_types))})"
                         )
 
         # SPDX validation on output license
@@ -828,27 +865,17 @@ def dataset_validate(
                         f"{prefix}.source: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {source_license!r}"
                     )
 
-    # Validate inputs
-    inputs = data.get("inputs", [])
-    if not isinstance(inputs, list):
-        errors.append("'inputs' must be a list")
-    else:
-        for i, ds in enumerate(inputs):
+    # Validate inputs and outputs
+    for section in ("inputs", "outputs"):
+        items = data.get(section, [])
+        if not isinstance(items, list):
+            errors.append(f"'{section}' must be a list")
+            continue
+        for i, ds in enumerate(items):
             if not isinstance(ds, dict):
-                errors.append(f"inputs[{i}]: must be an object")
+                errors.append(f"{section}[{i}]: must be an object")
             else:
-                validate_dataset_entry(ds, "inputs", i)
-
-    # Validate outputs
-    outputs = data.get("outputs", [])
-    if not isinstance(outputs, list):
-        errors.append("'outputs' must be a list")
-    else:
-        for i, ds in enumerate(outputs):
-            if not isinstance(ds, dict):
-                errors.append(f"outputs[{i}]: must be an object")
-            else:
-                validate_dataset_entry(ds, "outputs", i)
+                validate_dataset_entry(ds, section, i)
 
     # SPDX validation on package licenses (only when not filtering by slug)
     if not datasets_to_validate:
@@ -872,23 +899,33 @@ def dataset_validate(
                         f"packages[{i}]: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
                     )
 
+    # Strict: allow-listed keys and Data Package property values (docs/datasets-yaml.md)
+    if strict:
+        from .datasets_schema import validate_datasets_data
+
+        schema_errors = validate_datasets_data(data, field_types=valid_field_types)
+        if datasets_to_validate:
+            # Keep messages rooted at a selected dataset: "inputs[3]..." or "inputs[3].fields[0]..."
+            schema_errors = [e for e in schema_errors if e.split(":", 1)[0].split(".", 1)[0] in selected_locations]
+        errors.extend(schema_errors)
+
     # Check if requested datasets were found
     if datasets_to_validate:
-        found_slugs = set(all_slugs.keys())
-        missing = datasets_to_validate - found_slugs
-        for slug in missing:
+        missing = datasets_to_validate - set(all_slugs)
+        for slug in sorted(missing):
             errors.append(f"Dataset '{slug}' not found")
 
+    errors = list(dict.fromkeys(errors))
     if errors:
         typer.echo("Validation errors:", err=True)
         for error in errors:
             typer.echo(f"  - {error}", err=True)
         sys.exit(1)
+    mode = " (strict)" if strict else ""
+    if datasets_to_validate:
+        typer.echo(f"✓ {len(datasets_to_validate)} dataset(s) valid{mode}")
     else:
-        if datasets:
-            typer.echo(f"✓ {len(datasets)} dataset(s) valid")
-        else:
-            typer.echo(f"✓ {datasets_file} is valid")
+        typer.echo(f"✓ {datasets_file} is valid{mode}")
 
 
 @dataset_app.command("migrate")
@@ -1216,12 +1253,24 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
             field_dict["constraints"] = f.constraints
         if f.custom_properties:
             prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-            field_dict.update(expand_custom_properties(f.custom_properties, prefixes))
+            field_dict.update(_expand_field_custom_properties(f.custom_properties, prefixes))
         field_dicts.append(field_dict)
     schema: dict[str, Any] = {"fields": field_dicts}
     if ds.primary_key:
         schema["primaryKey"] = list(ds.primary_key)
     return schema
+
+
+def _set_resource_type(resource_dict: dict[str, Any], ds: DatasetMetadata) -> None:
+    """Set the resource ``type``: the v2 profile allows only ``"table"``.
+
+    A sunstone dataset ``type`` other than ``table`` (``file``, ``geojson``, ...)
+    is project metadata and never becomes the resource ``type``.
+    """
+    if ds.resource_type == "table":
+        resource_dict["type"] = "table"
+    elif ds.resource_type is not None or resource_dict.get("type") != "table":
+        resource_dict.pop("type", None)
 
 
 def _build_non_frictionless_resource_dict(
@@ -1270,6 +1319,7 @@ def _build_non_frictionless_resource_dict(
             expand_custom_properties(ds.custom_properties, prefixes, ds.location, as_url, flatten=should_flatten)
         )
 
+    _set_resource_type(resource_dict, ds)
     return resource_dict
 
 
@@ -1357,7 +1407,7 @@ def build_resource_dict(
                         field_dict["source"] = yaml_field.source
                     if yaml_field.custom_properties:
                         prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-                        field_dict.update(expand_custom_properties(yaml_field.custom_properties, prefixes))
+                        field_dict.update(_expand_field_custom_properties(yaml_field.custom_properties, prefixes))
 
         # Add automatic RDF type for resource
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
@@ -1372,6 +1422,7 @@ def build_resource_dict(
             )
             resource_dict.update(expanded_props)
 
+        _set_resource_type(resource_dict, ds)
         return resource_dict
     except Exception as e:
         typer.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
@@ -1390,16 +1441,30 @@ def _contributor_to_dict(contributor: Contributor) -> dict[str, Any]:
     return d
 
 
+DATAPACKAGE_PROFILE_URL = "https://datapackage.org/profiles/2.0/datapackage.json"
+
+
 def _package_metadata_to_dict(metadata: PackageMetadata) -> dict[str, Any]:
-    """Convert PackageMetadata to a dict for inclusion in datapackage.json, omitting None values."""
+    """Convert PackageMetadata to a dict for datapackage.json, omitting None values and adding ``extra`` verbatim.
+
+    ``$schema`` is always ``DATAPACKAGE_PROFILE_URL``, overriding any user value.
+    """
     d: dict[str, Any] = {}
-    for field in ("title", "description", "version", "keywords", "license", "homepage", "id", "image"):
+    for field in ("name", "title", "description", "version", "keywords", "license", "homepage", "id", "image"):
         value = getattr(metadata, field)
         if value is not None:
             d[field] = value
     if metadata.contributors is not None:
         d["contributors"] = [_contributor_to_dict(c) for c in metadata.contributors]
+    d.update(metadata.extra)
+    d["$schema"] = DATAPACKAGE_PROFILE_URL
     return d
+
+
+def _format_descriptor_errors(errors: list[str], label: str) -> str:
+    """One message for profile violations of a generated descriptor (build warns, push refuses; plan D3)."""
+    bullets = "\n".join(f"  - {e}" for e in errors)
+    return f"{label} does not validate against the Data Package v2 profile:\n{bullets}"
 
 
 def build_datapackage(
@@ -1448,6 +1513,7 @@ def build_datapackage(
         pkg_meta = manager.get_package_metadata()
     if pkg_meta:
         datapackage.update(_package_metadata_to_dict(pkg_meta))
+    datapackage["$schema"] = DATAPACKAGE_PROFILE_URL
 
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
@@ -1460,6 +1526,11 @@ def build_datapackage(
         )
     datapackage.update(top_level_props)
 
+    from .datasets_schema import validate_datapackage_descriptor
+
+    problems = validate_datapackage_descriptor(datapackage)
+    if problems:
+        typer.echo(f"Warning: {_format_descriptor_errors(problems, f'datapackage {pkg_name!r}')}", err=True)
     return datapackage
 
 
@@ -1630,7 +1701,7 @@ def is_lfs_pointer(file_path: Path) -> bool:
     return _is_lfs_pointer(file_path)
 
 
-def push_group_to_gcs(
+def push_group_to_blob_store(
     dest_url: str,
     datasets: list[DatasetMetadata],
     manager: DatasetsManager,
@@ -1641,7 +1712,7 @@ def push_group_to_gcs(
     package_entry: Optional[PackageEntry] = None,
 ) -> None:
     """
-    Push a group of datasets to a remote destination.
+    Push a group of datasets to a blob store (gs://, s3://, r2://).
 
     Delegates core logic to :func:`sunstone.packaging.push_group` and
     prints progress output for the CLI.
@@ -1654,16 +1725,19 @@ def push_group_to_gcs(
         publish_config: The effective publish config for this group.
         package_entry: Optional PackageEntry for per-package name and metadata.
     """
+    from .datasets_schema import validate_datapackage_descriptor
     from .packaging import push_group
+
+    def refuse_invalid(descriptor: dict[str, Any]) -> None:
+        problems = validate_datapackage_descriptor(descriptor)
+        if problems:
+            raise ValueError(_format_descriptor_errors(problems, f"datapackage.json for {dest_url}"))
 
     # Prepare package metadata callback
     def package_metadata_fn() -> Optional[dict[str, Any]]:
         if package_entry:
             return _package_metadata_to_dict(package_entry.metadata)
-        pkg_meta = manager.get_package_metadata()
-        if pkg_meta:
-            return _package_metadata_to_dict(pkg_meta)
-        return None
+        return _package_metadata_to_dict(manager.get_package_metadata() or PackageMetadata())
 
     # Use package entry name if available
     effective_slug = package_entry.name if package_entry and package_entry.name else project_slug
@@ -1695,6 +1769,7 @@ def push_group_to_gcs(
             top_level_props=top_level_props or {},
             methodology_files=methodology_files,
             allow_outside_project=allow_outside_project,
+            descriptor_check=refuse_invalid,
         )
     except (ValueError, PathTraversalError) as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1714,39 +1789,204 @@ def push_group_to_gcs(
     )
 
 
-class EnvChoice(str, Enum):
-    dev = "dev"
-    prod = "prod"
+@dataclass(frozen=True)
+class _PushRun:
+    """Options shared by every destination group in one `package push`."""
+
+    env: str
+    branch: Optional[str]
+    yes: bool
+    force: bool
+    replace: bool
+    allow_outside_project: bool
+
+
+def _namespace_resource_metadata(
+    manager: DatasetsManager, publish_config: PublishConfig
+) -> "Callable[[DatasetMetadata, AssetKind, str], Optional[dict[str, Any]]]":
+    from .asset import AssetKind
+    from .datasets_schema import validate_resource_descriptor
+    from .push import PushError
+
+    def build(ds: DatasetMetadata, kind: AssetKind, media_type: str) -> Optional[dict[str, Any]]:
+        if kind is AssetKind.TABULAR:
+            metadata = build_resource_dict(ds, manager, publish_config)
+        else:
+            data_path = manager.get_absolute_path(ds.location)
+            metadata = _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, media_type)
+        if metadata is not None:
+            problems = validate_resource_descriptor(metadata)
+            if problems:
+                raise PushError(_format_descriptor_errors(problems, f"resource '{ds.slug}'"))
+        return metadata
+
+    return build
+
+
+def push_group_to_namespace(
+    handler: Any,
+    dest_url: str,
+    datasets: list[DatasetMetadata],
+    manager: DatasetsManager,
+    project_slug: str,
+    publish_config: PublishConfig,
+    run: _PushRun,
+    package_entry: Optional[PackageEntry] = None,
+) -> None:
+    """Push a group of datasets to a sunstone: namespace through a PackagePushHandler plugin."""
+    import tempfile
+
+    from .push import PushError, PushOptions, build_push_package, default_branch, normalize_branch
+
+    try:
+        branch = normalize_branch(run.branch) if run.branch else default_branch(manager.project_path)
+    except PushError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if package_entry:
+        package_metadata = _package_metadata_to_dict(package_entry.metadata)
+    else:
+        pkg_meta = manager.get_package_metadata()
+        package_metadata = _package_metadata_to_dict(pkg_meta or PackageMetadata())
+    package_metadata = {
+        "name": package_entry.name if package_entry and package_entry.name else project_slug,
+        **package_metadata,
+    }
+    top_level_props = manager.get_top_level_custom_properties()
+    if top_level_props:
+        rdf_prefixes = {**STANDARD_RDF_PREFIXES, **manager.get_default_rdf_prefixes()}
+        package_metadata.update(expand_custom_properties(top_level_props, rdf_prefixes))
+
+    with tempfile.TemporaryDirectory(prefix="sunstone-push-") as staging:
+        try:
+            package = build_push_package(
+                dest_url,
+                datasets,
+                manager,
+                publish_config,
+                _namespace_resource_metadata(manager, publish_config),
+                package_metadata,
+                Path(staging),
+                allow_outside_project=run.allow_outside_project,
+            )
+            from .datasets_schema import validate_datapackage_descriptor
+
+            problems = validate_datapackage_descriptor(
+                {**package_metadata, "resources": [dict(r.metadata) for r in package.resources]}
+            )
+            if problems:
+                raise PushError(_format_descriptor_errors(problems, "datapackage"))
+        except (PushError, PathTraversalError) as e:
+            typer.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        os.environ["SUNSTONE_DATA_ENV"] = run.env
+        options = PushOptions(env=run.env, branch=branch, yes=run.yes, force=run.force, replace=run.replace)
+        result = handler.push(package, options)
+
+    for status in result.datasets:
+        line = f"{package.namespace}/{status.name}: {status.status}"
+        if status.iri:
+            line += f" {status.iri}"
+        if status.message:
+            line += f" ({status.message})"
+        typer.echo(line)
+    if not result.ok:
+        typer.echo(f"Error: push {result.push_id} to {dest_url}@{branch} failed", err=True)
+        sys.exit(1)
+    typer.echo(f"✓ Pushed {len(package.resources)} dataset(s) to {dest_url}@{branch} (push {result.push_id})")
+
+
+def _push_destination(
+    dest_url: str,
+    datasets: list[DatasetMetadata],
+    manager: DatasetsManager,
+    project_slug: str,
+    publish_config: PublishConfig,
+    run: _PushRun,
+    package_entry: Optional[PackageEntry] = None,
+) -> None:
+    """Send one destination group to a push plugin if one claims it, else to the blob store."""
+    from .plugins import PluginRegistry
+
+    handler = PluginRegistry.get(manager.project_path).find_package_push_handler(dest_url)
+    if handler is not None:
+        push_group_to_namespace(handler, dest_url, datasets, manager, project_slug, publish_config, run, package_entry)
+        return
+    if dest_url.startswith("sunstone:"):
+        typer.echo(
+            f"Error: no plugin handles {dest_url}. Install the sunstone-data plugin to push to sunstone: namespaces.",
+            err=True,
+        )
+        sys.exit(1)
+    push_group_to_blob_store(
+        dest_url,
+        datasets,
+        manager,
+        project_slug,
+        publish_config,
+        allow_outside_project=run.allow_outside_project,
+        package_entry=package_entry,
+    )
+
+
+def _preflight_blob_destinations(dest_urls: list[str], manager: DatasetsManager, run: _PushRun) -> None:
+    """Check every blob-store destination before anything is pushed. Exits 1 on failure."""
+    from .plugins import PluginRegistry
+
+    registry = PluginRegistry.get(manager.project_path)
+    for dest_url in dest_urls:
+        if dest_url.startswith("sunstone:") or registry.find_package_push_handler(dest_url) is not None:
+            continue
+        if run.env not in ("dev", "prod"):
+            typer.echo(f"Error: blob store pushes need --env dev or prod, got {run.env!r} ({dest_url})", err=True)
+            sys.exit(1)
+        if run.env == "prod" and not run.yes:
+            typer.echo(f"Error: pushing to the prod blob store ({dest_url}) needs --yes", err=True)
+            sys.exit(1)
+        if run.force or run.replace:
+            typer.echo(f"Warning: --force/--replace apply only to sunstone: pushes; ignored for {dest_url}", err=True)
 
 
 @package_app.command("push")
 def package_push(
-    env: EnvChoice = typer.Option(EnvChoice.dev, "--env", help="Target environment"),
+    env: str = typer.Option("prod", "--env", help="Target environment, as configured with 'sunstone env'"),
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
     destination: Optional[str] = typer.Option(
-        None, "--destination", "-d", help="Override destination gs:// URL for all datasets"
+        None, "--destination", "-d", help="Override the destination for all datasets"
     ),
+    branch: Optional[str] = typer.Option(
+        None,
+        "--branch",
+        help="Target branch for sunstone: pushes (default: GITHUB_HEAD_REF, GITHUB_REF_NAME, then current git branch)",
+    ),
+    yes: bool = typer.Option(False, "--yes", help="Confirm a push to a protected ref or the prod blob store"),
+    force: bool = typer.Option(
+        False, "--force", help="Allow force operations (incompatible schema, version overwrite, deletes)"
+    ),
+    replace: bool = typer.Option(False, "--replace", help="Retract metadata not in this push (a force operation)"),
     allow_outside_project: bool = typer.Option(
         False,
         "--allow-outside-project",
         help="Allow publishing files outside the project root (use with caution)",
     ),
 ) -> None:
-    """Push data packages to Google Cloud Storage.
+    """Push data packages to sunstone: namespaces or a blob store.
 
-    Uploads datapackage.json and data files, grouped by publish destination.
-    Each unique destination gets its own datapackage.json with the relevant resources.
+    A destination claimed by a push plugin (sunstone:<zone>/<namespace>) is
+    published as one dataset per resource. Other destinations (gs://, s3://,
+    r2://) get a datapackage.json plus data files.
 
-    The --env flag sets SUNSTONE_PUBLIC_DATASETS_FOLDER so that publish
-    destinations using ${SUNSTONE_PUBLIC_DATASETS_FOLDER:-payloadcms-dev}
+    For dev and prod, --env also sets SUNSTONE_PUBLIC_DATASETS_FOLDER so that
+    publish destinations using ${SUNSTONE_PUBLIC_DATASETS_FOLDER:-payloadcms-dev}
     resolve to the correct environment bucket.
     """
-    # Map --env to the SUNSTONE_PUBLIC_DATASETS_FOLDER environment variable
-    env_folder_map = {
-        "dev": "payloadcms-dev",
-        "prod": "payloadcms-prod",
-    }
-    os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env.value]
+    env_folder_map = {"dev": "payloadcms-dev", "prod": "payloadcms-prod"}
+    if env in env_folder_map:
+        os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env]
+    run = _PushRun(
+        env=env, branch=branch, yes=yes, force=force, replace=replace, allow_outside_project=allow_outside_project
+    )
 
     try:
         manager, project_path = get_manager(datasets_file)
@@ -1771,6 +2011,8 @@ def package_push(
             to=destination,
             flatten=top_level_publish.flatten if top_level_publish else False,
             as_url=top_level_publish.as_url if top_level_publish else None,
+            public=top_level_publish.public if top_level_publish else False,
+            dialect=top_level_publish.dialect if top_level_publish else None,
         )
         publishable = [
             ds
@@ -1783,21 +2025,15 @@ def package_push(
             sys.exit(1)
 
         dest_url = expand_env_vars(destination)
+        _preflight_blob_destinations([dest_url], manager, run)
         try:
-            push_group_to_gcs(
-                dest_url,
-                publishable,
-                manager,
-                project_slug,
-                override_config,
-                allow_outside_project=allow_outside_project,
-            )
+            _push_destination(dest_url, publishable, manager, project_slug, override_config, run)
         except ImportError:
-            typer.echo("Error: google-cloud-storage is required for push", err=True)
-            typer.echo("Install with: pip install google-cloud-storage", err=True)
+            typer.echo("Error: the blob-store client for this destination is not installed", err=True)
+            typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
             sys.exit(1)
         except Exception as e:
-            typer.echo(f"Error uploading to GCS: {e}", err=True)
+            typer.echo(f"Error uploading: {e}", err=True)
             sys.exit(1)
     else:
         packages = manager.get_packages()
@@ -1805,6 +2041,11 @@ def package_push(
         if packages:
             # New packages:-based path
             has_publishable = False
+            _preflight_blob_destinations(
+                [expand_env_vars(p.publish.to or "") for p in packages if p.publish and p.publish.enabled],
+                manager,
+                run,
+            )
             try:
                 for pkg in packages:
                     if not pkg.publish or not pkg.publish.enabled:
@@ -1812,14 +2053,8 @@ def package_push(
                     has_publishable = True
                     pkg_datasets = _resolve_package_datasets(pkg, manager)
                     dest_url = expand_env_vars(pkg.publish.to or "")
-                    push_group_to_gcs(
-                        dest_url,
-                        pkg_datasets,
-                        manager,
-                        project_slug,
-                        pkg.publish,
-                        allow_outside_project=allow_outside_project,
-                        package_entry=pkg,
+                    _push_destination(
+                        dest_url, pkg_datasets, manager, project_slug, pkg.publish, run, package_entry=pkg
                     )
                     typer.echo()
 
@@ -1830,8 +2065,8 @@ def package_push(
                 enabled_count = sum(1 for p in packages if p.publish and p.publish.enabled)
                 typer.echo(f"✓ Pushed {enabled_count} package(s)")
             except ImportError:
-                typer.echo("Error: google-cloud-storage is required for push", err=True)
-                typer.echo("Install with: pip install google-cloud-storage", err=True)
+                typer.echo("Error: the blob-store client for this destination is not installed", err=True)
+                typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
                 sys.exit(1)
             except Exception as e:
                 typer.echo(f"Error uploading: {e}", err=True)
@@ -1844,25 +2079,19 @@ def package_push(
                 typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
                 sys.exit(1)
 
+            _preflight_blob_destinations(list(groups), manager, run)
             try:
                 for dest_url, (pub_config, datasets) in groups.items():
-                    push_group_to_gcs(
-                        dest_url,
-                        datasets,
-                        manager,
-                        project_slug,
-                        pub_config,
-                        allow_outside_project=allow_outside_project,
-                    )
+                    _push_destination(dest_url, datasets, manager, project_slug, pub_config, run)
                     typer.echo()
 
                 typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
             except ImportError:
-                typer.echo("Error: google-cloud-storage is required for push", err=True)
-                typer.echo("Install with: pip install google-cloud-storage", err=True)
+                typer.echo("Error: the blob-store client for this destination is not installed", err=True)
+                typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
                 sys.exit(1)
             except Exception as e:
-                typer.echo(f"Error uploading to GCS: {e}", err=True)
+                typer.echo(f"Error uploading: {e}", err=True)
                 sys.exit(1)
 
 

@@ -321,9 +321,16 @@ class ParquetFormatHandler:
         kwargs.pop("format", None)
         kwargs.pop("path", None)
         kwargs.pop("dialect", None)
+        engine = kwargs.pop("engine", "pandas")
 
         table = pq.read_table(stream, **kwargs)
-        df: pd.DataFrame = table.to_pandas()
+        df: Any
+        if engine == "polars":
+            import polars as pl
+
+            df = pl.from_arrow(table)
+        else:
+            df = table.to_pandas()
 
         # Extract sunstone Metadata blob from Parquet schema metadata if present
         meta = Metadata()
