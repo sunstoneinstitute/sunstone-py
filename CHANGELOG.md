@@ -4,6 +4,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `AssetKind.GRAPH` and Turtle/N-Triples/JSON-LD read/write (adds rdflib as a dependency).
 - Fixed: `sunstone` CLI and plugin discovery no longer import geopandas, boto3, GCS, zarr or h5py at startup.
 
 ## [1.18.0] - 2026-10-12
