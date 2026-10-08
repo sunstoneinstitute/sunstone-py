@@ -368,6 +368,10 @@ class PluginRegistry:
             self._format_handlers.append(geo_handler)  # type: ignore[arg-type]
             for descriptor in geo_handler.field_types():
                 self.field_types.register(descriptor)
+        # RDF handler (Turtle/N-Triples/JSON-LD -> AssetKind.GRAPH).
+        from .handlers_rdf import RdfFormatHandler
+
+        self._format_handlers.append(RdfFormatHandler())  # type: ignore[arg-type]
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)
