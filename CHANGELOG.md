@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Changed: `sunstone package push` refuses a generated datapackage.json or resource that fails the Data Package v2 profile; `package build` warns.
+- Added: `datapackage.json` carries `$schema` and `package.created`/`licenses`/`sources`, and `package.name` sets its name (overriding the project slug).
+- Changed: Table Schema field properties such as `title`, `rdfType` and `missingValues` pass through to `datapackage.json`.
+- Added: `sunstone dataset validate --strict` checks `datasets.yaml` keys and values against the Data Package v2 profiles, and `--dataset` narrows validation.
 - Added: `sunstone package push` publishes to `sunstone:` namespaces through a package-push plugin, with `--branch`, `--yes`, `--force` and `--replace`.
 - Added: `publish.as_name`, `publish.public` and `publish.dialect` in `datasets.yaml`.
 - Changed: `sunstone package push --env` defaults to `prod`, and blob-store pushes to prod need `--yes`.

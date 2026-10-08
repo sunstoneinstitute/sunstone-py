@@ -220,7 +220,10 @@ inputs:
       header: true
 ```
 
-Fields (all optional, matching the Frictionless `csv` dialect):
+The block accepts the delimited-text properties of the Frictionless
+[Table Dialect](https://datapackage.org/standard/table-dialect/) (see
+[datasets.yaml reference](datasets-yaml.md)); `sunstone dataset validate
+--strict` rejects other keys. The reader and writer use these three:
 
 | Field       | Default | Meaning                                                          |
 |-------------|---------|------------------------------------------------------------------|

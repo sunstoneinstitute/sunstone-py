@@ -99,9 +99,11 @@ outputs:
 | `publish.to` | `sunstone:<ns>` names the target namespace. Each resource becomes `<ns>/<slug>` with a sanitized slug. |
 | `publish.as_name` | Overrides the slug for a resource. Allowed only on a dataset's own `publish:` block. |
 | `publish.public` | `true` makes the package public. Non-public packages need a Keycloak token to read. |
-| `publish.dialect` | Package defaults for CSV and TSV output, using the delimited-text properties of [Frictionless Table Dialect](https://datapackage.org/standard/table-dialect/): `delimiter`, `lineTerminator`, `quoteChar`, `doubleQuote`, `escapeChar`, `nullSequence`, `skipInitialSpace`, `header`, `headerRows`, `headerJoin`, `commentRows`, `commentChar`. |
+| `publish.dialect` | Package defaults for CSV and TSV output, using the delimited-text properties of [Frictionless Table Dialect](https://datapackage.org/standard/table-dialect/): `delimiter`, `lineTerminator`, `quoteChar`, `doubleQuote`, `escapeChar`, `nullSequence`, `skipInitialSpace`, `header`, `headerRows`, `headerJoin`, `commentRows`, `commentChar`. Unknown keys and wrong value types are rejected when the file loads. |
 
 Push refuses the `ext/` zone, which is written only by `sunstone data import`.
+
+Push also refuses a generated `datapackage.json` or resource that fails the Data Package v2 profiles. A multi-package push validates each package just before pushing it, so an invalid later package can leave earlier ones published (as with LFS and path-traversal refusals). Run `sunstone package build` (which warns) or `sunstone dataset validate --strict` before pushing several packages.
 
 ## CLI
 
