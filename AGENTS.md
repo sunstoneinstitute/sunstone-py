@@ -28,6 +28,7 @@ src/sunstone
 ├── context.py
 ├── dataframe.py         # sunstone.DataFrame facade over a TABULAR Asset
 ├── datasets.py
+├── datasets_schema.py   # datasets.yaml key allow-list + Data Package v2 profile validation
 ├── derive_policies.py
 ├── env.py               # environment/config resolution (sunstone env ...)
 ├── errors.py
@@ -61,6 +62,7 @@ src/sunstone
 │   ├── ops.py           #   relational ops, multi-parent lineage
 │   └── write.py
 ├── push.py              # sunstone: namespace push (PushPackage, PackagePushHandler data model)
+├── profiles/            # vendored datapackage.org v2 JSON Schemas (public domain)
 ├── queries.py
 ├── rdf.py               # IRI / LangString / TypedLiteral
 ├── resource.py
@@ -72,7 +74,7 @@ src/sunstone
 
 Tests live in `tests/`, with fixture projects under `tests/testdata/`.
 Extended docs are in `docs/` (`pandas.md`, `polars.md`, `geopandas.md`,
-`api.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
+`api.md`, `datasets-yaml.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
 
 ## Usage for Data Scientists
 
@@ -110,6 +112,7 @@ result.to_csv(
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
 5. **Metadata container**: Use `df.metadata` for dataset-level metadata (description, RDF prefixes, custom properties) and `df.set_field_metadata()` for column-level metadata. All metadata propagates through operations and flows to `datasets.yaml` on write.
 6. **Lineage via metadata**: Access lineage through `df.metadata.lineage` (the old `df.lineage` accessor is deprecated)
+7. **Keys**: `sunstone dataset validate --strict` rejects any `datasets.yaml` key without a `:` that is neither a Data Package v2 property nor a sunstone key (`docs/datasets-yaml.md`).
 
 ## Plugin System
 

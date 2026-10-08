@@ -294,6 +294,12 @@ class PackageMetadata:
     image: Optional[str] = None
     """URL to a representative image."""
 
+    name: Optional[str] = None
+    """Package name from ``package.name``; ``packages[]`` entries keep their name on ``PackageEntry`` instead."""
+
+    extra: Dict[str, Any] = field(default_factory=dict)
+    """Other Data Package profile properties (``created``, ``licenses``, ``sources``, ``$schema``), emitted verbatim except ``$schema``, which is replaced by the v2 profile URL."""
+
 
 @dataclass
 class PublishConfig:

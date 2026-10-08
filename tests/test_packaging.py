@@ -537,3 +537,56 @@ def test_push_group_allows_normal_in_project_paths(tmp_path: Path) -> None:
 
     assert len(uploaded) == 2
     assert uploaded[1] == "outputs/result.csv"
+
+
+def _push_group_fixture(tmp_path: Path):
+    data_dir = tmp_path / "outputs"
+    data_dir.mkdir()
+    data_file = data_dir / "result.csv"
+    data_file.write_bytes(b"x,y\n3,4\n")
+    ds = DatasetMetadata(slug="result", name="Result", location="outputs/result.csv", dataset_type="output")
+    manager = MagicMock()
+    manager.get_absolute_path.return_value = data_file
+    manager.project_path = tmp_path
+    streams: dict[str, io.IOBase] = {}
+    mock_registry = MagicMock()
+    mock_registry.find_url_handler.return_value = _make_handler(streams)
+    return ds, manager, streams, mock_registry
+
+
+def _run_push_group(ds, manager, mock_registry, **kwargs):
+    with patch("sunstone.packaging.PluginRegistry") as MockPluginRegistry:
+        MockPluginRegistry.get.return_value = mock_registry
+        return push_group(
+            dest_url="gs://bucket/pkg/",
+            datasets=[ds],
+            manager=manager,
+            project_slug="test-project",
+            publish_config=PublishConfig(enabled=True, to="gs://bucket/pkg/", flatten=False),
+            build_resource_dict_fn=lambda d, m, pc: {"path": d.location, "name": d.slug},
+            package_metadata_fn=lambda: None,
+            rdf_prefixes={},
+            top_level_props={},
+            methodology_files=[],
+            **kwargs,
+        )
+
+
+def test_push_group_calls_descriptor_check_with_final_datapackage(tmp_path: Path) -> None:
+    ds, manager, streams, registry = _push_group_fixture(tmp_path)
+    seen: list[dict[str, Any]] = []
+    uploaded = _run_push_group(ds, manager, registry, descriptor_check=seen.append)
+    assert len(uploaded) == 2
+    assert seen[0]["name"] == "test-project"
+    assert seen[0]["resources"][0]["name"] == "result"
+
+
+def test_push_group_uploads_nothing_when_descriptor_check_raises(tmp_path: Path) -> None:
+    ds, manager, streams, registry = _push_group_fixture(tmp_path)
+
+    def refuse(descriptor: dict[str, Any]) -> None:
+        raise ValueError("descriptor rejected")
+
+    with pytest.raises(ValueError, match="descriptor rejected"):
+        _run_push_group(ds, manager, registry, descriptor_check=refuse)
+    assert streams == {}

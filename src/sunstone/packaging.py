@@ -102,6 +102,7 @@ def push_group(
     methodology_files: list[tuple[Path, str]],
     *,
     allow_outside_project: bool = False,
+    descriptor_check: Optional[Callable[[dict[str, Any]], None]] = None,
 ) -> list[str]:
     """Push a group of datasets to a remote destination via URLHandler plugins.
 
@@ -118,6 +119,8 @@ def push_group(
         methodology_files: List of (absolute_path, resolved_uri) tuples to upload.
         allow_outside_project: If True, skip path containment checks (use with
             caution; intended for explicit CLI override only).
+        descriptor_check: Called with the final datapackage dict before any upload;
+            raise to abort (the CLI validates against the Data Package profile here).
 
     Returns:
         List of uploaded path strings (for the caller to report).
@@ -217,6 +220,9 @@ def push_group(
     # Add top-level custom properties
     if top_level_props:
         datapackage.update(top_level_props)
+
+    if descriptor_check is not None:
+        descriptor_check(datapackage)
 
     # Find a URL handler for the destination
     registry = PluginRegistry.get(manager.project_path)

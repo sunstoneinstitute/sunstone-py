@@ -189,6 +189,54 @@ class TestFieldSchemaExtendedProperties:
         assert dataset.fields is not None
         assert dataset.fields[0].custom_properties is None
 
+    def test_profile_field_keys_flow_to_custom_properties(self, tmp_path: Path) -> None:
+        """Table Schema field properties sunstone does not model are kept so they reach datapackage.json."""
+        datasets_file = tmp_path / "datasets.yaml"
+        datasets_file.write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Data\n"
+            "    slug: data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: x\n"
+            "        type: number\n"
+            "        title: The X\n"
+            "        missingValues: ['', 'NA']\n"
+            "        rdfType: geo:Geometry\n"
+            "        bogus: ignored\n"
+            "        qudt:hasQuantityKind: quantitykind:Length\n"
+        )
+        dataset = sunstone.DatasetsManager(tmp_path).find_dataset_by_slug("data")
+        assert dataset is not None and dataset.fields is not None
+        assert dataset.fields[0].custom_properties == {
+            "title": "The X",
+            "missingValues": ["", "NA"],
+            "rdfType": "geo:Geometry",
+            "qudt:hasQuantityKind": "quantitykind:Length",
+        }
+
+    def test_field_passthrough_dates_become_iso_strings(self, tmp_path: Path) -> None:
+        """Unquoted YAML dates in passthrough values are stored as ISO 8601 strings."""
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs: []\n"
+            "outputs:\n"
+            "  - name: Data\n"
+            "    slug: data\n"
+            "    location: outputs/data.csv\n"
+            "    fields:\n"
+            "      - name: d\n"
+            "        type: date\n"
+            "        example: 2024-01-01\n"
+            "        dct:temporal: [2024-01-01, {start: 2024-01-02T03:04:05Z}]\n"
+        )
+        dataset = sunstone.DatasetsManager(tmp_path).find_dataset_by_slug("data")
+        assert dataset is not None and dataset.fields is not None
+        assert dataset.fields[0].custom_properties == {
+            "example": "2024-01-01",
+            "dct:temporal": ["2024-01-01", {"start": "2024-01-02T03:04:05Z"}],
+        }
+
 
 class TestFieldSchemaSerialization:
     """Tests for field schema serialization helper."""
@@ -333,6 +381,22 @@ outputs: []
         package = manager.get_package_metadata()
 
         assert package is None
+
+    def test_package_extra_dates_become_iso_strings(self, tmp_path: Path) -> None:
+        (tmp_path / "datasets.yaml").write_text(
+            "package:\n"
+            "  title: T\n"
+            "  created: 2024-01-02T03:04:05Z\n"
+            "  sources:\n"
+            "    - title: S\n"
+            "      version: 2024-01-01\n"
+            "inputs: []\n"
+            "outputs: []\n"
+        )
+        package = sunstone.DatasetsManager(tmp_path).get_package_metadata()
+        assert package is not None
+        assert package.extra["created"] == "2024-01-02T03:04:05Z"
+        assert package.extra["sources"] == [{"title": "S", "version": "2024-01-01"}]
 
 
 class TestCsvDialect:
@@ -873,6 +937,47 @@ class TestGetPackages:
         assert packages[0].publish.enabled is True
         assert packages[0].publish.to == "gs://bucket/test/"
 
+    def test_package_profile_keys_are_carried(self, tmp_path: Path) -> None:
+        """created/licenses/sources/name/$schema from package: land in PackageMetadata (D13)."""
+        (tmp_path / "test.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "package:\n"
+            "  name: my-pkg\n"
+            "  title: My Package\n"
+            "  created: '2026-01-01T00:00:00Z'\n"
+            "  licenses:\n    - name: CC-BY-4.0\n"
+            "  sources:\n    - title: UN\n      path: https://un.org\n"
+            "  '$schema': https://datapackage.org/profiles/2.0/datapackage.json\n"
+            "  si:theme: climate\n"
+            "outputs:\n  - name: Test\n    slug: test\n    location: test.csv\n",
+            tmp_path,
+        )
+        [entry] = mgr.get_packages()
+        assert entry.name == "my-pkg"
+        assert entry.metadata.name == "my-pkg"
+        assert entry.metadata.title == "My Package"
+        assert entry.metadata.extra == {
+            "created": "2026-01-01T00:00:00Z",
+            "licenses": [{"name": "CC-BY-4.0"}],
+            "sources": [{"title": "UN", "path": "https://un.org"}],
+            "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
+        }
+
+    def test_packages_entry_profile_keys_are_carried(self, tmp_path: Path) -> None:
+        (tmp_path / "a.csv").write_text("col\nval")
+        mgr = self._make_manager(
+            "packages:\n"
+            "  - name: pkg-a\n"
+            "    datasets: [a]\n"
+            "    created: '2026-01-01'\n"
+            "    licenses: [{name: MIT}]\n"
+            "outputs:\n  - name: A\n    slug: a\n    location: a.csv\n",
+            tmp_path,
+        )
+        [entry] = mgr.get_packages()
+        assert entry.name == "pkg-a" and entry.metadata.name is None
+        assert entry.metadata.extra == {"created": "2026-01-01", "licenses": [{"name": "MIT"}]}
+
     def test_singular_package_no_publish(self, tmp_path: Path) -> None:
         """package: without top-level publish: still works."""
         (tmp_path / "test.csv").write_text("col\nval")
@@ -1272,7 +1377,7 @@ class TestPublishNamespaceFields:
         assert ds.publish.as_name == "result_v2"
 
     def test_rejects_unknown_dialect_key(self, tmp_path):
-        with pytest.raises(ValueError, match="sepparator"):
+        with pytest.raises(ValueError, match="publish.dialect: unknown key 'sepparator'"):
             self._manager(
                 tmp_path, "  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    sepparator: ';'\n"
             ).get_publish_config()
@@ -1284,10 +1389,11 @@ class TestPublishNamespaceFields:
             "headerRowCount: 1",
             "sheetName: data",
             "caseSensitiveHeader: true",
+            "'si:note': x",
         ],
     )
     def test_rejects_non_frictionless_csv_dialect_keys(self, tmp_path, line):
-        with pytest.raises(ValueError, match="unknown properties"):
+        with pytest.raises(ValueError, match="publish.dialect: unknown key"):
             self._manager(
                 tmp_path, f"  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    {line}\n"
             ).get_publish_config()
@@ -1305,7 +1411,7 @@ class TestPublishNamespaceFields:
     )
     def test_rejects_bad_dialect_values(self, tmp_path, line):
         key = line.split(":")[0]
-        with pytest.raises(ValueError, match=f"publish.dialect.{key} must be"):
+        with pytest.raises(ValueError, match=rf"publish\.dialect\.{key}"):
             self._manager(
                 tmp_path, f"  enabled: true\n  to: sunstone:projects/x\n  dialect:\n    {line}\n"
             ).get_publish_config()

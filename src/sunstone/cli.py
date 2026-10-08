@@ -33,9 +33,6 @@ _yaml.preserve_quotes = True
 _yaml.default_flow_style = False
 _yaml.indent(mapping=2, sequence=4, offset=2)
 
-# Valid field types
-VALID_FIELD_TYPES = {"string", "number", "integer", "boolean", "date", "datetime", "array", "object"}
-
 # Pattern for ${VAR} or ${VAR:-default} substitution
 ENV_VAR_PATTERN = re.compile(r"\$\{([^}:]+)(?::-([^}]*))?\}")
 
@@ -317,6 +314,17 @@ def expand_custom_properties(
         expanded[expanded_key] = expanded_value
 
     return expanded
+
+
+def _expand_field_custom_properties(props: dict[str, Any], prefixes: dict[str, str]) -> dict[str, Any]:
+    """Expand prefixed RDF keys and ``rdfType`` in field custom properties; other Table Schema properties stay verbatim."""
+    out: dict[str, Any] = {}
+    for key, value in props.items():
+        if ":" in key or key == "rdfType":
+            out.update(expand_custom_properties({key: value}, prefixes))
+        else:
+            out[key] = value
+    return out
 
 
 def get_effective_publish(ds: DatasetMetadata, top_level: Optional[PublishConfig]) -> Optional[PublishConfig]:
@@ -735,13 +743,26 @@ def dataset_list(
 @dataset_app.command("validate")
 def dataset_validate(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
-    datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
+    dataset: Optional[list[str]] = typer.Option(
+        None, "--dataset", help="Validate only this dataset slug (repeatable).", autocompletion=complete_dataset_slugs
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Also reject keys that are neither Data Package v2 properties nor sunstone keys, "
+        "and check Data Package property values against the v2 profiles.",
+    ),
+    datasets: Optional[list[str]] = typer.Argument(
+        None, autocompletion=complete_dataset_slugs, help="Dataset slugs to validate (same as --dataset)."
+    ),
 ) -> None:
-    """Validate datasets.
+    """Validate datasets.yaml.
 
-    If no datasets are specified, validates all datasets.
+    Without slugs, validates the whole file including package-level checks. With slugs
+    (positional or --dataset), only those datasets are checked. --strict adds the key and
+    value rules described in docs/datasets-yaml.md.
     """
-    datasets = datasets or []
+    selected = set(datasets or []) | set(dataset or [])
     datasets_path = Path(datasets_file).resolve()
 
     errors: list[str] = []
@@ -756,6 +777,15 @@ def dataset_validate(
 
     if data is None:
         data = {}
+    if not isinstance(data, dict):
+        typer.echo("Validation errors:", err=True)
+        typer.echo("  - datasets.yaml must be a mapping", err=True)
+        sys.exit(1)
+
+    from .datasets_schema import profile_field_types
+    from .plugins import PluginRegistry
+
+    valid_field_types = profile_field_types() | set(PluginRegistry.get(datasets_path.parent).field_types.known())
 
     # Check structure
     if "inputs" not in data and "outputs" not in data:
@@ -763,7 +793,8 @@ def dataset_validate(
 
     # Track slugs for duplicate detection
     all_slugs: dict[str, str] = {}  # slug -> type
-    datasets_to_validate = set(datasets) if datasets else None
+    datasets_to_validate = selected or None
+    selected_locations: set[str] = set()  # "inputs[3]"-style prefixes of the selected datasets
 
     def validate_dataset_entry(ds: dict, ds_type: str, index: int) -> None:
         prefix = f"{ds_type}[{index}]"
@@ -775,6 +806,7 @@ def dataset_validate(
             if slug:
                 all_slugs[slug] = ds_type
             return
+        selected_locations.add(prefix)
 
         # Required fields
         for field in ["name", "slug", "location"]:
@@ -791,7 +823,7 @@ def dataset_validate(
         # Check type
         resource_type = ds.get("type")
 
-        # Check fields
+        # Check fields (under --strict the walker reports missing names and bad types)
         fields = ds.get("fields")
         if resource_type == "table" and fields is None:
             errors.append(f"{prefix}: 'fields' is required for table resources")
@@ -803,14 +835,14 @@ def dataset_validate(
                     if not isinstance(field, dict):
                         errors.append(f"{prefix}.fields[{i}]: must be an object")
                         continue
-                    if "name" not in field:
+                    if "name" not in field and not strict:
                         errors.append(f"{prefix}.fields[{i}]: missing 'name'")
                     if "type" not in field:
                         errors.append(f"{prefix}.fields[{i}]: missing 'type'")
-                    elif field["type"] not in VALID_FIELD_TYPES:
+                    elif not strict and field["type"] not in valid_field_types:
                         errors.append(
                             f"{prefix}.fields[{i}]: invalid type '{field['type']}' "
-                            f"(must be one of: {', '.join(sorted(VALID_FIELD_TYPES))})"
+                            f"(must be one of: {', '.join(sorted(valid_field_types))})"
                         )
 
         # SPDX validation on output license
@@ -833,27 +865,17 @@ def dataset_validate(
                         f"{prefix}.source: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {source_license!r}"
                     )
 
-    # Validate inputs
-    inputs = data.get("inputs", [])
-    if not isinstance(inputs, list):
-        errors.append("'inputs' must be a list")
-    else:
-        for i, ds in enumerate(inputs):
+    # Validate inputs and outputs
+    for section in ("inputs", "outputs"):
+        items = data.get(section, [])
+        if not isinstance(items, list):
+            errors.append(f"'{section}' must be a list")
+            continue
+        for i, ds in enumerate(items):
             if not isinstance(ds, dict):
-                errors.append(f"inputs[{i}]: must be an object")
+                errors.append(f"{section}[{i}]: must be an object")
             else:
-                validate_dataset_entry(ds, "inputs", i)
-
-    # Validate outputs
-    outputs = data.get("outputs", [])
-    if not isinstance(outputs, list):
-        errors.append("'outputs' must be a list")
-    else:
-        for i, ds in enumerate(outputs):
-            if not isinstance(ds, dict):
-                errors.append(f"outputs[{i}]: must be an object")
-            else:
-                validate_dataset_entry(ds, "outputs", i)
+                validate_dataset_entry(ds, section, i)
 
     # SPDX validation on package licenses (only when not filtering by slug)
     if not datasets_to_validate:
@@ -877,23 +899,33 @@ def dataset_validate(
                         f"packages[{i}]: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
                     )
 
+    # Strict: allow-listed keys and Data Package property values (docs/datasets-yaml.md)
+    if strict:
+        from .datasets_schema import validate_datasets_data
+
+        schema_errors = validate_datasets_data(data, field_types=valid_field_types)
+        if datasets_to_validate:
+            # Keep messages rooted at a selected dataset: "inputs[3]..." or "inputs[3].fields[0]..."
+            schema_errors = [e for e in schema_errors if e.split(":", 1)[0].split(".", 1)[0] in selected_locations]
+        errors.extend(schema_errors)
+
     # Check if requested datasets were found
     if datasets_to_validate:
-        found_slugs = set(all_slugs.keys())
-        missing = datasets_to_validate - found_slugs
-        for slug in missing:
+        missing = datasets_to_validate - set(all_slugs)
+        for slug in sorted(missing):
             errors.append(f"Dataset '{slug}' not found")
 
+    errors = list(dict.fromkeys(errors))
     if errors:
         typer.echo("Validation errors:", err=True)
         for error in errors:
             typer.echo(f"  - {error}", err=True)
         sys.exit(1)
+    mode = " (strict)" if strict else ""
+    if datasets_to_validate:
+        typer.echo(f"✓ {len(datasets_to_validate)} dataset(s) valid{mode}")
     else:
-        if datasets:
-            typer.echo(f"✓ {len(datasets)} dataset(s) valid")
-        else:
-            typer.echo(f"✓ {datasets_file} is valid")
+        typer.echo(f"✓ {datasets_file} is valid{mode}")
 
 
 @dataset_app.command("migrate")
@@ -1221,12 +1253,24 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
             field_dict["constraints"] = f.constraints
         if f.custom_properties:
             prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-            field_dict.update(expand_custom_properties(f.custom_properties, prefixes))
+            field_dict.update(_expand_field_custom_properties(f.custom_properties, prefixes))
         field_dicts.append(field_dict)
     schema: dict[str, Any] = {"fields": field_dicts}
     if ds.primary_key:
         schema["primaryKey"] = list(ds.primary_key)
     return schema
+
+
+def _set_resource_type(resource_dict: dict[str, Any], ds: DatasetMetadata) -> None:
+    """Set the resource ``type``: the v2 profile allows only ``"table"``.
+
+    A sunstone dataset ``type`` other than ``table`` (``file``, ``geojson``, ...)
+    is project metadata and never becomes the resource ``type``.
+    """
+    if ds.resource_type == "table":
+        resource_dict["type"] = "table"
+    elif ds.resource_type is not None or resource_dict.get("type") != "table":
+        resource_dict.pop("type", None)
 
 
 def _build_non_frictionless_resource_dict(
@@ -1275,6 +1319,7 @@ def _build_non_frictionless_resource_dict(
             expand_custom_properties(ds.custom_properties, prefixes, ds.location, as_url, flatten=should_flatten)
         )
 
+    _set_resource_type(resource_dict, ds)
     return resource_dict
 
 
@@ -1362,7 +1407,7 @@ def build_resource_dict(
                         field_dict["source"] = yaml_field.source
                     if yaml_field.custom_properties:
                         prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-                        field_dict.update(expand_custom_properties(yaml_field.custom_properties, prefixes))
+                        field_dict.update(_expand_field_custom_properties(yaml_field.custom_properties, prefixes))
 
         # Add automatic RDF type for resource
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"
@@ -1377,6 +1422,7 @@ def build_resource_dict(
             )
             resource_dict.update(expanded_props)
 
+        _set_resource_type(resource_dict, ds)
         return resource_dict
     except Exception as e:
         typer.echo(f"Warning: Failed to describe '{ds.slug}': {e}", err=True)
@@ -1395,16 +1441,30 @@ def _contributor_to_dict(contributor: Contributor) -> dict[str, Any]:
     return d
 
 
+DATAPACKAGE_PROFILE_URL = "https://datapackage.org/profiles/2.0/datapackage.json"
+
+
 def _package_metadata_to_dict(metadata: PackageMetadata) -> dict[str, Any]:
-    """Convert PackageMetadata to a dict for inclusion in datapackage.json, omitting None values."""
+    """Convert PackageMetadata to a dict for datapackage.json, omitting None values and adding ``extra`` verbatim.
+
+    ``$schema`` is always ``DATAPACKAGE_PROFILE_URL``, overriding any user value.
+    """
     d: dict[str, Any] = {}
-    for field in ("title", "description", "version", "keywords", "license", "homepage", "id", "image"):
+    for field in ("name", "title", "description", "version", "keywords", "license", "homepage", "id", "image"):
         value = getattr(metadata, field)
         if value is not None:
             d[field] = value
     if metadata.contributors is not None:
         d["contributors"] = [_contributor_to_dict(c) for c in metadata.contributors]
+    d.update(metadata.extra)
+    d["$schema"] = DATAPACKAGE_PROFILE_URL
     return d
+
+
+def _format_descriptor_errors(errors: list[str], label: str) -> str:
+    """One message for profile violations of a generated descriptor (build warns, push refuses; plan D3)."""
+    bullets = "\n".join(f"  - {e}" for e in errors)
+    return f"{label} does not validate against the Data Package v2 profile:\n{bullets}"
 
 
 def build_datapackage(
@@ -1453,6 +1513,7 @@ def build_datapackage(
         pkg_meta = manager.get_package_metadata()
     if pkg_meta:
         datapackage.update(_package_metadata_to_dict(pkg_meta))
+    datapackage["$schema"] = DATAPACKAGE_PROFILE_URL
 
     # Add top-level custom properties with RDF prefix expansion
     top_level_props = manager.get_top_level_custom_properties()
@@ -1465,6 +1526,11 @@ def build_datapackage(
         )
     datapackage.update(top_level_props)
 
+    from .datasets_schema import validate_datapackage_descriptor
+
+    problems = validate_datapackage_descriptor(datapackage)
+    if problems:
+        typer.echo(f"Warning: {_format_descriptor_errors(problems, f'datapackage {pkg_name!r}')}", err=True)
     return datapackage
 
 
@@ -1659,16 +1725,19 @@ def push_group_to_blob_store(
         publish_config: The effective publish config for this group.
         package_entry: Optional PackageEntry for per-package name and metadata.
     """
+    from .datasets_schema import validate_datapackage_descriptor
     from .packaging import push_group
+
+    def refuse_invalid(descriptor: dict[str, Any]) -> None:
+        problems = validate_datapackage_descriptor(descriptor)
+        if problems:
+            raise ValueError(_format_descriptor_errors(problems, f"datapackage.json for {dest_url}"))
 
     # Prepare package metadata callback
     def package_metadata_fn() -> Optional[dict[str, Any]]:
         if package_entry:
             return _package_metadata_to_dict(package_entry.metadata)
-        pkg_meta = manager.get_package_metadata()
-        if pkg_meta:
-            return _package_metadata_to_dict(pkg_meta)
-        return None
+        return _package_metadata_to_dict(manager.get_package_metadata() or PackageMetadata())
 
     # Use package entry name if available
     effective_slug = package_entry.name if package_entry and package_entry.name else project_slug
@@ -1700,6 +1769,7 @@ def push_group_to_blob_store(
             top_level_props=top_level_props or {},
             methodology_files=methodology_files,
             allow_outside_project=allow_outside_project,
+            descriptor_check=refuse_invalid,
         )
     except (ValueError, PathTraversalError) as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1735,12 +1805,20 @@ def _namespace_resource_metadata(
     manager: DatasetsManager, publish_config: PublishConfig
 ) -> "Callable[[DatasetMetadata, AssetKind, str], Optional[dict[str, Any]]]":
     from .asset import AssetKind
+    from .datasets_schema import validate_resource_descriptor
+    from .push import PushError
 
     def build(ds: DatasetMetadata, kind: AssetKind, media_type: str) -> Optional[dict[str, Any]]:
         if kind is AssetKind.TABULAR:
-            return build_resource_dict(ds, manager, publish_config)
-        data_path = manager.get_absolute_path(ds.location)
-        return _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, media_type)
+            metadata = build_resource_dict(ds, manager, publish_config)
+        else:
+            data_path = manager.get_absolute_path(ds.location)
+            metadata = _build_non_frictionless_resource_dict(ds, manager, publish_config, data_path, media_type)
+        if metadata is not None:
+            problems = validate_resource_descriptor(metadata)
+            if problems:
+                raise PushError(_format_descriptor_errors(problems, f"resource '{ds.slug}'"))
+        return metadata
 
     return build
 
@@ -1770,7 +1848,7 @@ def push_group_to_namespace(
         package_metadata = _package_metadata_to_dict(package_entry.metadata)
     else:
         pkg_meta = manager.get_package_metadata()
-        package_metadata = _package_metadata_to_dict(pkg_meta) if pkg_meta else {}
+        package_metadata = _package_metadata_to_dict(pkg_meta or PackageMetadata())
     package_metadata = {
         "name": package_entry.name if package_entry and package_entry.name else project_slug,
         **package_metadata,
@@ -1792,6 +1870,13 @@ def push_group_to_namespace(
                 Path(staging),
                 allow_outside_project=run.allow_outside_project,
             )
+            from .datasets_schema import validate_datapackage_descriptor
+
+            problems = validate_datapackage_descriptor(
+                {**package_metadata, "resources": [dict(r.metadata) for r in package.resources]}
+            )
+            if problems:
+                raise PushError(_format_descriptor_errors(problems, "datapackage"))
         except (PushError, PathTraversalError) as e:
             typer.echo(f"Error: {e}", err=True)
             sys.exit(1)
