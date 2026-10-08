@@ -358,18 +358,33 @@ publish:
 **Commands:**
 
 ```bash
-# Push to configured destination
-sunstone package push
+# Push to configured destination (--env defaults to prod; blob-store pushes to prod need --yes)
+sunstone package push --yes
 
-# Push to environment-specific destination (if publish.to not set)
-sunstone package push --env prod
+# Push to the dev environment (if publish.to not set)
+sunstone package push --env dev
+
+# Push to a sunstone: namespace on a branch
+sunstone package push --env dev --branch my-feature
 
 # Override destination
-sunstone package push -d gs://my-bucket/datasets/project-name/
+sunstone package push --env dev -d gs://my-bucket/datasets/project-name/
 
 # Use custom datasets file
-sunstone package push -f path/to/datasets.yaml
+sunstone package push --env dev -f path/to/datasets.yaml
 ```
+
+**Options:**
+
+| Option | Meaning |
+|---|---|
+| `--env` | Target environment, as configured with `sunstone env`. Default `prod`. |
+| `--branch` | Target branch for `sunstone:` pushes. Default: `GITHUB_HEAD_REF`, `GITHUB_REF_NAME`, then the current git branch. |
+| `--yes` | Confirm a push to a protected ref or to the prod blob store. |
+| `--force` | Allow force operations: incompatible schema, version overwrite, deletes. |
+| `--replace` | Retract metadata not in this push (a force operation). |
+
+`sunstone:` destinations need a package-push plugin (see [sunstone-push.md](sunstone-push.md)).
 
 **Path Resolution:**
 
@@ -435,7 +450,7 @@ publish:
 
 Or via command line:
 ```bash
-sunstone package push -d "gs://${BUCKET}/datasets/${PROJECT}/"
+sunstone package push --env dev -d "gs://${BUCKET}/datasets/${PROJECT}/"
 ```
 
 **Example output:**
@@ -557,7 +572,7 @@ sunstone package build
 
 # Push to appropriate environment
 ENV=${1:-dev}
-sunstone package push --env $ENV
+sunstone package push --env $ENV --yes
 ```
 
 ## Shell Completion

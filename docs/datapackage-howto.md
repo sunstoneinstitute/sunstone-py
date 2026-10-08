@@ -185,7 +185,7 @@ A typical project lifecycle:
 4. **Add package configuration** (`package:` or `packages:`).
 5. **Validate**: `sunstone dataset validate`
 6. **Build locally**: `sunstone package build`
-7. **Publish**: `sunstone package push`
+7. **Publish**: `sunstone package push --yes`
 
 ### Minimal complete example
 
@@ -243,5 +243,5 @@ sunstone dataset validate
 sunstone package build
 
 # Push to cloud storage
-sunstone package push
+sunstone package push --yes
 ```
