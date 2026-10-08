@@ -5,7 +5,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Added: `primaryKey` on datasets in `datasets.yaml`, emitted as `schema.primaryKey` in `datapackage.json`.
+- Added: `sunstone package push` publishes to `sunstone:` namespaces through a package-push plugin, with `--branch`, `--yes`, `--force` and `--replace`.
 - Added: `AssetKind.GRAPH` and Turtle/N-Triples/JSON-LD read/write (adds rdflib as a dependency).
+- Added: `publish.as_name`, `publish.public` and `publish.dialect` in `datasets.yaml`.
+- Changed: `sunstone package push --env` defaults to `prod`, and blob-store pushes to prod need `--yes`.
 
 ## [1.15.1] - 2026-10-07
 

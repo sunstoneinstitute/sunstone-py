@@ -31,6 +31,7 @@ from ruamel.yaml import YAML
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
+    from .push import PushOptions, PushPackage, PushResult
     from .resource import ResourceLocation, StoreFormatHandler
 
 from .handlers_meta import ContentDescriptor
@@ -176,6 +177,19 @@ class EnvSectionProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class PackagePushHandler(Protocol):
+    """Publishes a package to destinations it claims (e.g. sunstone: namespaces)."""
+
+    def can_handle(self, destination: str) -> bool:
+        """True if this plugin claims the destination URL."""
+        ...
+
+    def push(self, package: "PushPackage", options: "PushOptions") -> "PushResult":
+        """Upload resources and metadata, then wait for the server result."""
+        ...
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -271,6 +285,7 @@ class PluginRegistry:
         self.field_types = FieldTypeRegistry()
         self._cli_providers: list[CLIProvider] = []
         self._env_section_providers: list[EnvSectionProvider] = []
+        self._package_push_handlers: list[PackagePushHandler] = []
 
     @classmethod
     def get(cls, project_path: Path | str | None = None) -> PluginRegistry:
@@ -411,6 +426,9 @@ class PluginRegistry:
         if isinstance(plugin, EnvSectionProvider):
             self._env_section_providers.append(plugin)
             registered = True
+        if isinstance(plugin, PackagePushHandler):
+            self._package_push_handlers.append(plugin)
+            registered = True
         if hasattr(plugin, "field_types") and callable(plugin.field_types):
             for descriptor in plugin.field_types():
                 self.field_types.register(descriptor)
@@ -547,6 +565,17 @@ class PluginRegistry:
         """Find the first URL handler that can handle the given URL."""
         for handler in self._url_handlers:
             if handler.can_handle(url):
+                return handler
+        return None
+
+    def get_package_push_handlers(self) -> list[PackagePushHandler]:
+        """Return all registered package-push handlers."""
+        return self._package_push_handlers
+
+    def find_package_push_handler(self, destination: str) -> PackagePushHandler | None:
+        """Find the first package-push handler that claims the destination."""
+        for handler in self._package_push_handlers:
+            if handler.can_handle(destination):
                 return handler
         return None
 

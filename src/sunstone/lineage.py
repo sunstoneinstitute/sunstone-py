@@ -311,6 +311,15 @@ class PublishConfig:
     as_url: Optional[str] = None
     """Public base URL for resource paths in datapackage.json. When set, resource paths become full URLs (e.g., https://foo.com/data/bar/file.csv)."""
 
+    as_name: Optional[str] = None
+    """Dataset name in a ``sunstone:`` namespace. Overrides the sanitized slug."""
+
+    public: bool = False
+    """Make a ``sunstone:`` namespace and its datasets readable without a token."""
+
+    dialect: Optional[Dict[str, Any]] = None
+    """Package defaults for CSV/TSV output, as Frictionless Table Dialect properties."""
+
 
 @dataclass
 class PackageEntry:

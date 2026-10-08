@@ -1213,3 +1213,40 @@ def test_geo_handler_registered_when_geopandas_present():
     h = reg.find_format_reader("x.geojson", None)
     assert h is not None and type(h).__name__ == "GeoFeaturesFormatHandler"
     assert reg.field_types.get("geometry") is not None
+
+
+class _FakePushHandler:
+    def can_handle(self, destination: str) -> bool:
+        return destination.startswith("sunstone:")
+
+    def push(self, package, options):
+        from sunstone.push import PushResult
+
+        return PushResult(push_id="p1", ok=True)
+
+
+class _UrlOnlyHandler:
+    def can_handle(self, url: str) -> bool:
+        return True
+
+    def open(self, url, mode="rb"):
+        raise NotImplementedError
+
+
+def test_registry_registers_package_push_handler(tmp_path):
+    from sunstone.plugins import PackagePushHandler, PluginRegistry
+
+    registry = PluginRegistry(tmp_path)
+    handler = _FakePushHandler()
+    registry._register("fake", handler)
+    assert isinstance(handler, PackagePushHandler)
+    assert registry.find_package_push_handler("sunstone:projects/x") is handler
+    assert registry.find_package_push_handler("gs://bucket/x") is None
+
+
+def test_url_handler_is_not_a_push_handler(tmp_path):
+    from sunstone.plugins import PluginRegistry
+
+    registry = PluginRegistry(tmp_path)
+    registry._register("url", _UrlOnlyHandler())
+    assert registry.get_package_push_handlers() == []

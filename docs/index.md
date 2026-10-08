@@ -182,7 +182,7 @@ sunstone dataset strict
 sunstone package build
 
 # Push to Google Cloud Storage
-sunstone package push --env prod
+sunstone package push --env prod --yes
 ```
 
 See the [CLI Guide](cli.md) for complete documentation.

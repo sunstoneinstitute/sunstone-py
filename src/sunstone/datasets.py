@@ -34,6 +34,14 @@ from .lineage import (
 
 logger = logging.getLogger(__name__)
 
+# Frictionless Table Dialect v2 properties for delimited text, grouped by JSON Schema type.
+_PUBLISH_DIALECT_STRING_KEYS = frozenset(
+    {"commentChar", "delimiter", "escapeChar", "headerJoin", "lineTerminator", "nullSequence", "quoteChar"}
+)
+_PUBLISH_DIALECT_BOOL_KEYS = frozenset({"doubleQuote", "header", "skipInitialSpace"})
+_PUBLISH_DIALECT_ROWS_KEYS = frozenset({"commentRows", "headerRows"})
+_PUBLISH_DIALECT_KEYS = _PUBLISH_DIALECT_STRING_KEYS | _PUBLISH_DIALECT_BOOL_KEYS | _PUBLISH_DIALECT_ROWS_KEYS
+
 # Configure ruamel.yaml for round-trip parsing (preserves comments) with proper indentation
 _yaml = YAML()
 _yaml.preserve_quotes = True
@@ -528,7 +536,8 @@ class DatasetsManager:
         Supports both legacy boolean format and new object format:
         - publish: true -> PublishConfig(enabled=True)
         - publish: false -> None
-        - publish: { enabled: true, to: "...", flatten: false } -> PublishConfig(...)
+        - publish: { enabled: true, to: "...", flatten: false, as: "...",
+          as_name: "...", public: false, dialect: {...} } -> PublishConfig(...)
         """
         if publish_data is None:
             return None
@@ -536,13 +545,50 @@ class DatasetsManager:
             return PublishConfig(enabled=publish_data)
         if isinstance(publish_data, dict):
             enabled = publish_data.get("enabled", False)
+            public = publish_data.get("public", False)
+            if not isinstance(public, bool):
+                raise ValueError(f"publish.public must be true or false, got {public!r}")
             return PublishConfig(
                 enabled=enabled,
                 to=publish_data.get("to"),
                 flatten=publish_data.get("flatten", False),
                 as_url=publish_data.get("as"),
+                as_name=publish_data.get("as_name"),
+                public=public,
+                dialect=self._parse_publish_dialect(publish_data.get("dialect")),
             )
         return None
+
+    def _parse_package_publish(self, publish_data: Any) -> Optional[PublishConfig]:
+        """Parse a top-level or package-level ``publish:`` block, where ``as_name`` is not allowed."""
+        if isinstance(publish_data, dict) and "as_name" in publish_data:
+            raise ValueError("publish.as_name belongs on a dataset's own 'publish:' block, not a package's")
+        return self._parse_publish(publish_data)
+
+    def _parse_publish_dialect(self, data: Any) -> Optional[Dict[str, Any]]:
+        """Validate ``publish.dialect`` against Frictionless Table Dialect. Unknown keys and bad values raise ValueError."""
+        if data is None:
+            return None
+        if not isinstance(data, dict):
+            raise ValueError("publish.dialect must be a mapping")
+        unknown = sorted(set(data) - _PUBLISH_DIALECT_KEYS)
+        if unknown:
+            raise ValueError(f"publish.dialect: unknown properties {', '.join(unknown)}")
+        for key, value in data.items():
+            if key in _PUBLISH_DIALECT_STRING_KEYS:
+                ok = isinstance(value, str)
+                expected = "a string"
+            elif key in _PUBLISH_DIALECT_BOOL_KEYS:
+                ok = isinstance(value, bool)
+                expected = "true or false"
+            else:  # row-number lists
+                ok = isinstance(value, list) and all(
+                    isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in value
+                )
+                expected = "a list of row numbers (integers >= 1)"
+            if not ok:
+                raise ValueError(f"publish.dialect.{key} must be {expected}, got {value!r}")
+        return dict(data)
 
     def _parse_activity(self, activity_data: Dict[str, Any]) -> Activity:
         """Parse a PROV-O Activity from YAML lineage data."""
@@ -1024,7 +1070,7 @@ class DatasetsManager:
         Returns:
             Publish configuration if present, None otherwise.
         """
-        return self._parse_publish(self._data.get("publish"))
+        return self._parse_package_publish(self._data.get("publish"))
 
     def get_package_metadata(self) -> Optional[PackageMetadata]:
         """
@@ -1121,7 +1167,7 @@ class DatasetsManager:
         metadata_data = {k: v for k, v in entry_data.items() if k in metadata_keys}
         metadata = (self._parse_package(metadata_data) if metadata_data else None) or PackageMetadata()
 
-        publish = self._parse_publish(entry_data.get("publish"))
+        publish = self._parse_package_publish(entry_data.get("publish"))
 
         return PackageEntry(
             metadata=metadata,
