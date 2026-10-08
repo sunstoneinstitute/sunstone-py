@@ -49,7 +49,7 @@ def read_dataset(
         ValueError: No handler for the resolved format / extension.
     """
     from sunstone.asset import Asset
-    from sunstone.plugins import PluginRegistry, no_url_handler_error
+    from sunstone.plugins import PluginRegistry, default_read_format, no_url_handler_error, open_url
     from sunstone.session import DatasetRead, get_session
 
     from .core import DataFrame
@@ -77,6 +77,8 @@ def read_dataset(
 
     if format is None and dataset.format is not None:
         format = dataset.format
+    if format is None:
+        format = default_read_format(dataset.location)
 
     location = str(absolute_path)
     registry = PluginRegistry.get(manager.project_path)
@@ -92,7 +94,7 @@ def read_dataset(
         raise no_url_handler_error(location)
 
     # Read raw bytes once: hash them, then parse from the same bytes.
-    with url_handler.open(location, "rb") as stream:
+    with open_url(url_handler, location, "rb", format=format) as stream:
         raw: bytes = stream.read()
 
     data_hash = "sha256:" + hashlib.sha256(raw).hexdigest()

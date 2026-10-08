@@ -15,7 +15,7 @@ from .config import get_project_path
 from .datasets import DatasetsManager
 from .exceptions import DatasetNotFoundError
 from .lineage import Metadata
-from .plugins import PluginRegistry
+from .plugins import PluginRegistry, open_url
 
 
 class GeoDataFrame:
@@ -76,7 +76,7 @@ def _read(slug_or_path: str, fmt: str, project_path: str | Path | None) -> GeoDa
     url_handler = registry.find_url_handler(location)
     if url_handler is None:
         raise ValueError(f"No URL handler for {location!r}.")
-    with url_handler.open(location, "rb") as stream:
+    with open_url(url_handler, location, "rb", format=fmt) as stream:
         asset = cast(Asset, handler.read(stream, format=fmt, path=location))
     if not asset.metadata.slug:
         asset.metadata.slug = dataset.slug

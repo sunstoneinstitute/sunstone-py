@@ -1378,7 +1378,9 @@ HTTP `Content-Type` + `Content-Encoding`.
 Plugins implement one or more of these protocols:
 
 - **`AuthProvider`**: Provides authentication headers for HTTP requests.
-- **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`.
+- **`URLHandler`**: Resolves URLs to readable/writable streams via `open(url, mode)`. A handler
+  may also accept a keyword-only `format=`, the serialization the caller wants (`parquet`, `csv`,
+  `ttl`, ...). Reads call handlers through `open_url()`, which passes it only when accepted.
 - **`FormatHandler`**: Stream-based format reader/writer. Used for
   single-file formats whose library accepts a byte stream (CSV, JSON,
   Parquet, `.npz`, PDF/DOCX/etc. via `BlobFormatHandler`). Returns /
