@@ -21,7 +21,7 @@ _SUNSTONE_KEY = "sunstone"
 
 
 def _is_geometry(value: Any) -> bool:
-    """Cell contract for the `geometry` field type: a shapely geometry."""
+    """Cell contract for the `geojson` field type: a shapely geometry (or null)."""
     return hasattr(value, "geom_type") or value is None
 
 
@@ -50,11 +50,12 @@ class GeoFeaturesFormatHandler:
         return (AssetKind.GEOFEATURES,)
 
     def field_types(self) -> tuple[FieldTypeDescriptor, ...]:
+        # Table Schema's own geometry type; declare the GeoSPARQL class with `rdfType: geo:Geometry`.
         return (
             FieldTypeDescriptor(
-                name="geometry",
+                name="geojson",
                 validate=_is_geometry,
-                description="A geographic geometry (shapely) with a CRS.",
+                description="A geographic geometry (shapely) with a CRS; rdfType geo:Geometry.",
             ),
         )
 

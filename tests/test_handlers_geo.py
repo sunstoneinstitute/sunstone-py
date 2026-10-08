@@ -17,11 +17,13 @@ def test_geo_handler_resolution_is_dependency_free():
     assert h.supported_kinds() == (AssetKind.GEOFEATURES,)
 
 
-def test_geometry_field_type_descriptor_exposed():
+def test_geojson_field_type_descriptor_exposed():
+    """The geo extra registers the Table Schema type `geojson` with a shapely cell contract (plan D9)."""
     from sunstone.handlers_geo import GeoFeaturesFormatHandler
 
-    names = {ft.name for ft in GeoFeaturesFormatHandler().field_types()}
-    assert "geometry" in names
+    descriptors = {ft.name: ft for ft in GeoFeaturesFormatHandler().field_types()}
+    assert set(descriptors) == {"geojson"}
+    assert descriptors["geojson"].validate is not None
 
 
 geopandas = pytest.importorskip("geopandas")

@@ -515,6 +515,29 @@ class TestDatasetLockUnlockCommands:
 class TestPackageBuildCommand:
     """Tests for the package build command."""
 
+    def test_build_expands_geo_rdftype_on_geojson_field(self, runner: CliRunner, test_project: Path) -> None:
+        """type: geojson + rdfType: geo:Geometry is the sunstone form for geometry columns (plan D9)."""
+        output_dir = test_project / "outputs"
+        output_dir.mkdir(exist_ok=True)
+        (output_dir / "places.parquet").write_bytes(b"")
+        yaml_path = test_project / "datasets.yaml"
+        yaml_path.write_text(
+            yaml_path.read_text() + "  - name: Places\n    slug: places\n    location: outputs/places.parquet\n"
+            "    publish:\n      enabled: true\n"
+            "    fields:\n      - name: geom\n        type: geojson\n        rdfType: geo:Geometry\n"
+        )
+        result = runner.invoke(
+            app, ["package", "build", "-f", str(yaml_path), "-o", str(test_project / "datapackage.json")]
+        )
+        assert result.exit_code == 0, result.output
+        dp = json.loads((test_project / "datapackage.json").read_text())
+        [places] = [r for r in dp["resources"] if r["name"] == "places"]
+        assert places["schema"]["fields"][0] == {
+            "name": "geom",
+            "type": "geojson",
+            "rdfType": "http://www.opengis.net/ont/geosparql#Geometry",
+        }
+
     def _stub_bad_resource(self, monkeypatch) -> None:
         import sunstone.cli as cli_mod
 

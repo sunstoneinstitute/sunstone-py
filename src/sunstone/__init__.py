@@ -40,6 +40,7 @@ STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
     "dct": "http://purl.org/dc/terms/",
     "dwc": "http://rs.tdwg.org/dwc/terms/",
+    "geo": "http://www.opengis.net/ont/geosparql#",
     "gtio-i": "https://sunstone.institute/rdf/gtio/0.3/interventions#",
     "gtio-t": "https://sunstone.institute/rdf/gtio/0.3/threats#",
     "prov": "http://www.w3.org/ns/prov#",
