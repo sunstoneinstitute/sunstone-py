@@ -1212,7 +1212,7 @@ def test_geo_handler_registered_when_geopandas_present():
     reg._discover()
     h = reg.find_format_reader("x.geojson", None)
     assert h is not None and type(h).__name__ == "GeoFeaturesFormatHandler"
-    assert reg.field_types.get("geometry") is not None
+    assert reg.field_types.get("geojson") is not None
 
 
 class _FakePushHandler:

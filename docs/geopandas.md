@@ -98,6 +98,19 @@ Both routes record identical lineage; pick `sunstone.geopandas` for code that
 should look like geopandas and the Asset API for code that needs to be uniform
 across kinds.
 
+## Declaring a geometry column
+
+Use the Table Schema type `geojson` and name the GeoSPARQL class with `rdfType`:
+
+```yaml
+fields:
+  - name: geometry
+    type: geojson
+    rdfType: geo:Geometry
+```
+
+`geo:` is a standard prefix (`http://www.opengis.net/ont/geosparql#`); `datapackage.json` carries the expanded URI.
+
 ## Coordinate reference system
 
 `Asset.crs` is a convenience accessor over `extras["crs"]`. GeoJSON is

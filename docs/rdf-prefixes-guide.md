@@ -11,6 +11,7 @@ Sunstone includes these built-in prefixes that are always available (no need to 
 | `dcat:` | `http://www.w3.org/ns/dcat#` | Data Catalog Vocabulary |
 | `dct:` | `http://purl.org/dc/terms/` | Dublin Core Terms |
 | `dwc:` | `http://rs.tdwg.org/dwc/terms/` | Darwin Core (biodiversity) |
+| `geo:` | `http://www.opengis.net/ont/geosparql#` | OGC GeoSPARQL (geometry classes and datatypes) |
 | `gtio-i:` | `https://sunstone.institute/rdf/gtio/0.3/interventions#` | GTIO interventions vocabulary |
 | `gtio-t:` | `https://sunstone.institute/rdf/gtio/0.3/threats#` | GTIO threats vocabulary |
 | `prov:` | `http://www.w3.org/ns/prov#` | W3C Provenance Ontology |

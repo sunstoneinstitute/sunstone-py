@@ -75,7 +75,7 @@ Table Schema field properties (`name`, `type`, `title`, `description`, `format`,
 
 Field properties pass through to `datapackage.json` verbatim. Only `:`-keyed RDF keys and the `rdfType` value are prefix-expanded.
 
-`type` must be a Table Schema type (`any`, `array`, `boolean`, `date`, `datetime`, `duration`, `geojson`, `geopoint`, `integer`, `number`, `object`, `string`, `time`, `year`, `yearmonth`) or a type registered by a plugin. Constraints are checked against the type: `minLength` on an `integer` field is an error, as is `maxLength: "ten"`.
+`type` must be a Table Schema type (`any`, `array`, `boolean`, `date`, `datetime`, `duration`, `geojson`, `geopoint`, `integer`, `number`, `object`, `string`, `time`, `year`, `yearmonth`) or a type registered by a plugin. Geometry columns use `type: geojson` with `rdfType: geo:Geometry`. Constraints are checked against the type: `minLength` on an `integer` field is an error, as is `maxLength: "ten"`.
 
 ### `dialect` and `publish.dialect`
 

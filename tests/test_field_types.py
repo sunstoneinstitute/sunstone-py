@@ -29,3 +29,10 @@ def test_validate_is_mode_gated():
         validate_field_value(reg, "geometry", "bad", strict=True)
     validate_field_value(reg, "string", "anything", strict=True)
     validate_field_value(reg, "not-registered", "anything", strict=True)
+
+
+def test_builtin_types_mirror_table_schema():
+    from sunstone.datasets_schema import profile_field_types
+    from sunstone.field_types import FieldTypeRegistry
+
+    assert set(FieldTypeRegistry().known()) == profile_field_types()

@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Changed: `sunstone package push` refuses a generated datapackage.json or resource that fails the Data Package v2 profile; `package build` warns.
+- Changed: the `[geo]` extra registers its field type as `geojson` (was `geometry`); declare GeoSPARQL with `rdfType: geo:Geometry`.
 - Added: `primaryKey` on datasets in `datasets.yaml`, emitted as `schema.primaryKey` in `datapackage.json`.
 - Added: `sunstone package push` publishes to `sunstone:` namespaces through a package-push plugin, with `--branch`, `--yes`, `--force` and `--replace`.
 - Added: `AssetKind.GRAPH` and Turtle/N-Triples/JSON-LD read/write (adds rdflib as a dependency).
