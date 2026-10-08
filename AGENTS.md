@@ -135,6 +135,8 @@ Key modules:
 - `packaging.py` — Library functions for building and pushing data packages via URLHandler
 
 URLHandler uses stream-based `open(url, mode) -> BinaryIO | TextIO` matching Python's built-in `open()`.
+A handler may also accept a keyword-only `format=`, the serialization the caller wants. Read paths call it through `plugins.open_url()`, which omits `format` for handlers that do not accept it.
+Extensionless `sunstone:` reads default to `format="parquet"` (`plugins.default_read_format()`).
 Plugin config uses cascading precedence: `datasets.yaml` → `pyproject.toml` → environment variables (`SUNSTONE_PLUGIN_<NAME>_<KEY>`).
 
 ## Cross-Platform (Windows CI)

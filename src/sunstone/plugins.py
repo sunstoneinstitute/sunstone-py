@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.metadata
+import inspect
 import logging
 import os
 import shutil
@@ -64,7 +65,51 @@ class URLHandler(Protocol):
     def open(self, url: str, mode: Literal["w"]) -> TextIO: ...
     @overload
     def open(self, url: str, mode: Literal["wb"]) -> BinaryIO: ...
-    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO: ...
+    def open(self, url: str, mode: str = "rb") -> BinaryIO | TextIO:
+        """Open ``url`` as a stream.
+
+        A handler that serves more than one serialization may also accept a
+        keyword-only ``format: str | None = None``: the sunstone format name
+        the caller wants (``parquet``, ``csv``, ``ttl``, ...), ``None`` for its
+        default. Callers go through ``open_url()``, which passes ``format=``
+        only to handlers whose ``open`` accepts it.
+        """
+        ...
+
+
+_accepts_format_cache: dict[type, bool] = {}
+
+
+def _accepts_format(handler: object) -> bool:
+    cls = type(handler)
+    cached = _accepts_format_cache.get(cls)
+    if cached is None:
+        try:
+            params = list(inspect.signature(getattr(cls, "open")).parameters.values())
+        except (TypeError, ValueError, AttributeError):
+            params = []
+        cached = any(p.name == "format" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+        _accepts_format_cache[cls] = cached
+    return cached
+
+
+def open_url(handler: URLHandler, url: str, mode: str = "rb", *, format: str | None = None) -> Any:
+    """Call ``handler.open(url, mode)``, adding ``format=`` only when it is set
+    and the handler's ``open`` accepts it (a ``format`` parameter or ``**kwargs``)."""
+    opener: Any = handler
+    if format is not None and _accepts_format(handler):
+        return opener.open(url, mode, format=format)
+    return opener.open(url, mode)
+
+
+def default_read_format(location: str) -> str | None:
+    """Format for reading ``location`` when neither the caller nor
+    ``datasets.yaml`` names one: ``parquet`` for an extensionless
+    ``sunstone:`` URL (namespace tables are served as Parquet), else ``None``."""
+    if not location.startswith("sunstone:"):
+        return None
+    last = location.rstrip("/").rsplit("/", 1)[-1]
+    return None if "." in last else "parquet"
 
 
 @runtime_checkable

@@ -151,3 +151,10 @@ step up for blob-store pushes.
 The data-platform plugin claims https URLs whose host is a configured env host
 (`data.sunstone.institute`, `data.dev.sunstone.internal`), so they resolve
 like `sunstone:` URLs. Other hosts go through `HttpURLHandler`.
+
+A `sunstone:` URL has no file extension, so reads pass the wanted format to
+`URLHandler.open(url, mode, format=...)` through `sunstone.plugins.open_url()`.
+`open_url()` omits the keyword for handlers whose `open` has no `format`
+parameter or `**kwargs`. An extensionless `sunstone:` read with no `format=`
+argument and no `format:` in `datasets.yaml` asks for `parquet`, so a graph
+dataset in a namespace needs `format: ttl` (or `nt`/`jsonld`).
