@@ -1227,9 +1227,13 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
 def _source_entry(source: Source) -> dict[str, Any]:
     entry: dict[str, Any] = {"title": source.name}
     loc = source.location
-    path = loc.data or loc.about or loc.metadata
+    path = loc.data or loc.about or loc.metadata or loc.access
     if path:
         entry["path"] = path
+    dcat = STANDARD_RDF_PREFIXES["dcat"]
+    for prop, value in (("downloadURL", loc.data), ("accessURL", loc.access), ("landingPage", loc.about)):
+        if value:
+            entry[f"{dcat}{prop}"] = value
     return entry
 
 

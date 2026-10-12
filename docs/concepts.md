@@ -570,7 +570,9 @@ inputs:
     source:
       name: Data Provider Name
       location:
-        data: https://example.com/data.csv
+        data: https://example.com/data.csv   # alias: dcat:downloadURL
+        about: https://example.com/dataset   # alias: dcat:landingPage
+        # dcat:accessURL: https://example.com/api  # indirect access (API, query form)
       attributedTo: Organization or Person
       acquiredAt: '2025-01-15'
       acquisitionMethod: manual-download  # or api, web-scraping, etc.

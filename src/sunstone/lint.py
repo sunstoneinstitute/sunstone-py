@@ -404,7 +404,9 @@ def _check_input_source(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> It
             missing.append(key)
 
     location = source.get("location")
-    if not isinstance(location, dict) or not location.get("data"):
+    if not isinstance(location, dict) or not any(
+        location.get(k) for k in ("data", "dcat:downloadURL", "dcat:accessURL")
+    ):
         missing.append("location.data")
 
     if missing:

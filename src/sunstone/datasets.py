@@ -450,11 +450,16 @@ class DatasetsManager:
         self._stamp_mtimes()
 
     def _parse_source_location(self, loc_data: Dict[str, Any]) -> SourceLocation:
-        """Parse source location data from YAML."""
+        """Parse source location data from YAML.
+
+        DCAT keys take precedence over their aliases: ``dcat:downloadURL`` over
+        ``data``, ``dcat:landingPage`` over ``about``.
+        """
         return SourceLocation(
-            data=loc_data.get("data"),
+            data=loc_data.get("dcat:downloadURL") or loc_data.get("data"),
             metadata=loc_data.get("metadata"),
-            about=loc_data.get("about"),
+            about=loc_data.get("dcat:landingPage") or loc_data.get("about"),
+            access=loc_data.get("dcat:accessURL"),
         )
 
     def _parse_source(self, source_data: Dict[str, Any]) -> Source:

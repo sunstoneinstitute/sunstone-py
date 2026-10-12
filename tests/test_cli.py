@@ -2991,7 +2991,51 @@ class TestResourceDictTableSources:
         result = build_resource_dict(ds, manager, None)
 
         assert result is not None
-        assert result["sources"] == [{"title": "World Bank WDI", "path": "https://example.org/pop.csv"}]
+        assert result["sources"] == [
+            {
+                "title": "World Bank WDI",
+                "path": "https://example.org/pop.csv",
+                "http://www.w3.org/ns/dcat#downloadURL": "https://example.org/pop.csv",
+                "http://www.w3.org/ns/dcat#landingPage": "https://example.org/wdi",
+            }
+        ]
+
+    def test_dcat_location_keys(self, tmp_path: Path) -> None:
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "pop.csv").write_text("country,value\nNO,5\n")
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: Population\n"
+            "    slug: pop\n"
+            "    location: pop.csv\n"
+            "    source:\n"
+            "      name: WDI\n"
+            "      location:\n"
+            "        dcat:accessURL: https://example.org/api\n"
+            "        dcat:landingPage: https://example.org/wdi\n"
+            "      attributedTo: World Bank\n"
+            "      acquiredAt: '2026-01-01'\n"
+            "      acquisitionMethod: api\n"
+            "      license: CC-BY-4.0\n"
+        )
+        manager = DatasetsManager(tmp_path)
+        ds = manager.find_dataset_by_slug("pop")
+        assert ds is not None and ds.source is not None
+        assert ds.source.location.about == "https://example.org/wdi"
+        assert ds.source.location.access == "https://example.org/api"
+
+        result = build_resource_dict(ds, manager, None)
+        assert result is not None
+        assert result["sources"] == [
+            {
+                "title": "WDI",
+                "path": "https://example.org/wdi",
+                "http://www.w3.org/ns/dcat#accessURL": "https://example.org/api",
+                "http://www.w3.org/ns/dcat#landingPage": "https://example.org/wdi",
+            }
+        ]
 
 
 class TestResourceDictLineageSources:
@@ -3051,5 +3095,10 @@ class TestResourceDictLineageSources:
             assert "sources" not in result
         else:
             assert result["sources"] == [
-                {"title": f"Source {n}", "path": f"https://example.org/{n}.csv"} for n in expected
+                {
+                    "title": f"Source {n}",
+                    "path": f"https://example.org/{n}.csv",
+                    "http://www.w3.org/ns/dcat#downloadURL": f"https://example.org/{n}.csv",
+                }
+                for n in expected
             ]

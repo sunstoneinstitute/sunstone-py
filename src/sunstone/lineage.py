@@ -163,13 +163,16 @@ class SourceLocation:
     """Location information for a data source."""
 
     data: Optional[str] = None
-    """URL to the data file."""
+    """URL to the data file (``dcat:downloadURL``)."""
 
     metadata: Optional[str] = None
     """URL to metadata about the data."""
 
     about: Optional[str] = None
-    """URL to a page describing the data source."""
+    """URL to a page describing the data source (``dcat:landingPage``)."""
+
+    access: Optional[str] = None
+    """URL giving indirect access to the data, e.g. an API or query form (``dcat:accessURL``)."""
 
 
 @dataclass
@@ -684,10 +687,15 @@ class Metadata:
                     "dct:title": src.name,
                 }
                 # Prefer the original source URL over the local file path
-                if src.source and src.source.location and src.source.location.data:
-                    source_doc["dcat:downloadURL"] = src.source.location.data
+                loc = src.source.location if src.source else None
+                if loc and loc.data:
+                    source_doc["dcat:downloadURL"] = loc.data
                 elif src.location:
                     source_doc["dcat:downloadURL"] = src.location
+                if loc and loc.access:
+                    source_doc["dcat:accessURL"] = loc.access
+                if loc and loc.about:
+                    source_doc["dcat:landingPage"] = loc.about
                 sources_list.append(source_doc)
             doc["prov:wasDerivedFrom"] = sources_list
 
