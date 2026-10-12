@@ -205,6 +205,12 @@ class Source:
     updated: Optional[str] = None
     """Optional description of update frequency."""
 
+    publisher: Optional[str] = None
+    """Organisation that makes the data available (``dct:publisher``)."""
+
+    creator: Optional[str] = None
+    """Organisation or person that produced the data (``dct:creator``)."""
+
     @property
     def agent(self) -> Agent:
         """Return the attributed_to value as an Agent object."""
@@ -696,6 +702,10 @@ class Metadata:
                     source_doc["dcat:accessURL"] = loc.access
                 if loc and loc.about:
                     source_doc["dcat:landingPage"] = loc.about
+                if src.source and src.source.publisher:
+                    source_doc["dct:publisher"] = src.source.publisher
+                if src.source and src.source.creator:
+                    source_doc["dct:creator"] = src.source.creator
                 sources_list.append(source_doc)
             doc["prov:wasDerivedFrom"] = sources_list
 

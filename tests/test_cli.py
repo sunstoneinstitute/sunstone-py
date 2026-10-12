@@ -3037,6 +3037,45 @@ class TestResourceDictTableSources:
             }
         ]
 
+    def test_publisher_and_creator(self, tmp_path: Path) -> None:
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "pop.csv").write_text("country,value\nNO,5\n")
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: Population\n"
+            "    slug: pop\n"
+            "    location: pop.csv\n"
+            "    source:\n"
+            "      name: WDI\n"
+            "      location:\n"
+            "        data: https://example.org/pop.csv\n"
+            "      attributedTo: World Bank\n"
+            "      dct:publisher: World Bank\n"
+            "      dct:creator: UN Population Division\n"
+            "      acquiredAt: '2026-01-01'\n"
+            "      acquisitionMethod: manual-download\n"
+            "      license: CC-BY-4.0\n"
+        )
+        manager = DatasetsManager(tmp_path)
+        ds = manager.find_dataset_by_slug("pop")
+        assert ds is not None and ds.source is not None
+        assert ds.source.publisher == "World Bank"
+        assert ds.source.creator == "UN Population Division"
+
+        result = build_resource_dict(ds, manager, None)
+        assert result is not None
+        assert result["sources"] == [
+            {
+                "title": "WDI",
+                "path": "https://example.org/pop.csv",
+                "http://www.w3.org/ns/dcat#downloadURL": "https://example.org/pop.csv",
+                "http://purl.org/dc/terms/publisher": "World Bank",
+                "http://purl.org/dc/terms/creator": "UN Population Division",
+            }
+        ]
+
     def test_web_alias_is_landing_page(self, tmp_path: Path) -> None:
         from sunstone.datasets import DatasetsManager
 

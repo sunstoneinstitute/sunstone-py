@@ -1234,6 +1234,10 @@ def _source_entry(source: Source) -> dict[str, Any]:
     for prop, value in (("downloadURL", loc.data), ("accessURL", loc.access), ("landingPage", loc.about)):
         if value:
             entry[f"{dcat}{prop}"] = value
+    dct = STANDARD_RDF_PREFIXES["dct"]
+    for prop, value in (("publisher", source.publisher), ("creator", source.creator)):
+        if value:
+            entry[f"{dct}{prop}"] = value
     return entry
 
 

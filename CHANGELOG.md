@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: Source blocks accept `dct:publisher` and `dct:creator`, emitted in `datapackage.json` sources.
+
 ## [1.17.0] - 2026-10-12
 
 - Added: Source `location` accepts `dcat:downloadURL`, `dcat:accessURL` and `dcat:landingPage`, and all are emitted in `datapackage.json` sources.

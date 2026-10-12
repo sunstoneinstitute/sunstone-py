@@ -574,6 +574,8 @@ inputs:
         about: https://example.com/dataset   # aliases: dcat:landingPage, web
         # dcat:accessURL: https://example.com/api  # indirect access (API, query form)
       attributedTo: Organization or Person
+      dct:publisher: Organisation that makes the data available  # optional
+      dct:creator: Organisation or person that produced the data  # optional
       acquiredAt: '2025-01-15'
       acquisitionMethod: manual-download  # or api, web-scraping, etc.
       license: CC-BY-4.0

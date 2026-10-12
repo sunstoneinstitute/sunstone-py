@@ -483,6 +483,8 @@ class DatasetsManager:
             acquisition_method=source_data["acquisitionMethod"],
             license=source_data["license"],
             updated=source_data.get("updated"),
+            publisher=source_data.get("dct:publisher"),
+            creator=source_data.get("dct:creator"),
         )
 
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
