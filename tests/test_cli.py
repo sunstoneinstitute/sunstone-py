@@ -2950,3 +2950,45 @@ class TestEnvScopeFlag:
         with open(user_cfg, "rb") as f:
             data = tomllib.load(f)
         assert data["environments"]["dev"]["K"] == "v"
+
+
+class TestResourceDictTableSources:
+    """Dataset-level `source:` blocks become Frictionless resource `sources`."""
+
+    @pytest.fixture
+    def project(self, tmp_path: Path) -> Path:
+        (tmp_path / "data").mkdir()
+        (tmp_path / "data" / "pop.csv").write_text("country,value\nNO,5\n")
+        (tmp_path / "data" / "pop.parquet").write_bytes(b"PAR1" + b"\x00" * 8 + b"PAR1")
+        source_block = (
+            "    source:\n"
+            "      name: World Bank WDI\n"
+            "      location:\n"
+            "        data: https://example.org/pop.csv\n"
+            "        about: https://example.org/wdi\n"
+            "      attributedTo: World Bank\n"
+            "      acquiredAt: '2026-01-01'\n"
+            "      acquisitionMethod: manual-download\n"
+            "      license: CC-BY-4.0\n"
+        )
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: Population CSV\n"
+            "    slug: pop-csv\n"
+            "    location: data/pop.csv\n" + source_block + "  - name: Population Parquet\n"
+            "    slug: pop-parquet\n"
+            "    location: data/pop.parquet\n" + source_block
+        )
+        return tmp_path
+
+    @pytest.mark.parametrize("slug", ["pop-csv", "pop-parquet"])
+    def test_sources_included(self, project: Path, slug: str) -> None:
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+
+        manager = DatasetsManager(project)
+        ds = next(d for d in manager.get_all_inputs() if d.slug == slug)
+        result = build_resource_dict(ds, manager, None)
+
+        assert result is not None
+        assert result["sources"] == [{"title": "World Bank WDI", "path": "https://example.org/pop.csv"}]

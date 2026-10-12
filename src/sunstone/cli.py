@@ -1224,6 +1224,18 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
     return schema
 
 
+def _build_sources_from_yaml(ds: DatasetMetadata) -> Optional[list[dict[str, Any]]]:
+    """Build a Frictionless resource ``sources`` list from the dataset-level ``source:`` block."""
+    if not ds.source:
+        return None
+    entry: dict[str, Any] = {"title": ds.source.name}
+    loc = ds.source.location
+    path = loc.data or loc.about or loc.metadata
+    if path:
+        entry["path"] = path
+    return [entry]
+
+
 def _build_non_frictionless_resource_dict(
     ds: DatasetMetadata,
     _manager: DatasetsManager,
@@ -1261,6 +1273,10 @@ def _build_non_frictionless_resource_dict(
     schema = _build_schema_from_yaml(ds)
     if schema:
         resource_dict["schema"] = schema
+
+    sources = _build_sources_from_yaml(ds)
+    if sources:
+        resource_dict["sources"] = sources
 
     as_url = publish_config.as_url if publish_config else None
     should_flatten = publish_config.flatten if publish_config else False
@@ -1358,6 +1374,10 @@ def build_resource_dict(
                     if yaml_field.custom_properties:
                         prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
                         field_dict.update(expand_custom_properties(yaml_field.custom_properties, prefixes))
+
+        sources = _build_sources_from_yaml(ds)
+        if sources:
+            resource_dict["sources"] = sources
 
         # Add automatic RDF type for resource
         resource_dict[f"{STANDARD_RDF_PREFIXES['rdf']}type"] = f"{STANDARD_RDF_PREFIXES['dcat']}Distribution"

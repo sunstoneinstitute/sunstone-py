@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Added: `primaryKey` on datasets in `datasets.yaml`, emitted as `schema.primaryKey` in `datapackage.json`.
+- Fixed: `datapackage.json` resources now include the dataset-level `source:` as Frictionless `sources`.
 
 ## [1.15.1] - 2026-10-07
 
