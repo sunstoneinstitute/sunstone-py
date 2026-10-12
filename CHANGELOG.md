@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-12
+
 - Added: Source blocks accept `dct:publisher` and `dct:creator`, emitted in `datapackage.json` sources.
 
 ## [1.17.0] - 2026-10-12
