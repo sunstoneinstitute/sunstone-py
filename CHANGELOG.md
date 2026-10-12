@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Added: Source `location` accepts `dcat:downloadURL`, `dcat:accessURL` and `dcat:landingPage`, and all are emitted in `datapackage.json` sources.
+- Fixed: Source `location.web` is now read as the landing page instead of being ignored.
 
 ## [1.16.1] - 2026-10-12
 

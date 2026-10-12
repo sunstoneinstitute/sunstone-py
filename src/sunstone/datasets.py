@@ -453,12 +453,12 @@ class DatasetsManager:
         """Parse source location data from YAML.
 
         DCAT keys take precedence over their aliases: ``dcat:downloadURL`` over
-        ``data``, ``dcat:landingPage`` over ``about``.
+        ``data``, ``dcat:landingPage`` over ``about`` over ``web``.
         """
         return SourceLocation(
             data=loc_data.get("dcat:downloadURL") or loc_data.get("data"),
             metadata=loc_data.get("metadata"),
-            about=loc_data.get("dcat:landingPage") or loc_data.get("about"),
+            about=loc_data.get("dcat:landingPage") or loc_data.get("about") or loc_data.get("web"),
             access=loc_data.get("dcat:accessURL"),
         )
 
