@@ -20,7 +20,7 @@ from . import STANDARD_RDF_PREFIXES
 from .datasets import DatasetsManager
 from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
-from .lineage import Contributor, DatasetMetadata, PackageEntry, PackageMetadata, PublishConfig
+from .lineage import Contributor, DatasetMetadata, PackageEntry, PackageMetadata, PublishConfig, Source
 
 logger = logging.getLogger(__name__)
 
@@ -1224,21 +1224,48 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
     return schema
 
 
-def _build_sources_from_yaml(ds: DatasetMetadata) -> Optional[list[dict[str, Any]]]:
-    """Build a Frictionless resource ``sources`` list from the dataset-level ``source:`` block."""
-    if not ds.source:
-        return None
-    entry: dict[str, Any] = {"title": ds.source.name}
-    loc = ds.source.location
+def _source_entry(source: Source) -> dict[str, Any]:
+    entry: dict[str, Any] = {"title": source.name}
+    loc = source.location
     path = loc.data or loc.about or loc.metadata
     if path:
         entry["path"] = path
-    return [entry]
+    return entry
+
+
+def _build_sources_from_yaml(ds: DatasetMetadata, manager: DatasetsManager) -> Optional[list[dict[str, Any]]]:
+    """Build a Frictionless resource ``sources`` list for a dataset.
+
+    Uses the dataset's own ``source:`` block if present. Otherwise follows its
+    lineage (``was_derived_from``) transitively and collects the ``source:``
+    blocks of the upstream datasets in this project.
+    """
+    if ds.source:
+        return [_source_entry(ds.source)]
+
+    entries: list[dict[str, Any]] = []
+    seen: set[str] = {ds.slug}
+    pending = list(ds.was_derived_from or [])
+    while pending:
+        ref = pending.pop(0)
+        if ref.namespace or ref.slug in seen:
+            continue
+        seen.add(ref.slug)
+        upstream = manager.find_dataset_by_slug(ref.slug)
+        if upstream is None:
+            continue
+        if upstream.source:
+            entry = _source_entry(upstream.source)
+            if entry not in entries:
+                entries.append(entry)
+        else:
+            pending.extend(upstream.was_derived_from or [])
+    return entries or None
 
 
 def _build_non_frictionless_resource_dict(
     ds: DatasetMetadata,
-    _manager: DatasetsManager,
+    manager: DatasetsManager,
     publish_config: Optional[PublishConfig],
     data_path: Path,
     mediatype: str,
@@ -1274,7 +1301,7 @@ def _build_non_frictionless_resource_dict(
     if schema:
         resource_dict["schema"] = schema
 
-    sources = _build_sources_from_yaml(ds)
+    sources = _build_sources_from_yaml(ds, manager)
     if sources:
         resource_dict["sources"] = sources
 
@@ -1375,7 +1402,7 @@ def build_resource_dict(
                         prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
                         field_dict.update(expand_custom_properties(yaml_field.custom_properties, prefixes))
 
-        sources = _build_sources_from_yaml(ds)
+        sources = _build_sources_from_yaml(ds, manager)
         if sources:
             resource_dict["sources"] = sources
 
