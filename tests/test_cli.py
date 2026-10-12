@@ -2992,3 +2992,64 @@ class TestResourceDictTableSources:
 
         assert result is not None
         assert result["sources"] == [{"title": "World Bank WDI", "path": "https://example.org/pop.csv"}]
+
+
+class TestResourceDictLineageSources:
+    """Outputs without a `source:` block inherit sources from their lineage."""
+
+    @pytest.fixture
+    def project(self, tmp_path: Path) -> Path:
+        (tmp_path / "data").mkdir()
+        for name in ("a", "b", "mid", "out", "orphan"):
+            (tmp_path / "data" / f"{name}.csv").write_text("country,value\nNO,5\n")
+
+        def source_block(name: str) -> str:
+            return (
+                "    source:\n"
+                f"      name: Source {name}\n"
+                "      location:\n"
+                f"        data: https://example.org/{name}.csv\n"
+                "      attributedTo: Example\n"
+                "      acquiredAt: '2026-01-01'\n"
+                "      acquisitionMethod: manual-download\n"
+                "      license: CC-BY-4.0\n"
+            )
+
+        (tmp_path / "datasets.yaml").write_text(
+            "inputs:\n"
+            "  - name: A\n    slug: a\n    location: data/a.csv\n" + source_block("a") + "  - name: B\n"
+            "    slug: b\n    location: data/b.csv\n" + source_block("b") + "outputs:\n"
+            "  - name: Mid\n    slug: mid\n    location: data/mid.csv\n"
+            "  - name: Out\n    slug: out\n    location: data/out.csv\n"
+            "  - name: Orphan\n    slug: orphan\n    location: data/orphan.csv\n"
+        )
+        (tmp_path / "datasets.lock.yaml").write_text(
+            "outputs:\n"
+            "  - slug: mid\n    sources:\n      - slug: a\n      - slug: b\n"
+            "  - slug: out\n    sources:\n      - slug: mid\n      - slug: a\n"
+        )
+        return tmp_path
+
+    @pytest.mark.parametrize(
+        ("slug", "expected"),
+        [
+            ("mid", ["a", "b"]),
+            ("out", ["a", "b"]),
+            ("orphan", None),
+        ],
+    )
+    def test_sources_from_lineage(self, project: Path, slug: str, expected: list[str] | None) -> None:
+        from sunstone.cli import build_resource_dict
+        from sunstone.datasets import DatasetsManager
+
+        manager = DatasetsManager(project)
+        ds = next(d for d in manager.get_all_outputs() if d.slug == slug)
+        result = build_resource_dict(ds, manager, None)
+
+        assert result is not None
+        if expected is None:
+            assert "sources" not in result
+        else:
+            assert result["sources"] == [
+                {"title": f"Source {n}", "path": f"https://example.org/{n}.csv"} for n in expected
+            ]
