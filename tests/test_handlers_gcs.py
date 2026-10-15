@@ -1,5 +1,6 @@
 """Tests for GCS URL handler (mocked — no real GCS calls)."""
 
+import importlib.machinery
 import sys
 import types
 from unittest.mock import MagicMock
@@ -14,6 +15,8 @@ def fake_gcs_storage(monkeypatch):
     environment. Lets us assert the handler never constructs a client eagerly.
     """
     storage = types.ModuleType("google.cloud.storage")
+    # The handler probes availability with find_spec, which needs a spec.
+    storage.__spec__ = importlib.machinery.ModuleSpec("google.cloud.storage", None)
 
     def _client_factory(*args, **kwargs):
         raise AssertionError("storage.Client() must not be constructed eagerly")

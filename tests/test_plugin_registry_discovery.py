@@ -293,3 +293,25 @@ def test_known_extensions_external_plugin_wins_over_builtin() -> None:
         "known_extensions() should report the external plugin for .pdf, "
         "matching dispatch priority — not the later-registered BlobFormatHandler."
     )
+
+
+_HEAVY_OPTIONAL_MODULES = ("geopandas", "boto3", "google.cloud.storage", "zarr", "h5py")
+
+
+def test_discovery_does_not_import_heavy_optional_deps():
+    """Discovery probes optional deps with find_spec so CLI startup stays fast."""
+    import subprocess
+    import sys
+
+    from sunstone.plugins import _module_available
+
+    if not any(_module_available(m) for m in _HEAVY_OPTIONAL_MODULES):
+        pytest.skip("no optional extras installed")
+    code = (
+        "import sys\n"
+        "from sunstone.plugins import PluginRegistry\n"
+        "PluginRegistry.get()\n"
+        f"print(','.join(m for m in {_HEAVY_OPTIONAL_MODULES!r} if m in sys.modules))\n"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == ""

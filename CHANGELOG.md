@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `sunstone` CLI and plugin discovery no longer import geopandas, boto3, GCS, zarr or h5py at startup.
+
 ## [1.18.0] - 2026-10-12
 
 - Added: Source blocks accept `dct:publisher` and `dct:creator`, emitted in `datapackage.json` sources.
