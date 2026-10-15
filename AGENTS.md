@@ -131,9 +131,9 @@ Key modules:
 URLHandler uses stream-based `open(url, mode) -> BinaryIO | TextIO` matching Python's built-in `open()`.
 Plugin config uses cascading precedence: `datasets.yaml` → `pyproject.toml` → environment variables (`SUNSTONE_PLUGIN_<NAME>_<KEY>`).
 
-## Cross-Platform (Windows CI)
+## Cross-Platform Paths
 
-CI runs on Windows. Never use `str(path)` for paths written to files like `datasets.yaml` — on Windows this produces backslashes. Use `path.as_posix()` for portable forward-slash paths.
+Never use `str(path)` for paths written to files like `datasets.yaml` — on Windows this produces backslashes. Use `path.as_posix()` for portable forward-slash paths.
 
 ## Development
 
