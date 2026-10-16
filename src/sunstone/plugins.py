@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import builtins
 import importlib.metadata
+import importlib.util
 import logging
 import os
 import shutil
@@ -203,6 +204,14 @@ def no_url_handler_error(url: str) -> ValueError:
     return ValueError(f"No URL handler found for '{url}'. Install a plugin that handles this URL scheme.")
 
 
+def _module_available(name: str) -> bool:
+    """Check that an optional dependency is installed without importing it."""
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
 def _get_entry_points() -> list:
     """Get entry points for sunstone plugins. Separated for testability."""
     return list(importlib.metadata.entry_points(group="sunstone.plugins"))
@@ -318,26 +327,18 @@ class PluginRegistry:
             pass  # boto3 not installed
 
         # Optional store-format handlers. The handler modules import their
-        # heavy dep (zarr / h5py) lazily inside read(), so a successful module
-        # import does NOT guarantee the dep is installed. Probe the dep
-        # directly before registering, otherwise the handler shows up in
-        # known_content_types() / handler_for_content() but blows up with
-        # ImportError on first use.
-        try:
-            import zarr  # noqa: F401
+        # heavy dep (zarr / h5py) lazily inside read(), so probe the dep
+        # before registering. Probes use find_spec, not import, to keep
+        # registry discovery (and CLI startup) fast.
+        if _module_available("zarr"):
             from .handlers_zarr import ZarrStoreHandler
 
             self._store_format_handlers.append(ZarrStoreHandler())
-        except ImportError:
-            pass  # zarr not installed
 
-        try:
-            import h5py  # noqa: F401
+        if _module_available("h5py"):
             from .handlers_hdf5 import Hdf5StoreHandler
 
             self._store_format_handlers.append(Hdf5StoreHandler())
-        except ImportError:
-            pass  # h5py extra not installed
 
         # Internal handlers last (fallback)
         from .handlers import (
@@ -360,17 +361,13 @@ class PluginRegistry:
             pass  # numpy not installed (shouldn't normally happen — pandas pulls it in)
         # Optional geo handler (GeoJSON/TopoJSON). Registered before the
         # catch-all BuiltinFormatHandler so .geojson/.topojson resolve here.
-        try:
-            import geopandas  # noqa: F401
-
+        if _module_available("geopandas"):
             from .handlers_geo import GeoFeaturesFormatHandler
 
             geo_handler = GeoFeaturesFormatHandler()
             self._format_handlers.append(geo_handler)  # type: ignore[arg-type]
             for descriptor in geo_handler.field_types():
                 self.field_types.register(descriptor)
-        except ImportError:
-            pass  # [geo] extra not installed
         self._format_handlers.append(BuiltinFormatHandler())  # type: ignore[arg-type]
         # BlobFormatHandler is the residual fallback — registered LAST so more
         # specific handlers (Parquet, BuiltinFormatHandler for CSV/XLSX/etc.)

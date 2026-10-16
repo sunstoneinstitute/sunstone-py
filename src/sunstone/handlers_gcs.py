@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import logging
 from typing import BinaryIO, Literal, TextIO, overload
@@ -28,14 +29,13 @@ class GcsURLHandler:
     """Handles gs:// URLs using google-cloud-storage."""
 
     def __init__(self, config: dict | None = None) -> None:
-        # Import (but do NOT instantiate) the client here. The import raises
-        # ImportError when google-cloud-storage is missing, which the plugin
-        # registry relies on to skip this handler cleanly. Constructing
-        # storage.Client() eagerly would call google.auth.default() and raise
-        # DefaultCredentialsError in credential-less environments (e.g. CI),
-        # crashing plugin discovery. Defer client construction to first use.
-        from google.cloud import storage  # type: ignore[import-untyped] # noqa: F401
-
+        # Raise ImportError when google-cloud-storage is missing so the plugin
+        # registry skips this handler. Probe with find_spec instead of
+        # importing: the import is slow and would run on every CLI start.
+        # The client is built on first use, since storage.Client() needs
+        # credentials (absent in CI).
+        if importlib.util.find_spec("google.cloud.storage") is None:
+            raise ImportError("google-cloud-storage is not installed (install sunstone-py[gcs])")
         self._client: object | None = None
 
     def can_handle(self, url: str) -> bool:
