@@ -782,6 +782,11 @@ class Metadata:
                     source_doc["dct:publisher"] = _agent_doc(src.source.publisher)
                 if src.source and src.source.creator:
                     source_doc["dct:creator"] = [_agent_doc(a) for a in as_source_agents(src.source.creator)]
+                if src.source and src.source.attributed_to:
+                    agent = src.source.attributed_to
+                    source_doc["prov:wasAttributedTo"] = (
+                        (agent.label or agent.id) if isinstance(agent, Agent) else str(agent)
+                    )
                 sources_list.append(source_doc)
             doc["prov:wasDerivedFrom"] = sources_list
 

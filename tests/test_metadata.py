@@ -1106,3 +1106,23 @@ def test_source_accepts_plain_agent_names():
     assert entry[f"{dct}publisher"] == {f"{rdfs}label": "Example Organisation"}
     assert entry[f"{dct}creator"] == [{f"{rdfs}label": "Jane Doe"}]
     assert SourceAgent(label="X") == SourceAgent("X")
+
+
+def test_jsonld_source_carries_creator_and_attribution():
+    source = Source(
+        name="S",
+        location=SourceLocation(data="https://example.org/s.csv"),
+        attributed_to="Doe, J. (Example Org)",
+        acquired_at="2026-01-01",
+        acquisition_method="manual-download",
+        license="CC-BY-4.0",
+        creator=["Jane Doe"],
+    )
+    m = Metadata(
+        slug="t",
+        name="T",
+        lineage=LineageMetadata(sources=[DatasetMetadata(name="S", slug="s", location="s.csv", source=source)]),
+    )
+    derived = m.to_jsonld()["prov:wasDerivedFrom"][0]
+    assert derived["dct:creator"] == [{"rdfs:label": "Jane Doe"}]
+    assert derived["prov:wasAttributedTo"] == "Doe, J. (Example Org)"
