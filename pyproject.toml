@@ -83,6 +83,7 @@ where = [
 [tool.setuptools.package-data]
 sunstone = [
     "py.typed",
+    "vocab/*.json",
     "profiles/*.json",
     "profiles/LICENSE",
 ]
@@ -129,6 +130,9 @@ omit = [
 ]
 
 [dependency-groups]
+vocab = [
+    "rdflib>=7.0",
+]
 dev = [
     "pytest>=9.0.1",
     "pytest-cov>=4.0.0",

@@ -1,0 +1,1069 @@
+{
+  "prefix": "qudt",
+  "namespace": "http://qudt.org/schema/qudt/",
+  "source": "https://qudt.org/3.1.4/schema/qudt.ttl",
+  "terms": [
+    {
+      "curie": "qudt:abbreviation",
+      "iri": "http://qudt.org/schema/qudt/abbreviation",
+      "label": "abbreviation",
+      "definition": "An abbreviation for a unit is a short ASCII string that is used in place of the full name for the unit in contexts where non-ASCII characters would be problematic, or where using the abbreviation will enhance readability. When a power of abase unit needs to be expressed, such as squares this can be done using abbreviations rather than symbols. For example, <em>sq ft</em> means <em>square foot</em>, and <em>cu ft</em> means <em>cubic foot</em>."
+    },
+    {
+      "curie": "qudt:acronym",
+      "iri": "http://qudt.org/schema/qudt/acronym",
+      "label": "acronym",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:allowedPattern",
+      "iri": "http://qudt.org/schema/qudt/allowedPattern",
+      "label": "allowed pattern",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:altSymbol",
+      "iri": "http://qudt.org/schema/qudt/altSymbol",
+      "label": "alt symbol",
+      "definition": "An alternative symbol"
+    },
+    {
+      "curie": "qudt:ansiSQLName",
+      "iri": "http://qudt.org/schema/qudt/ansiSQLName",
+      "label": "ANSI SQL Name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableCGSUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableCGSUnit",
+      "label": "applicable CGS unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableISOUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableISOUnit",
+      "label": "applicable ISO unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableImperialUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableImperialUnit",
+      "label": "applicable Imperial unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicablePhysicalConstant",
+      "iri": "http://qudt.org/schema/qudt/applicablePhysicalConstant",
+      "label": "applicable physical constant",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicablePlanckUnit",
+      "iri": "http://qudt.org/schema/qudt/applicablePlanckUnit",
+      "label": "applicable Planck unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableSIUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableSIUnit",
+      "label": "applicable SI unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableSystem",
+      "iri": "http://qudt.org/schema/qudt/applicableSystem",
+      "label": "applicable system",
+      "definition": "This property relates a unit of measure with a unit system that may or may not define the unit, but within which the unit is compatible."
+    },
+    {
+      "curie": "qudt:applicableUSCustomaryUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableUSCustomaryUnit",
+      "label": "applicable US Customary unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:applicableUnit",
+      "iri": "http://qudt.org/schema/qudt/applicableUnit",
+      "label": "applicable unit",
+      "definition": "See https://github.com/qudt/qudt-public-repo/wiki/Advanced-User-Guide#4-computing-applicable-units-for-a-quantitykind on how `qudt:applicableUnit` is computed from `qudt:hasQuantityKind` and then materialized"
+    },
+    {
+      "curie": "qudt:baseDimensionEnumeration",
+      "iri": "http://qudt.org/schema/qudt/baseDimensionEnumeration",
+      "label": "base dimension enumeration",
+      "definition": "This property associates a system of quantities with an enumeration that enumerates the base dimensions of the system in canonical order."
+    },
+    {
+      "curie": "qudt:baseUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/baseUnitOfSystem",
+      "label": "is base unit of system",
+      "definition": "This property relates a unit of measure to the system of units in which it is defined as a base unit for the system. The base units of a system are used to define the derived units of the system by expressing the derived units as products of the base units raised to a rational power."
+    },
+    {
+      "curie": "qudt:basis",
+      "iri": "http://qudt.org/schema/qudt/basis",
+      "label": "basis",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:belongsToSystemOfQuantities",
+      "iri": "http://qudt.org/schema/qudt/belongsToSystemOfQuantities",
+      "label": "belongs to system of quantities",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:bitOrder",
+      "iri": "http://qudt.org/schema/qudt/bitOrder",
+      "label": "bit order",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:bits",
+      "iri": "http://qudt.org/schema/qudt/bits",
+      "label": "bits",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:bounded",
+      "iri": "http://qudt.org/schema/qudt/bounded",
+      "label": "bounded",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:byteOrder",
+      "iri": "http://qudt.org/schema/qudt/byteOrder",
+      "label": "byte order",
+      "definition": "Byte order is an enumeration of two values: 'Big Endian' and 'Little Endian' and is used to denote whether the most signiticant byte is either first or last, respectively."
+    },
+    {
+      "curie": "qudt:bytes",
+      "iri": "http://qudt.org/schema/qudt/bytes",
+      "label": "bytes",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:cName",
+      "iri": "http://qudt.org/schema/qudt/cName",
+      "label": "C Language name",
+      "definition": "Datatype name in the C programming language"
+    },
+    {
+      "curie": "qudt:cardinality",
+      "iri": "http://qudt.org/schema/qudt/cardinality",
+      "label": "cardinality",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:categorizedAs",
+      "iri": "http://qudt.org/schema/qudt/categorizedAs",
+      "label": "categorized as",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:coherentUnitSystem",
+      "iri": "http://qudt.org/schema/qudt/coherentUnitSystem",
+      "label": "coherent unit system",
+      "definition": "A system of units is coherent with respect to a system of quantities and equations if the system of units is chosen in such a way that the equations between numerical values have exactly the same form (including the numerical factors) as the corresponding equations between the quantities. In such a coherent system, no numerical factor other than the number 1 ever occurs in the expressions for the derived units in terms of the base units. For example, the $newton$ and the $joule$. These two are, respectively, the force that causes one kilogram to be accelerated at 1 metre per (1) second per (1) second, and the work done by 1 newton acting over 1 metre. Being coherent refers to this consistent use of 1. In the old c.g.s. system , with its base units the centimetre and the gram, the corresponding coherent units were the dyne and the erg, respectively the force that causes 1 gram to be accelerated at 1 centimetre per (1) second per (1) second, and the work done by 1 dyne acting over 1 centimetre. So $1\\,newton = 10^5 dyne$, $1 joule = 10^7 erg$, making each of the four compatible in a decimal sense within its respective other system, but not coherent therein.</p>"
+    },
+    {
+      "curie": "qudt:conversionMultiplier",
+      "iri": "http://qudt.org/schema/qudt/conversionMultiplier",
+      "label": "conversion multiplier",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:conversionMultiplierSN",
+      "iri": "http://qudt.org/schema/qudt/conversionMultiplierSN",
+      "label": "conversion multiplier scientific",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:conversionOffset",
+      "iri": "http://qudt.org/schema/qudt/conversionOffset",
+      "label": "conversion offset",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:conversionOffsetSN",
+      "iri": "http://qudt.org/schema/qudt/conversionOffsetSN",
+      "label": "conversion offset scientific",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:currencyCode",
+      "iri": "http://qudt.org/schema/qudt/currencyCode",
+      "label": "currency code",
+      "definition": "Alphabetic Currency Code as defined by ISO 4217. For example, US Dollar has the code 'USD'."
+    },
+    {
+      "curie": "qudt:currencyExponent",
+      "iri": "http://qudt.org/schema/qudt/currencyExponent",
+      "label": "currency exponent",
+      "definition": "The currency exponent indicates the number of decimal places between a major currency unit and its minor currency unit. For example, the US dollar is the major currency unit of the United States, and the US cent is the minor currency unit. Since one cent is 1/100 of a dollar, the US dollar has a currency exponent of 2. However, the Japanese Yen has no minor currency units, so the yen has a currency exponent of 0."
+    },
+    {
+      "curie": "qudt:currencyNumber",
+      "iri": "http://qudt.org/schema/qudt/currencyNumber",
+      "label": "currency number",
+      "definition": "Numeric currency Code as defined by ISO 4217. For example, US Dollar has the number 840."
+    },
+    {
+      "curie": "qudt:dataEncoding",
+      "iri": "http://qudt.org/schema/qudt/dataEncoding",
+      "label": "data encoding",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dataStructure",
+      "iri": "http://qudt.org/schema/qudt/dataStructure",
+      "label": "data structure",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:datatype",
+      "iri": "http://qudt.org/schema/qudt/datatype",
+      "label": "datatype",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dbpediaMatch",
+      "iri": "http://qudt.org/schema/qudt/dbpediaMatch",
+      "label": "dbpedia match",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:default",
+      "iri": "http://qudt.org/schema/qudt/default",
+      "label": "default",
+      "definition": "The default element in an enumeration"
+    },
+    {
+      "curie": "qudt:definedUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/definedUnitOfSystem",
+      "label": "defined unit of system",
+      "definition": "This property relates a unit of measure with the unit system that defines the unit."
+    },
+    {
+      "curie": "qudt:denominatorDimensionVector",
+      "iri": "http://qudt.org/schema/qudt/denominatorDimensionVector",
+      "label": "denominator dimension vector",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:deprecated",
+      "iri": "http://qudt.org/schema/qudt/deprecated",
+      "label": "deprecated",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:derivedCoherentUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/derivedCoherentUnitOfSystem",
+      "label": "is coherent derived unit of system",
+      "definition": "This property relates a unit of measure to the unit system in which the unit is derived from the system's base units with a proportionality constant of one."
+    },
+    {
+      "curie": "qudt:derivedNonCoherentUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/derivedNonCoherentUnitOfSystem",
+      "label": "is non-coherent derived unit of system",
+      "definition": "This property relates a unit of measure to the unit system in which the unit is derived from the system's base units without proportionality constant of one."
+    },
+    {
+      "curie": "qudt:derivedUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/derivedUnitOfSystem",
+      "label": "is derived unit of system",
+      "definition": "This property relates a unit of measure to the system of units in which it is defined as a derived unit. That is, the derived unit is defined as a product of the base units for the system raised to some rational power."
+    },
+    {
+      "curie": "qudt:dimensionExponent",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponent",
+      "label": "dimension exponent",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForAmountOfSubstance",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForAmountOfSubstance",
+      "label": "dimension exponent for amount of substance",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForElectricCurrent",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForElectricCurrent",
+      "label": "dimension exponent for electric current",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForLength",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForLength",
+      "label": "dimension exponent for length",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForLuminousIntensity",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForLuminousIntensity",
+      "label": "dimension exponent for luminous intensity",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForMass",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForMass",
+      "label": "dimension exponent for mass",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForThermodynamicTemperature",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForThermodynamicTemperature",
+      "label": "dimension exponent for thermodynamic temperature",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionExponentForTime",
+      "iri": "http://qudt.org/schema/qudt/dimensionExponentForTime",
+      "label": "dimension exponent for time",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionInverse",
+      "iri": "http://qudt.org/schema/qudt/dimensionInverse",
+      "label": "dimension inverse",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionVectorForSI",
+      "iri": "http://qudt.org/schema/qudt/dimensionVectorForSI",
+      "label": "dimension vector for SI",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:dimensionlessExponent",
+      "iri": "http://qudt.org/schema/qudt/dimensionlessExponent",
+      "label": "dimensionless exponent",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:element",
+      "iri": "http://qudt.org/schema/qudt/element",
+      "label": "element",
+      "definition": "An element of an enumeration"
+    },
+    {
+      "curie": "qudt:elementKind",
+      "iri": "http://qudt.org/schema/qudt/elementKind",
+      "label": "element kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:encoding",
+      "iri": "http://qudt.org/schema/qudt/encoding",
+      "label": "encoding",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:enumeratedValue",
+      "iri": "http://qudt.org/schema/qudt/enumeratedValue",
+      "label": "enumerated value",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:enumeration",
+      "iri": "http://qudt.org/schema/qudt/enumeration",
+      "label": "enumeration",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:exactConstant",
+      "iri": "http://qudt.org/schema/qudt/exactConstant",
+      "label": "exact constant",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:exactMatch",
+      "iri": "http://qudt.org/schema/qudt/exactMatch",
+      "label": "exact match",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:example",
+      "iri": "http://qudt.org/schema/qudt/example",
+      "label": "example",
+      "definition": "The 'qudt:example' property is used to annotate an instance of a class with a reference to a concept that is an example. The type of this property is 'rdf:Property'. This allows both scalar and object ranges."
+    },
+    {
+      "curie": "qudt:exponent",
+      "iri": "http://qudt.org/schema/qudt/exponent",
+      "label": "exponent",
+      "definition": "This property relates a factor unit its exponent"
+    },
+    {
+      "curie": "qudt:expression",
+      "iri": "http://qudt.org/schema/qudt/expression",
+      "label": "expression",
+      "definition": "An 'expression' is a finite combination of symbols that are well-formed according to rules that apply to units of measure, quantity kinds and their dimensions."
+    },
+    {
+      "curie": "qudt:factorUnitScalar",
+      "iri": "http://qudt.org/schema/qudt/factorUnitScalar",
+      "label": "factorUnitScalar",
+      "definition": "For a derived unit that is not exactly the product of its factor units, this property defines the scalar with which that product has to be multiplied with."
+    },
+    {
+      "curie": "qudt:fieldCode",
+      "iri": "http://qudt.org/schema/qudt/fieldCode",
+      "label": "field code",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:figure",
+      "iri": "http://qudt.org/schema/qudt/figure",
+      "label": "figure",
+      "definition": "Provides a link to an image."
+    },
+    {
+      "curie": "qudt:figureCaption",
+      "iri": "http://qudt.org/schema/qudt/figureCaption",
+      "label": "figure caption",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:figureLabel",
+      "iri": "http://qudt.org/schema/qudt/figureLabel",
+      "label": "figure label",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:guidance",
+      "iri": "http://qudt.org/schema/qudt/guidance",
+      "label": "guidance",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasAllowedUnit",
+      "iri": "http://qudt.org/schema/qudt/hasAllowedUnit",
+      "label": "allowed unit",
+      "definition": "This property relates a unit system with a unit of measure that is not defined by or part of the system, but is allowed for use within the system. An allowed unit must be convertible to some dimensionally eqiuvalent unit that is defined by the system."
+    },
+    {
+      "curie": "qudt:hasBaseQuantityKind",
+      "iri": "http://qudt.org/schema/qudt/hasBaseQuantityKind",
+      "label": "has base quantity kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasBaseUnit",
+      "iri": "http://qudt.org/schema/qudt/hasBaseUnit",
+      "label": "base unit",
+      "definition": "This property relates a system of units to a base unit defined within the system. The base units of a system are used to define the derived units of the system by expressing the derived units as products of the base units raised to a rational power."
+    },
+    {
+      "curie": "qudt:hasCitation",
+      "iri": "http://qudt.org/schema/qudt/hasCitation",
+      "label": "citation",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasCoherentUnit",
+      "iri": "http://qudt.org/schema/qudt/hasCoherentUnit",
+      "label": "coherent unit",
+      "definition": "A coherent unit of measurement for a unit system is a defined unit that may be expressed as a product of powers of the system's base units with the proportionality factor of one."
+    },
+    {
+      "curie": "qudt:hasDefinedUnit",
+      "iri": "http://qudt.org/schema/qudt/hasDefinedUnit",
+      "label": "defined unit",
+      "definition": "This property relates a unit system with a unit of measure that is defined by the system."
+    },
+    {
+      "curie": "qudt:hasDenominatorPart",
+      "iri": "http://qudt.org/schema/qudt/hasDenominatorPart",
+      "label": "has quantity kind dimension vector denominator part",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasDerivedCoherentUnit",
+      "iri": "http://qudt.org/schema/qudt/hasDerivedCoherentUnit",
+      "label": "derived coherent unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasDerivedNonCoherentUnit",
+      "iri": "http://qudt.org/schema/qudt/hasDerivedNonCoherentUnit",
+      "label": "has coherent derived unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasDerivedUnit",
+      "iri": "http://qudt.org/schema/qudt/hasDerivedUnit",
+      "label": "derived unit",
+      "definition": "This property relates a system of units to a unit of measure that is defined within the system in terms of the base units for the system. That is, the derived unit is defined as a product of the base units for the system raised to some rational power."
+    },
+    {
+      "curie": "qudt:hasDimension",
+      "iri": "http://qudt.org/schema/qudt/hasDimension",
+      "label": "has dimension",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasDimensionExpression",
+      "iri": "http://qudt.org/schema/qudt/hasDimensionExpression",
+      "label": "dimension expression",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasDimensionVector",
+      "iri": "http://qudt.org/schema/qudt/hasDimensionVector",
+      "label": "has dimension vector",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasFactorUnit",
+      "iri": "http://qudt.org/schema/qudt/hasFactorUnit",
+      "label": "hasFactorUnit",
+      "definition": "This property relates a derived unit to one of its constituent factor units"
+    },
+    {
+      "curie": "qudt:hasNumeratorPart",
+      "iri": "http://qudt.org/schema/qudt/hasNumeratorPart",
+      "label": "has quantity kind dimension vector numerator part",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasPrefixUnit",
+      "iri": "http://qudt.org/schema/qudt/hasPrefixUnit",
+      "label": "prefix unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasQuantity",
+      "iri": "http://qudt.org/schema/qudt/hasQuantity",
+      "label": "has quantity",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasQuantityKind",
+      "iri": "http://qudt.org/schema/qudt/hasQuantityKind",
+      "label": "has quantity kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasReferenceQuantityKind",
+      "iri": "http://qudt.org/schema/qudt/hasReferenceQuantityKind",
+      "label": "has reference quantity kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasRule",
+      "iri": "http://qudt.org/schema/qudt/hasRule",
+      "label": "has rule",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasUnit",
+      "iri": "http://qudt.org/schema/qudt/hasUnit",
+      "label": "has unit",
+      "definition": "This property relates a factor unit its unit"
+    },
+    {
+      "curie": "qudt:hasUnitSystem",
+      "iri": "http://qudt.org/schema/qudt/hasUnitSystem",
+      "label": "has unit system",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:hasVocabulary",
+      "iri": "http://qudt.org/schema/qudt/hasVocabulary",
+      "label": "has vocabulary",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:height",
+      "iri": "http://qudt.org/schema/qudt/height",
+      "label": "height",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:id",
+      "iri": "http://qudt.org/schema/qudt/id",
+      "label": "qudt id",
+      "definition": "The \"qudt:id\" is an identifier string that uniquely identifies a QUDT concept. The identifier is constructed using a prefix. For example, units are coded using the pattern: \"UCCCENNNN\", where \"CCC\" is a numeric code or a category and \"NNNN\" is a digit string for a member element of that category. For scaled units there may be an addition field that has the format \"QNN\" where \"NN\" is a digit string representing an exponent power, and \"Q\" is a qualifier that indicates with the code \"P\" that the power is a positive decimal exponent, or the code \"N\" for a negative decimal exponent, or the code \"B\" for binary positive exponents."
+    },
+    {
+      "curie": "qudt:iec61360Code",
+      "iri": "http://qudt.org/schema/qudt/iec61360Code",
+      "label": "iec-61360 code",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:image",
+      "iri": "http://qudt.org/schema/qudt/image",
+      "label": "image",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:imageLocation",
+      "iri": "http://qudt.org/schema/qudt/imageLocation",
+      "label": "image location",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:informativeReference",
+      "iri": "http://qudt.org/schema/qudt/informativeReference",
+      "label": "informative reference",
+      "definition": "Provides a way to reference a source that provided useful but non-normative information."
+    },
+    {
+      "curie": "qudt:isDeltaQuantity",
+      "iri": "http://qudt.org/schema/qudt/isDeltaQuantity",
+      "label": "is Delta Quantity",
+      "definition": "This property is used to identify a Quantity instance that is a measure of a change, or interval, of some property, rather than a measure of its absolute value. This is important for measurements such as temperature differences where the conversion among units would be calculated differently because of offsets."
+    },
+    {
+      "curie": "qudt:isDimensionInSystem",
+      "iri": "http://qudt.org/schema/qudt/isDimensionInSystem",
+      "label": "is dimension in system",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:isMetricUnit",
+      "iri": "http://qudt.org/schema/qudt/isMetricUnit",
+      "label": "is metric unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:isUnitOfSystem",
+      "iri": "http://qudt.org/schema/qudt/isUnitOfSystem",
+      "label": "is unit of system",
+      "definition": "This property relates a unit of measure with a system of units that either a) defines the unit or b) allows the unit to be used within the system."
+    },
+    {
+      "curie": "qudt:isoNormativeReference",
+      "iri": "http://qudt.org/schema/qudt/isoNormativeReference",
+      "label": "normative reference (ISO)",
+      "definition": "Provides a way to reference the ISO unit definition."
+    },
+    {
+      "curie": "qudt:javaName",
+      "iri": "http://qudt.org/schema/qudt/javaName",
+      "label": "java name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:jsName",
+      "iri": "http://qudt.org/schema/qudt/jsName",
+      "label": "Javascript name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:landscape",
+      "iri": "http://qudt.org/schema/qudt/landscape",
+      "label": "landscape",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:latexDefinition",
+      "iri": "http://qudt.org/schema/qudt/latexDefinition",
+      "label": "latex definition",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:latexSymbol",
+      "iri": "http://qudt.org/schema/qudt/latexSymbol",
+      "label": "latex symbol",
+      "definition": "The symbol is a glyph that is used to represent some concept, typically a unit or a quantity, in a compact form. For example, the symbol for an Ohm is $ohm$. This contrasts with 'unit:abbreviation', which gives a short alphanumeric abbreviation for the unit, 'ohm' for Ohm."
+    },
+    {
+      "curie": "qudt:length",
+      "iri": "http://qudt.org/schema/qudt/length",
+      "label": "length",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:lowerBound",
+      "iri": "http://qudt.org/schema/qudt/lowerBound",
+      "label": "lower bound",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:mathDefinition",
+      "iri": "http://qudt.org/schema/qudt/mathDefinition",
+      "label": "math definition",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:mathMLdefinition",
+      "iri": "http://qudt.org/schema/qudt/mathMLdefinition",
+      "label": "mathML definition",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:matlabName",
+      "iri": "http://qudt.org/schema/qudt/matlabName",
+      "label": "matlab name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:maxExclusive",
+      "iri": "http://qudt.org/schema/qudt/maxExclusive",
+      "label": "max exclusive",
+      "definition": "maxExclusive is the exclusive upper bound of the value space for a datatype with the ordered property. The value of maxExclusive must be in the value space of the base type or be equal to {value} in {base type definition}."
+    },
+    {
+      "curie": "qudt:maxInclusive",
+      "iri": "http://qudt.org/schema/qudt/maxInclusive",
+      "label": "max inclusive",
+      "definition": "maxInclusive is the inclusive upper bound of the value space for a datatype with the ordered property. The value of maxInclusive must be in the value space of the base type."
+    },
+    {
+      "curie": "qudt:microsoftSQLServerName",
+      "iri": "http://qudt.org/schema/qudt/microsoftSQLServerName",
+      "label": "Microsoft SQL Server name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:minExclusive",
+      "iri": "http://qudt.org/schema/qudt/minExclusive",
+      "label": "min exclusive",
+      "definition": "minExclusive is the exclusive lower bound of the value space for a datatype with the ordered property. The value of minExclusive must be in the value space of the base type or be equal to {value} in {base type definition}."
+    },
+    {
+      "curie": "qudt:minInclusive",
+      "iri": "http://qudt.org/schema/qudt/minInclusive",
+      "label": "min inclusive",
+      "definition": "minInclusive is the inclusive lower bound of the value space for a datatype with the ordered property. The value of minInclusive must be in the value space of the base type."
+    },
+    {
+      "curie": "qudt:mySQLName",
+      "iri": "http://qudt.org/schema/qudt/mySQLName",
+      "label": "MySQL name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:negativeDeltaLimit",
+      "iri": "http://qudt.org/schema/qudt/negativeDeltaLimit",
+      "label": "negative delta limit",
+      "definition": "A negative change limit between consecutive sample values for a parameter. The Negative Delta may be the encoded value or engineering units value depending on whether or not a Calibrator is defined."
+    },
+    {
+      "curie": "qudt:normativeReference",
+      "iri": "http://qudt.org/schema/qudt/normativeReference",
+      "label": "normative reference",
+      "definition": "Provides a way to reference information that is an authorative source providing a standard definition"
+    },
+    {
+      "curie": "qudt:numeratorDimensionVector",
+      "iri": "http://qudt.org/schema/qudt/numeratorDimensionVector",
+      "label": "numerator dimension vector",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:numericValue",
+      "iri": "http://qudt.org/schema/qudt/numericValue",
+      "label": "numeric value",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:odbcName",
+      "iri": "http://qudt.org/schema/qudt/odbcName",
+      "label": "ODBC name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:oleDBName",
+      "iri": "http://qudt.org/schema/qudt/oleDBName",
+      "label": "OLE DB name",
+      "definition": "OLE DB (Object Linking and Embedding, Database, sometimes written as OLEDB or OLE-DB), an API designed by Microsoft, allows accessing data from a variety of sources in a uniform manner. The API provides a set of interfaces implemented using the Component Object Model (COM); it is otherwise unrelated to OLE."
+    },
+    {
+      "curie": "qudt:omUnit",
+      "iri": "http://qudt.org/schema/qudt/omUnit",
+      "label": "om unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:onlineReference",
+      "iri": "http://qudt.org/schema/qudt/onlineReference",
+      "label": "online reference",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:oracleSQLName",
+      "iri": "http://qudt.org/schema/qudt/oracleSQLName",
+      "label": "ORACLE SQL name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:order",
+      "iri": "http://qudt.org/schema/qudt/order",
+      "label": "order",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:orderedType",
+      "iri": "http://qudt.org/schema/qudt/orderedType",
+      "label": "ordered type",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:outOfScope",
+      "iri": "http://qudt.org/schema/qudt/outOfScope",
+      "label": "out of scope",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:permissibleMaths",
+      "iri": "http://qudt.org/schema/qudt/permissibleMaths",
+      "label": "permissible maths",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:permissibleTransformation",
+      "iri": "http://qudt.org/schema/qudt/permissibleTransformation",
+      "label": "permissible transformation",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:plainTextDescription",
+      "iri": "http://qudt.org/schema/qudt/plainTextDescription",
+      "label": "description (plain text)",
+      "definition": "A plain text description is used to provide a description with only simple ASCII characters for cases where LaTeX , HTML or other markup would not be appropriate."
+    },
+    {
+      "curie": "qudt:positiveDeltaLimit",
+      "iri": "http://qudt.org/schema/qudt/positiveDeltaLimit",
+      "label": "Positive delta limit",
+      "definition": "A positive change limit between consecutive sample values for a parameter. The Positive Delta may be the encoded value or engineering units value depending on whether or not a Calibrator is defined."
+    },
+    {
+      "curie": "qudt:prefix",
+      "iri": "http://qudt.org/schema/qudt/prefix",
+      "label": "prefix",
+      "definition": "Associates a unit with the appropriate prefix, if any."
+    },
+    {
+      "curie": "qudt:prefixMultiplier",
+      "iri": "http://qudt.org/schema/qudt/prefixMultiplier",
+      "label": "prefix multiplier",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:prefixMultiplierSN",
+      "iri": "http://qudt.org/schema/qudt/prefixMultiplierSN",
+      "label": "prefix multiplier scientific",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:protocolBuffersName",
+      "iri": "http://qudt.org/schema/qudt/protocolBuffersName",
+      "label": "protocol buffers name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:pythonName",
+      "iri": "http://qudt.org/schema/qudt/pythonName",
+      "label": "python name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:qkdvDenominator",
+      "iri": "http://qudt.org/schema/qudt/qkdvDenominator",
+      "label": "denominator dimension vector",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:qkdvNumerator",
+      "iri": "http://qudt.org/schema/qudt/qkdvNumerator",
+      "label": "numerator dimension vector",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:quantity",
+      "iri": "http://qudt.org/schema/qudt/quantity",
+      "label": "quantity",
+      "definition": "a property to relate an observable thing with a quantity (qud:Quantity)"
+    },
+    {
+      "curie": "qudt:quantityValue",
+      "iri": "http://qudt.org/schema/qudt/quantityValue",
+      "label": "quantity value",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:rationale",
+      "iri": "http://qudt.org/schema/qudt/rationale",
+      "label": "rationale",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:rdfsDatatype",
+      "iri": "http://qudt.org/schema/qudt/rdfsDatatype",
+      "label": "rdfs datatype",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:reference",
+      "iri": "http://qudt.org/schema/qudt/reference",
+      "label": "reference",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:referenceUnit",
+      "iri": "http://qudt.org/schema/qudt/referenceUnit",
+      "label": "reference unit",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:relativeStandardUncertainty",
+      "iri": "http://qudt.org/schema/qudt/relativeStandardUncertainty",
+      "label": "relative standard uncertainty",
+      "definition": "The relative standard uncertainty of a measurement is the (absolute) standard uncertainty divided by the magnitude of the exact value."
+    },
+    {
+      "curie": "qudt:relevantQuantityKind",
+      "iri": "http://qudt.org/schema/qudt/relevantQuantityKind",
+      "label": "relevant quantity kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:relevantUnit",
+      "iri": "http://qudt.org/schema/qudt/relevantUnit",
+      "label": "Relevant Unit",
+      "definition": "This property is used for qudt:Discipline instances to identify the Unit instances that are used within a given discipline."
+    },
+    {
+      "curie": "qudt:ruleType",
+      "iri": "http://qudt.org/schema/qudt/ruleType",
+      "label": "rule type",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:scaleType",
+      "iri": "http://qudt.org/schema/qudt/scaleType",
+      "label": "scale type",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:scalingOf",
+      "iri": "http://qudt.org/schema/qudt/scalingOf",
+      "label": "scalingOf",
+      "definition": "This property relates a unit that is scaled to the base unit that its qudt:conversionMultiplier converts it to"
+    },
+    {
+      "curie": "qudt:siExactMatch",
+      "iri": "http://qudt.org/schema/qudt/siExactMatch",
+      "label": "Individual from SI Reference Point",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:siUnitsExpression",
+      "iri": "http://qudt.org/schema/qudt/siUnitsExpression",
+      "label": "si units expression",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:standardUncertainty",
+      "iri": "http://qudt.org/schema/qudt/standardUncertainty",
+      "label": "standard uncertainty",
+      "definition": "The standard uncertainty of a quantity is the estimated standard deviation of the mean taken from a series of measurements."
+    },
+    {
+      "curie": "qudt:standardUncertaintySN",
+      "iri": "http://qudt.org/schema/qudt/standardUncertaintySN",
+      "label": "standard uncertainty scientific",
+      "definition": "The standard uncertainty of a quantity is the estimated standard deviation of the mean taken from a series of measurements."
+    },
+    {
+      "curie": "qudt:symbol",
+      "iri": "http://qudt.org/schema/qudt/symbol",
+      "label": "symbol",
+      "definition": "The symbol is a glyph that is used to represent some concept, typically a unit or a quantity, in a compact form. For example, the symbol for an Ohm is $ohm$. This contrasts with 'unit:abbreviation', which gives a short alphanumeric abbreviation for the unit, 'ohm' for Ohm."
+    },
+    {
+      "curie": "qudt:systemDefinition",
+      "iri": "http://qudt.org/schema/qudt/systemDefinition",
+      "label": "system definition",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:systemDerivedQuantityKind",
+      "iri": "http://qudt.org/schema/qudt/systemDerivedQuantityKind",
+      "label": "system derived quantity kind",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:systemDimension",
+      "iri": "http://qudt.org/schema/qudt/systemDimension",
+      "label": "system dimension",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:ucumCode",
+      "iri": "http://qudt.org/schema/qudt/ucumCode",
+      "label": "ucum code",
+      "definition": "<p><em>ucumCode</em> associates a QUDT unit with its UCUM code (case-sensitive). </p><p>In SHACL the values are derived from specific ucum properties using 'sh:values'.</p>"
+    },
+    {
+      "curie": "qudt:udunitsCode",
+      "iri": "http://qudt.org/schema/qudt/udunitsCode",
+      "label": "udunits code",
+      "definition": "The UDUNITS package supports units of physical quantities. Its C library provides for arithmetic manipulation of units and for conversion of numeric values between compatible units. The package contains an extensive unit database, which is in XML format and user-extendable. The package also contains a command-line utility for investigating units and converting values."
+    },
+    {
+      "curie": "qudt:uneceCommonCode",
+      "iri": "http://qudt.org/schema/qudt/uneceCommonCode",
+      "label": "unece common code",
+      "definition": "The UN/CEFACT Recommendation 20 provides three character alphabetic and alphanumeric codes for representing units of measurement for length, area, volume/capacity, mass (weight), time, and other quantities used in international trade. The codes are intended for use in manual and/or automated systems for the exchange of information between participants in international trade."
+    },
+    {
+      "curie": "qudt:unitFor",
+      "iri": "http://qudt.org/schema/qudt/unitFor",
+      "label": "unit for",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:upperBound",
+      "iri": "http://qudt.org/schema/qudt/upperBound",
+      "label": "upper bound",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:url",
+      "iri": "http://qudt.org/schema/qudt/url",
+      "label": "url",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:value",
+      "iri": "http://qudt.org/schema/qudt/value",
+      "label": "value",
+      "definition": "A property to relate an observable thing with a value of any kind"
+    },
+    {
+      "curie": "qudt:valueQuantity",
+      "iri": "http://qudt.org/schema/qudt/valueQuantity",
+      "label": "value for quantity",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:valueSN",
+      "iri": "http://qudt.org/schema/qudt/valueSN",
+      "label": "value scientific",
+      "definition": "A property to relate an observable thing with a value of any kind"
+    },
+    {
+      "curie": "qudt:vbName",
+      "iri": "http://qudt.org/schema/qudt/vbName",
+      "label": "Vusal Basic name",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:vectorMagnitude",
+      "iri": "http://qudt.org/schema/qudt/vectorMagnitude",
+      "label": "vector magnitude",
+      "definition": ""
+    },
+    {
+      "curie": "qudt:width",
+      "iri": "http://qudt.org/schema/qudt/width",
+      "label": "width",
+      "definition": ""
+    }
+  ]
+}

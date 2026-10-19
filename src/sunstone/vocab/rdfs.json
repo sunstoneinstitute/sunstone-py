@@ -1,0 +1,61 @@
+{
+  "prefix": "rdfs",
+  "namespace": "http://www.w3.org/2000/01/rdf-schema#",
+  "source": "https://www.w3.org/2000/01/rdf-schema.ttl",
+  "terms": [
+    {
+      "curie": "rdfs:comment",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#comment",
+      "label": "comment",
+      "definition": "A description of the subject resource."
+    },
+    {
+      "curie": "rdfs:domain",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#domain",
+      "label": "domain",
+      "definition": "A domain of the subject property."
+    },
+    {
+      "curie": "rdfs:isDefinedBy",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#isDefinedBy",
+      "label": "isDefinedBy",
+      "definition": "The definition of the subject resource."
+    },
+    {
+      "curie": "rdfs:label",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#label",
+      "label": "label",
+      "definition": "A human-readable name for the subject."
+    },
+    {
+      "curie": "rdfs:member",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#member",
+      "label": "member",
+      "definition": "A member of the subject resource."
+    },
+    {
+      "curie": "rdfs:range",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#range",
+      "label": "range",
+      "definition": "A range of the subject property."
+    },
+    {
+      "curie": "rdfs:seeAlso",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#seeAlso",
+      "label": "seeAlso",
+      "definition": "Further information about the subject resource."
+    },
+    {
+      "curie": "rdfs:subClassOf",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#subClassOf",
+      "label": "subClassOf",
+      "definition": "The subject is a subclass of a class."
+    },
+    {
+      "curie": "rdfs:subPropertyOf",
+      "iri": "http://www.w3.org/2000/01/rdf-schema#subPropertyOf",
+      "label": "subPropertyOf",
+      "definition": "The subject is a subproperty of a property."
+    }
+  ]
+}

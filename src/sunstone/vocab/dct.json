@@ -1,0 +1,337 @@
+{
+  "prefix": "dct",
+  "namespace": "http://purl.org/dc/terms/",
+  "source": "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.ttl",
+  "terms": [
+    {
+      "curie": "dct:abstract",
+      "iri": "http://purl.org/dc/terms/abstract",
+      "label": "Abstract",
+      "definition": "A summary of the resource."
+    },
+    {
+      "curie": "dct:accessRights",
+      "iri": "http://purl.org/dc/terms/accessRights",
+      "label": "Access Rights",
+      "definition": "Information about who access the resource or an indication of its security status."
+    },
+    {
+      "curie": "dct:accrualMethod",
+      "iri": "http://purl.org/dc/terms/accrualMethod",
+      "label": "Accrual Method",
+      "definition": "The method by which items are added to a collection."
+    },
+    {
+      "curie": "dct:accrualPeriodicity",
+      "iri": "http://purl.org/dc/terms/accrualPeriodicity",
+      "label": "Accrual Periodicity",
+      "definition": "The frequency with which items are added to a collection."
+    },
+    {
+      "curie": "dct:accrualPolicy",
+      "iri": "http://purl.org/dc/terms/accrualPolicy",
+      "label": "Accrual Policy",
+      "definition": "The policy governing the addition of items to a collection."
+    },
+    {
+      "curie": "dct:alternative",
+      "iri": "http://purl.org/dc/terms/alternative",
+      "label": "Alternative Title",
+      "definition": "An alternative name for the resource."
+    },
+    {
+      "curie": "dct:audience",
+      "iri": "http://purl.org/dc/terms/audience",
+      "label": "Audience",
+      "definition": "A class of agents for whom the resource is intended or useful."
+    },
+    {
+      "curie": "dct:available",
+      "iri": "http://purl.org/dc/terms/available",
+      "label": "Date Available",
+      "definition": "Date that the resource became or will become available."
+    },
+    {
+      "curie": "dct:bibliographicCitation",
+      "iri": "http://purl.org/dc/terms/bibliographicCitation",
+      "label": "Bibliographic Citation",
+      "definition": "A bibliographic reference for the resource."
+    },
+    {
+      "curie": "dct:conformsTo",
+      "iri": "http://purl.org/dc/terms/conformsTo",
+      "label": "Conforms To",
+      "definition": "An established standard to which the described resource conforms."
+    },
+    {
+      "curie": "dct:contributor",
+      "iri": "http://purl.org/dc/terms/contributor",
+      "label": "Contributor",
+      "definition": "An entity responsible for making contributions to the resource."
+    },
+    {
+      "curie": "dct:coverage",
+      "iri": "http://purl.org/dc/terms/coverage",
+      "label": "Coverage",
+      "definition": "The spatial or temporal topic of the resource, spatial applicability of the resource, or jurisdiction under which the resource is relevant."
+    },
+    {
+      "curie": "dct:created",
+      "iri": "http://purl.org/dc/terms/created",
+      "label": "Date Created",
+      "definition": "Date of creation of the resource."
+    },
+    {
+      "curie": "dct:creator",
+      "iri": "http://purl.org/dc/terms/creator",
+      "label": "Creator",
+      "definition": "An entity responsible for making the resource."
+    },
+    {
+      "curie": "dct:date",
+      "iri": "http://purl.org/dc/terms/date",
+      "label": "Date",
+      "definition": "A point or period of time associated with an event in the lifecycle of the resource."
+    },
+    {
+      "curie": "dct:dateAccepted",
+      "iri": "http://purl.org/dc/terms/dateAccepted",
+      "label": "Date Accepted",
+      "definition": "Date of acceptance of the resource."
+    },
+    {
+      "curie": "dct:dateCopyrighted",
+      "iri": "http://purl.org/dc/terms/dateCopyrighted",
+      "label": "Date Copyrighted",
+      "definition": "Date of copyright of the resource."
+    },
+    {
+      "curie": "dct:dateSubmitted",
+      "iri": "http://purl.org/dc/terms/dateSubmitted",
+      "label": "Date Submitted",
+      "definition": "Date of submission of the resource."
+    },
+    {
+      "curie": "dct:description",
+      "iri": "http://purl.org/dc/terms/description",
+      "label": "Description",
+      "definition": "An account of the resource."
+    },
+    {
+      "curie": "dct:educationLevel",
+      "iri": "http://purl.org/dc/terms/educationLevel",
+      "label": "Audience Education Level",
+      "definition": "A class of agents, defined in terms of progression through an educational or training context, for which the described resource is intended."
+    },
+    {
+      "curie": "dct:extent",
+      "iri": "http://purl.org/dc/terms/extent",
+      "label": "Extent",
+      "definition": "The size or duration of the resource."
+    },
+    {
+      "curie": "dct:format",
+      "iri": "http://purl.org/dc/terms/format",
+      "label": "Format",
+      "definition": "The file format, physical medium, or dimensions of the resource."
+    },
+    {
+      "curie": "dct:hasFormat",
+      "iri": "http://purl.org/dc/terms/hasFormat",
+      "label": "Has Format",
+      "definition": "A related resource that is substantially the same as the pre-existing described resource, but in another format."
+    },
+    {
+      "curie": "dct:hasPart",
+      "iri": "http://purl.org/dc/terms/hasPart",
+      "label": "Has Part",
+      "definition": "A related resource that is included either physically or logically in the described resource."
+    },
+    {
+      "curie": "dct:hasVersion",
+      "iri": "http://purl.org/dc/terms/hasVersion",
+      "label": "Has Version",
+      "definition": "A related resource that is a version, edition, or adaptation of the described resource."
+    },
+    {
+      "curie": "dct:identifier",
+      "iri": "http://purl.org/dc/terms/identifier",
+      "label": "Identifier",
+      "definition": "An unambiguous reference to the resource within a given context."
+    },
+    {
+      "curie": "dct:instructionalMethod",
+      "iri": "http://purl.org/dc/terms/instructionalMethod",
+      "label": "Instructional Method",
+      "definition": "A process, used to engender knowledge, attitudes and skills, that the described resource is designed to support."
+    },
+    {
+      "curie": "dct:isFormatOf",
+      "iri": "http://purl.org/dc/terms/isFormatOf",
+      "label": "Is Format Of",
+      "definition": "A pre-existing related resource that is substantially the same as the described resource, but in another format."
+    },
+    {
+      "curie": "dct:isPartOf",
+      "iri": "http://purl.org/dc/terms/isPartOf",
+      "label": "Is Part Of",
+      "definition": "A related resource in which the described resource is physically or logically included."
+    },
+    {
+      "curie": "dct:isReferencedBy",
+      "iri": "http://purl.org/dc/terms/isReferencedBy",
+      "label": "Is Referenced By",
+      "definition": "A related resource that references, cites, or otherwise points to the described resource."
+    },
+    {
+      "curie": "dct:isReplacedBy",
+      "iri": "http://purl.org/dc/terms/isReplacedBy",
+      "label": "Is Replaced By",
+      "definition": "A related resource that supplants, displaces, or supersedes the described resource."
+    },
+    {
+      "curie": "dct:isRequiredBy",
+      "iri": "http://purl.org/dc/terms/isRequiredBy",
+      "label": "Is Required By",
+      "definition": "A related resource that requires the described resource to support its function, delivery, or coherence."
+    },
+    {
+      "curie": "dct:isVersionOf",
+      "iri": "http://purl.org/dc/terms/isVersionOf",
+      "label": "Is Version Of",
+      "definition": "A related resource of which the described resource is a version, edition, or adaptation."
+    },
+    {
+      "curie": "dct:issued",
+      "iri": "http://purl.org/dc/terms/issued",
+      "label": "Date Issued",
+      "definition": "Date of formal issuance of the resource."
+    },
+    {
+      "curie": "dct:language",
+      "iri": "http://purl.org/dc/terms/language",
+      "label": "Language",
+      "definition": "A language of the resource."
+    },
+    {
+      "curie": "dct:license",
+      "iri": "http://purl.org/dc/terms/license",
+      "label": "License",
+      "definition": "A legal document giving official permission to do something with the resource."
+    },
+    {
+      "curie": "dct:mediator",
+      "iri": "http://purl.org/dc/terms/mediator",
+      "label": "Mediator",
+      "definition": "An entity that mediates access to the resource."
+    },
+    {
+      "curie": "dct:medium",
+      "iri": "http://purl.org/dc/terms/medium",
+      "label": "Medium",
+      "definition": "The material or physical carrier of the resource."
+    },
+    {
+      "curie": "dct:modified",
+      "iri": "http://purl.org/dc/terms/modified",
+      "label": "Date Modified",
+      "definition": "Date on which the resource was changed."
+    },
+    {
+      "curie": "dct:provenance",
+      "iri": "http://purl.org/dc/terms/provenance",
+      "label": "Provenance",
+      "definition": "A statement of any changes in ownership and custody of the resource since its creation that are significant for its authenticity, integrity, and interpretation."
+    },
+    {
+      "curie": "dct:publisher",
+      "iri": "http://purl.org/dc/terms/publisher",
+      "label": "Publisher",
+      "definition": "An entity responsible for making the resource available."
+    },
+    {
+      "curie": "dct:references",
+      "iri": "http://purl.org/dc/terms/references",
+      "label": "References",
+      "definition": "A related resource that is referenced, cited, or otherwise pointed to by the described resource."
+    },
+    {
+      "curie": "dct:relation",
+      "iri": "http://purl.org/dc/terms/relation",
+      "label": "Relation",
+      "definition": "A related resource."
+    },
+    {
+      "curie": "dct:replaces",
+      "iri": "http://purl.org/dc/terms/replaces",
+      "label": "Replaces",
+      "definition": "A related resource that is supplanted, displaced, or superseded by the described resource."
+    },
+    {
+      "curie": "dct:requires",
+      "iri": "http://purl.org/dc/terms/requires",
+      "label": "Requires",
+      "definition": "A related resource that is required by the described resource to support its function, delivery, or coherence."
+    },
+    {
+      "curie": "dct:rights",
+      "iri": "http://purl.org/dc/terms/rights",
+      "label": "Rights",
+      "definition": "Information about rights held in and over the resource."
+    },
+    {
+      "curie": "dct:rightsHolder",
+      "iri": "http://purl.org/dc/terms/rightsHolder",
+      "label": "Rights Holder",
+      "definition": "A person or organization owning or managing rights over the resource."
+    },
+    {
+      "curie": "dct:source",
+      "iri": "http://purl.org/dc/terms/source",
+      "label": "Source",
+      "definition": "A related resource from which the described resource is derived."
+    },
+    {
+      "curie": "dct:spatial",
+      "iri": "http://purl.org/dc/terms/spatial",
+      "label": "Spatial Coverage",
+      "definition": "Spatial characteristics of the resource."
+    },
+    {
+      "curie": "dct:subject",
+      "iri": "http://purl.org/dc/terms/subject",
+      "label": "Subject",
+      "definition": "A topic of the resource."
+    },
+    {
+      "curie": "dct:tableOfContents",
+      "iri": "http://purl.org/dc/terms/tableOfContents",
+      "label": "Table Of Contents",
+      "definition": "A list of subunits of the resource."
+    },
+    {
+      "curie": "dct:temporal",
+      "iri": "http://purl.org/dc/terms/temporal",
+      "label": "Temporal Coverage",
+      "definition": "Temporal characteristics of the resource."
+    },
+    {
+      "curie": "dct:title",
+      "iri": "http://purl.org/dc/terms/title",
+      "label": "Title",
+      "definition": "A name given to the resource."
+    },
+    {
+      "curie": "dct:type",
+      "iri": "http://purl.org/dc/terms/type",
+      "label": "Type",
+      "definition": "The nature or genre of the resource."
+    },
+    {
+      "curie": "dct:valid",
+      "iri": "http://purl.org/dc/terms/valid",
+      "label": "Date Valid",
+      "definition": "Date (often a range) of validity of a resource."
+    }
+  ]
+}
