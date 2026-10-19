@@ -2216,6 +2216,9 @@ docs = [
     { name = "mike" },
     { name = "mkdocs-material" },
 ]
+vocab = [
+    { name = "rdflib" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2258,6 +2261,7 @@ docs = [
     { name = "mike", specifier = ">=2.1.0" },
     { name = "mkdocs-material", specifier = ">=9.5.0" },
 ]
+vocab = [{ name = "rdflib", specifier = ">=7.0" }]
 
 [[package]]
 name = "tabulate"

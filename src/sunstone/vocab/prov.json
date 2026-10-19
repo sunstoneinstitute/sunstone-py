@@ -1,0 +1,397 @@
+{
+  "prefix": "prov",
+  "namespace": "http://www.w3.org/ns/prov#",
+  "source": "https://www.w3.org/ns/prov-o.ttl",
+  "terms": [
+    {
+      "curie": "prov:actedOnBehalfOf",
+      "iri": "http://www.w3.org/ns/prov#actedOnBehalfOf",
+      "label": "actedOnBehalfOf",
+      "definition": "An object property to express the accountability of an agent towards another agent. The subordinate agent acted on behalf of the responsible agent in an actual activity."
+    },
+    {
+      "curie": "prov:activity",
+      "iri": "http://www.w3.org/ns/prov#activity",
+      "label": "activity",
+      "definition": ""
+    },
+    {
+      "curie": "prov:agent",
+      "iri": "http://www.w3.org/ns/prov#agent",
+      "label": "agent",
+      "definition": ""
+    },
+    {
+      "curie": "prov:alternateOf",
+      "iri": "http://www.w3.org/ns/prov#alternateOf",
+      "label": "alternateOf",
+      "definition": ""
+    },
+    {
+      "curie": "prov:aq",
+      "iri": "http://www.w3.org/ns/prov#aq",
+      "label": "",
+      "definition": ""
+    },
+    {
+      "curie": "prov:atLocation",
+      "iri": "http://www.w3.org/ns/prov#atLocation",
+      "label": "atLocation",
+      "definition": "The Location of any resource."
+    },
+    {
+      "curie": "prov:atTime",
+      "iri": "http://www.w3.org/ns/prov#atTime",
+      "label": "atTime",
+      "definition": "The time at which an InstantaneousEvent occurred, in the form of xsd:dateTime."
+    },
+    {
+      "curie": "prov:category",
+      "iri": "http://www.w3.org/ns/prov#category",
+      "label": "",
+      "definition": "Classify prov-o terms into three categories, including 'starting-point', 'qualifed', and 'extended'. This classification is used by the prov-o html document to gently introduce prov-o terms to its users."
+    },
+    {
+      "curie": "prov:component",
+      "iri": "http://www.w3.org/ns/prov#component",
+      "label": "",
+      "definition": "Classify prov-o terms into six components according to prov-dm, including 'agents-responsibility', 'alternate', 'annotations', 'collections', 'derivations', and 'entities-activities'. This classification is used so that readers of prov-o specification can find its correspondence with the prov-dm specification."
+    },
+    {
+      "curie": "prov:constraints",
+      "iri": "http://www.w3.org/ns/prov#constraints",
+      "label": "",
+      "definition": "A reference to the principal section of the PROV-CONSTRAINTS document that describes this concept."
+    },
+    {
+      "curie": "prov:definition",
+      "iri": "http://www.w3.org/ns/prov#definition",
+      "label": "",
+      "definition": "A definition quoted from PROV-DM or PROV-CONSTRAINTS that describes the concept expressed with this OWL term."
+    },
+    {
+      "curie": "prov:dm",
+      "iri": "http://www.w3.org/ns/prov#dm",
+      "label": "",
+      "definition": "A reference to the principal section of the PROV-DM document that describes this concept."
+    },
+    {
+      "curie": "prov:editorialNote",
+      "iri": "http://www.w3.org/ns/prov#editorialNote",
+      "label": "",
+      "definition": "A note by the OWL development team about how this term expresses the PROV-DM concept, or how it should be used in context of semantic web or linked data."
+    },
+    {
+      "curie": "prov:editorsDefinition",
+      "iri": "http://www.w3.org/ns/prov#editorsDefinition",
+      "label": "",
+      "definition": "When the prov-o term does not have a definition drawn from prov-dm, and the prov-o editor provides one."
+    },
+    {
+      "curie": "prov:endedAtTime",
+      "iri": "http://www.w3.org/ns/prov#endedAtTime",
+      "label": "endedAtTime",
+      "definition": "The time at which an activity ended. See also prov:startedAtTime."
+    },
+    {
+      "curie": "prov:entity",
+      "iri": "http://www.w3.org/ns/prov#entity",
+      "label": "entity",
+      "definition": ""
+    },
+    {
+      "curie": "prov:generated",
+      "iri": "http://www.w3.org/ns/prov#generated",
+      "label": "generated",
+      "definition": ""
+    },
+    {
+      "curie": "prov:generatedAtTime",
+      "iri": "http://www.w3.org/ns/prov#generatedAtTime",
+      "label": "generatedAtTime",
+      "definition": "The time at which an entity was completely created and is available for use."
+    },
+    {
+      "curie": "prov:hadActivity",
+      "iri": "http://www.w3.org/ns/prov#hadActivity",
+      "label": "hadActivity",
+      "definition": "The _optional_ Activity of an Influence, which used, generated, invalidated, or was the responsibility of some Entity. This property is _not_ used by ActivityInfluence (use prov:activity instead)."
+    },
+    {
+      "curie": "prov:hadGeneration",
+      "iri": "http://www.w3.org/ns/prov#hadGeneration",
+      "label": "hadGeneration",
+      "definition": "The _optional_ Generation involved in an Entity's Derivation."
+    },
+    {
+      "curie": "prov:hadMember",
+      "iri": "http://www.w3.org/ns/prov#hadMember",
+      "label": "hadMember",
+      "definition": ""
+    },
+    {
+      "curie": "prov:hadPlan",
+      "iri": "http://www.w3.org/ns/prov#hadPlan",
+      "label": "hadPlan",
+      "definition": "The _optional_ Plan adopted by an Agent in Association with some Activity. Plan specifications are out of the scope of this specification."
+    },
+    {
+      "curie": "prov:hadPrimarySource",
+      "iri": "http://www.w3.org/ns/prov#hadPrimarySource",
+      "label": "hadPrimarySource",
+      "definition": ""
+    },
+    {
+      "curie": "prov:hadRole",
+      "iri": "http://www.w3.org/ns/prov#hadRole",
+      "label": "hadRole",
+      "definition": "The _optional_ Role that an Entity assumed in the context of an Activity. For example, :baking prov:used :spoon; prov:qualified [ a prov:Usage; prov:entity :spoon; prov:hadRole roles:mixing_implement ]."
+    },
+    {
+      "curie": "prov:hadUsage",
+      "iri": "http://www.w3.org/ns/prov#hadUsage",
+      "label": "hadUsage",
+      "definition": "The _optional_ Usage involved in an Entity's Derivation."
+    },
+    {
+      "curie": "prov:influenced",
+      "iri": "http://www.w3.org/ns/prov#influenced",
+      "label": "influenced",
+      "definition": ""
+    },
+    {
+      "curie": "prov:influencer",
+      "iri": "http://www.w3.org/ns/prov#influencer",
+      "label": "influencer",
+      "definition": "Subproperties of prov:influencer are used to cite the object of an unqualified PROV-O triple whose predicate is a subproperty of prov:wasInfluencedBy (e.g. prov:used, prov:wasGeneratedBy). prov:influencer is used much like rdf:object is used."
+    },
+    {
+      "curie": "prov:invalidated",
+      "iri": "http://www.w3.org/ns/prov#invalidated",
+      "label": "invalidated",
+      "definition": ""
+    },
+    {
+      "curie": "prov:invalidatedAtTime",
+      "iri": "http://www.w3.org/ns/prov#invalidatedAtTime",
+      "label": "invalidatedAtTime",
+      "definition": "The time at which an entity was invalidated (i.e., no longer usable)."
+    },
+    {
+      "curie": "prov:inverse",
+      "iri": "http://www.w3.org/ns/prov#inverse",
+      "label": "",
+      "definition": "PROV-O does not define all property inverses. The directionalities defined in PROV-O should be given preference over those not defined. However, if users wish to name the inverse of a PROV-O property, the local name given by prov:inverse should be used."
+    },
+    {
+      "curie": "prov:n",
+      "iri": "http://www.w3.org/ns/prov#n",
+      "label": "",
+      "definition": "A reference to the principal section of the PROV-DM document that describes this concept."
+    },
+    {
+      "curie": "prov:order",
+      "iri": "http://www.w3.org/ns/prov#order",
+      "label": "",
+      "definition": "The position that this OWL term should be listed within documentation. The scope of the documentation (e.g., among all terms, among terms within a prov:category, among properties applying to a particular class, etc.) is unspecified."
+    },
+    {
+      "curie": "prov:qualifiedAssociation",
+      "iri": "http://www.w3.org/ns/prov#qualifiedAssociation",
+      "label": "qualifiedAssociation",
+      "definition": "If this Activity prov:wasAssociatedWith Agent :ag, then it can qualify the Association using prov:qualifiedAssociation [ a prov:Association; prov:agent :ag; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedAttribution",
+      "iri": "http://www.w3.org/ns/prov#qualifiedAttribution",
+      "label": "qualifiedAttribution",
+      "definition": "If this Entity prov:wasAttributedTo Agent :ag, then it can qualify how it was influenced using prov:qualifiedAttribution [ a prov:Attribution; prov:agent :ag; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedCommunication",
+      "iri": "http://www.w3.org/ns/prov#qualifiedCommunication",
+      "label": "qualifiedCommunication",
+      "definition": "If this Activity prov:wasInformedBy Activity :a, then it can qualify how it was influenced using prov:qualifiedCommunication [ a prov:Communication; prov:activity :a; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedDelegation",
+      "iri": "http://www.w3.org/ns/prov#qualifiedDelegation",
+      "label": "qualifiedDelegation",
+      "definition": "If this Agent prov:actedOnBehalfOf Agent :ag, then it can qualify how with prov:qualifiedResponsibility [ a prov:Responsibility; prov:agent :ag; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedDerivation",
+      "iri": "http://www.w3.org/ns/prov#qualifiedDerivation",
+      "label": "qualifiedDerivation",
+      "definition": "If this Entity prov:wasDerivedFrom Entity :e, then it can qualify how it was derived using prov:qualifiedDerivation [ a prov:Derivation; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedEnd",
+      "iri": "http://www.w3.org/ns/prov#qualifiedEnd",
+      "label": "qualifiedEnd",
+      "definition": "If this Activity prov:wasEndedBy Entity :e1, then it can qualify how it was ended using prov:qualifiedEnd [ a prov:End; prov:entity :e1; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedForm",
+      "iri": "http://www.w3.org/ns/prov#qualifiedForm",
+      "label": "",
+      "definition": "This annotation property links a subproperty of prov:wasInfluencedBy with the subclass of prov:Influence and the qualifying property that are used to qualify it. Example annotation: prov:wasGeneratedBy prov:qualifiedForm prov:qualifiedGeneration, prov:Generation . Then this unqualified assertion: :entity1 prov:wasGeneratedBy :activity1 . can be qualified by adding: :entity1 prov:qualifiedGeneration :entity1Gen . :entity1Gen a prov:Generation, prov:Influence; prov:activity :activity1; :customValue 1337 . Note how the value of the unqualified influence (prov:wasGeneratedBy :activity1) is mirrored as the value of the prov:activity (or prov:entity, or prov:agent) property on the influence class."
+    },
+    {
+      "curie": "prov:qualifiedGeneration",
+      "iri": "http://www.w3.org/ns/prov#qualifiedGeneration",
+      "label": "qualifiedGeneration",
+      "definition": "If this Activity prov:generated Entity :e, then it can qualify how it performed the Generation using prov:qualifiedGeneration [ a prov:Generation; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedInfluence",
+      "iri": "http://www.w3.org/ns/prov#qualifiedInfluence",
+      "label": "qualifiedInfluence",
+      "definition": "Because prov:qualifiedInfluence is a broad relation, the more specific relations (qualifiedCommunication, qualifiedDelegation, qualifiedEnd, etc.) should be used when applicable."
+    },
+    {
+      "curie": "prov:qualifiedInvalidation",
+      "iri": "http://www.w3.org/ns/prov#qualifiedInvalidation",
+      "label": "qualifiedInvalidation",
+      "definition": "If this Entity prov:wasInvalidatedBy Activity :a, then it can qualify how it was invalidated using prov:qualifiedInvalidation [ a prov:Invalidation; prov:activity :a; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedPrimarySource",
+      "iri": "http://www.w3.org/ns/prov#qualifiedPrimarySource",
+      "label": "qualifiedPrimarySource",
+      "definition": "If this Entity prov:hadPrimarySource Entity :e, then it can qualify how using prov:qualifiedPrimarySource [ a prov:PrimarySource; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedQuotation",
+      "iri": "http://www.w3.org/ns/prov#qualifiedQuotation",
+      "label": "qualifiedQuotation",
+      "definition": "If this Entity prov:wasQuotedFrom Entity :e, then it can qualify how using prov:qualifiedQuotation [ a prov:Quotation; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedRevision",
+      "iri": "http://www.w3.org/ns/prov#qualifiedRevision",
+      "label": "qualifiedRevision",
+      "definition": "If this Entity prov:wasRevisionOf Entity :e, then it can qualify how it was revised using prov:qualifiedRevision [ a prov:Revision; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedStart",
+      "iri": "http://www.w3.org/ns/prov#qualifiedStart",
+      "label": "qualifiedStart",
+      "definition": "If this Activity prov:wasStartedBy Entity :e1, then it can qualify how it was started using prov:qualifiedStart [ a prov:Start; prov:entity :e1; :foo :bar ]."
+    },
+    {
+      "curie": "prov:qualifiedUsage",
+      "iri": "http://www.w3.org/ns/prov#qualifiedUsage",
+      "label": "qualifiedUsage",
+      "definition": "If this Activity prov:used Entity :e, then it can qualify how it used it using prov:qualifiedUsage [ a prov:Usage; prov:entity :e; :foo :bar ]."
+    },
+    {
+      "curie": "prov:sharesDefinitionWith",
+      "iri": "http://www.w3.org/ns/prov#sharesDefinitionWith",
+      "label": "",
+      "definition": ""
+    },
+    {
+      "curie": "prov:specializationOf",
+      "iri": "http://www.w3.org/ns/prov#specializationOf",
+      "label": "specializationOf",
+      "definition": ""
+    },
+    {
+      "curie": "prov:startedAtTime",
+      "iri": "http://www.w3.org/ns/prov#startedAtTime",
+      "label": "startedAtTime",
+      "definition": "The time at which an activity started. See also prov:endedAtTime."
+    },
+    {
+      "curie": "prov:todo",
+      "iri": "http://www.w3.org/ns/prov#todo",
+      "label": "",
+      "definition": ""
+    },
+    {
+      "curie": "prov:unqualifiedForm",
+      "iri": "http://www.w3.org/ns/prov#unqualifiedForm",
+      "label": "",
+      "definition": "Classes and properties used to qualify relationships are annotated with prov:unqualifiedForm to indicate the property used to assert an unqualified provenance relation."
+    },
+    {
+      "curie": "prov:used",
+      "iri": "http://www.w3.org/ns/prov#used",
+      "label": "used",
+      "definition": "A prov:Entity that was used by this prov:Activity. For example, :baking prov:used :spoon, :egg, :oven ."
+    },
+    {
+      "curie": "prov:value",
+      "iri": "http://www.w3.org/ns/prov#value",
+      "label": "value",
+      "definition": ""
+    },
+    {
+      "curie": "prov:wasAssociatedWith",
+      "iri": "http://www.w3.org/ns/prov#wasAssociatedWith",
+      "label": "wasAssociatedWith",
+      "definition": "An prov:Agent that had some (unspecified) responsibility for the occurrence of this prov:Activity."
+    },
+    {
+      "curie": "prov:wasAttributedTo",
+      "iri": "http://www.w3.org/ns/prov#wasAttributedTo",
+      "label": "wasAttributedTo",
+      "definition": "Attribution is the ascribing of an entity to an agent."
+    },
+    {
+      "curie": "prov:wasDerivedFrom",
+      "iri": "http://www.w3.org/ns/prov#wasDerivedFrom",
+      "label": "wasDerivedFrom",
+      "definition": "The more specific subproperties of prov:wasDerivedFrom (i.e., prov:wasQuotedFrom, prov:wasRevisionOf, prov:hadPrimarySource) should be used when applicable."
+    },
+    {
+      "curie": "prov:wasEndedBy",
+      "iri": "http://www.w3.org/ns/prov#wasEndedBy",
+      "label": "wasEndedBy",
+      "definition": "End is when an activity is deemed to have ended. An end may refer to an entity, known as trigger, that terminated the activity."
+    },
+    {
+      "curie": "prov:wasGeneratedBy",
+      "iri": "http://www.w3.org/ns/prov#wasGeneratedBy",
+      "label": "wasGeneratedBy",
+      "definition": ""
+    },
+    {
+      "curie": "prov:wasInfluencedBy",
+      "iri": "http://www.w3.org/ns/prov#wasInfluencedBy",
+      "label": "wasInfluencedBy",
+      "definition": "Because prov:wasInfluencedBy is a broad relation, its more specific subproperties (e.g. prov:wasInformedBy, prov:actedOnBehalfOf, prov:wasEndedBy, etc.) should be used when applicable."
+    },
+    {
+      "curie": "prov:wasInformedBy",
+      "iri": "http://www.w3.org/ns/prov#wasInformedBy",
+      "label": "wasInformedBy",
+      "definition": "An activity a2 is dependent on or informed by another activity a1, by way of some unspecified entity that is generated by a1 and used by a2."
+    },
+    {
+      "curie": "prov:wasInvalidatedBy",
+      "iri": "http://www.w3.org/ns/prov#wasInvalidatedBy",
+      "label": "wasInvalidatedBy",
+      "definition": ""
+    },
+    {
+      "curie": "prov:wasQuotedFrom",
+      "iri": "http://www.w3.org/ns/prov#wasQuotedFrom",
+      "label": "wasQuotedFrom",
+      "definition": "An entity is derived from an original entity by copying, or 'quoting', some or all of it."
+    },
+    {
+      "curie": "prov:wasRevisionOf",
+      "iri": "http://www.w3.org/ns/prov#wasRevisionOf",
+      "label": "wasRevisionOf",
+      "definition": "A revision is a derivation that revises an entity into a revised version."
+    },
+    {
+      "curie": "prov:wasStartedBy",
+      "iri": "http://www.w3.org/ns/prov#wasStartedBy",
+      "label": "wasStartedBy",
+      "definition": "Start is when an activity is deemed to have started. A start may refer to an entity, known as trigger, that initiated the activity."
+    }
+  ]
+}

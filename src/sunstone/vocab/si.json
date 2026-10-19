@@ -1,0 +1,121 @@
+{
+  "prefix": "si",
+  "namespace": "https://sunstone.institute/rdf/vocab#",
+  "source": "rdf/vocab.ttl",
+  "terms": [
+    {
+      "curie": "si:addressesThreat",
+      "iri": "https://sunstone.institute/rdf/vocab#addressesThreat",
+      "label": "Addresses threat",
+      "definition": "Indicates that a dataset contains data relevant to studying, monitoring, or addressing this specific threat to humanity"
+    },
+    {
+      "curie": "si:dataHash",
+      "iri": "https://sunstone.institute/rdf/vocab#dataHash",
+      "label": "Data hash",
+      "definition": "Content hash of the dataset, prefixed with the algorithm (e.g. sha256-...)"
+    },
+    {
+      "curie": "si:fields",
+      "iri": "https://sunstone.institute/rdf/vocab#fields",
+      "label": "Field metadata",
+      "definition": "Map of column names to field-level metadata (type, unit, provenance)"
+    },
+    {
+      "curie": "si:mappingConfidence",
+      "iri": "https://sunstone.institute/rdf/vocab#mappingConfidence",
+      "label": "Mapping confidence",
+      "definition": "Confidence in a SKOS crosswalk mapping, expressed as a decimal in [0,1]. Per ADR 0001 this property annotates the RDF 1.2 triple term << s p o >> standing for a skos:mappingRelation edge (skos:exactMatch / skos:closeMatch / skos:broadMatch / skos:narrowMatch / skos:relatedMatch), not the subject or object concept. It deliberately carries no rdfs:domain: a domain (such as the former skos:Mapping) would make a reasoner mis-type the triple term as an instance of that class. The [0,1] bound is enforced by the SHACL gate (#14, shapes/crosswalk-confidence.shacl.ttl), not by rdfs:range, because the registry validator requires an XSD range on datatype properties; the formal range is therefore xsd:decimal. The legacy skos:Mapping reification node remains a valid alternative target for any consumer that needs a first-class mapping resource, but the triple-term form is canonical."
+    },
+    {
+      "curie": "si:mappingMethod",
+      "iri": "https://sunstone.institute/rdf/vocab#mappingMethod",
+      "label": "Mapping method",
+      "definition": "The method used to derive a SKOS crosswalk mapping. Per ADR 0001 this annotates the RDF 1.2 triple term over a skos:mappingRelation edge; it carries no rdfs:domain so it does not mis-type the triple term. (Legacy skos:Mapping reification remains a valid alternative target.)"
+    },
+    {
+      "curie": "si:mappingRationale",
+      "iri": "https://sunstone.institute/rdf/vocab#mappingRationale",
+      "label": "Mapping rationale",
+      "definition": "Explanation of why a SKOS crosswalk mapping is appropriate, or evidence supporting it. Per ADR 0001 this annotates the RDF 1.2 triple term over a skos:mappingRelation edge; it carries no rdfs:domain so it does not mis-type the triple term. (Legacy skos:Mapping reification remains a valid alternative target.)"
+    },
+    {
+      "curie": "si:mappingStatus",
+      "iri": "https://sunstone.institute/rdf/vocab#mappingStatus",
+      "label": "Mapping status",
+      "definition": "Review status of a SKOS crosswalk mapping (pending, approved, rejected, conflicting). Per ADR 0001 this annotates the RDF 1.2 triple term over a skos:mappingRelation edge; it carries no rdfs:domain so it does not mis-type the triple term. (Legacy skos:Mapping reification remains a valid alternative target.)"
+    },
+    {
+      "curie": "si:methodology",
+      "iri": "https://sunstone.institute/rdf/vocab#methodology",
+      "label": "methodology",
+      "definition": "Link to methodology documentation"
+    },
+    {
+      "curie": "si:mitigatesThreat",
+      "iri": "https://sunstone.institute/rdf/vocab#mitigatesThreat",
+      "label": "Mitigates threat",
+      "definition": "Indicates that a dataset contains data about solutions, interventions, or actions that help mitigate this threat"
+    },
+    {
+      "curie": "si:monitorsThreat",
+      "iri": "https://sunstone.institute/rdf/vocab#monitorsThreat",
+      "label": "Monitors threat",
+      "definition": "Indicates that a dataset contains tracking or measurement data monitoring this threat over time"
+    },
+    {
+      "curie": "si:relatedToThreat",
+      "iri": "https://sunstone.institute/rdf/vocab#relatedToThreat",
+      "label": "Related to threat",
+      "definition": "General relationship indicating that a dataset has some relevance to this threat"
+    },
+    {
+      "curie": "si:reviewNote",
+      "iri": "https://sunstone.institute/rdf/vocab#reviewNote",
+      "label": "Review note",
+      "definition": "Reviewer comments on a SKOS crosswalk mapping. Per ADR 0001 this annotates the RDF 1.2 triple term over a skos:mappingRelation edge; it carries no rdfs:domain so it does not mis-type the triple term. (Legacy skos:Mapping reification remains a valid alternative target.)"
+    },
+    {
+      "curie": "si:searchQuery",
+      "iri": "https://sunstone.institute/rdf/vocab#searchQuery",
+      "label": "Search query",
+      "definition": "Example search query or keywords useful for finding relevant content for this topic"
+    },
+    {
+      "curie": "si:sourceField",
+      "iri": "https://sunstone.institute/rdf/vocab#sourceField",
+      "label": "Source field",
+      "definition": "Name of the field in the source entity from which this field was derived"
+    },
+    {
+      "curie": "si:studiesThreat",
+      "iri": "https://sunstone.institute/rdf/vocab#studiesThreat",
+      "label": "Studies threat",
+      "definition": "Indicates that a dataset contains research data specifically studying this threat"
+    },
+    {
+      "curie": "si:threatGroup",
+      "iri": "https://sunstone.institute/rdf/vocab#threatGroup",
+      "label": "Threat group",
+      "definition": "The high-level threat group this category belongs to (Environment, Health, Conflicts, Democracy, Education)"
+    },
+    {
+      "curie": "si:type",
+      "iri": "https://sunstone.institute/rdf/vocab#type",
+      "label": "Field type",
+      "definition": "Data type of the field (e.g. string, integer, float)"
+    },
+    {
+      "curie": "si:unit",
+      "iri": "https://sunstone.institute/rdf/vocab#unit",
+      "label": "Unit",
+      "definition": "Unit of measurement for a field value"
+    },
+    {
+      "curie": "si:version",
+      "iri": "https://sunstone.institute/rdf/vocab#version",
+      "label": "Metadata version",
+      "definition": "Version of the metadata serialization schema"
+    }
+  ]
+}

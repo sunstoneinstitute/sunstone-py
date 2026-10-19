@@ -1,0 +1,237 @@
+{
+  "profile": "https://datapackage.org/profiles/2.0/datapackage.json",
+  "profiles": {
+    "package": "https://datapackage.org/profiles/2.0/datapackage.json",
+    "resource": "https://datapackage.org/profiles/2.0/dataresource.json",
+    "schema": "https://datapackage.org/profiles/2.0/tableschema.json",
+    "dialect": "https://datapackage.org/profiles/2.0/tabledialect.json"
+  },
+  "dp": {
+    "package": {
+      "$schema": "Profile URL of this descriptor",
+      "contributors": "People or organizations who contributed (list)",
+      "created": "Creation datetime, ISO 8601",
+      "description": "Description, Markdown allowed",
+      "homepage": "Home page URL",
+      "id": "Globally unique identifier (UUID or DOI)",
+      "image": "Representative image URL",
+      "keywords": "Keywords for discovery (list of strings)",
+      "licenses": "Licenses (list of {name, path, title})",
+      "name": "Identifier, lowercase kebab-case",
+      "resources": "Resources in this package (list)",
+      "sources": "Raw sources (list of {title, path, email, version})",
+      "title": "Human-readable title",
+      "version": "Version, semver recommended"
+    },
+    "resource": {
+      "$schema": "Profile URL of this resource",
+      "bytes": "Size of the file in bytes",
+      "data": "Inline data instead of path",
+      "description": "Description, Markdown allowed",
+      "dialect": "Table dialect (delimiter, quoteChar, header, ...)",
+      "encoding": "Character encoding (utf-8)",
+      "format": "File format (csv, json, parquet, ...)",
+      "hash": "Content hash (sha256:...)",
+      "homepage": "Home page URL",
+      "licenses": "Licenses (list of {name, path, title})",
+      "mediatype": "Media type (text/csv)",
+      "name": "Identifier, lowercase kebab-case",
+      "path": "File path relative to the descriptor, or URL",
+      "schema": "Table schema (fields, primaryKey, ...)",
+      "sources": "Raw sources (list of {title, path, email, version})",
+      "title": "Human-readable title",
+      "type": "Resource type (table)"
+    },
+    "schema": {
+      "$schema": "Profile URL of this schema",
+      "fields": "Field descriptors (list)",
+      "fieldsMatch": "How declared fields match data columns (exact, equal, subset, superset, partial)",
+      "foreignKeys": "Foreign key constraints (list)",
+      "missingValues": "Strings that mean missing (list)",
+      "primaryKey": "Field name or list of field names identifying a row",
+      "uniqueKeys": "Unique key constraints (list of lists)"
+    },
+    "field": {
+      "bareNumber": "Whether numbers have no currency or unit symbols",
+      "categories": "Allowed category values for categorical fields",
+      "categoriesOrdered": "Whether categories are ordered",
+      "constraints": "Value constraints (required, enum, minimum, ...)",
+      "decimalChar": "Decimal separator character",
+      "description": "Human-readable description of the field",
+      "example": "Example value",
+      "falseValues": "Strings parsed as false",
+      "format": "Type-specific format (default, email, uri, ...)",
+      "groupChar": "Thousands grouping character",
+      "missingValues": "Strings that mean missing for this field",
+      "name": "Column name as it appears in the data",
+      "rdfType": "RDF class IRI of the values",
+      "title": "Human-readable label",
+      "trueValues": "Strings parsed as true",
+      "type": "Value type (string, integer, number, boolean, date, ...)"
+    },
+    "constraints": {
+      "enum": "Allowed values",
+      "exclusiveMaximum": "Values must be below this",
+      "exclusiveMinimum": "Values must be above this",
+      "jsonSchema": "JSON Schema for object or array values",
+      "maxLength": "Maximum string length",
+      "maximum": "Maximum value",
+      "minLength": "Minimum string length",
+      "minimum": "Minimum value",
+      "pattern": "Regular expression values must match",
+      "required": "Whether a value is required",
+      "unique": "Whether values must be unique"
+    },
+    "source": {
+      "email": "Contact email for the source",
+      "path": "URL of the source",
+      "title": "Human-readable title of the source",
+      "version": "Version of the source"
+    },
+    "contributor": {
+      "email": "Contact email",
+      "familyName": "Family name",
+      "givenName": "Given name",
+      "organization": "Organization the contributor belongs to",
+      "path": "URL of the contributor",
+      "roles": "Roles (list, e.g. creator, publisher)",
+      "title": "Name of the contributor"
+    },
+    "license": {
+      "name": "SPDX license identifier",
+      "path": "URL of the license text",
+      "title": "Human-readable license title"
+    },
+    "dialect": {
+      "$schema": "Profile URL of this dialect",
+      "commentChar": "Character that starts a comment line",
+      "commentRows": "Row numbers to skip as comments",
+      "delimiter": "Field delimiter",
+      "doubleQuote": "Whether a quote inside a field is doubled",
+      "escapeChar": "Escape character",
+      "header": "Whether the file has a header row",
+      "headerJoin": "Separator when joining multiple header rows",
+      "headerRows": "Row numbers that form the header",
+      "itemKeys": "Keys to read from each item (JSON)",
+      "itemType": "Item type (array or object)",
+      "lineTerminator": "Line terminator",
+      "nullSequence": "String that means null",
+      "property": "Property holding the data (JSON)",
+      "quoteChar": "Quote character",
+      "sheetName": "Sheet name (spreadsheets)",
+      "sheetNumber": "Sheet number (spreadsheets)",
+      "skipInitialSpace": "Whether to skip whitespace after a delimiter",
+      "table": "Table name (databases)"
+    }
+  },
+  "config": {
+    "document": {
+      "include": "YAML files whose inputs, outputs and packages are merged in",
+      "defaults": "Values applied to every dataset (rdfPrefixes and RDF properties)",
+      "rdfPrefixes": "Prefix to namespace map",
+      "package": "Single package metadata",
+      "packages": "Package definitions (list)",
+      "publish": "Publish destination for the single package",
+      "lint": "Lint configuration (disable)",
+      "plugins": "Per-plugin configuration, keyed by plugin name",
+      "min_sunstone_version": "Minimum sunstone-py version for this project",
+      "inputs": "Input datasets (list)",
+      "outputs": "Output datasets (list)"
+    },
+    "dataset": {
+      "source": "Upstream source of an input dataset",
+      "strict": "Strict mode: lineage cannot change",
+      "publish": "Per-dataset publish settings: enabled, as_name, public, dialect (to, flatten and as are deprecated)",
+      "rdfPrefixes": "Prefix to namespace map for this dataset"
+    },
+    "package": {
+      "datasets": "Dataset names in this package (packages[] only)",
+      "publish": "Publish destination for this package"
+    },
+    "publish": {
+      "enabled": "Whether publishing is enabled",
+      "to": "Destination URL or path",
+      "flatten": "Put all files next to datapackage.json",
+      "as": "Public base URL for resource paths",
+      "as_name": "Published resource name (dataset publish only)",
+      "public": "Make the pushed package public",
+      "dialect": "CSV dialect for the published file (delimited-text Table Dialect properties)"
+    },
+    "lint": {
+      "disable": "Rule ID to justification map"
+    },
+    "defaults": {
+      "rdfPrefixes": "Prefix to namespace map"
+    },
+    "node": {}
+  },
+  "lock": {
+    "entry": ["slug", "file_hash", "data_hash", "content_hash", "created_at", "sources", "activity", "field_derivations", "context", "transformation_params", "fields"],
+    "source": ["slug", "prov:wasAttributedTo", "dct:license"]
+  },
+  "legacy_emitted": {
+    "package": ["license"],
+    "resource": ["scheme"],
+    "field": ["unit", "source"]
+  },
+  "recommended": {
+    "document": {"dcat-si:methodology": "SHOULD"},
+    "dataset": {
+      "dct:temporal": "SHOULD",
+      "dct:spatial": "SHOULD",
+      "dcat:theme": "SHOULD",
+      "dcat:keyword": "MAY",
+      "dct:conformsTo": "MAY",
+      "dct:references": "MAY",
+      "rdfs:seeAlso": "MAY",
+      "dct:accrualPeriodicity": "MAY",
+      "dct:language": "MAY",
+      "dct:source": "MAY",
+      "dct:subject": "MAY"
+    },
+    "source": {"dct:creator": "MAY"},
+    "field": {
+      "skos:exactMatch": "MAY",
+      "sosa:observedProperty": "MAY",
+      "qudt:hasQuantityKind": "MAY",
+      "dct:conformsTo": "MAY"
+    }
+  },
+  "duplicates": {
+    "dataset": {
+      "dct:identifier": "name",
+      "dct:title": "title",
+      "dct:description": "description",
+      "dct:license": "licenses",
+      "dct:created": "generated at write time",
+      "prov:wasDerivedFrom": "generated from lineage",
+      "schema:keywords": "dcat:keyword",
+      "schema:temporalCoverage": "dct:temporal"
+    },
+    "output": {"prov:generatedAtTime": "generated at write time"},
+    "field": {
+      "dct:title": "title",
+      "dct:description": "description",
+      "qudt:unit": "si:unit",
+      "prov:wasDerivedFrom": "dct:source"
+    },
+    "source": {"si:publisher": "dct:publisher"}
+  },
+  "children": {
+    "document": {"inputs": "dataset", "outputs": "dataset", "package": "package", "packages": "package", "publish": "publish", "defaults": "defaults", "lint": "lint"},
+    "dataset": {"source": "source", "schema": "schema", "licenses": "license", "dialect": "dialect", "publish": "publish"},
+    "resource": {"schema": "schema", "sources": "source", "licenses": "license", "dialect": "dialect"},
+    "schema": {"fields": "field"},
+    "field": {"constraints": "constraints", "dct:source": "source", "http://purl.org/dc/terms/source": "source"},
+    "package": {"contributors": "contributor", "sources": "source", "licenses": "license", "publish": "publish", "resources": "resource"},
+    "source": {},
+    "contributor": {},
+    "license": {},
+    "constraints": {},
+    "dialect": {},
+    "publish": {"dialect": "dialect"},
+    "lint": {},
+    "defaults": {},
+    "node": {}
+  }
+}

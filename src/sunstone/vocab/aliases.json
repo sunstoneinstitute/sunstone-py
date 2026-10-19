@@ -1,0 +1,46 @@
+{
+  "document": [
+    {"old": "si:methodology", "new": "dcat-si:methodology"}
+  ],
+  "dataset": [
+    {"old": "name", "new": "title", "note": "only when the entry is in old form (has slug)"},
+    {"old": "slug", "new": "name"},
+    {"old": "location", "new": "path"},
+    {"old": "fields", "new": "schema.fields"},
+    {"old": "primaryKey", "new": "schema.primaryKey"},
+    {"old": "license", "new": "licenses", "note": "DP list form [{name: <spdx>}]"}
+  ],
+  "package": [
+    {"old": "license", "new": "licenses", "note": "DP list form [{name: <spdx>}]"}
+  ],
+  "source": [
+    {"old": "name", "new": "title"},
+    {"old": "attributedTo", "new": "prov:wasAttributedTo", "note": "string, or object with @id, @type, rdfs:label"},
+    {"old": "attributedTo.version", "new": "version"},
+    {"old": "license", "new": "dct:license"},
+    {"old": "updated", "new": "dct:modified"},
+    {"old": "acquiredAt", "new": "<dataset>.prov:generatedAtTime"},
+    {"old": "acquisitionMethod", "new": "<dataset>.prov:wasGeneratedBy.dct:type"},
+    {"old": "location.data", "new": "dcat:downloadURL"},
+    {"old": "location.web", "new": "dcat:landingPage"},
+    {"old": "location.about", "new": "dcat:landingPage"},
+    {"old": "location.metadata", "new": "rdfs:seeAlso"},
+    {"old": "location.access", "new": "dcat:accessURL"},
+    {"old": "location.dcat:downloadURL", "new": "dcat:downloadURL"},
+    {"old": "location.dcat:landingPage", "new": "dcat:landingPage"},
+    {"old": "location.dcat:accessURL", "new": "dcat:accessURL"}
+  ],
+  "field": [
+    {"old": "unit", "new": "si:unit", "note": "Pint string; also qudt:hasUnit when the old value was a QUDT IRI"},
+    {"old": "source", "new": "dct:source", "note": "string, or a source object normalized like a dataset source"},
+    {"old": "si:sourceField", "new": "dct:source"},
+    {"old": "dct:title", "new": "title"}
+  ],
+  "field_source": [
+    {"old": "publisher", "new": "dct:publisher", "note": "agent object; the source table applies too"}
+  ],
+  "lock_source": [
+    {"old": "attributedTo", "new": "prov:wasAttributedTo"},
+    {"old": "license", "new": "dct:license"}
+  ]
+}

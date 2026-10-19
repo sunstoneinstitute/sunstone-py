@@ -1,0 +1,175 @@
+{
+  "prefix": "skos",
+  "namespace": "http://www.w3.org/2004/02/skos/core#",
+  "source": "https://www.w3.org/2009/08/skos-reference/skos.rdf",
+  "terms": [
+    {
+      "curie": "skos:altLabel",
+      "iri": "http://www.w3.org/2004/02/skos/core#altLabel",
+      "label": "alternative label",
+      "definition": "The range of skos:altLabel is the class of RDF plain literals."
+    },
+    {
+      "curie": "skos:broadMatch",
+      "iri": "http://www.w3.org/2004/02/skos/core#broadMatch",
+      "label": "has broader match",
+      "definition": "skos:broadMatch is used to state a hierarchical mapping link between two conceptual resources in different concept schemes."
+    },
+    {
+      "curie": "skos:broader",
+      "iri": "http://www.w3.org/2004/02/skos/core#broader",
+      "label": "has broader",
+      "definition": "Broader concepts are typically rendered as parents in a concept hierarchy (tree)."
+    },
+    {
+      "curie": "skos:broaderTransitive",
+      "iri": "http://www.w3.org/2004/02/skos/core#broaderTransitive",
+      "label": "has broader transitive",
+      "definition": "skos:broaderTransitive is a transitive superproperty of skos:broader."
+    },
+    {
+      "curie": "skos:changeNote",
+      "iri": "http://www.w3.org/2004/02/skos/core#changeNote",
+      "label": "change note",
+      "definition": "A note about a modification to a concept."
+    },
+    {
+      "curie": "skos:closeMatch",
+      "iri": "http://www.w3.org/2004/02/skos/core#closeMatch",
+      "label": "has close match",
+      "definition": "skos:closeMatch is used to link two concepts that are sufficiently similar that they can be used interchangeably in some information retrieval applications. In order to avoid the possibility of \"compound errors\" when combining mappings across more than two concept schemes, skos:closeMatch is not declared to be a transitive property."
+    },
+    {
+      "curie": "skos:definition",
+      "iri": "http://www.w3.org/2004/02/skos/core#definition",
+      "label": "definition",
+      "definition": "A statement or formal explanation of the meaning of a concept."
+    },
+    {
+      "curie": "skos:editorialNote",
+      "iri": "http://www.w3.org/2004/02/skos/core#editorialNote",
+      "label": "editorial note",
+      "definition": "A note for an editor, translator or maintainer of the vocabulary."
+    },
+    {
+      "curie": "skos:exactMatch",
+      "iri": "http://www.w3.org/2004/02/skos/core#exactMatch",
+      "label": "has exact match",
+      "definition": "skos:exactMatch is disjoint with each of the properties skos:broadMatch and skos:relatedMatch."
+    },
+    {
+      "curie": "skos:example",
+      "iri": "http://www.w3.org/2004/02/skos/core#example",
+      "label": "example",
+      "definition": "An example of the use of a concept."
+    },
+    {
+      "curie": "skos:hasTopConcept",
+      "iri": "http://www.w3.org/2004/02/skos/core#hasTopConcept",
+      "label": "has top concept",
+      "definition": "Relates, by convention, a concept scheme to a concept which is topmost in the broader/narrower concept hierarchies for that scheme, providing an entry point to these hierarchies."
+    },
+    {
+      "curie": "skos:hiddenLabel",
+      "iri": "http://www.w3.org/2004/02/skos/core#hiddenLabel",
+      "label": "hidden label",
+      "definition": "The range of skos:hiddenLabel is the class of RDF plain literals."
+    },
+    {
+      "curie": "skos:historyNote",
+      "iri": "http://www.w3.org/2004/02/skos/core#historyNote",
+      "label": "history note",
+      "definition": "A note about the past state/use/meaning of a concept."
+    },
+    {
+      "curie": "skos:inScheme",
+      "iri": "http://www.w3.org/2004/02/skos/core#inScheme",
+      "label": "is in scheme",
+      "definition": "Relates a resource (for example a concept) to a concept scheme in which it is included."
+    },
+    {
+      "curie": "skos:mappingRelation",
+      "iri": "http://www.w3.org/2004/02/skos/core#mappingRelation",
+      "label": "is in mapping relation with",
+      "definition": "These concept mapping relations mirror semantic relations, and the data model defined below is similar (with the exception of skos:exactMatch) to the data model defined for semantic relations. A distinct vocabulary is provided for concept mapping relations, to provide a convenient way to differentiate links within a concept scheme from links between concept schemes. However, this pattern of usage is not a formal requirement of the SKOS data model, and relies on informal definitions of best practice."
+    },
+    {
+      "curie": "skos:member",
+      "iri": "http://www.w3.org/2004/02/skos/core#member",
+      "label": "has member",
+      "definition": "Relates a collection to one of its members."
+    },
+    {
+      "curie": "skos:memberList",
+      "iri": "http://www.w3.org/2004/02/skos/core#memberList",
+      "label": "has member list",
+      "definition": "For any resource, every item in the list given as the value of the skos:memberList property is also a value of the skos:member property."
+    },
+    {
+      "curie": "skos:narrowMatch",
+      "iri": "http://www.w3.org/2004/02/skos/core#narrowMatch",
+      "label": "has narrower match",
+      "definition": "skos:narrowMatch is used to state a hierarchical mapping link between two conceptual resources in different concept schemes."
+    },
+    {
+      "curie": "skos:narrower",
+      "iri": "http://www.w3.org/2004/02/skos/core#narrower",
+      "label": "has narrower",
+      "definition": "Narrower concepts are typically rendered as children in a concept hierarchy (tree)."
+    },
+    {
+      "curie": "skos:narrowerTransitive",
+      "iri": "http://www.w3.org/2004/02/skos/core#narrowerTransitive",
+      "label": "has narrower transitive",
+      "definition": "skos:narrowerTransitive is a transitive superproperty of skos:narrower."
+    },
+    {
+      "curie": "skos:notation",
+      "iri": "http://www.w3.org/2004/02/skos/core#notation",
+      "label": "notation",
+      "definition": "A notation, also known as classification code, is a string of characters such as \"T58.5\" or \"303.4833\" used to uniquely identify a concept within the scope of a given concept scheme."
+    },
+    {
+      "curie": "skos:note",
+      "iri": "http://www.w3.org/2004/02/skos/core#note",
+      "label": "note",
+      "definition": "A general note, for any purpose."
+    },
+    {
+      "curie": "skos:prefLabel",
+      "iri": "http://www.w3.org/2004/02/skos/core#prefLabel",
+      "label": "preferred label",
+      "definition": "A resource has no more than one value of skos:prefLabel per language tag, and no more than one value of skos:prefLabel without language tag."
+    },
+    {
+      "curie": "skos:related",
+      "iri": "http://www.w3.org/2004/02/skos/core#related",
+      "label": "has related",
+      "definition": "skos:related is disjoint with skos:broaderTransitive"
+    },
+    {
+      "curie": "skos:relatedMatch",
+      "iri": "http://www.w3.org/2004/02/skos/core#relatedMatch",
+      "label": "has related match",
+      "definition": "skos:relatedMatch is used to state an associative mapping link between two conceptual resources in different concept schemes."
+    },
+    {
+      "curie": "skos:scopeNote",
+      "iri": "http://www.w3.org/2004/02/skos/core#scopeNote",
+      "label": "scope note",
+      "definition": "A note that helps to clarify the meaning and/or the use of a concept."
+    },
+    {
+      "curie": "skos:semanticRelation",
+      "iri": "http://www.w3.org/2004/02/skos/core#semanticRelation",
+      "label": "is in semantic relation with",
+      "definition": "Links a concept to a concept related by meaning."
+    },
+    {
+      "curie": "skos:topConceptOf",
+      "iri": "http://www.w3.org/2004/02/skos/core#topConceptOf",
+      "label": "is top concept in scheme",
+      "definition": "Relates a concept to the concept scheme that it is a top level concept of."
+    }
+  ]
+}
