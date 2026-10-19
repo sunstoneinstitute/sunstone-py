@@ -524,7 +524,7 @@ sunstone package push --env dev -d "gs://${BUCKET}/datasets/${PROJECT}/"
 
 `sunstone license` inspects and audits the licenses declared in `datasets.yaml`. Use it alongside the lint rules `R005` (missing license) and `R006` (unrecognised SPDX identifier) — lint catches *missing* and *malformed* licenses, the `license` subcommand catches *incompatible* ones.
 
-The compatibility engine is rules-based and consults an embedded registry of common research-data licenses (CC family, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, and US-PD `LicenseRef-*` entries). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
+The compatibility engine is rules-based and consults an embedded registry of common research-data licenses (CC family, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, GODL-India, and US-PD `LicenseRef-*` entries). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
 
 ### List Licenses
 

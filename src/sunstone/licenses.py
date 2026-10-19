@@ -116,6 +116,12 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         name="Norwegian Licence for Open Government Data 1.0",
         attribution=True,
     ),
+    LicenseProperties(
+        spdx="LicenseRef-GODL-India",
+        name="Government Open Data License - India",
+        attribution=True,
+        aliases=("GODL-India",),
+    ),
     # Attribution + ShareAlike
     LicenseProperties(
         spdx="CC-BY-SA-4.0",

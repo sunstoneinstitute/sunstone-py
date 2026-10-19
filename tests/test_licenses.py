@@ -51,6 +51,7 @@ class TestRegistry:
             "NLOD-2.0",
             "LicenseRef-US-PD",
             "LicenseRef-OGL-3.0",
+            "LicenseRef-GODL-India",
         ):
             assert required in spdx
 
@@ -60,6 +61,15 @@ class TestRegistry:
         assert nlod.attribution
         assert not nlod.share_alike
         assert not nlod.non_commercial
+
+    def test_godl_india_attribution_only(self):
+        godl = get_properties("GODL-India")
+        assert godl is not None
+        assert godl.spdx == "LicenseRef-GODL-India"
+        assert godl.attribution
+        assert not godl.share_alike
+        assert not godl.non_commercial
+        assert check_compatibility(["LicenseRef-GODL-India"], "CC-BY-4.0").compatible
 
     def test_cc_by_nc_sa_3_igo_distinct_share_alike_family(self):
         # Different SA family from CC-BY-NC-SA-3.0 and CC-BY-NC-SA-4.0.
