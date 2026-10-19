@@ -1,0 +1,1297 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.20.0/superpowers/plans/2026-10-16-datapackage-conformance-rdf-registry/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Datapackage Conformance (rdf-registry, C11) Implementation Plan - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-10-16-datapackage-conformance-rdf-registry.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#datapackage-conformance-rdf-registry-c11-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Datapackage Conformance (rdf-registry, C11) Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datasets-yaml-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets.yaml key reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datasets-yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating datasets.yaml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../sunstone-push/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pushing to sunstone: namespaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#spec-conflicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec conflicts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-1-add-dcat-simethodology-to-rdfdatattl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Add dcat-si:methodology to rdf/data.ttl
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-review-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-review notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="datapackage-conformance-rdf-registry-c11-implementation-plan">Datapackage Conformance (rdf-registry, C11) Implementation Plan<a class="headerlink" href="#datapackage-conformance-rdf-registry-c11-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Define <code>dcat-si:methodology</code> in <code>rdf/data.ttl</code> so <code>datasets.yaml</code> can use it as the top-level methodology key and sunstone-py's vocabulary sync (plan <code>2026-10-16-datapackage-conformance-sunstone-py.md</code>, Task 1) finds it.</p>
+<p><strong>Architecture:</strong> One object property added to the <code>https://sunstone.institute/rdf/data#</code> ontology, validated by the repo's existing riot/SHACL gate and a new rdflib unit test. No build or template changes.</p>
+<p><strong>Tech Stack:</strong> Turtle, rdflib (already a dependency), pytest, Apache Jena <code>riot</code> (<code>brew bundle</code> from the repo <code>Brewfile</code>).</p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-10-15-datapackage-conformance-design.md</code> in sunstone-py (section "C11. rdf-registry"; the key-migration row <code>si:methodology</code> → <code>dcat-si:methodology</code>).</p>
+<h2 id="spec-conflicts">Spec conflicts<a class="headerlink" href="#spec-conflicts" title="Permanent link">&para;</a></h2>
+<p>None. The spec's C11 axiom table fixes every axiom. It differs from <code>vocab:methodology</code> in <code>rdf/vocab.ttl</code> (lines 203-209) on purpose: domain <code>dcat:Resource</code> instead of <code>dcat:Dataset</code>, plus <code>rdfs:subPropertyOf foaf:page</code>.</p>
+<h2 id="global-constraints">Global Constraints<a class="headerlink" href="#global-constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Repo: <code>~/git/sunstone/rdf-registry</code>. Start from a fresh <code>origin/main</code> (<code>git fetch origin &amp;&amp; git switch -c feat/dcat-si-methodology origin/main</code>).</li>
+<li>This change lands before sunstone-py Task 1 runs <code>scripts/sync_vocab.py</code> (spec Scope order).</li>
+<li>Turtle must pass <code>uv run validate</code> (riot syntax + SHACL) and <code>uv run validate-ontology rdf/data.ttl</code> with no new errors. Warnings about pre-existing terms are not in scope.</li>
+<li>No N-Triples, 2-space JSON-LD (repo <code>AGENTS.md</code>); nothing here touches the build.</li>
+<li>Commit message: conventional prefix, no Co-authored-by lines.</li>
+</ul>
+<h2 id="file-map">File map<a class="headerlink" href="#file-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rdf/data.ttl</code></td>
+<td>Add <code>foaf</code> prefix, bump <code>owl:versionInfo</code>, add <code>:methodology</code></td>
+</tr>
+<tr>
+<td><code>tests/test_data_vocab.py</code></td>
+<td>New: asserts the property, its label, comment, domain and range</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="task-1-add-dcat-simethodology-to-rdfdatattl">Task 1: Add <code>dcat-si:methodology</code> to <code>rdf/data.ttl</code><a class="headerlink" href="#task-1-add-dcat-simethodology-to-rdfdatattl" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>rdf/data.ttl</code> (prefix block lines 1-9; ontology header line 23 <code>owl:versionInfo "0.2"</code>; object properties section after <code>:hasSnapshot</code>, line ~70)
+- Create: <code>tests/test_data_vocab.py</code></p>
+<p><strong>Interfaces:</strong>
+- Produces: IRI <code>https://sunstone.institute/rdf/data#methodology</code>, <code>a owl:ObjectProperty</code>, with <code>rdfs:label "methodology"@en</code>, an <code>rdfs:comment</code>, <code>rdfs:isDefinedBy</code>, domain <code>dcat:Resource</code>, range <code>foaf:Document</code> and <code>rdfs:subPropertyOf foaf:page</code>. sunstone-py's sync reads <code>rdfs:label</code> for the label and <code>rdfs:comment</code> for the definition.</p>
+<ul>
+<li>[ ] <strong>Step 1: Branch from origin/main</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>~/git/sunstone/rdf-registry
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>fetch<span class="w"> </span>origin
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>switch<span class="w"> </span>-c<span class="w"> </span>feat/dcat-si-methodology<span class="w"> </span>origin/main
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>uv<span class="w"> </span>sync
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Write the failing test <code>tests/test_data_vocab.py</code></strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="sd">&quot;&quot;&quot;dcat-si:methodology is defined in rdf/data.ttl (sunstone-py reads it from here).&quot;&quot;&quot;</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">rdflib</span><span class="w"> </span><span class="kn">import</span> <span class="n">OWL</span><span class="p">,</span> <span class="n">RDF</span><span class="p">,</span> <span class="n">RDFS</span><span class="p">,</span> <span class="n">Graph</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">URIRef</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">DCAT_SI</span> <span class="o">=</span> <span class="s2">&quot;https://sunstone.institute/rdf/data#&quot;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">METHODOLOGY</span> <span class="o">=</span> <span class="n">URIRef</span><span class="p">(</span><span class="n">DCAT_SI</span> <span class="o">+</span> <span class="s2">&quot;methodology&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">DCAT_RESOURCE</span> <span class="o">=</span> <span class="n">URIRef</span><span class="p">(</span><span class="s2">&quot;http://www.w3.org/ns/dcat#Resource&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">FOAF_DOCUMENT</span> <span class="o">=</span> <span class="n">URIRef</span><span class="p">(</span><span class="s2">&quot;http://xmlns.com/foaf/0.1/Document&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">FOAF_PAGE</span> <span class="o">=</span> <span class="n">URIRef</span><span class="p">(</span><span class="s2">&quot;http://xmlns.com/foaf/0.1/page&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">DATA_ONTOLOGY</span> <span class="o">=</span> <span class="n">URIRef</span><span class="p">(</span><span class="s2">&quot;https://sunstone.institute/rdf/data&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Graph</span><span class="p">:</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">Graph</span><span class="p">()</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">g</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">repo_root</span> <span class="o">/</span> <span class="s2">&quot;rdf&quot;</span> <span class="o">/</span> <span class="s2">&quot;data.ttl&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;turtle&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="k">return</span> <span class="n">g</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_is_an_object_property</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>    <span class="k">assert</span> <span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDF</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">OWL</span><span class="o">.</span><span class="n">ObjectProperty</span><span class="p">)</span> <span class="ow">in</span> <span class="n">g</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_has_english_label_and_comment</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="k">assert</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">label</span><span class="p">)</span> <span class="o">==</span> <span class="n">Literal</span><span class="p">(</span><span class="s2">&quot;methodology&quot;</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="s2">&quot;en&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>    <span class="n">comment</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">comment</span><span class="p">)</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">comment</span><span class="p">,</span> <span class="n">Literal</span><span class="p">)</span> <span class="ow">and</span> <span class="n">comment</span><span class="o">.</span><span class="n">language</span> <span class="o">==</span> <span class="s2">&quot;en&quot;</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">comment</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">20</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_domain_and_range</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>    <span class="k">assert</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">domain</span><span class="p">)</span> <span class="o">==</span> <span class="n">DCAT_RESOURCE</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>    <span class="k">assert</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">range</span><span class="p">)</span> <span class="o">==</span> <span class="n">FOAF_DOCUMENT</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_is_a_foaf_page</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>    <span class="k">assert</span> <span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">subPropertyOf</span><span class="p">,</span> <span class="n">FOAF_PAGE</span><span class="p">)</span> <span class="ow">in</span> <span class="n">g</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_is_defined_by_data_ontology</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>    <span class="k">assert</span> <span class="n">g</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">isDefinedBy</span><span class="p">)</span> <span class="o">==</span> <span class="n">DATA_ONTOLOGY</span>
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_comment_distinguishes_neighbours</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>    <span class="n">comment</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span><span class="o">.</span><span class="n">value</span><span class="p">(</span><span class="n">METHODOLOGY</span><span class="p">,</span> <span class="n">RDFS</span><span class="o">.</span><span class="n">comment</span><span class="p">))</span>
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>    <span class="k">assert</span> <span class="s2">&quot;prov:hadPlan&quot;</span> <span class="ow">in</span> <span class="n">comment</span> <span class="ow">and</span> <span class="s2">&quot;schema:measurementTechnique&quot;</span> <span class="ow">in</span> <span class="n">comment</span>
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_methodology_not_in_vocab_namespace_of_data_ttl</span><span class="p">(</span><span class="n">repo_root</span><span class="p">):</span>
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;data.ttl must not redeclare vocab:methodology; only the dcat-si term lives here.&quot;&quot;&quot;</span>
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>    <span class="n">g</span> <span class="o">=</span> <span class="n">_graph</span><span class="p">(</span><span class="n">repo_root</span><span class="p">)</span>
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>    <span class="k">assert</span> <span class="p">(</span><span class="n">URIRef</span><span class="p">(</span><span class="s2">&quot;https://sunstone.institute/rdf/vocab#methodology&quot;</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">g</span>
+</code></pre></div>
+<p>(<code>repo_root</code> is the session fixture in <code>tests/conftest.py</code>.)</p>
+<ul>
+<li>[ ] <strong>Step 3: Run the test to verify it fails</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_data_vocab.py -q</code>
+Expected: 6 failures (every test except <code>test_methodology_not_in_vocab_namespace_of_data_ttl</code>, which passes).</p>
+<ul>
+<li>[ ] <strong>Step 4: Edit <code>rdf/data.ttl</code></strong></li>
+</ul>
+<p>Add the <code>foaf</code> prefix to the prefix block (alphabetical, after <code>dct:</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">@prefix</span><span class="w"> </span><span class="nn">foaf:</span><span class="w"> </span><span class="nv">&lt;http://xmlns.com/foaf/0.1/&gt;</span><span class="w"> </span><span class="p">.</span>
+</code></pre></div>
+<p>Change the ontology header line <code>owl:versionInfo "0.2" ;</code> to <code>owl:versionInfo "0.3" ;</code>.</p>
+<p>Append to the "Object properties" section, after the <code>:hasSnapshot</code> block:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">:</span><span class="nt">methodology</span> <span class="kt">a</span> <span class="nn">owl</span><span class="p">:</span><span class="nt">ObjectProperty</span> <span class="p">;</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">label</span> <span class="s">&quot;methodology&quot;</span><span class="o">@</span><span class="ge">en</span> <span class="p">;</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">comment</span> <span class="s">&quot;The document describing the method actually applied to produce a dataset or data package: sources, acquisition, processing and limitations. Unlike prov:hadPlan, it is documentation of what was done, not a plan of intent attached to an activity. Unlike schema:measurementTechnique, it covers the whole resource, not the measurement of one variable.&quot;</span><span class="o">@</span><span class="ge">en</span> <span class="p">;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">isDefinedBy</span> <span class="nv">&lt;https://sunstone.institute/rdf/data&gt;</span> <span class="p">;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">subPropertyOf</span> <span class="nn">foaf</span><span class="p">:</span><span class="nt">page</span> <span class="p">;</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">seeAlso</span> <span class="nv">&lt;https://sunstone.institute/rdf/vocab#methodology&gt;</span> <span class="p">;</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">domain</span> <span class="nn">dcat</span><span class="p">:</span><span class="nt">Resource</span> <span class="p">;</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="nn">rdfs</span><span class="p">:</span><span class="nt">range</span> <span class="nn">foaf</span><span class="p">:</span><span class="nt">Document</span> <span class="p">.</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 5: Run the test and the validators</strong></li>
+</ul>
+<p>Run: <code>uv run pytest tests/test_data_vocab.py -q</code>
+Expected: 7 passed.</p>
+<p>Run: <code>uv run validate</code>
+Expected: <code>✓ ALL VALIDATIONS PASSED</code>. If <code>riot</code> is missing: <code>brew bundle</code> (installs <code>jena</code>), then rerun.</p>
+<p>Run: <code>uv run validate-ontology rdf/data.ttl</code>
+Expected: <code>Object properties: 4</code> (was 3), no <code>❌</code> lines. The "Namespaces used but not declared" check must not list <code>http://xmlns.com/foaf/0.1/</code>.</p>
+<p>Run: <code>uv run pytest -q -m "not integration"</code> then <code>uv run pytest -q</code>
+Expected: all pass (the integration suite loads every <code>rdf/*.ttl</code> into the store).</p>
+<ul>
+<li>[ ] <strong>Step 6: Build once and spot-check the rendered ontology</strong></li>
+</ul>
+<p>Run: <code>uv run build &amp;&amp; grep -c "data#methodology" dist/rdf/data.ttl dist/rdf/data.jsonld</code>
+Expected: a count of at least 1 for each file. <code>dist/</code> is build output; do not commit it unless the repo already tracks it (check <code>git status</code>).</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit and open the PR</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>add<span class="w"> </span>rdf/data.ttl<span class="w"> </span>tests/test_data_vocab.py
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat(data): define dcat-si:methodology&quot;</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>git<span class="w"> </span>push<span class="w"> </span>-u<span class="w"> </span>origin<span class="w"> </span>feat/dcat-si-methodology
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>gh<span class="w"> </span>pr<span class="w"> </span>create<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;Define dcat-si:methodology&quot;</span><span class="w"> </span>--body<span class="w"> </span><span class="s2">&quot;Adds dcat-si:methodology (object property, domain dcat:Resource, range foaf:Document, subproperty of foaf:page) to rdf/data.ttl. sunstone-py&#39;s vocabulary sync reads it from here (datapackage conformance, C11).&quot;</span>
+</code></pre></div>
+<p>Report the PR URL. sunstone-py Task 1 needs this merged (or at least fetched into <code>~/git/sunstone/rdf-registry</code> at <code>origin/main</code>) before it runs the sync.</p>
+<hr />
+<h2 id="self-review-notes">Self-review notes<a class="headerlink" href="#self-review-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Spec coverage: C11 fully in Task 1 (object property, label, comment); alias row <code>si:methodology</code> → <code>dcat-si:methodology</code> consumes this IRI.</li>
+<li>Placeholder scan: none.</li>
+<li>Type consistency: the test's IRIs match the Turtle (<code>https://sunstone.institute/rdf/data#methodology</code>, <code>dcat:Resource</code>, <code>foaf:Document</code>, <code>foaf:page</code>, ontology IRI <code>https://sunstone.institute/rdf/data</code>).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
