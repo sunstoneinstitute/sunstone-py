@@ -494,7 +494,7 @@ Each license in the embedded registry is described by five boolean properties �
 
 | Source property | Constraint on target |
 |---|---|
-| (any) | Target must not be `no_derivatives`: no output carries a NoDerivatives license (lint `R010`). Auto-derivation never picks one. |
+| (any) | Target must not be `no_derivatives`: no output carries a NoDerivatives license (lint `R010`), except a declared copy (see below). Auto-derivation never picks one. |
 | `public_domain` | None — compatible with anything. |
 | `share_alike` | Target must also be `share_alike` **and** share the same `family`. (`CC-BY-SA-4.0` and `CC-BY-SA-3.0` are *different* families on purpose — Creative Commons treats them as one-way upgradable, not mutually equivalent.) |
 | `no_derivatives` | No target is compatible: adapted material may not be shared. Record permission from the rights holder to lift this (see below). |
@@ -538,6 +538,20 @@ source:
 ```
 
 Keep `dct:license` as the license the publisher states. Point `rdfs:seeAlso` at the written grant.
+
+### Unmodified Copies
+
+An output that copies one source without modifying it is not a derivative, so it may keep the source license, NoDerivatives included. Declare it with `prov:wasQuotedFrom`:
+
+```yaml
+outputs:
+  - title: UN member states (copy)
+    name: un-member-states-copy
+    path: outputs/un-member-states.csv
+    prov:wasQuotedFrom: un-member-states
+```
+
+The output then inherits the source license (an explicit license other than the source's goes through the normal check). Writes fail unless the output reads only that source and every output column is a column in the source's `schema.fields`. Selecting rows or columns is allowed. Values are not compared, so do not declare a copy for a transformed column.
 
 ### Worked Example
 

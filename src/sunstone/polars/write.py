@@ -88,6 +88,7 @@ def _enforce_license_compatibility(
     manager: DatasetsManager,
     dataset_slug: str,
     target_license: Optional[str],
+    columns: Optional[list[str]] = None,
 ) -> None:
     """Check the proposed write against source licenses.
 
@@ -106,6 +107,8 @@ def _enforce_license_compatibility(
     from sunstone.session import get_session
 
     source_slugs = get_session().current_source_slugs()
+    if manager.enforce_quotation(dataset_slug, list(source_slugs), columns or [], target_license):
+        return
     source_licenses: list[str] = []
     for slug in source_slugs:
         ds = manager.find_dataset_by_slug(slug)
@@ -222,7 +225,7 @@ def _write(
 
     if check_license:
         target_license = license or manager.effective_license_for(dataset.slug)
-        _enforce_license_compatibility(manager, dataset.slug, target_license)
+        _enforce_license_compatibility(manager, dataset.slug, target_license, [str(c) for c in df.columns])
 
     # Write to a BytesIO buffer first so we can hash the bytes, then copy to
     # the actual file (avoids writing twice and avoids seeking limitations).

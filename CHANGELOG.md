@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Fixed: lint, `dataset validate` and license checks share one license list, so `CC-BY-NC-ND-4.0`, MIT and others pass both.
 - Fixed: outputs never get a NoDerivatives license (lint R010), and an ND source blocks writes unless its `dct:rights` grants other terms.
 - Added: record permission from a rights holder under a source's `dct:rights`; its `dct:license` governs derived outputs.
+- Added: `prov:wasQuotedFrom` on an output declares an unmodified copy of one source, which may keep its license (ND included).
 
 ## [1.20.0] - 2026-10-19
 

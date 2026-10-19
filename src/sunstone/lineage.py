@@ -491,6 +491,12 @@ class DatasetMetadata:
     publish: Optional[PublishConfig] = None
     """Per-dataset publish configuration (overrides top-level)."""
 
+    @property
+    def quoted_from(self) -> Optional[str]:
+        """``prov:wasQuotedFrom``: the name of the dataset this output copies unmodified, if declared."""
+        value = (self.custom_properties or {}).get("prov:wasQuotedFrom")
+        return value if isinstance(value, str) else None
+
     # PROV-O relation fields (optional, populated when available)
     was_derived_from: Optional[List[EntityRef]] = None
     """prov:wasDerivedFrom — source entities this dataset was derived from."""

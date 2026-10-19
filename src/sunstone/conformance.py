@@ -457,7 +457,7 @@ def _r010(ctx: ConformanceContext) -> Iterator[Violation]:
     if not _yaml_only(ctx):
         return
     for kind, _, ds, path in ctx.datasets():
-        if kind != "output":
+        if kind != "output" or ds.get("prov:wasQuotedFrom"):
             continue
         value, lpath = _license_of(ctx, kind, ds, path)
         props = get_properties(str(value)) if value else None
@@ -911,6 +911,7 @@ KEY_LEVELS: dict[tuple[str, str], tuple[Level, Optional[str]]] = {
     ("dataset", "source"): (Level.SHOULD, "R101"),
     ("dataset", "prov:generatedAtTime"): (Level.MUST, "R312"),
     ("dataset", "prov:wasGeneratedBy"): (Level.MUST, "R312"),
+    ("dataset", "prov:wasQuotedFrom"): (Level.MAY, None),
     ("source", "title"): (Level.MUST, "R102"),
     ("source", "dct:publisher"): (Level.MUST, "R102"),
     ("source", "@id"): (Level.MUST, "R102"),

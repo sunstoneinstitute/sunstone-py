@@ -81,6 +81,10 @@ class WriteMixin:
         from sunstone.session import get_session
 
         source_slugs = get_session().current_source_slugs()
+        if manager.enforce_quotation(
+            dataset_slug, list(source_slugs), [str(c) for c in self.data.columns], target_license
+        ):
+            return
         source_licenses: list[str] = []
         for slug in source_slugs:
             ds = manager.find_dataset_by_slug(slug)

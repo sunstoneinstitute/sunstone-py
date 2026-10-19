@@ -2613,7 +2613,7 @@ def license_check(
     import json as _json
 
     from .datasets import DatasetsManager
-    from .licenses import check_compatibility
+    from .licenses import check_compatibility, check_quotation
 
     project_path, file_name = _resolve_license_project_path(datasets_file)
     if not (project_path / file_name).exists():
@@ -2661,6 +2661,21 @@ def license_check(
         if not source_licenses or target_license is None:
             report["status"] = "skipped"
             report["reason"] = "no source licenses to check" if not source_licenses else "no target license declared"
+            reports.append(report)
+            continue
+
+        quoted = output.quoted_from
+        if quoted and (manager.derivative_license_for(quoted) or "").lower() == target_license.lower():
+            source = manager.find_dataset_by_slug(quoted)
+            conflicts = check_quotation(
+                quoted,
+                sources_seen,
+                [f.name for f in output.fields or []],
+                [f.name for f in source.fields] if source is not None and source.fields else None,
+            )
+            report.update(compatible=not conflicts, conflicts=conflicts, quoted_from=quoted)
+            report["status"] = "conflict" if conflicts else "compatible"
+            any_conflict = any_conflict or bool(conflicts)
             reports.append(report)
             continue
 

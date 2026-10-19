@@ -64,6 +64,7 @@ Path: `inputs / outputs`
 | `hash` | dp | MAY | Content hash (sha256:...) | `hash: ...` |
 | `homepage` | dp | MAY | Home page URL | `homepage: ...` |
 | `mediatype` | dp | MAY | Media type (text/csv) | `mediatype: ...` |
+| `prov:wasQuotedFrom` | rdf | MAY | An entity is derived from an original entity by copying, or 'quoting', some or all of it. | `prov:wasQuotedFrom: un-member-states` |
 | `publish` | config | MAY | Per-dataset publish settings: enabled, as_name, public, dialect (to, flatten and as are deprecated) | `publish: ...` |
 | `rdfPrefixes` | config | MAY | Prefix to namespace map for this dataset | `rdfPrefixes: ...` |
 | `rdfs:seeAlso` | rdf | MAY | Further information about the subject resource. | `rdfs:seeAlso: ...` |

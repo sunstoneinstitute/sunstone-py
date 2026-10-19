@@ -173,8 +173,8 @@ RULES: dict[str, Rule] = {
             Category.PROVENANCE,
             f"{Y}:dataset",
             "Output license is NoDerivatives",
-            "An output must not carry a NoDerivatives license (CC-BY-ND, CC-BY-NC-ND): sunstone outputs are derivatives.",
-            "Use the license the sources allow for derivatives; for an ND source, record the rights holder's permission under 'source.dct:rights'.",
+            "An output must not carry a NoDerivatives license (CC-BY-ND, CC-BY-NC-ND) unless it declares 'prov:wasQuotedFrom' (an unmodified copy of one source).",
+            "Use the license the sources allow for derivatives, record the rights holder's permission under the source's 'dct:rights', or, if the output copies one source unmodified, add 'prov:wasQuotedFrom: <source name>'.",
         ),
         _r(
             "R101",

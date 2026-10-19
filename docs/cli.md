@@ -257,7 +257,7 @@ MUST rules that are new or stricter in 1.20 (R102, R104 and all R3xx rules) are 
 | R007 | MUST | error | Field missing `name` |
 | R008 | MUST | error | Field missing `type` |
 | R009 | MUST | error | Malformed `lint.disable` entry (cannot itself be suppressed) |
-| R010 | MUST NOT | error | Output license is NoDerivatives (`CC-BY-ND-*`, `CC-BY-NC-ND-*`) |
+| R010 | MUST NOT | error | Output license is NoDerivatives (`CC-BY-ND-*`, `CC-BY-NC-ND-*`), unless the output declares `prov:wasQuotedFrom` |
 | R101 | SHOULD | warning | Input missing `source` block |
 | R102 | MUST | warning (1.x) | Source missing `title`, `dct:publisher` (with `rdfs:label`), a link (`"@id"`, `dcat:downloadURL` or `dcat:landingPage`) or `dct:license` |
 | R103 | SHOULD | warning | Numeric field missing `si:unit` |

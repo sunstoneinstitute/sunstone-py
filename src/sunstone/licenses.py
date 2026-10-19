@@ -427,6 +427,34 @@ def check_compatibility(
     return result
 
 
+def check_quotation(
+    quoted: str,
+    source_slugs: Iterable[str],
+    columns: Iterable[str],
+    source_columns: Optional[Iterable[str]],
+) -> list[str]:
+    """Conflicts for an output declared an unmodified copy (``prov:wasQuotedFrom``) of *quoted*.
+
+    A copy is not a derivative, so with no conflicts it may keep the source license, NoDerivatives
+    included. Values are not compared: the check is one source and only the source's columns.
+    """
+    conflicts: list[str] = []
+    slugs = set(source_slugs)
+    if quoted not in slugs:
+        conflicts.append(f"declares prov:wasQuotedFrom '{quoted}' but does not read it")
+    others = sorted(slugs - {quoted})
+    if others:
+        conflicts.append(f"declares prov:wasQuotedFrom '{quoted}' but also derives from {others}")
+    if source_columns is None:
+        conflicts.append(f"'{quoted}' has no schema.fields to check the copied columns against")
+    else:
+        allowed = set(source_columns)
+        extra = [c for c in columns if c not in allowed]
+        if extra:
+            conflicts.append(f"columns {extra} are not in '{quoted}', so the output is not an unmodified copy")
+    return conflicts
+
+
 # ---------------------------------------------------------------------------
 # Most-restrictive license picker
 # ---------------------------------------------------------------------------

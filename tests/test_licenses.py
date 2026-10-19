@@ -811,3 +811,88 @@ class TestRecordedPermission:
         }
         found = [(v.rule_id, v.path) for v in conformance.validate_datasets_yaml(doc) if v.rule_id in ("R006", "R301")]
         assert found == [("R006", "inputs[1].source.dct:rights.dct:license")]
+
+
+_QUOTED = """
+min_sunstone_version: "1.20.0"
+inputs:
+  - title: Raw
+    name: raw
+    path: inputs/raw.csv
+    description: Raw input.
+    prov:generatedAtTime: '2026-10-19'
+    prov:wasGeneratedBy: {'@type': prov:Activity, dct:type: manual-download}
+    source:
+      title: Raw
+      dct:publisher: {rdfs:label: Org}
+      dcat:downloadURL: https://example.org/raw.csv
+      dct:license: CC-BY-NC-ND-4.0
+    schema:
+      fields:
+        - {name: a, type: integer}
+        - {name: b, type: integer}
+outputs:
+  - title: Copy
+    name: copy
+    path: outputs/copy.csv
+    description: Unmodified copy of raw.
+    prov:wasQuotedFrom: raw
+"""
+
+
+class TestQuotedOutput:
+    """An output declared ``prov:wasQuotedFrom`` an ND source may keep the ND license."""
+
+    def test_unmodified_copy_inherits_nd_license(self, project_with_inputs: Path):
+        from sunstone.datasets import DatasetsManager
+
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        df[["a"]].to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+        assert DatasetsManager(project_with_inputs).effective_license_for("copy") == "CC-BY-NC-ND-4.0"
+
+    def test_license_check_accepts_declared_copy(self, project_with_inputs: Path):
+        import json
+
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        spd.read_csv("inputs/raw.csv").to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+        result = CliRunner().invoke(
+            app, ["license", "check", "--json", "-f", str(project_with_inputs / "datasets.yaml")]
+        )
+        assert result.exit_code == 0, result.output
+        report = json.loads(result.output)["reports"][0]
+        assert report["status"] == "compatible" and report["quoted_from"] == "raw"
+
+    def test_new_column_is_not_a_copy(self, project_with_inputs: Path):
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        df["c"] = df["a"] + df["b"]
+        with pytest.raises(LicenseCompatibilityError, match="not in 'raw'"):
+            df.to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+
+    def test_r010_skipped_for_declared_copy(self):
+        import yaml
+
+        from sunstone import conformance
+
+        doc = yaml.safe_load(_QUOTED)
+        doc["outputs"][0]["licenses"] = [{"name": "CC-BY-NC-ND-4.0"}]
+        assert not [v for v in conformance.validate_datasets_yaml(doc) if v.rule_id == "R010"]
+
+
+def test_check_quotation() -> None:
+    from sunstone.licenses import check_quotation
+
+    assert check_quotation("raw", ["raw"], ["a"], ["a", "b"]) == []
+    assert "also derives from ['other']" in check_quotation("raw", ["raw", "other"], ["a"], ["a", "b"])[0]
+    assert "does not read" in check_quotation("raw", [], ["a"], ["a", "b"])[0]
+    assert "no schema.fields" in check_quotation("raw", ["raw"], ["a"], None)[0]
