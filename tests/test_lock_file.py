@@ -746,6 +746,57 @@ class TestDenormalizeAttribution:
         assert "prov:wasAttributedTo" not in plain_src
         assert "dct:license" not in plain_src
 
+    def test_creator_and_attribution_written_to_lock(self, tmp_path: Path) -> None:
+        """New-form sources carry both dct:creator and prov:wasAttributedTo into lock source entries."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "inputs").mkdir()
+        (project / "inputs" / "data.csv").write_text("a\n1\n")
+        _write_yaml(
+            project / "datasets.yaml",
+            {
+                "inputs": [
+                    {
+                        "title": "Paper Data",
+                        "name": "paper-data",
+                        "path": "inputs/data.csv",
+                        "source": {
+                            "title": "A paper",
+                            "dcat:downloadURL": "https://example.com/data.csv",
+                            "dct:creator": [{"rdfs:label": "Aas, T. S."}, {"rdfs:label": "Asgard, T. E."}],
+                            "prov:wasAttributedTo": "Aas, T. S.; Asgard, T. E. (Nofima)",
+                        },
+                    },
+                    {
+                        "title": "Creator Only",
+                        "name": "creator-only",
+                        "path": "inputs/data.csv",
+                        "source": {
+                            "title": "Another paper",
+                            "dcat:downloadURL": "https://example.com/data.csv",
+                            "dct:creator": [{"rdfs:label": "Doe, J."}],
+                        },
+                    },
+                ],
+                "outputs": [{"title": "Output", "name": "output", "path": "outputs/out.csv"}],
+            },
+        )
+
+        manager = DatasetsManager(project)
+        both = manager.find_dataset_by_slug("paper-data", "input")
+        creator_only = manager.find_dataset_by_slug("creator-only", "input")
+        assert both is not None and creator_only is not None
+        manager.update_output_lineage(
+            slug="output", lineage=LineageMetadata(sources=[both, creator_only]), data_hash="sha256:abc"
+        )
+
+        with open(project / "datasets.lock.yaml") as f:
+            sources = _yaml.load(f)["outputs"][0]["sources"]
+        assert sources[0]["dct:creator"] == [{"rdfs:label": "Aas, T. S."}, {"rdfs:label": "Asgard, T. E."}]
+        assert sources[0]["prov:wasAttributedTo"] == "Aas, T. S.; Asgard, T. E. (Nofima)"
+        assert sources[1]["dct:creator"] == [{"rdfs:label": "Doe, J."}]
+        assert "prov:wasAttributedTo" not in sources[1]
+
     def test_backward_compat_lock_without_attribution_fields(self, tmp_path: Path) -> None:
         """Lock files without attributedTo/license fields should load without errors."""
         project = tmp_path / "project"

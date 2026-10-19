@@ -45,6 +45,8 @@ from .lineage import (
     SourceAgent,
     SourceLocation,
     UsageRecord,
+    _agent_doc,
+    as_source_agents,
 )
 
 logger = logging.getLogger(__name__)
@@ -1561,8 +1563,10 @@ class DatasetsManager:
             sources_list = []
             for src in lineage.sources:
                 source_entry: dict[str, Any] = {"slug": src.slug}
-                # Denormalize attribution and license from input dataset source block
+                # Denormalize creators, attribution and license from input dataset source block
                 if src.source:
+                    if src.source.creator:
+                        source_entry["dct:creator"] = [_agent_doc(a) for a in as_source_agents(src.source.creator)]
                     attributed_to = src.source.attributed_to
                     if isinstance(attributed_to, Agent):
                         attr_str = attributed_to.label or attributed_to.id

@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: output source entries keep both `dct:creator` and `prov:wasAttributedTo` (lock entries update on the next data change).
+
 ## [1.20.0] - 2026-10-19
 
 - Added: `sunstone migrate` rewrites `datasets.yaml`, include files and the lock file to DP 2.0 key names.
