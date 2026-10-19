@@ -77,6 +77,7 @@ EXAMPLES: dict[tuple[str, str], str] = {
     ("dataset", "schema"): "schema: {fields: [...], primaryKey: id}",
     ("dataset", "prov:generatedAtTime"): "prov:generatedAtTime: '2026-01-02'",
     ("dataset", "prov:wasGeneratedBy"): "prov:wasGeneratedBy: {'@type': prov:Activity, dct:type: manual-download}",
+    ("dataset", "prov:wasQuotedFrom"): "prov:wasQuotedFrom: un-member-states",
     ("source", "@id"): '"@id": https://doi.org/10.1016/j.aqrep.2022.101316',
     ("source", "title"): "title: UN Member States Authority File",
     ("source", "dcat:downloadURL"): "dcat:downloadURL: https://example.org/data.csv",
@@ -95,6 +96,9 @@ EXAMPLES: dict[tuple[str, str], str] = {
     ),
     ("source", "dct:license"): "dct:license: CC-BY-4.0",
     ("source", "dct:modified"): "dct:modified: '2026-01-01'",
+    ("source", "dct:rights"): (
+        "dct:rights: {rdfs:label: 'Permission from Example Org', dct:license: CC-BY-4.0, dct:date: '2026-10-19'}"
+    ),
     ("field", "name"): "name: gdp_usd",
     ("field", "type"): "type: number",
     ("field", "title"): "title: GDP (USD)",

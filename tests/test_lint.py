@@ -521,7 +521,7 @@ class TestAcceptedYamlForms:
 EXPECTED = [
     ("R001", "inputs[0]"), ("R002", "inputs[0]"), ("R003", "inputs[0]"), ("R004", "inputs[0]"),
     ("R005", "inputs[1].source.dct:license"), ("R006", "inputs[2].source.dct:license"),
-    ("R007", "outputs[0].schema.fields[0]"), ("R008", "outputs[0].schema.fields[2]"),
+    ("R007", "outputs[0].schema.fields[0]"), ("R010", "outputs[1].licenses"), ("R008", "outputs[0].schema.fields[2]"),
     ("R101", "inputs[0].source"), ("R102", "inputs[3].source"), ("R103", "outputs[0].schema.fields[1]"),
     ("R104", "inputs[3].name"), ("R105", "outputs[0].schema.fields[1]"), ("R201", "outputs[0].schema.fields[1]"),
     ("R202", "outputs[0].title"), ("R301", "inputs[0].foo"), ("R302", "inputs[3].zzz:thing"),

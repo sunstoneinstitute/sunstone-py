@@ -130,13 +130,13 @@ outputs:
           si:unit: widgets
           qudt:unit: http://qudt.org/vocab/unit/M-PER-SEC
           description: Unparseable unit.
-  # R323 inline lineage.
+  # R323 inline lineage, R010 NoDerivatives output license.
   - title: Inline Lineage Output
     name: inline-lineage-output
     path: outputs/inline.csv
     description: Has inline lineage.
     licenses:
-      - name: CC-BY-4.0
+      - name: CC-BY-ND-4.0
     lineage:
       sources: []
   # R318 field source repeating the output's only source (its source block).

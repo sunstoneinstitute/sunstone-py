@@ -2,7 +2,7 @@
 License tracking with SPDX validation and compatibility enforcement.
 
 Provides an embedded list of common research-data licenses, a property
-model (attribution / ShareAlike / NonCommercial / public-domain), a
+model (attribution / ShareAlike / NonCommercial / NoDerivatives / public-domain), a
 rules-based compatibility engine, and a ``LicenseCompatibilityError``
 that surfaces actionable conflict descriptions at write time.
 """
@@ -48,6 +48,9 @@ class LicenseProperties:
     non_commercial: bool = False
     """True if commercial use is forbidden (CC-BY-NC, CC-BY-NC-SA, CC-BY-NC-3.0-IGO)."""
 
+    no_derivatives: bool = False
+    """True if adapted material may not be shared (CC-BY-ND, CC-BY-NC-ND)."""
+
     family: Optional[str] = None
     """Identifier for the ShareAlike family. Only same-family SA licenses are mutually compatible."""
 
@@ -58,9 +61,9 @@ class LicenseProperties:
 # ---------------------------------------------------------------------------
 # Embedded license registry
 #
-# This is intentionally focused on the licenses the issue mentions —
-# CC, ODC, CC0/PDDL, plus a couple of LicenseRef- entries. New licenses
-# should be added by appending to this list.
+# Common research-data and software licenses. This is the only license list:
+# lint (R006), ``sunstone dataset validate`` and the compatibility engine all
+# read it. New licenses are added by appending to this list.
 # ---------------------------------------------------------------------------
 
 _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
@@ -80,6 +83,8 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         name="United States Public Domain (work of US Federal Government)",
         public_domain=True,
     ),
+    LicenseProperties(spdx="Unlicense", name="The Unlicense", public_domain=True),
+    LicenseProperties(spdx="public-domain", name="Public domain (no SPDX identifier)", public_domain=True),
     # Attribution-only
     LicenseProperties(
         spdx="CC-BY-4.0",
@@ -122,6 +127,10 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         attribution=True,
         aliases=("GODL-India",),
     ),
+    LicenseProperties(spdx="MIT", name="MIT License", attribution=True),
+    LicenseProperties(spdx="Apache-2.0", name="Apache License 2.0", attribution=True),
+    LicenseProperties(spdx="BSD-2-Clause", name='BSD 2-Clause "Simplified" License', attribution=True),
+    LicenseProperties(spdx="BSD-3-Clause", name='BSD 3-Clause "New" or "Revised" License', attribution=True),
     # Attribution + ShareAlike
     LicenseProperties(
         spdx="CC-BY-SA-4.0",
@@ -144,6 +153,52 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         share_alike=True,
         family="odbl-1",
     ),
+    # Copyleft software licenses, treated as ShareAlike (one family per version)
+    LicenseProperties(
+        spdx="GPL-2.0-only",
+        name="GNU General Public License v2.0 only",
+        attribution=True,
+        share_alike=True,
+        family="gpl-2",
+    ),
+    LicenseProperties(
+        spdx="GPL-2.0-or-later",
+        name="GNU General Public License v2.0 or later",
+        attribution=True,
+        share_alike=True,
+        family="gpl-2",
+    ),
+    LicenseProperties(
+        spdx="GPL-3.0-only",
+        name="GNU General Public License v3.0 only",
+        attribution=True,
+        share_alike=True,
+        family="gpl-3",
+    ),
+    LicenseProperties(
+        spdx="GPL-3.0-or-later",
+        name="GNU General Public License v3.0 or later",
+        attribution=True,
+        share_alike=True,
+        family="gpl-3",
+    ),
+    LicenseProperties(
+        spdx="LGPL-3.0-only",
+        name="GNU Lesser General Public License v3.0 only",
+        attribution=True,
+        share_alike=True,
+        family="lgpl-3",
+    ),
+    LicenseProperties(
+        spdx="LGPL-3.0-or-later",
+        name="GNU Lesser General Public License v3.0 or later",
+        attribution=True,
+        share_alike=True,
+        family="lgpl-3",
+    ),
+    LicenseProperties(
+        spdx="MPL-2.0", name="Mozilla Public License 2.0", attribution=True, share_alike=True, family="mpl-2"
+    ),
     # Attribution + NonCommercial
     LicenseProperties(
         spdx="CC-BY-NC-4.0",
@@ -156,6 +211,26 @@ _REGISTRY_ENTRIES: tuple[LicenseProperties, ...] = (
         name="Creative Commons Attribution-NonCommercial 3.0 IGO",
         attribution=True,
         non_commercial=True,
+    ),
+    LicenseProperties(
+        spdx="CC-BY-NC-3.0",
+        name="Creative Commons Attribution-NonCommercial 3.0 Unported",
+        attribution=True,
+        non_commercial=True,
+    ),
+    # Attribution + NoDerivatives
+    LicenseProperties(
+        spdx="CC-BY-ND-4.0",
+        name="Creative Commons Attribution-NoDerivatives 4.0 International",
+        attribution=True,
+        no_derivatives=True,
+    ),
+    LicenseProperties(
+        spdx="CC-BY-NC-ND-4.0",
+        name="Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International",
+        attribution=True,
+        non_commercial=True,
+        no_derivatives=True,
     ),
     # Attribution + NonCommercial + ShareAlike
     LicenseProperties(
@@ -197,8 +272,12 @@ def known_licenses() -> list[LicenseProperties]:
     return sorted(_REGISTRY_ENTRIES, key=lambda e: e.spdx.lower())
 
 
+_UNREGISTERED_VALUES = frozenset({"proprietary"})
+"""Accepted license values with no compatibility properties (treated as unknown by the engine)."""
+
+
 def is_valid_spdx(identifier: str) -> bool:
-    """True if *identifier* is a known SPDX id, a known LicenseRef-, or any LicenseRef-* form.
+    """True if *identifier* is in the registry, is ``proprietary``, or is any LicenseRef-* form.
 
     LicenseRef-* identifiers are accepted as user-defined per the SPDX spec —
     they cannot be used in property-based compatibility rules unless they
@@ -206,7 +285,7 @@ def is_valid_spdx(identifier: str) -> bool:
     """
     if not identifier:
         return False
-    if identifier.lower() in _BY_LOWER:
+    if identifier.lower() in _BY_LOWER or identifier in _UNREGISTERED_VALUES:
         return True
     return identifier.startswith("LicenseRef-") and len(identifier) > len("LicenseRef-")
 
@@ -265,6 +344,13 @@ def _dedupe_preserving_order(items: Iterable[str]) -> list[str]:
 
 def _check_pair(source: LicenseProperties, target: LicenseProperties) -> Optional[str]:
     """Return a conflict description if *target* fails to satisfy *source*; else ``None``."""
+    if target.no_derivatives:
+        return f"{target.spdx} is NoDerivatives: outputs may not use a NoDerivatives license"
+    if source.no_derivatives:
+        return (
+            f"{source.spdx} is NoDerivatives: derivatives may not be shared under any license. "
+            f"Record the rights holder's permission under the source's 'dct:rights'"
+        )
     if source.public_domain:
         return None
     if source.share_alike:
@@ -341,14 +427,43 @@ def check_compatibility(
     return result
 
 
+def check_quotation(
+    quoted: str,
+    source_slugs: Iterable[str],
+    columns: Iterable[str],
+    source_columns: Optional[Iterable[str]],
+) -> list[str]:
+    """Conflicts for an output declared an unmodified copy (``prov:wasQuotedFrom``) of *quoted*.
+
+    A copy is not a derivative, so with no conflicts it may keep the source license, NoDerivatives
+    included. Values are not compared: the check is one source and only the source's columns.
+    """
+    conflicts: list[str] = []
+    slugs = set(source_slugs)
+    if quoted not in slugs:
+        conflicts.append(f"declares prov:wasQuotedFrom '{quoted}' but does not read it")
+    others = sorted(slugs - {quoted})
+    if others:
+        conflicts.append(f"declares prov:wasQuotedFrom '{quoted}' but also derives from {others}")
+    if source_columns is None:
+        conflicts.append(f"'{quoted}' has no schema.fields to check the copied columns against")
+    else:
+        allowed = set(source_columns)
+        extra = [c for c in columns if c not in allowed]
+        if extra:
+            conflicts.append(f"columns {extra} are not in '{quoted}', so the output is not an unmodified copy")
+    return conflicts
+
+
 # ---------------------------------------------------------------------------
 # Most-restrictive license picker
 # ---------------------------------------------------------------------------
 
 
-def _restrictiveness(props: LicenseProperties) -> tuple[int, int, int, int, str]:
+def _restrictiveness(props: LicenseProperties) -> tuple[int, int, int, int, int, str]:
     """Sort key — higher tuple = more restrictive."""
     return (
+        1 if props.no_derivatives else 0,
         1 if props.share_alike else 0,
         1 if props.non_commercial else 0,
         1 if props.attribution else 0,
@@ -380,7 +495,8 @@ def derive_compatible_target(source_licenses: Iterable[str]) -> Optional[str]:
     target is always picked from the *source* licenses themselves — we never
     add restrictions (e.g., ShareAlike) that no source actually required:
 
-    * Single unique source license — return it (the output inherits it).
+    * Single unique source license — return it (the output inherits it),
+      unless it is NoDerivatives: no output may carry an ND license.
     * Multiple unique source licenses — return the most restrictive one
       that is compatible with every other source.
     * Returns ``None`` when no source license satisfies the others (mutually
@@ -391,7 +507,8 @@ def derive_compatible_target(source_licenses: Iterable[str]) -> Optional[str]:
     if not deduped:
         return None
     if len(deduped) == 1:
-        return deduped[0]
+        props = get_properties(deduped[0])
+        return None if props is not None and props.no_derivatives else deduped[0]
 
     source_props: list[LicenseProperties] = []
     for ident in deduped:

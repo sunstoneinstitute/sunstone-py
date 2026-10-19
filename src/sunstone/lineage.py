@@ -264,6 +264,15 @@ class Source:
     bibliographic_citation: Optional[str] = None
     """Full citation string (``dct:bibliographicCitation``)."""
 
+    rights: Optional[Dict[str, Any]] = None
+    """Permission recorded from the rights holder (``dct:rights``) as written. Its ``dct:license`` is the license granted for derivatives."""
+
+    @property
+    def license_for_derivatives(self) -> Optional[str]:
+        """The license that governs outputs derived from this source: the ``dct:rights`` grant if recorded, else ``license``."""
+        granted = self.rights.get("dct:license") if self.rights else None
+        return str(granted) if granted else self.license
+
     @property
     def agent(self) -> Agent:
         """Return the attributed_to value as an Agent object."""
@@ -481,6 +490,12 @@ class DatasetMetadata:
 
     publish: Optional[PublishConfig] = None
     """Per-dataset publish configuration (overrides top-level)."""
+
+    @property
+    def quoted_from(self) -> Optional[str]:
+        """``prov:wasQuotedFrom``: the name of the dataset this output copies unmodified, if declared."""
+        value = (self.custom_properties or {}).get("prov:wasQuotedFrom")
+        return value if isinstance(value, str) else None
 
     # PROV-O relation fields (optional, populated when available)
     was_derived_from: Optional[List[EntityRef]] = None

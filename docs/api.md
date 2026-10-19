@@ -1579,7 +1579,7 @@ Programmatic counterparts to the [`sunstone license`](cli.md#license-commands) C
 
 ### `is_valid_spdx(identifier)`
 
-True if `identifier` is a recognised SPDX id, an entry in the embedded registry, or any well-formed `LicenseRef-*` identifier per the SPDX spec. This is the validator used by lint rule `R006`.
+True if `identifier` is an entry in the embedded registry, `proprietary`, or any well-formed `LicenseRef-*` identifier per the SPDX spec. This is the validator used by lint rule `R006`.
 
 **Parameters:**
 

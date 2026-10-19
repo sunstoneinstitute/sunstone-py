@@ -88,6 +88,7 @@ def _enforce_license_compatibility(
     manager: DatasetsManager,
     dataset_slug: str,
     target_license: Optional[str],
+    columns: Optional[list[str]] = None,
 ) -> None:
     """Check the proposed write against source licenses.
 
@@ -106,13 +107,15 @@ def _enforce_license_compatibility(
     from sunstone.session import get_session
 
     source_slugs = get_session().current_source_slugs()
+    if manager.enforce_quotation(dataset_slug, list(source_slugs), columns or [], target_license):
+        return
     source_licenses: list[str] = []
     for slug in source_slugs:
         ds = manager.find_dataset_by_slug(slug)
         if ds is None:
             continue
-        if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
-            source_licenses.append(ds.source.license)
+        if ds.dataset_type == "input" and ds.source is not None and ds.source.license_for_derivatives:
+            source_licenses.append(ds.source.license_for_derivatives)
         elif ds.dataset_type == "output":
             eff = manager.effective_license_for(slug)
             if eff:
@@ -128,7 +131,7 @@ def _enforce_license_compatibility(
             raise LicenseCompatibilityError(
                 f"Output '{dataset_slug}' has source datasets with licenses "
                 f"{unique} but no compatible default license can be derived "
-                f"(mutually incompatible or contains unknown identifiers). "
+                f"(mutually incompatible, NoDerivatives without a dct:rights grant, or unknown identifiers). "
                 f"Set 'license:' on the dataset, on a package, or pass "
                 f"license= to the writer."
             )
@@ -222,7 +225,7 @@ def _write(
 
     if check_license:
         target_license = license or manager.effective_license_for(dataset.slug)
-        _enforce_license_compatibility(manager, dataset.slug, target_license)
+        _enforce_license_compatibility(manager, dataset.slug, target_license, [str(c) for c in df.columns])
 
     # Write to a BytesIO buffer first so we can hash the bytes, then copy to
     # the actual file (avoids writing twice and avoids seeking limitations).

@@ -586,6 +586,7 @@ class DatasetsManager:
             [a for a in (self._parse_agent(c) for c in creators) if a] if isinstance(creators, list) else None
         )
         is_part_of = source_data.get("dct:isPartOf")
+        rights = source_data.get("dct:rights")
         citation = source_data.get("dct:bibliographicCitation")
         modified = source_data.get("dct:modified")
         source_id = source_data.get("@id")
@@ -605,6 +606,7 @@ class DatasetsManager:
             issued=None if issued is None else str(issued),
             is_part_of=dict(is_part_of) if isinstance(is_part_of, dict) else None,
             bibliographic_citation=None if citation is None else str(citation),
+            rights=dict(rights) if isinstance(rights, dict) else None,
         )
 
     @staticmethod
@@ -1342,6 +1344,44 @@ class DatasetsManager:
             if covers and pkg.metadata.license:
                 return pkg.metadata.license
         return None
+
+    def derivative_license_for(self, slug: str) -> Optional[str]:
+        """License governing data derived from *slug*: an input's ``license_for_derivatives``, an output's effective license."""
+        ds = self.find_dataset_by_slug(slug)
+        if ds is None:
+            return None
+        if ds.dataset_type == "input":
+            return ds.source.license_for_derivatives if ds.source is not None else None
+        return self.effective_license_for(slug)
+
+    def enforce_quotation(
+        self, slug: str, source_slugs: List[str], columns: List[str], target_license: Optional[str]
+    ) -> bool:
+        """Apply the copy rule to output *slug* if it declares ``prov:wasQuotedFrom``.
+
+        Returns True when the write is a declared copy keeping the source license (the caller skips the
+        derivative check), False when the normal check applies. Persists the inherited license when none is set.
+        Raises ``LicenseCompatibilityError`` when the output is not an unmodified copy.
+        """
+        from .licenses import LicenseCompatibilityError, check_quotation
+
+        output = self.find_dataset_by_slug(slug, "output")
+        quoted = output.quoted_from if output is not None else None
+        if quoted is None:
+            return False
+        source_license = self.derivative_license_for(quoted)
+        if target_license is not None and (source_license or "").lower() != target_license.lower():
+            return False
+        source = self.find_dataset_by_slug(quoted)
+        source_columns = [f.name for f in source.fields] if source is not None and source.fields else None
+        conflicts = check_quotation(quoted, source_slugs, columns, source_columns)
+        if conflicts:
+            lines = [f"Output '{slug}' is declared a copy of '{quoted}' (prov:wasQuotedFrom) but:"]
+            lines.extend(f"  - {c}" for c in conflicts)
+            raise LicenseCompatibilityError("\n".join(lines))
+        if target_license is None and source_license:
+            self.update_output_dataset(slug=slug, license=source_license)
+        return True
 
     def get_top_level_custom_properties(self) -> Dict[str, Any]:
         """

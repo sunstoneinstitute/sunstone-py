@@ -658,3 +658,241 @@ class TestDatasetValidateSpdx:
         runner = CliRunner()
         result = runner.invoke(app, ["dataset", "validate", "-f", str(tmp_path / "datasets.yaml")])
         assert result.exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# One registry for lint, validate and compatibility; NoDerivatives
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "spdx",
+    ["CC-BY-NC-ND-4.0", "CC-BY-ND-4.0", "CC-BY-NC-3.0", "MIT", "Apache-2.0", "GPL-3.0-only", "Unlicense"],
+)
+def test_formerly_lint_only_licenses_are_registered(spdx: str) -> None:
+    assert is_valid_spdx(spdx)
+    assert get_properties(spdx) is not None
+
+
+def test_lint_and_validate_agree() -> None:
+    from sunstone import conformance
+
+    doc = {
+        "inputs": [
+            {
+                "title": "In",
+                "name": "in",
+                "path": "in.csv",
+                "source": {"title": "S", "dct:license": lic},
+            }
+            for lic in ("CC-BY-NC-ND-4.0", "NLOD-2.0", "LicenseRef-Custom-1.0", "proprietary", "free")
+        ]
+    }
+    r006 = [v.path for v in conformance.validate_datasets_yaml(doc) if v.rule_id == "R006"]
+    assert r006 == ["inputs[4].source.dct:license"]
+
+
+@pytest.mark.parametrize("target", ["CC-BY-NC-4.0", "CC-BY-NC-ND-4.0", "CC-BY-ND-4.0"])
+def test_no_derivatives_source_has_no_compatible_target(target: str) -> None:
+    result = check_compatibility(["CC-BY-NC-ND-4.0"], target)
+    assert not result.compatible
+    assert any("NoDerivatives" in c for c in result.conflicts)
+    assert result.suggestions == []
+
+
+@pytest.mark.parametrize("source", ["CC0-1.0", "CC-BY-4.0"])
+def test_no_derivatives_target_always_conflicts(source: str) -> None:
+    result = check_compatibility([source], "CC-BY-ND-4.0")
+    assert not result.compatible
+    assert any("outputs may not" in c for c in result.conflicts)
+
+
+def test_no_derivatives_never_derived_or_suggested() -> None:
+    assert get_most_restrictive_license(["CC-BY-NC-4.0", "CC-BY-NC-ND-4.0"]) == "CC-BY-NC-ND-4.0"
+    assert derive_compatible_target(["CC-BY-NC-ND-4.0"]) is None
+    assert derive_compatible_target(["CC-BY-4.0", "CC-BY-NC-ND-4.0"]) is None
+    assert not any("-ND-" in s for s in check_compatibility(["CC-BY-NC-4.0"], "CC-BY-4.0").suggestions)
+
+
+@pytest.mark.parametrize(
+    "doc,path",
+    [
+        (
+            {"outputs": [{"title": "O", "name": "o", "path": "o.csv", "licenses": [{"name": "CC-BY-ND-4.0"}]}]},
+            "outputs[0].licenses",
+        ),
+        (
+            {
+                "package": {"licenses": [{"name": "CC-BY-NC-ND-4.0"}]},
+                "outputs": [{"title": "O", "name": "o", "path": "o.csv"}],
+            },
+            "package.licenses",
+        ),
+    ],
+)
+def test_r010_output_license_no_derivatives(doc: dict, path: str) -> None:
+    from sunstone import conformance
+
+    assert [v.path for v in conformance.validate_datasets_yaml(doc) if v.rule_id == "R010"] == [path]
+
+
+_ND_INPUT = """
+min_sunstone_version: "1.20.0"
+package:
+  licenses: [{name: CC-BY-4.0}]
+inputs:
+  - title: Raw
+    name: raw
+    path: inputs/raw.csv
+    description: Raw input.
+    prov:generatedAtTime: '2026-10-19'
+    prov:wasGeneratedBy: {'@type': prov:Activity, dct:type: manual-download}
+    source:
+      title: Raw
+      dct:publisher: {rdfs:label: Org}
+      dcat:downloadURL: https://example.org/raw.csv
+      dct:license: CC-BY-NC-ND-4.0
+"""
+
+_RIGHTS = """
+      dct:rights:
+        rdfs:label: Org permits sharing derived tables under CC-BY-4.0
+        dct:license: CC-BY-4.0
+        dct:date: '2026-10-19'
+        rdfs:seeAlso: audit/permissions/org.pdf
+"""
+
+
+class TestRecordedPermission:
+    """A source's ``dct:rights`` grant replaces its license for derivatives."""
+
+    def test_nd_source_blocks_write_without_permission(self, project_with_inputs: Path):
+        _write_yaml(project_with_inputs, _ND_INPUT)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        with pytest.raises(LicenseCompatibilityError, match="NoDerivatives"):
+            df.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+
+    def test_permission_allows_write(self, project_with_inputs: Path):
+        _write_yaml(project_with_inputs, _ND_INPUT + _RIGHTS)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        df.to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        assert (project_with_inputs / "outputs" / "out.csv").exists()
+
+    def test_permission_parsed_onto_source(self, project_with_inputs: Path):
+        from sunstone.datasets import DatasetsManager
+
+        _write_yaml(project_with_inputs, _ND_INPUT + _RIGHTS)
+        ds = DatasetsManager(project_with_inputs).find_dataset_by_slug("raw")
+        assert ds is not None and ds.source is not None and ds.source.rights is not None
+        src = ds.source
+        assert src.license == "CC-BY-NC-ND-4.0"
+        assert src.rights is not None and src.rights["dct:date"] == "2026-10-19"
+        assert src.license_for_derivatives == "CC-BY-4.0"
+
+    def test_rights_key_is_allowed_and_its_license_validated(self):
+        from sunstone import conformance
+
+        doc = {
+            "inputs": [
+                {
+                    "title": "In",
+                    "name": "in",
+                    "path": "in.csv",
+                    "source": {"title": "S", "dct:license": "proprietary", "dct:rights": {"dct:license": lic}},
+                }
+                for lic in ("CC-BY-4.0", "free")
+            ]
+        }
+        found = [(v.rule_id, v.path) for v in conformance.validate_datasets_yaml(doc) if v.rule_id in ("R006", "R301")]
+        assert found == [("R006", "inputs[1].source.dct:rights.dct:license")]
+
+
+_QUOTED = """
+min_sunstone_version: "1.20.0"
+inputs:
+  - title: Raw
+    name: raw
+    path: inputs/raw.csv
+    description: Raw input.
+    prov:generatedAtTime: '2026-10-19'
+    prov:wasGeneratedBy: {'@type': prov:Activity, dct:type: manual-download}
+    source:
+      title: Raw
+      dct:publisher: {rdfs:label: Org}
+      dcat:downloadURL: https://example.org/raw.csv
+      dct:license: CC-BY-NC-ND-4.0
+    schema:
+      fields:
+        - {name: a, type: integer}
+        - {name: b, type: integer}
+outputs:
+  - title: Copy
+    name: copy
+    path: outputs/copy.csv
+    description: Unmodified copy of raw.
+    prov:wasQuotedFrom: raw
+"""
+
+
+class TestQuotedOutput:
+    """An output declared ``prov:wasQuotedFrom`` an ND source may keep the ND license."""
+
+    def test_unmodified_copy_inherits_nd_license(self, project_with_inputs: Path):
+        from sunstone.datasets import DatasetsManager
+
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        df[["a"]].to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+        assert DatasetsManager(project_with_inputs).effective_license_for("copy") == "CC-BY-NC-ND-4.0"
+
+    def test_license_check_accepts_declared_copy(self, project_with_inputs: Path):
+        import json
+
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        spd.read_csv("inputs/raw.csv").to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+        result = CliRunner().invoke(
+            app, ["license", "check", "--json", "-f", str(project_with_inputs / "datasets.yaml")]
+        )
+        assert result.exit_code == 0, result.output
+        report = json.loads(result.output)["reports"][0]
+        assert report["status"] == "compatible" and report["quoted_from"] == "raw"
+
+    def test_new_column_is_not_a_copy(self, project_with_inputs: Path):
+        _write_yaml(project_with_inputs, _QUOTED)
+        set_project_path(project_with_inputs)
+        from sunstone import pandas as spd
+
+        df = spd.read_csv("inputs/raw.csv")
+        df["c"] = df["a"] + df["b"]
+        with pytest.raises(LicenseCompatibilityError, match="not in 'raw'"):
+            df.to_csv("outputs/copy.csv", slug="copy", name="Copy", index=False)
+
+    def test_r010_skipped_for_declared_copy(self):
+        import yaml
+
+        from sunstone import conformance
+
+        doc = yaml.safe_load(_QUOTED)
+        doc["outputs"][0]["licenses"] = [{"name": "CC-BY-NC-ND-4.0"}]
+        assert not [v for v in conformance.validate_datasets_yaml(doc) if v.rule_id == "R010"]
+
+
+def test_check_quotation() -> None:
+    from sunstone.licenses import check_quotation
+
+    assert check_quotation("raw", ["raw"], ["a"], ["a", "b"]) == []
+    assert "also derives from ['other']" in check_quotation("raw", ["raw", "other"], ["a"], ["a", "b"])[0]
+    assert "does not read" in check_quotation("raw", [], ["a"], ["a", "b"])[0]
+    assert "no schema.fields" in check_quotation("raw", ["raw"], ["a"], None)[0]

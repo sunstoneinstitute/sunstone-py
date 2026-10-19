@@ -16,6 +16,7 @@ from typing import Any, Literal, Optional
 
 from . import STANDARD_RDF_PREFIXES
 from .aliases import MIN_NEW_FORM_VERSION, Conflict, Rename, is_doi_url, normalize_document, normalize_lock, version_key
+from .licenses import get_properties, is_valid_spdx
 from .rules import RULES, Level, Severity, register_check, severity_for
 from .vocab import (
     SHIPPED_VOCABS,
@@ -429,41 +430,6 @@ def _r004(ctx: ConformanceContext) -> Iterator[Violation]:
             yield ctx.violation("R004", path, "missing 'description'")
 
 
-ALLOWED_LICENSES = frozenset(
-    {
-        "CC0-1.0",
-        "CC-BY-4.0",
-        "CC-BY-3.0",
-        "CC-BY-3.0-IGO",
-        "CC-BY-SA-4.0",
-        "CC-BY-SA-3.0",
-        "CC-BY-NC-4.0",
-        "CC-BY-NC-3.0",
-        "CC-BY-NC-3.0-IGO",
-        "CC-BY-NC-SA-4.0",
-        "CC-BY-NC-ND-4.0",
-        "CC-BY-ND-4.0",
-        "MIT",
-        "Apache-2.0",
-        "BSD-2-Clause",
-        "BSD-3-Clause",
-        "GPL-2.0-only",
-        "GPL-2.0-or-later",
-        "GPL-3.0-only",
-        "GPL-3.0-or-later",
-        "LGPL-3.0-only",
-        "LGPL-3.0-or-later",
-        "MPL-2.0",
-        "ODbL-1.0",
-        "ODC-By-1.0",
-        "PDDL-1.0",
-        "Unlicense",
-        "public-domain",
-        "proprietary",
-    }
-)
-
-
 def _license_of(ctx: ConformanceContext, kind: str, ds: Mapping[str, Any], path: str) -> tuple[Any, str]:
     if kind == "input":
         src = ds.get("source")
@@ -486,14 +452,34 @@ def _r005(ctx: ConformanceContext) -> Iterator[Violation]:
             yield ctx.violation("R005", lpath, "missing license")
 
 
+@register_check("R010")
+def _r010(ctx: ConformanceContext) -> Iterator[Violation]:
+    if not _yaml_only(ctx):
+        return
+    for kind, _, ds, path in ctx.datasets():
+        if kind != "output" or ds.get("prov:wasQuotedFrom"):
+            continue
+        value, lpath = _license_of(ctx, kind, ds, path)
+        props = get_properties(str(value)) if value else None
+        if props is not None and props.no_derivatives:
+            yield ctx.violation("R010", lpath, f"output license '{value}' is NoDerivatives")
+
+
 @register_check("R006")
 def _r006(ctx: ConformanceContext) -> Iterator[Violation]:
     if not _yaml_only(ctx):
         return
     for kind, _, ds, path in ctx.datasets():
         value, lpath = _license_of(ctx, kind, ds, path)
-        if value and value not in ALLOWED_LICENSES:
+        if value and not is_valid_spdx(str(value)):
             yield ctx.violation("R006", lpath, f"license '{value}' is not a recognised identifier")
+        src = ds.get("source") if kind == "input" else None
+        rights = src.get("dct:rights") if isinstance(src, Mapping) else None
+        granted = rights.get("dct:license") if isinstance(rights, Mapping) else None
+        if granted and not is_valid_spdx(str(granted)):
+            yield ctx.violation(
+                "R006", f"{path}.source.dct:rights.dct:license", f"license '{granted}' is not a recognised identifier"
+            )
 
 
 def _fields(ctx: ConformanceContext) -> Iterator[tuple[str, Mapping[str, Any], Mapping[str, Any], str]]:
@@ -925,6 +911,7 @@ KEY_LEVELS: dict[tuple[str, str], tuple[Level, Optional[str]]] = {
     ("dataset", "source"): (Level.SHOULD, "R101"),
     ("dataset", "prov:generatedAtTime"): (Level.MUST, "R312"),
     ("dataset", "prov:wasGeneratedBy"): (Level.MUST, "R312"),
+    ("dataset", "prov:wasQuotedFrom"): (Level.MAY, None),
     ("source", "title"): (Level.MUST, "R102"),
     ("source", "dct:publisher"): (Level.MUST, "R102"),
     ("source", "@id"): (Level.MUST, "R102"),
@@ -940,6 +927,7 @@ KEY_LEVELS: dict[tuple[str, str], tuple[Level, Optional[str]]] = {
     ("source", "dcat:accessURL"): (Level.MAY, None),
     ("source", "rdfs:seeAlso"): (Level.MAY, None),
     ("source", "version"): (Level.MAY, None),
+    ("source", "dct:rights"): (Level.MAY, None),
     ("field", "name"): (Level.MUST, "R007"),
     ("field", "type"): (Level.MUST, "R008"),
     ("field", "description"): (Level.SHOULD, "R105"),

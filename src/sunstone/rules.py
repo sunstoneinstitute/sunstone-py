@@ -168,6 +168,15 @@ RULES: dict[str, Rule] = {
             "Use 'lint.disable:\\n  R104: \"reason\"'.",
         ),
         _r(
+            "R010",
+            Level.MUST_NOT,
+            Category.PROVENANCE,
+            f"{Y}:dataset",
+            "Output license is NoDerivatives",
+            "An output must not carry a NoDerivatives license (CC-BY-ND, CC-BY-NC-ND) unless it declares 'prov:wasQuotedFrom' (an unmodified copy of one source).",
+            "Use the license the sources allow for derivatives, record the rights holder's permission under the source's 'dct:rights', or, if the output copies one source unmodified, add 'prov:wasQuotedFrom: <source name>'.",
+        ),
+        _r(
             "R101",
             Level.SHOULD,
             Category.PROVENANCE,
