@@ -506,9 +506,11 @@ app.add_typer(package_app, name="package")
 app.add_typer(lineage_app, name="lineage")
 app.add_typer(env_app, name="env")
 app.add_typer(license_app, name="license")
+vocab_app = typer.Typer(help="Search vocabularies and allowed datasets.yaml keys.", **_TYPER_OPTS)
+app.add_typer(vocab_app, name="vocab")
 
 # Mount plugin CLI groups
-_BUILTIN_GROUPS = {"dataset", "package", "lineage", "env", "license"}
+_BUILTIN_GROUPS = {"dataset", "package", "lineage", "env", "license", "vocab"}
 
 
 def _mount_plugin_cli_groups() -> None:
@@ -2344,6 +2346,42 @@ def lineage_tree(
     typer.echo(display_lineage(node))
 
 
+@vocab_app.command("search")
+def vocab_search_cmd(
+    text: Optional[list[str]] = typer.Argument(None, help="Words to search for (all must match)."),
+    at: Optional[str] = typer.Option(
+        None, "--at", help="Restrict DP/config keys to a datasets.yaml path, e.g. inputs.source"
+    ),
+    limit: int = typer.Option(20, "--limit", help="Maximum number of results."),
+    json_output: bool = typer.Option(False, "--json", help="Emit JSON."),
+) -> None:
+    """Find an RDF term or allowed key. Without TEXT and with --at, list every allowed key at that level."""
+    from .vocab_search import explain, key_info_to_dict, search, term_to_dict
+
+    query = " ".join(text or []).strip()
+    if not query and at is None:
+        typer.echo("Error: give search text, --at <path>, or both.", err=True)
+        sys.exit(2)
+    try:
+        if query:
+            hits = search(query, at=at, limit=limit)
+            if json_output:
+                typer.echo(json.dumps([term_to_dict(t) for t in hits], indent=2))
+            else:
+                for t in hits:
+                    typer.echo(f"{t.curie}  {t.iri or '-'}  {t.label}: {t.definition}")
+        else:
+            keys = explain(at or "")
+            if json_output:
+                typer.echo(json.dumps([key_info_to_dict(k) for k in keys], indent=2))
+            else:
+                for k in keys:
+                    typer.echo(f"{k.key}  {k.cls}  {k.rule_level}  {k.definition}")
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(2)
+
+
 @app.command("lint")
 def lint_cmd(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
@@ -2387,6 +2425,77 @@ def lint_cmd(
 
     has_blocking = bool(report.errors) or (warnings_as_errors and bool(report.warnings))
     sys.exit(1 if has_blocking else 0)
+
+
+@app.command("migrate")
+def migrate_cmd(
+    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report what would change without writing."),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
+) -> None:
+    """Rewrite datasets.yaml, its include files and datasets.lock.yaml to the current key names.
+
+    Comments and key order are kept. Safe to run repeatedly. Keys that are neither
+    Data Package properties, config keys nor RDF properties are listed with suggestions.
+    Exits with code 1 when a rename conflicts with an existing value (the old key is
+    kept), an entry is ambiguous (both slug and title), or an include file cannot be
+    migrated. Exits with code 2 when the main file is not valid YAML.
+    """
+    import json
+    from dataclasses import asdict
+
+    from .migrate import MigrateError, migrate_project
+
+    yaml_path = Path(datasets_file).resolve()
+    if not yaml_path.exists():
+        typer.echo(f"Error: {datasets_file} not found", err=True)
+        sys.exit(1)
+    try:
+        report = migrate_project(yaml_path.parent, datasets_file=yaml_path.name, dry_run=dry_run)
+    except MigrateError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(2)
+    failed = report.failed
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "dry_run": report.dry_run,
+                    "changed": report.changed,
+                    "unknown": [asdict(u) for u in report.unknown],
+                    "conflicts": [asdict(c) for c in report.conflicts],
+                    "skipped": [asdict(s) for s in report.skipped],
+                    "ambiguous": [asdict(a) for a in report.ambiguous],
+                },
+                indent=2,
+            )
+        )
+        sys.exit(1 if failed else 0)
+    verb = "would rename" if dry_run else "renamed"
+    if not report.changed:
+        typer.echo("Nothing to migrate.")
+    for name, count in report.changed.items():
+        typer.echo(f"{name}: {count} key(s) {verb}")
+    if report.conflicts:
+        typer.echo("Conflicts (old key kept, resolve by hand):")
+        for c in report.conflicts:
+            typer.echo(f"  {c.file}: {c.path}: '{c.old}' kept, '{c.new}' already set")
+    if report.ambiguous:
+        typer.echo("Ambiguous entries (left unchanged):")
+        for a in report.ambiguous:
+            typer.echo(f"  {a.file}: {a.path}: both slug and title present; resolve by hand")
+    if report.skipped:
+        typer.echo("Skipped files:")
+        for s in report.skipped:
+            typer.echo(f"  {s.file}: {s.reason}")
+    if report.unknown:
+        typer.echo("Unknown keys (not DP, config or RDF):")
+        for u in report.unknown:
+            hint = ", ".join(u.suggestions) if u.suggestions else "no suggestion"
+            where = f"{u.file}: " if u.file else ""
+            typer.echo(f"  {where}{u.path}: try {hint}")
+    typer.echo("Run `sunstone lint` to review remaining findings.")
+    sys.exit(1 if failed else 0)
 
 
 @lineage_app.command("attribution")

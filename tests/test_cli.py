@@ -403,8 +403,8 @@ inputs:
     def test_strict_reports_unknown_keys_with_path(self, runner: CliRunner, tmp_path: Path) -> None:
         result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(self._write(tmp_path, self._MESSY))])
         assert result.exit_code == 1
-        assert "inputs[0]: unknown key 'foo'" in result.output
-        assert "inputs[0].fields[0]: unknown key 'bogus'" in result.output
+        assert "inputs[0].foo: [R301] unknown key 'foo'" in result.output
+        assert "inputs[0].schema.fields[0].bogus: [R301] unknown key 'bogus'" in result.output
         assert "inputs[1].dialect: unknown key 'sepparator'" in result.output
         assert "package.version: 1.0 is not of type 'string'" in result.output
 
@@ -436,13 +436,45 @@ inputs:
     def test_strict_accepts_rdf_and_profile_keys(self, runner: CliRunner, tmp_path: Path) -> None:
         yaml_file = self._write(
             tmp_path,
-            "rdfPrefixes:\n  si: https://sunstone.institute/rdf/vocab#\n"
-            "inputs:\n  - name: A\n    slug: a\n    location: a.csv\n    si:category: c\n    encoding: utf-8\n"
+            "rdfPrefixes:\n  ex: https://example.org/\n"
+            "inputs:\n  - name: A\n    slug: a\n    location: a.csv\n    ex:category: c\n    encoding: utf-8\n"
             "    fields:\n      - name: x\n        type: year\n        title: Year\n",
         )
         result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(yaml_file)])
         assert result.exit_code == 0, result.output
         assert "is valid" in result.output
+
+    @pytest.mark.parametrize("fixture", ["UNMembersProject", "UNMembersProjectV2", "ConformantProject"])
+    def test_strict_accepts_new_form_fixtures(self, runner: CliRunner, tmp_path: Path, fixture: str) -> None:
+        """A migrated file (old-form fixture after `sunstone migrate`) and the new-form fixtures pass --strict."""
+        project = tmp_path / fixture
+        shutil.copytree(Path(__file__).parent / "testdata" / fixture, project)
+        yaml_file = project / "datasets.yaml"
+        if fixture == "UNMembersProject":
+            migrated = runner.invoke(app, ["migrate", "-f", str(yaml_file)])
+            assert migrated.exit_code == 0, migrated.output
+        result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(yaml_file)])
+        assert result.exit_code == 0, result.output
+
+    @pytest.mark.parametrize(
+        ("old", "new", "message"),
+        [
+            ('version: "1.0.0"', "version: 1.0", "package.version: 1.0 is not of type 'string'"),
+            ("type: number", "type: text", "outputs[0].schema.fields[1]: invalid type 'text'"),
+        ],
+    )
+    def test_strict_rejects_value_errors_in_new_form(
+        self, runner: CliRunner, tmp_path: Path, old: str, new: str, message: str
+    ) -> None:
+        project = tmp_path / "p"
+        shutil.copytree(Path(__file__).parent / "testdata" / "ConformantProject", project)
+        yaml_file = project / "datasets.yaml"
+        text = yaml_file.read_text()
+        assert old in text
+        yaml_file.write_text(text.replace(old, new))
+        result = runner.invoke(app, ["dataset", "validate", "--strict", "-f", str(yaml_file)])
+        assert result.exit_code == 1
+        assert message in result.output
 
     def test_top_level_not_a_mapping(self, runner: CliRunner, tmp_path: Path) -> None:
         result = runner.invoke(app, ["dataset", "validate", "-f", str(self._write(tmp_path, "- just\n- a list\n"))])
@@ -922,7 +954,75 @@ class TestFieldMetadataInDatapackage:
         fields = datapackage["resources"][0]["schema"]["fields"]
         fields_by_name = {f["name"]: f for f in fields}
         assert fields_by_name["score"]["source"] == "world-happiness-report"
+        assert fields_by_name["score"]["http://purl.org/dc/terms/source"] == "world-happiness-report"
+        assert "https://sunstone.institute/rdf/vocab#sourceField" not in fields_by_name["score"]
         assert "source" not in fields_by_name["country"]
+
+    def _field_source_project(self, tmp_path: Path, field_yaml: str) -> Path:
+        project = tmp_path / "project"
+        (project / "outputs").mkdir(parents=True)
+        (project / "outputs" / "data.csv").write_text("country,score\nNorway,9.5\n")
+        (project / "datasets.yaml").write_text(
+            "publish:\n  enabled: true\n  to: gs://bucket/test/\ninputs: []\noutputs:\n"
+            "  - name: Country Scores\n    slug: country-scores\n    location: outputs/data.csv\n"
+            "    fields:\n      - name: country\n        type: string\n"
+            "      - name: score\n        type: number\n" + field_yaml
+        )
+        return project
+
+    def _built_field(self, runner: CliRunner, project: Path, name: str) -> dict:
+        import json
+
+        out = project / "datapackage.json"
+        result = runner.invoke(app, ["package", "build", "-f", str(project / "datasets.yaml"), "-o", str(out)])
+        assert result.exit_code == 0, result.output
+        fields = json.loads(out.read_text())["resources"][0]["schema"]["fields"]
+        field: dict = {f["name"]: f for f in fields}[name]
+        return field
+
+    def test_field_source_object_old_key_as_authored(self, runner: CliRunner, tmp_path: Path) -> None:
+        """An old-form field source object is emitted as `source` unchanged (1.19 output); the IRI key is normalized."""
+        project = self._field_source_project(
+            tmp_path,
+            "        source:\n"
+            "          name: World Happiness Report\n"
+            "          publisher: Gallup\n"
+            "          location:\n"
+            "            web: https://worldhappiness.report\n"
+            "          acquisitionMethod: manual-download\n",
+        )
+        field = self._built_field(runner, project, "score")
+        assert field["source"] == {
+            "name": "World Happiness Report",
+            "publisher": "Gallup",
+            "location": {"web": "https://worldhappiness.report"},
+            "acquisitionMethod": "manual-download",
+        }
+        assert field["http://purl.org/dc/terms/source"] == {
+            "title": "World Happiness Report",
+            "http://purl.org/dc/terms/publisher": {"http://www.w3.org/2000/01/rdf-schema#label": "Gallup"},
+            "http://www.w3.org/ns/dcat#landingPage": "https://worldhappiness.report",
+            "acquisitionMethod": "manual-download",
+        }
+
+    def test_field_source_object_new_form_gets_old_shape(self, runner: CliRunner, tmp_path: Path) -> None:
+        project = self._field_source_project(
+            tmp_path,
+            "        dct:source:\n"
+            "          title: World Happiness Report\n"
+            "          dct:publisher:\n"
+            "            rdfs:label: Gallup\n"
+            "          dcat:landingPage: https://worldhappiness.report\n"
+            "          dct:license: CC-BY-4.0\n",
+        )
+        field = self._built_field(runner, project, "score")
+        assert field["source"] == {
+            "name": "World Happiness Report",
+            "publisher": "Gallup",
+            "location": {"web": "https://worldhappiness.report"},
+            "license": "CC-BY-4.0",
+        }
+        assert field["http://purl.org/dc/terms/source"]["http://purl.org/dc/terms/license"] == "CC-BY-4.0"
 
     def test_all_field_metadata_combined(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test description, unit, and source together on a single field."""
@@ -2976,7 +3076,7 @@ class TestMigrateHashes:
         # Verify datasets.yaml has min_sunstone_version
         with open(datasets_yaml) as f:
             updated_datasets = yaml.load(f)
-        assert updated_datasets.get("min_sunstone_version") == "1.8.0"
+        assert updated_datasets.get("min_sunstone_version") == "1.20.0"
 
     def test_migrate_idempotent(self, tmp_path: Path) -> None:
         """Running migrate twice with already-migrated format does not change the lock file."""
@@ -3646,6 +3746,8 @@ class TestResourceDictTableSources:
                 "path": "https://example.org/pop.csv",
                 "http://www.w3.org/ns/dcat#downloadURL": "https://example.org/pop.csv",
                 "http://www.w3.org/ns/dcat#landingPage": "https://example.org/wdi",
+                "http://www.w3.org/ns/prov#wasAttributedTo": "World Bank",
+                "http://purl.org/dc/terms/license": "CC-BY-4.0",
             }
         ]
 
@@ -3683,12 +3785,15 @@ class TestResourceDictTableSources:
                 "path": "https://example.org/wdi",
                 "http://www.w3.org/ns/dcat#accessURL": "https://example.org/api",
                 "http://www.w3.org/ns/dcat#landingPage": "https://example.org/wdi",
+                "http://www.w3.org/ns/prov#wasAttributedTo": "World Bank",
+                "http://purl.org/dc/terms/license": "CC-BY-4.0",
             }
         ]
 
     def test_publisher_and_creator(self, tmp_path: Path) -> None:
         from sunstone.cli import build_resource_dict
         from sunstone.datasets import DatasetsManager
+        from sunstone.lineage import SourceAgent
 
         (tmp_path / "pop.csv").write_text("country,value\nNO,5\n")
         (tmp_path / "datasets.yaml").write_text(
@@ -3710,8 +3815,8 @@ class TestResourceDictTableSources:
         manager = DatasetsManager(tmp_path)
         ds = manager.find_dataset_by_slug("pop")
         assert ds is not None and ds.source is not None
-        assert ds.source.publisher == "World Bank"
-        assert ds.source.creator == "UN Population Division"
+        assert ds.source.publisher == SourceAgent(label="World Bank")
+        assert ds.source.creator == [SourceAgent(label="UN Population Division")]
 
         result = build_resource_dict(ds, manager, None)
         assert result is not None
@@ -3720,8 +3825,12 @@ class TestResourceDictTableSources:
                 "title": "WDI",
                 "path": "https://example.org/pop.csv",
                 "http://www.w3.org/ns/dcat#downloadURL": "https://example.org/pop.csv",
-                "http://purl.org/dc/terms/publisher": "World Bank",
-                "http://purl.org/dc/terms/creator": "UN Population Division",
+                "http://purl.org/dc/terms/publisher": {"http://www.w3.org/2000/01/rdf-schema#label": "World Bank"},
+                "http://purl.org/dc/terms/creator": [
+                    {"http://www.w3.org/2000/01/rdf-schema#label": "UN Population Division"}
+                ],
+                "http://www.w3.org/ns/prov#wasAttributedTo": "World Bank",
+                "http://purl.org/dc/terms/license": "CC-BY-4.0",
             }
         ]
 
@@ -3810,6 +3919,8 @@ class TestResourceDictLineageSources:
                     "title": f"Source {n}",
                     "path": f"https://example.org/{n}.csv",
                     "http://www.w3.org/ns/dcat#downloadURL": f"https://example.org/{n}.csv",
+                    "http://www.w3.org/ns/prov#wasAttributedTo": "Example",
+                    "http://purl.org/dc/terms/license": "CC-BY-4.0",
                 }
                 for n in expected
             ]
