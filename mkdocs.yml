@@ -51,7 +51,8 @@ nav:
       - Quick Start: quickstart.md
       - CLI Guide: cli.md
       - Core Concepts: concepts.md
-      - datasets.yaml Reference: datasets-yaml.md
+      - datasets.yaml key reference: datasets-yaml-reference.md
+      - Validating datasets.yaml: datasets-yaml.md
       - File Formats: formats.md
   - Data Kinds:
       - pandas: pandas.md

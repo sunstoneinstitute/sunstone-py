@@ -155,15 +155,15 @@ sunstone dataset validate -f path/to/datasets.yaml
 
 **Validation checks (always):**
 
-- Required fields (name, slug, location, and fields for `type: table`)
+- Required fields (`title`, `name`, `path`, and `schema.fields` for `type: table`)
 - Field types are Table Schema types or plugin-registered types
-- Duplicate slugs
+- Duplicate names
 - SPDX license identifiers
 - Proper YAML structure
 
-**Additional checks with `--strict`** (see the [datasets.yaml reference](datasets-yaml.md)):
+**Additional checks with `--strict`** (see [Validating datasets.yaml](datasets-yaml.md)):
 
-- Every key is a Data Package v2 property at its level or a documented sunstone key; keys containing `:` are custom RDF properties and are not checked
+- Keys: lint rules R301-R303 (unknown key, undeclared prefix, term not in a shipped vocabulary), on the normalized document
 - Values of Data Package properties (field constraints, `package.version`, `contributors`, dialect blocks, ...) validate against the official v2 profiles
 
 With `--dataset` or positional slugs, only those datasets are checked; package-level and top-level checks are skipped. Use `--strict` in CI to keep `datasets.yaml` clean.
@@ -244,26 +244,52 @@ sunstone lint --json
 
 ### Rules
 
-| ID | Severity | Title |
-|------|----------|-------|
-| R001 | error | Dataset missing `name` |
-| R002 | error | Dataset missing `slug` |
-| R003 | error | Dataset missing `location` |
-| R004 | error | Dataset missing `description` |
-| R005 | error | Dataset missing license (input: `source.license`; output: dataset, `package.license`, or matching `packages[]` entry) |
-| R006 | error | License is not a recognised SPDX or allow-list identifier |
-| R007 | error | Field missing `name` |
-| R008 | error | Field missing `type` |
-| R009 | error | Malformed `lint.disable` entry (cannot itself be suppressed) |
-| R101 | warning | Input missing `source` block |
-| R102 | warning | Source block malformed or missing required keys |
-| R103 | warning | Numeric field missing `unit` |
-| R104 | warning | Slug not in kebab-case |
-| R105 | warning | Published output field missing `description` |
-| R201 | info | Generic field name (`total`, `value`, ...) without a substantive description |
-| R202 | info | Generic dataset name (`data`, `output`, ...) |
+MUST rules that are new or stricter in 1.20 (R102, R104 and all R3xx rules) are warnings in 1.x and become errors in 2.0.
 
-R001–R009 are errors (exit non-zero), R101–R105 are warnings (exit zero unless `--warnings-as-errors`), R201–R202 are informational.
+| Rule | Level | Severity | Description |
+|------|-------|----------|-------------|
+| R001 | MUST | error | Dataset missing `title` |
+| R002 | MUST | error | Dataset missing `name` |
+| R003 | MUST | error | Dataset missing `path` |
+| R004 | SHOULD | warning | Dataset missing `description` |
+| R005 | MUST | error | Dataset missing license (input: `source.dct:license`; output: `licenses`, package `licenses`) |
+| R006 | MUST | error | License is not a recognised SPDX or allow-list identifier |
+| R007 | MUST | error | Field missing `name` |
+| R008 | MUST | error | Field missing `type` |
+| R009 | MUST | error | Malformed `lint.disable` entry (cannot itself be suppressed) |
+| R101 | SHOULD | warning | Input missing `source` block |
+| R102 | MUST | warning (1.x) | Source missing `title`, `dct:publisher` (with `rdfs:label`), a link (`"@id"`, `dcat:downloadURL` or `dcat:landingPage`) or `dct:license` |
+| R103 | SHOULD | warning | Numeric field missing `si:unit` |
+| R104 | MUST | warning (1.x) | Dataset `name` not in kebab-case |
+| R105 | SHOULD | warning | Published output field missing `description` |
+| R201 | INFO | info | Generic field name (`total`, `value`, ...) without a substantive description |
+| R202 | INFO | info | Generic dataset title (`data`, `output`, ...) |
+| R301 | MUST | warning (1.x) | Key is not a Data Package property, a config key or an RDF property |
+| R302 | MUST | warning (1.x) | RDF prefix not declared |
+| R303 | MUST | warning (1.x) | Term does not exist in a shipped vocabulary |
+| R304 | MUST NOT | warning (1.x) | Deprecated key; run `sunstone migrate` |
+| R305 | MUST | warning (1.x) | Dataset has both `slug` and `title` |
+| R306 | MUST | warning (1.x) | New-form keys without `min_sunstone_version` >= 1.20.0 |
+| R307 | MUST NOT | warning (1.x) | RDF property duplicates a Data Package key or a generated value (`dct:title`, `qudt:unit`, ...) |
+| R308 | MUST | warning (1.x) | `include` file is missing, has a nested `include`, a document-level key or a duplicate dataset name |
+| R311 | SHOULD | warning | Source missing `skos:altLabel` on the publisher, `dct:issued` or `dct:modified`; a publication also `dct:creator` and `"@id"` |
+| R312 | MUST | warning (1.x) | Input missing `prov:generatedAtTime` or `prov:wasGeneratedBy.dct:type` |
+| R313 | MUST | warning (1.x) | Published output has no sources |
+| R314 | SHOULD | warning | Published output missing `dct:temporal`, `dct:spatial` or `dcat:theme` |
+| R315 | MUST NOT | warning (1.x) | `doi.org` URL in `dcat:downloadURL` or `dcat:landingPage` (a DOI goes in `"@id"`) |
+| R316 | SHOULD | warning | Field source object missing `title`, `dct:publisher` (with `rdfs:label`), a link or `dct:license` |
+| R317 | SHOULD | warning | Input field sources repeat the input's own source (field sources are for per-column upstream sources) |
+| R318 | SHOULD | warning | Output field source repeats the output's only resolved source |
+| R321 | SHOULD | warning | Output has no lock entry with sources and activity |
+| R322 | MUST | warning (1.x) | Lock source references an unknown dataset |
+| R323 | MUST NOT | warning (1.x) | Inline `lineage` in datasets.yaml |
+| R331 | MUST | warning (1.x) | Field type not registered |
+| R341 | SHOULD | warning | `si:unit` is neither a Pint unit nor a QUDT IRI |
+| R351 | MUST | warning (1.x) | Package missing `title` when publishing |
+| R361 | SHOULD | warning | No top-level `dcat-si:methodology` (project does not publish) |
+| R362 | MUST | warning (1.x) | No top-level `dcat-si:methodology` while publishing a package |
+
+MUST rules are errors (exit non-zero), SHOULD rules are warnings (exit zero unless `--warnings-as-errors`), INFO rules are informational. `--json` output carries `path` and `fix` for every violation.
 
 ### Suppressing Rules
 
@@ -298,19 +324,39 @@ for v in report.suppressed:
 ### Example Output
 
 ```
-[R005] ERROR inputs[0].source.license: missing license
+[R005] ERROR inputs[0].source.dct:license: missing license
     hint: Add an SPDX license identifier (e.g. 'CC-BY-4.0', 'MIT').
-[R103] WARNING outputs[0].fields[2]: numeric field 'enrollment' has no unit
-    hint: Add a 'unit:' (e.g. 'meter', 'USD'), or accept the lock-file unit if derived from arithmetic.
-[R104] WARNING inputs[1].slug: slug 'School_Data' is not kebab-case
+[R103] WARNING outputs[0].schema.fields[2]: numeric field 'enrollment' has no unit
+    hint: Add an 'si:unit:' (e.g. 'meter', 'USD'), or accept the lock-file unit if derived from arithmetic.
+[R104] WARNING inputs[1].name: name 'School_Data' is not kebab-case
     hint: Use lowercase ASCII letters/digits separated by single hyphens.
 
 Suppressed by lint.disable (1):
-  [R201] outputs[0].fields[0]: generic field name 'value' without a substantive description
+  [R201] outputs[0].schema.fields[0]: generic field name 'value' without a substantive description
       reason: Column name fixed by upstream contract
 
 Summary: 1 error(s), 2 warning(s), 0 info, 1 suppressed
 ```
+
+## Migrating key names
+
+```bash
+sunstone migrate            # rewrite datasets.yaml, include files and datasets.lock.yaml
+sunstone migrate --dry-run  # report only
+```
+
+Comments and order are kept; running it twice changes nothing. Keys that are neither Data Package properties, config keys nor RDF properties are listed with suggestions from `sunstone vocab search`.
+
+## Finding keys and terms
+
+```bash
+sunstone vocab search "attributed"                    # prov:wasAttributedTo ...
+sunstone vocab search "download url" --at inputs.source
+sunstone vocab search --at inputs.schema.fields       # every allowed key at that level
+sunstone vocab search "publisher" --json
+```
+
+Output lines are `curie  IRI  label: definition`. `--at` takes a dotted path without array markers (`inputs.source`, `outputs.schema.fields`).
 
 ## Package Commands
 

@@ -165,7 +165,7 @@ sunstone-py maps its data model to PROV-O:
 
 **Sources:**
 - Input datasets that were read
-- Their metadata (slug, name, location)
+- Their metadata (name, title, path)
 - License information
 - Source attribution (as PROV-O Agents)
 
@@ -230,7 +230,7 @@ merged = pd.merge(schools, teachers, on='school_id')
 
 ### Lineage Persistence
 
-When you save a DataFrame, lineage is automatically written to `datasets.yaml`, including PROV-O activity tracking:
+When you save a DataFrame, the output is registered in `datasets.yaml` and its lineage, including PROV-O activity tracking, is written to `datasets.lock.yaml`:
 
 ```python
 result.to_csv(
@@ -245,38 +245,47 @@ This adds to `datasets.yaml`:
 
 ```yaml
 outputs:
-  - name: Summary Results
-    slug: summary
-    location: outputs/summary.csv
-    fields:
-      - name: category
-        type: string
-      - name: value
-        type: number
-    lineage:
-      content_hash: abc123...
-      created_at: '2026-02-04T10:30:00'
-      sources:
-        - slug: input-data
-      activity:
-        id: exec-20260204T103000-abc123
-        agents:
-          - id: stig
-            type: prov:Person
-          - id: sunstone-py
-            type: prov:SoftwareAgent
-            version: '1.5.0'
-        used:
-          - entity: input-data
-        started_at: '2026-02-04T10:29:55'
-        ended_at: '2026-02-04T10:30:00'
-      field_derivations:
-        - output_field: category
-          source_entity: input-data
-          source_field: category
-        - output_field: value
-          source_entity: input-data
-          source_field: value
+  - title: Summary Results
+    name: summary
+    path: outputs/summary.csv
+    schema:
+      fields:
+        - name: category
+          type: string
+        - name: value
+          type: number
+```
+
+and to `datasets.lock.yaml`:
+
+```yaml
+outputs:
+  - slug: summary
+    data_hash: sha256:abc123...
+    created_at: '2026-02-04T10:30:00'
+    sources:
+      - slug: input-data
+        prov:wasAttributedTo: Example Org
+        dct:license: CC-BY-4.0
+    activity:
+      id: exec-20260204T103000-abc123
+      agents:
+        - id: stig
+          type: prov:Person
+        - id: sunstone-py
+          type: prov:SoftwareAgent
+          version: '1.19.0'
+      used:
+        - entity: input-data
+      started_at: '2026-02-04T10:29:55'
+      ended_at: '2026-02-04T10:30:00'
+    field_derivations:
+      - output_field: category
+        source_entity: input-data
+        source_field: category
+      - output_field: value
+        source_entity: input-data
+        source_field: value
 ```
 
 ### Lineage Propagation
@@ -347,36 +356,38 @@ df.set_field_metadata('density', description='Students per square kilometer', un
 Field metadata is written to `datasets.yaml` alongside the field schema:
 
 ```yaml
-fields:
-  - name: enrollment
-    type: integer
-    description: Total enrolled students
-    unit: students
-  - name: area_km2
-    type: number
-    description: School district area
-    unit: km^2
+schema:
+  fields:
+    - name: enrollment
+      type: integer
+      description: Total enrolled students
+      si:unit: students
+    - name: area_km2
+      type: number
+      description: School district area
+      si:unit: km^2
 ```
 
 ### Primary Key
 
-Declare the column(s) that uniquely identify a row with `primaryKey`, next to `fields`.
+Declare the column(s) that uniquely identify a row with `schema.primaryKey`, next to `schema.fields`.
 It follows the [Frictionless Table Schema](https://datapackage.org/standard/table-schema/#primaryKey):
-a single field name or a list of field names, each of which must be declared in `fields`.
+a single field name or a list of field names, each of which must be declared in `schema.fields`.
 
 ```yaml
 outputs:
-  - name: Population
-    slug: population
-    location: outputs/population.csv
-    fields:
-      - name: country
-        type: string
-      - name: year
-        type: integer
-      - name: value
-        type: number
-    primaryKey: [country, year]
+  - title: Population
+    name: population
+    path: outputs/population.csv
+    schema:
+      fields:
+        - name: country
+          type: string
+        - name: year
+          type: integer
+        - name: value
+          type: number
+      primaryKey: [country, year]
 ```
 
 `sunstone package build/push` writes it to `schema.primaryKey` of the resource in `datapackage.json`, always as a list.
@@ -544,17 +555,20 @@ Every dataset in `datasets.yaml` has rich metadata:
 ### Required Fields
 
 ```yaml
-- name: Human-Readable Name
-  slug: machine-readable-slug
-  location: path/to/file.csv
-  fields:
-    - name: column_name
-      type: string  # or number, integer, boolean, date, datetime
+- title: Human-Readable Name
+  name: machine-readable-name
+  path: path/to/file.csv
+  schema:
+    fields:
+      - name: column_name
+        type: string  # or number, integer, boolean, date, datetime
 ```
 
 ### Optional Fields
 
 ```yaml
+min_sunstone_version: 1.20.0
+
 # Top-level publishing configuration (applies to all outputs)
 publish:
   enabled: true
@@ -562,41 +576,44 @@ publish:
   flatten: false  # optional: flatten directory structure
 
 inputs:
-  - name: Example Dataset
-    slug: example
-    location: data/example.csv
+  - title: Example Dataset
+    name: example
+    path: data/example.csv
+    licenses:
+      - name: CC-BY-4.0
+
+    # How the local copy was obtained
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: manual-download  # or api, web-scraping, etc.
 
     # Source attribution for inputs
     source:
-      name: Data Provider Name
-      location:
-        data: https://example.com/data.csv   # alias: dcat:downloadURL
-        about: https://example.com/dataset   # aliases: dcat:landingPage, web
-        # dcat:accessURL: https://example.com/api  # indirect access (API, query form)
-      attributedTo: Organization or Person
-      dct:publisher: Organisation that makes the data available  # optional
-      dct:creator: Organisation or person that produced the data  # optional
-      acquiredAt: '2025-01-15'
-      acquisitionMethod: manual-download  # or api, web-scraping, etc.
-      license: CC-BY-4.0
+      title: Data Provider Dataset
+      dcat:downloadURL: https://example.com/data.csv
+      dcat:landingPage: https://example.com/dataset
+      # dcat:accessURL: https://example.com/api  # indirect access (API, query form)
+      dct:publisher:                    # organisation that makes the data available
+        rdfs:label: Data Provider Name
+        skos:altLabel: DPN
+      dct:creator:                      # optional: authors or producing organisations
+        - rdfs:label: Organisation or Person
+      dct:license: CC-BY-4.0
 
     # Strict mode flag
     strict: true
 
 outputs:
-  - name: Output Dataset
-    slug: output-example
-    location: outputs/example.csv
+  - title: Output Dataset
+    name: output-example
+    path: outputs/example.csv
+    licenses:
+      - name: CC-BY-4.0
 
     # Strict mode flag
     strict: true
 
-    # Lineage metadata (auto-generated)
-    lineage:
-      content_hash: abc123...
-      created_at: '2026-02-04T10:00:00'
-      sources:
-        - slug: source-dataset
+# Lineage (sources, activity, hashes) is written to datasets.lock.yaml, not datasets.yaml.
 ```
 
 ### Publishing Configuration
@@ -638,11 +655,11 @@ This allows data consumers to fetch files directly from your public URL.
 
 **Flatten Option:**
 
-- `flatten: false` (default): Preserves directory structure from `location` field
-  - `location: outputs/data/file.csv` → `gs://bucket/project/outputs/data/file.csv`
+- `flatten: false` (default): Preserves directory structure from `path`
+  - `path: outputs/data/file.csv` → `gs://bucket/project/outputs/data/file.csv`
 
 - `flatten: true`: Puts all files in same directory as datapackage.json
-  - `location: outputs/data/file.csv` → `gs://bucket/project/file.csv`
+  - `path: outputs/data/file.csv` → `gs://bucket/project/file.csv`
 
 ## Validation Tools
 
@@ -704,7 +721,8 @@ For projects with many datasets, `datasets.yaml` can pull in additional files vi
 # datasets.yaml
 package:
   name: my-project
-  license: CC-BY-4.0
+  licenses:
+    - name: CC-BY-4.0
 
 include:
   - datasets/inputs.yaml
@@ -720,7 +738,7 @@ Each included file may declare its own `inputs:`, `outputs:`, and `packages:` li
 Other rules:
 
 - Includes are not nested — an included file cannot itself contain an `include:` key.
-- Slug collisions across files are an error: every dataset slug and every package name must be unique across the merged set.
+- Name collisions across files are an error: every dataset name and every package name must be unique across the merged set.
 - Paths are relative to the file containing the `include:` directive.
 
 ## Environment Variables
@@ -750,39 +768,41 @@ df = pd.read_csv('input.csv')  # strict=True implied
 
 ### Lint Before You Ship
 
-Run `sunstone lint` to catch missing licenses, units, descriptions, and slugs that don't follow project conventions before publishing. In CI, use `sunstone lint --warnings-as-errors` to make recommended-but-not-required metadata mandatory. See the [CLI Guide](cli.md#lint-command) for the full rule list.
+Run `sunstone lint` to catch missing licenses, units, descriptions, and names that don't follow project conventions before publishing. In CI, use `sunstone lint --warnings-as-errors` to make recommended-but-not-required metadata mandatory. See the [CLI Guide](cli.md#lint-command) for the full rule list.
 
 ### Document Sources Thoroughly
 
 ```yaml
 inputs:
-  - name: UN Member States
-    slug: un-members
-    location: inputs/un_members.csv
+  - title: UN Member States
+    name: un-members
+    path: inputs/un_members.csv
+    description: |
+      Downloaded from the official UN website.
+      Data accurate as of January 2025.
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: manual-download
     source:
-      name: United Nations
-      location:
-        data: https://www.un.org/en/about-us/member-states
-      attributedTo: United Nations
-      acquiredAt: '2025-01-15'
-      acquisitionMethod: manual-download
-      license: Public Domain
-      notes: |
-        Downloaded from the official UN website.
-        Data accurate as of January 2025.
+      title: Member States
+      dcat:landingPage: https://www.un.org/en/about-us/member-states
+      dct:publisher:
+        rdfs:label: United Nations
+        skos:altLabel: UN
+      dct:license: CC0-1.0
 ```
 
-### Use Descriptive Slugs
+### Use Descriptive Names
 
 ```yaml
 # Good
-slug: school-enrollment-by-district
-slug: teacher-demographics-2025
+name: school-enrollment-by-district
+name: teacher-demographics-2025
 
 # Avoid
-slug: data1
-slug: output
-slug: final_final_v2
+name: data1
+name: output
+name: final_final_v2
 ```
 
 ### Track Operations Explicitly
@@ -802,9 +822,9 @@ result = df.apply_operation(
 
 ```yaml
 outputs:
-  - name: School Summary v2.1
-    slug: school-summary-v2-1
-    location: outputs/school-summary-v2.1.csv
+  - title: School Summary v2.1
+    name: school-summary-v2-1
+    path: outputs/school-summary-v2.1.csv
 ```
 
 Or use the `version` field in package metadata when building data packages.

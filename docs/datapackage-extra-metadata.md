@@ -21,16 +21,17 @@ defaults:
     prov: "http://www.w3.org/ns/prov#"
 
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
     # RDF properties using prefixes
     si:monitorsThreat: si30:27
     si:category: environmental
     dcat:theme: climate
-    fields:
-      - name: year
-        type: integer
+    schema:
+      fields:
+        - name: year
+          type: integer
 ```
 
 ### Prefix Expansion
@@ -55,11 +56,21 @@ You can also use full URIs directly without prefixes:
 
 ```yaml
 outputs:
-  - name: My Dataset
-    slug: my-dataset
-    location: outputs/data.csv
+  - title: My Dataset
+    name: my-dataset
+    path: outputs/data.csv
     https://sunstone.institute/rdf/vocab#datasetType: observational
-    fields: [...]
+    schema: {fields: [...]}
+```
+
+### Object values
+
+An RDF property may take an object. It is emitted as a JSON-LD node: keys inside it are RDF properties (expanded the same way) or `@id`/`@type`.
+
+```yaml
+prov:wasGeneratedBy:
+  "@type": prov:Activity
+  dct:type: manual-download
 ```
 
 ### Default Properties
@@ -74,17 +85,17 @@ defaults:
   si:license: "CC-BY-4.0"
 
 outputs:
-  - name: Dataset 1
-    slug: dataset-1
-    location: outputs/data1.csv
+  - title: Dataset 1
+    name: dataset-1
+    path: outputs/data1.csv
     si:theme: climate  # Inherits prefixes from defaults
-    fields: [...]
+    schema: {fields: [...]}
 
-  - name: Dataset 2
-    slug: dataset-2
-    location: outputs/data2.csv
+  - title: Dataset 2
+    name: dataset-2
+    path: outputs/data2.csv
     si:theme: biodiversity  # Also inherits prefixes
-    fields: [...]
+    schema: {fields: [...]}
 ```
 
 Both datasets will include the default `si:organization` and `si:license` properties with expanded URIs in the generated datapackage.
@@ -99,13 +110,13 @@ defaults:
     si: "https://old.example.com/vocab#"
 
 outputs:
-  - name: My Dataset
-    slug: my-dataset
-    location: outputs/data.csv
+  - title: My Dataset
+    name: my-dataset
+    path: outputs/data.csv
     rdfPrefixes:
       si: "https://sunstone.institute/rdf/vocab#"  # Overrides default
     si:property: value
-    fields: [...]
+    schema: {fields: [...]}
 ```
 
 ### Automatic RDF Type Properties
@@ -154,24 +165,26 @@ publish:
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
-  si:methodology: docs/default-methodology.md  # Shared methodology for all datasets
+  dcat-si:methodology: docs/default-methodology.md  # Shared methodology for all datasets
 
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
-    si:methodology: docs/climate-methodology.md  # Per-dataset override
-    fields:
-      - name: year
-        type: integer
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
+    dcat-si:methodology: docs/climate-methodology.md  # Per-dataset override
+    schema:
+      fields:
+        - name: year
+          type: integer
 
-  - name: Biodiversity Dataset
-    slug: biodiversity-dataset
-    location: outputs/biodiversity.csv
+  - title: Biodiversity Dataset
+    name: biodiversity-dataset
+    path: outputs/biodiversity.csv
     # Inherits docs/default-methodology.md from defaults
-    fields:
-      - name: species
-        type: string
+    schema:
+      fields:
+        - name: species
+          type: string
 ```
 
 When published, each resource's datapackage.json entry will contain the resolved methodology URL, and all unique local methodology files are uploaded:
@@ -190,6 +203,7 @@ Here's a complete example showing RDF properties in datasets.yaml and the result
 
 **datasets.yaml:**
 ```yaml
+min_sunstone_version: 1.20.0
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
@@ -198,17 +212,18 @@ defaults:
   si:publisher: "Sunstone Institute"
 
 outputs:
-  - name: Climate Impact Dataset
-    slug: climate-impact
-    location: outputs/climate.csv
+  - title: Climate Impact Dataset
+    name: climate-impact
+    path: outputs/climate.csv
     si:monitorsThreat: si30:27
     si:category: environmental
     dcat:theme: http://eurovoc.europa.eu/2107
-    fields:
-      - name: year
-        type: integer
-      - name: temperature
-        type: number
+    schema:
+      fields:
+        - name: year
+          type: integer
+        - name: temperature
+          type: number
 ```
 
 **Generated datapackage.json:**
@@ -420,6 +435,7 @@ Consider using established vocabulary prefixes for interoperability:
 | `prov:` | http://www.w3.org/ns/prov# | Provenance Ontology |
 | `skos:` | http://www.w3.org/2004/02/skos/core# | Simple Knowledge Organization |
 | `dwc:` | http://rs.tdwg.org/dwc/terms/ | Darwin Core (biodiversity) |
+| `dcat-si:` | https://sunstone.institute/rdf/data# | Sunstone dataset-level terms (methodology) |
 | `geo:` | http://www.opengis.net/ont/geosparql# | OGC GeoSPARQL (geometry classes and datatypes) |
 | `sosa:` | http://www.w3.org/ns/sosa/ | Sensor, Observation, Sample, Actuator |
 | `qudt:` | http://qudt.org/schema/qudt/ | Quantities, Units, Dimensions |

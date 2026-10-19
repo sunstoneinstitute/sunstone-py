@@ -65,23 +65,34 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 Create a `datasets.yaml` file in your project directory:
 
 ```yaml
+min_sunstone_version: "1.20.0"
+dcat-si:methodology: METHODOLOGY.md
+
 inputs:
-  - name: School Data
-    slug: school-data
-    location: data/schools.csv
+  - title: School Data
+    name: school-data
+    description: School enrollment by school.
+    path: data/schools.csv
+    prov:generatedAtTime: 2025-01-15
+    prov:wasGeneratedBy:
+      "@type": prov:Activity
+      dct:type: manual-download
     source:
-      name: Ministry of Education
-      location:
-        data: https://example.com/schools.csv
-      attributedTo: Ministry of Education
-      acquiredAt: 2025-01-15
-      acquisitionMethod: manual-download
-      license: CC-BY-4.0
-    fields:
-      - name: school_id
-        type: string
-      - name: enrollment
-        type: integer
+      title: Ministry of Education
+      dct:publisher:
+        rdfs:label: Ministry of Education
+        skos:altLabel: MoE
+      dcat:downloadURL: https://example.com/schools.csv
+      dct:license: CC-BY-4.0
+      dct:issued: 2025-01-01
+      dct:modified: 2025-01-10
+    schema:
+      fields:
+        - name: school_id
+          type: string
+        - name: enrollment
+          type: integer
+          si:unit: http://qudt.org/vocab/unit/NUM
 
 outputs: []
 ```

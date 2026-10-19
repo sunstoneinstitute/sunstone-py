@@ -103,10 +103,11 @@ across kinds.
 Use the Table Schema type `geojson` and name the GeoSPARQL class with `rdfType`:
 
 ```yaml
-fields:
-  - name: geometry
-    type: geojson
-    rdfType: geo:Geometry
+schema:
+  fields:
+    - name: geometry
+      type: geojson
+      rdfType: geo:Geometry
 ```
 
 `geo:` is a standard prefix (`http://www.opengis.net/ont/geosparql#`); `datapackage.json` carries the expanded URI.
