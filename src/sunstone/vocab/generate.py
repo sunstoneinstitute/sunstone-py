@@ -95,6 +95,9 @@ EXAMPLES: dict[tuple[str, str], str] = {
     ),
     ("source", "dct:license"): "dct:license: CC-BY-4.0",
     ("source", "dct:modified"): "dct:modified: '2026-01-01'",
+    ("source", "dct:rights"): (
+        "dct:rights: {rdfs:label: 'Permission from Example Org', dct:license: CC-BY-4.0, dct:date: '2026-10-19'}"
+    ),
     ("field", "name"): "name: gdp_usd",
     ("field", "type"): "type: number",
     ("field", "title"): "title: GDP (USD)",

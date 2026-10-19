@@ -586,6 +586,7 @@ class DatasetsManager:
             [a for a in (self._parse_agent(c) for c in creators) if a] if isinstance(creators, list) else None
         )
         is_part_of = source_data.get("dct:isPartOf")
+        rights = source_data.get("dct:rights")
         citation = source_data.get("dct:bibliographicCitation")
         modified = source_data.get("dct:modified")
         source_id = source_data.get("@id")
@@ -605,6 +606,7 @@ class DatasetsManager:
             issued=None if issued is None else str(issued),
             is_part_of=dict(is_part_of) if isinstance(is_part_of, dict) else None,
             bibliographic_citation=None if citation is None else str(citation),
+            rights=dict(rights) if isinstance(rights, dict) else None,
         )
 
     @staticmethod

@@ -257,6 +257,7 @@ MUST rules that are new or stricter in 1.20 (R102, R104 and all R3xx rules) are 
 | R007 | MUST | error | Field missing `name` |
 | R008 | MUST | error | Field missing `type` |
 | R009 | MUST | error | Malformed `lint.disable` entry (cannot itself be suppressed) |
+| R010 | MUST NOT | error | Output license is NoDerivatives (`CC-BY-ND-*`, `CC-BY-NC-ND-*`) |
 | R101 | SHOULD | warning | Input missing `source` block |
 | R102 | MUST | warning (1.x) | Source missing `title`, `dct:publisher` (with `rdfs:label`), a link (`"@id"`, `dcat:downloadURL` or `dcat:landingPage`) or `dct:license` |
 | R103 | SHOULD | warning | Numeric field missing `si:unit` |
@@ -524,7 +525,7 @@ sunstone package push --env dev -d "gs://${BUCKET}/datasets/${PROJECT}/"
 
 `sunstone license` inspects and audits the licenses declared in `datasets.yaml`. Use it alongside the lint rules `R005` (missing license) and `R006` (unrecognised SPDX identifier) — lint catches *missing* and *malformed* licenses, the `license` subcommand catches *incompatible* ones.
 
-The compatibility engine is rules-based and consults an embedded registry of common research-data licenses (CC family, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, GODL-India, and US-PD `LicenseRef-*` entries). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
+The compatibility engine is rules-based and consults an embedded registry of common research-data and software licenses (CC family including ND, CC0, ODC-By, ODbL, PDDL, OGL-3.0, NLOD, GODL-India, US-PD, MIT, Apache, BSD, GPL, LGPL, MPL). See [Concepts → License Compatibility](concepts.md#license-compatibility) for the rule reference.
 
 ### List Licenses
 

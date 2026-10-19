@@ -9,6 +9,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Fixed: `sunstone dataset resolve` keeps output `data_hash`, and writes record `file_hash`, so `resolve --check` passes right after a write.
 - Fixed: output source entries keep both `dct:creator` and `prov:wasAttributedTo` (run `sunstone dataset resolve --refresh` to update existing lock files).
 - Fixed: `sunstone package build` writes `dct:creator` and other prefixed keys in a field's `source` as full IRIs.
+- Fixed: lint, `dataset validate` and license checks share one license list, so `CC-BY-NC-ND-4.0`, MIT and others pass both.
+- Fixed: outputs never get a NoDerivatives license (lint R010), and an ND source blocks writes unless its `dct:rights` grants other terms.
+- Added: record permission from a rights holder under a source's `dct:rights`; its `dct:license` governs derived outputs.
 
 ## [1.20.0] - 2026-10-19
 

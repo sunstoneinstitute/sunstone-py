@@ -168,6 +168,15 @@ RULES: dict[str, Rule] = {
             "Use 'lint.disable:\\n  R104: \"reason\"'.",
         ),
         _r(
+            "R010",
+            Level.MUST_NOT,
+            Category.PROVENANCE,
+            f"{Y}:dataset",
+            "Output license is NoDerivatives",
+            "An output must not carry a NoDerivatives license (CC-BY-ND, CC-BY-NC-ND): sunstone outputs are derivatives.",
+            "Use the license the sources allow for derivatives; for an ND source, record the rights holder's permission under 'source.dct:rights'.",
+        ),
+        _r(
             "R101",
             Level.SHOULD,
             Category.PROVENANCE,

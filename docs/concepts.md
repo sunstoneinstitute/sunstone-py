@@ -490,20 +490,22 @@ There are three layers of license handling, intentionally graded from soft to ha
 
 ### How the Compatibility Engine Works
 
-Each license in the embedded registry is described by four boolean properties — `public_domain`, `attribution`, `share_alike`, `non_commercial` — plus a `family` tag for ShareAlike. A `(source → target)` pair is checked against this rule set:
+Each license in the embedded registry is described by five boolean properties — `public_domain`, `attribution`, `share_alike`, `non_commercial`, `no_derivatives` — plus a `family` tag for ShareAlike. A `(source → target)` pair is checked against this rule set:
 
 | Source property | Constraint on target |
 |---|---|
+| (any) | Target must not be `no_derivatives`: no output carries a NoDerivatives license (lint `R010`). Auto-derivation never picks one. |
 | `public_domain` | None — compatible with anything. |
 | `share_alike` | Target must also be `share_alike` **and** share the same `family`. (`CC-BY-SA-4.0` and `CC-BY-SA-3.0` are *different* families on purpose — Creative Commons treats them as one-way upgradable, not mutually equivalent.) |
+| `no_derivatives` | No target is compatible: adapted material may not be shared. Record permission from the rights holder to lift this (see below). |
 | `non_commercial` | Target must also be `non_commercial`. |
 | `attribution` (without SA/NC) | Target must be `attribution` *or* `share_alike` (SA implies attribution). |
 
-A check fails as soon as any source/target pair violates the rules; the resulting `LicenseCompatibilityResult` lists every conflict and a `suggestions` list of registry licenses that *would* satisfy all known sources. The most-restrictive ordering — used by `get_most_restrictive_license()` and by suggestion ranking — is `ShareAlike > NonCommercial > Attribution > Public Domain`.
+A check fails as soon as any source/target pair violates the rules; the resulting `LicenseCompatibilityResult` lists every conflict and a `suggestions` list of registry licenses that *would* satisfy all known sources. The most-restrictive ordering — used by `get_most_restrictive_license()` and by suggestion ranking — is `NoDerivatives > ShareAlike > NonCommercial > Attribution > Public Domain`.
 
 ### Embedded License Registry
 
-The registry is intentionally focused on common research-data licenses. Anything outside it must use a `LicenseRef-*` identifier; unregistered `LicenseRef-*` ids pass lint `R006` but are reported as `unknown_sources` by the compatibility engine and excluded from the rule check.
+The registry is the one license list used by lint `R006`, `sunstone dataset validate` and the compatibility engine. Anything outside it must use a `LicenseRef-*` identifier or `proprietary`; those pass `R006` but are reported as `unknown_sources` by the compatibility engine and excluded from the rule check.
 
 | SPDX id | Class |
 |---|---|
@@ -511,10 +513,31 @@ The registry is intentionally focused on common research-data licenses. Anything
 | `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-3.0-IGO` | Attribution only |
 | `ODC-By-1.0`, `LicenseRef-OGL-3.0`, `NLOD-1.0`, `NLOD-2.0`, `LicenseRef-GODL-India` | Attribution only |
 | `CC-BY-SA-4.0`, `CC-BY-SA-3.0`, `ODbL-1.0` | Attribution + ShareAlike (each is its own family) |
-| `CC-BY-NC-4.0`, `CC-BY-NC-3.0-IGO` | Attribution + NonCommercial |
+| `CC-BY-NC-4.0`, `CC-BY-NC-3.0`, `CC-BY-NC-3.0-IGO` | Attribution + NonCommercial |
+| `CC-BY-ND-4.0` | Attribution + NoDerivatives |
+| `CC-BY-NC-ND-4.0` | Attribution + NonCommercial + NoDerivatives |
 | `CC-BY-NC-SA-4.0`, `CC-BY-NC-SA-3.0`, `CC-BY-NC-SA-3.0-IGO` | Attribution + NonCommercial + ShareAlike (each is its own family) |
+| `Unlicense`, `public-domain` | Public domain |
+| `MIT`, `Apache-2.0`, `BSD-2-Clause`, `BSD-3-Clause` | Attribution only |
+| `GPL-2.0-*`, `GPL-3.0-*`, `LGPL-3.0-*`, `MPL-2.0` | Attribution + ShareAlike (one family per license and version) |
 
 Adding a license is a one-line append to `_REGISTRY_ENTRIES` in `src/sunstone/licenses.py`. The full set is also available programmatically via `sunstone.licenses.known_licenses()`.
+
+### Recording Permission from the Rights Holder
+
+When the rights holder grants terms beyond the source license (for example, permission to share derivatives of a NoDerivatives or `proprietary` source; an ND source cannot feed any output without one), record the grant under `dct:rights` on the source. Its `dct:license` is the license granted for derivatives, and the compatibility engine uses it in place of the source's `dct:license`:
+
+```yaml
+source:
+  dct:license: CC-BY-NC-ND-4.0
+  dct:rights:
+    rdfs:label: Example Org permits sharing derived tables under CC-BY-4.0
+    dct:license: CC-BY-4.0
+    dct:date: '2026-10-19'
+    rdfs:seeAlso: audit/permissions/example-org.pdf
+```
+
+Keep `dct:license` as the license the publisher states. Point `rdfs:seeAlso` at the written grant.
 
 ### Worked Example
 

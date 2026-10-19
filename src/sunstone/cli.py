@@ -2644,8 +2644,8 @@ def license_check(
             if ds is None:
                 continue
             sources_seen.append(ref.slug)
-            if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
-                source_licenses.append(ds.source.license)
+            if ds.dataset_type == "input" and ds.source is not None and ds.source.license_for_derivatives:
+                source_licenses.append(ds.source.license_for_derivatives)
             elif ds.dataset_type == "output":
                 eff = manager.effective_license_for(ref.slug)
                 if eff:

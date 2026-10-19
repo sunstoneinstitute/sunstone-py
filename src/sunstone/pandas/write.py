@@ -86,8 +86,8 @@ class WriteMixin:
             ds = manager.find_dataset_by_slug(slug)
             if ds is None:
                 continue
-            if ds.dataset_type == "input" and ds.source is not None and ds.source.license:
-                source_licenses.append(ds.source.license)
+            if ds.dataset_type == "input" and ds.source is not None and ds.source.license_for_derivatives:
+                source_licenses.append(ds.source.license_for_derivatives)
             elif ds.dataset_type == "output":
                 eff = manager.effective_license_for(slug)
                 if eff:
@@ -103,7 +103,7 @@ class WriteMixin:
                 raise LicenseCompatibilityError(
                     f"Output '{dataset_slug}' has source datasets with licenses "
                     f"{unique} but no compatible default license can be derived "
-                    f"(mutually incompatible or contains unknown identifiers). "
+                    f"(mutually incompatible, NoDerivatives without a dct:rights grant, or unknown identifiers). "
                     f"Set 'license:' on the dataset, on a package, or pass "
                     f"license= to the writer."
                 )

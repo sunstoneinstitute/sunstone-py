@@ -90,6 +90,7 @@ Path: `inputs.source`
 | `dcat:accessURL` | rdf | MAY | A URL of a resource that gives access to a distribution of the dataset. E.g. landing page, feed, SPARQL endpoint. Use for all cases except a simple download link, in which case downloadURL is preferred. | `dcat:accessURL: ...` |
 | `dct:bibliographicCitation` | rdf | MAY | A bibliographic reference for the resource. | `dct:bibliographicCitation: 'Aas, T. S. & Asgard, T. E. (2022). Title. Aquaculture Reports 26.'` |
 | `dct:isPartOf` | rdf | MAY | A related resource in which the described resource is physically or logically included. | `dct:isPartOf: {rdfs:label: 'Aquaculture Reports 26, 101316'}` |
+| `dct:rights` | rdf | MAY | Information about rights held in and over the resource. | `dct:rights: {rdfs:label: 'Permission from Example Org', dct:license: CC-BY-4.0, dct:date: '2026-10-19'}` |
 | `email` | dp | MAY | Contact email for the source | `email: ...` |
 | `path` | dp | MAY | URL of the source | `path: ...` |
 | `prov:wasAttributedTo` | rdf | MAY | Attribution is the ascribing of an entity to an agent. | `prov:wasAttributedTo: 'Aas, T. S.; Asgard, T. E. (Nofima); published by Elsevier'` |
@@ -347,6 +348,7 @@ inputs:
 | R007 | MUST | naming | Field missing 'name' |
 | R008 | MUST | types | Field missing 'type' |
 | R009 | MUST | config | Malformed lint.disable entry |
+| R010 | MUST NOT | provenance | Output license is NoDerivatives |
 | R101 | SHOULD | provenance | Input missing 'source' block |
 | R102 | MUST | provenance | Source block missing required keys |
 | R103 | SHOULD | units | Numeric field missing 'si:unit' |
