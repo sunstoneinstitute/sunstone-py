@@ -55,6 +55,21 @@ logger = logging.getLogger(__name__)
 _yaml = make_yaml()
 
 
+def lock_source_entry(src: DatasetMetadata) -> dict[str, Any]:
+    """A lock-file output source entry: the slug plus creators, attribution and license from the source block."""
+    entry: dict[str, Any] = {"slug": src.slug}
+    if src.source:
+        if src.source.creator:
+            entry["dct:creator"] = [_agent_doc(a) for a in as_source_agents(src.source.creator)]
+        attributed_to = src.source.attributed_to
+        attr_str = (attributed_to.label or attributed_to.id) if isinstance(attributed_to, Agent) else str(attributed_to)
+        if attr_str:
+            entry["prov:wasAttributedTo"] = attr_str
+        if src.source.license is not None:
+            entry["dct:license"] = src.source.license
+    return entry
+
+
 _INDEXED_PATH = re.compile(r"^(inputs|outputs|packages)\[(\d+)\]")
 
 
@@ -1569,21 +1584,7 @@ class DatasetsManager:
         if lineage.sources:
             sources_list = []
             for src in lineage.sources:
-                source_entry: dict[str, Any] = {"slug": src.slug}
-                # Denormalize creators, attribution and license from input dataset source block
-                if src.source:
-                    if src.source.creator:
-                        source_entry["dct:creator"] = [_agent_doc(a) for a in as_source_agents(src.source.creator)]
-                    attributed_to = src.source.attributed_to
-                    if isinstance(attributed_to, Agent):
-                        attr_str = attributed_to.label or attributed_to.id
-                    else:
-                        attr_str = str(attributed_to)
-                    if attr_str:
-                        source_entry["prov:wasAttributedTo"] = attr_str
-                    if src.source.license is not None:
-                        source_entry["dct:license"] = src.source.license
-                sources_list.append(source_entry)
+                sources_list.append(lock_source_entry(src))
             lineage_data["sources"] = sources_list
         if context:
             # Convert script_path to relative when it's within the project

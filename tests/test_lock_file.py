@@ -421,6 +421,51 @@ class TestResolveCommand:
         with open(tmp_path / "datasets.lock.yaml") as f:
             assert _yaml.load(f)["outputs"][0]["data_hash"] == written["data_hash"]
 
+    def test_resolve_refresh_rebuilds_source_entries(self, tmp_path: Path) -> None:
+        """--refresh rewrites output source entries from datasets.yaml; plain resolve keeps them."""
+        (tmp_path / "inputs").mkdir()
+        (tmp_path / "inputs" / "data.csv").write_text("a\n1\n")
+        _write_yaml(
+            tmp_path / "datasets.yaml",
+            {
+                "min_sunstone_version": "1.20.0",
+                "inputs": [
+                    {
+                        "title": "Paper",
+                        "name": "paper",
+                        "path": "inputs/data.csv",
+                        "source": {
+                            "title": "A paper",
+                            "dcat:downloadURL": "https://example.com/data.csv",
+                            "dct:creator": [{"rdfs:label": "Doe, J."}],
+                            "dct:license": "CC-BY-4.0",
+                        },
+                    }
+                ],
+                "outputs": [{"title": "Out", "name": "out", "path": "outputs/out.csv"}],
+            },
+        )
+        stale = {"slug": "out", "data_hash": "sha256:x", "sources": [{"slug": "paper"}, {"slug": "gone"}]}
+        _write_yaml(tmp_path / "datasets.lock.yaml", {"outputs": [stale]})
+        runner = CliRunner()
+        datasets_file = str(tmp_path / "datasets.yaml")
+
+        assert runner.invoke(app, ["dataset", "resolve", "-f", datasets_file]).exit_code == 0
+        with open(tmp_path / "datasets.lock.yaml") as f:
+            assert _yaml.load(f)["outputs"][0]["sources"][0] == {"slug": "paper"}
+
+        result = runner.invoke(app, ["dataset", "resolve", "--check", "--refresh", "-f", datasets_file])
+        assert result.exit_code == 1
+
+        result = runner.invoke(app, ["dataset", "resolve", "--refresh", "-f", datasets_file])
+        assert result.exit_code == 0, result.output
+        with open(tmp_path / "datasets.lock.yaml") as f:
+            sources = _yaml.load(f)["outputs"][0]["sources"]
+        assert sources == [
+            {"slug": "paper", "dct:creator": [{"rdfs:label": "Doe, J."}], "dct:license": "CC-BY-4.0"},
+            {"slug": "gone"},
+        ]
+
 
 @pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestMigrateCommand:

@@ -77,6 +77,12 @@ To verify the lock file is up to date in CI (exits non-zero if stale):
 sunstone dataset resolve --check
 ```
 
+Output source entries (creators, attribution, license) are copied from the input source blocks when an output is written, and are kept as they are when the data has not changed. After editing source blocks or upgrading sunstone-py, rebuild them without re-running scripts:
+
+```bash
+sunstone dataset resolve --refresh
+```
+
 ---
 
 ## What the lock file looks like

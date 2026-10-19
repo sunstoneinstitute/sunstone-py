@@ -1172,15 +1172,24 @@ def dataset_migrate(
 def dataset_resolve(
     datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
     check: bool = typer.Option(False, "--check", help="Exit non-zero if lock file is out of date"),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh",
+        help="Rebuild output source entries (creators, attribution, license) from datasets.yaml instead of keeping them.",
+    ),
 ) -> None:
     """Resolve dataset metadata and write datasets.lock.yaml.
 
     Iterates all inputs and outputs, resolves metadata from URL handlers
     (content hashes, field inference), and writes the lock file.
 
-    Use --check in CI to verify the lock file is up to date.
+    Use --check in CI to verify the lock file is up to date. Use --refresh to
+    update output source entries after editing source blocks or upgrading
+    sunstone-py; which sources an output came from is kept.
     """
     import hashlib
+
+    from .datasets import lock_source_entry
 
     try:
         manager, project_path = get_manager(datasets_file)
@@ -1225,6 +1234,13 @@ def dataset_resolve(
         ):
             if key in existing:
                 entry[key] = existing[key]
+        if refresh and entry.get("sources"):
+            refreshed = []
+            for old in entry["sources"]:
+                slug = old.get("slug") if isinstance(old, dict) else old
+                src = manager.find_dataset_by_slug(slug) if isinstance(slug, str) else None
+                refreshed.append(lock_source_entry(src) if src is not None else old)
+            entry["sources"] = refreshed
 
         lock_data["outputs"].append(entry)
 
