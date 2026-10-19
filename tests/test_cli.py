@@ -1024,6 +1024,39 @@ class TestFieldMetadataInDatapackage:
         }
         assert field["http://purl.org/dc/terms/source"]["http://purl.org/dc/terms/license"] == "CC-BY-4.0"
 
+    def test_field_source_rdf_keys_expanded_in_old_shape(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Keys with no old form (dct:creator) are full IRIs in `source`, as everywhere else in datapackage.json."""
+        project = self._field_source_project(
+            tmp_path,
+            "        dct:source:\n"
+            "          title: Feed resources 2020\n"
+            "          dct:publisher: {rdfs:label: Elsevier}\n"
+            "          dcat:accessURL: https://doi.org/10.1016/j.aqrep.2022.101316\n"
+            "          dct:creator: [{rdfs:label: Aas et al. (Nofima)}]\n",
+        )
+        field = self._built_field(runner, project, "score")
+        dct, rdfs = "http://purl.org/dc/terms/", "http://www.w3.org/2000/01/rdf-schema#"
+        assert field["source"] == {
+            "name": "Feed resources 2020",
+            "publisher": "Elsevier",
+            "location": {"access": "https://doi.org/10.1016/j.aqrep.2022.101316"},
+            f"{dct}creator": [{f"{rdfs}label": "Aas et al. (Nofima)"}],
+        }
+
+    def test_old_form_field_source_rdf_keys_expanded(self, runner: CliRunner, tmp_path: Path) -> None:
+        project = self._field_source_project(
+            tmp_path,
+            "        source:\n"
+            "          name: Feed resources 2020\n"
+            "          publisher: Elsevier\n"
+            "          dct:creator: [{rdfs:label: Aas et al. (Nofima)}]\n",
+        )
+        field = self._built_field(runner, project, "score")
+        assert field["source"]["http://purl.org/dc/terms/creator"] == [
+            {"http://www.w3.org/2000/01/rdf-schema#label": "Aas et al. (Nofima)"}
+        ]
+        assert "dct:creator" not in field["source"]
+
     def test_all_field_metadata_combined(self, runner: CliRunner, tmp_path: Path) -> None:
         """Test description, unit, and source together on a single field."""
         project = tmp_path / "project"

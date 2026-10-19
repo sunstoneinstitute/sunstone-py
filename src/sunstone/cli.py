@@ -1340,7 +1340,8 @@ def _augment_field_dict(field_dict: dict[str, Any], f: FieldSchema, prefixes: di
         if f.unit_source:
             field_dict[f"{_QUDT}hasUnit"] = f.unit_source
     if f.source:
-        field_dict["source"] = f.legacy_source if f.legacy_source is not None else legacy_field_source(f.source)
+        legacy = f.legacy_source if f.legacy_source is not None else legacy_field_source(f.source)
+        field_dict["source"] = _expand_keys(legacy, prefixes)
         field_dict[f"{_DCT}source"] = f.source if isinstance(f.source, str) else _expand_keys(f.source, prefixes)
     if f.constraints and "constraints" not in field_dict:
         field_dict["constraints"] = f.constraints
