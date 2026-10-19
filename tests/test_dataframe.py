@@ -736,10 +736,10 @@ class TestToParquetLineage:
         with open(project_copy / "datasets.yaml") as f:
             data = yaml.load(f)
 
-        output = next((d for d in data.get("outputs", []) if d["slug"] == "test-fields-parquet"), None)
+        output = next((d for d in data.get("outputs", []) if d["name"] == "test-fields-parquet"), None)
         assert output is not None
-        assert "fields" in output
-        field_names = [f["name"] for f in output["fields"]]
+        assert "fields" in output["schema"]
+        field_names = [f["name"] for f in output["schema"]["fields"]]
         assert "name" in field_names
         assert "value" in field_names
 

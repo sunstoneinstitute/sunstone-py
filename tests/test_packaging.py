@@ -572,6 +572,22 @@ def _run_push_group(ds, manager, mock_registry, **kwargs):
         )
 
 
+def test_push_group_descriptor_has_schema_and_is_validated(tmp_path: Path) -> None:
+    import warnings
+
+    from sunstone.vocab import DP_PROFILE_URL
+
+    ds, manager, streams, registry = _push_group_fixture(tmp_path)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _run_push_group(ds, manager, registry)
+    stream = streams["gs://bucket/pkg/datapackage.json"]
+    assert isinstance(stream, _FakeTextWriteStream)
+    assert json.loads(stream.read_captured())["$schema"] == DP_PROFILE_URL
+    hits = [x for x in w if x.category is FutureWarning and "[R351] title:" in str(x.message)]
+    assert len(hits) == 1
+
+
 def test_push_group_calls_descriptor_check_with_final_datapackage(tmp_path: Path) -> None:
     ds, manager, streams, registry = _push_group_fixture(tmp_path)
     seen: list[dict[str, Any]] = []

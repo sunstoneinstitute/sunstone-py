@@ -11,7 +11,7 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -176,11 +176,52 @@ class SourceLocation:
 
 
 @dataclass
-class Source:
-    """Source attribution information for a dataset.
+class SourceAgent:
+    """A publisher or author of a source (spec "Source references": an agent object)."""
 
-    Maps to prov:wasAttributedTo on the dataset entity.
-    """
+    label: str
+    """Full name (``rdfs:label``)."""
+
+    alt_label: Optional[str] = None
+    """Short name (``skos:altLabel``), e.g. ``FAO``."""
+
+    id: Optional[str] = None
+    """Persistent IRI (``"@id"``), e.g. a Wikidata or ORCID IRI."""
+
+
+AgentLike = Union[str, SourceAgent]
+"""An agent object, or a plain name (read as ``SourceAgent(label=name)``, the 1.19 form)."""
+
+
+def as_source_agent(agent: AgentLike) -> SourceAgent:
+    """Wrap a plain name into a ``SourceAgent``."""
+    return SourceAgent(label=agent) if isinstance(agent, str) else agent
+
+
+def as_source_agents(agents: Union[AgentLike, Sequence[AgentLike], None]) -> List[SourceAgent]:
+    """``dct:creator`` as a list of ``SourceAgent`` (accepts one agent or a plain name)."""
+    if agents is None:
+        return []
+    if isinstance(agents, (str, SourceAgent)):
+        return [as_source_agent(agents)]
+    return [as_source_agent(a) for a in agents]
+
+
+def _agent_doc(agent: AgentLike) -> Dict[str, Any]:
+    """Agent object with prefixed keys, as in datasets.yaml."""
+    agent = as_source_agent(agent)
+    doc: Dict[str, Any] = {}
+    if agent.id:
+        doc["@id"] = agent.id
+    doc["rdfs:label"] = agent.label
+    if agent.alt_label:
+        doc["skos:altLabel"] = agent.alt_label
+    return doc
+
+
+@dataclass
+class Source:
+    """A source of an input dataset: its identifier, title, publisher, authors, links and license (spec "Source references")."""
 
     name: str
     """Name of the data source."""
@@ -193,23 +234,35 @@ class Source:
     Accepts a plain string for backwards compatibility (interpreted
     as an Organization agent)."""
 
-    acquired_at: str
-    """Date when the data was acquired (YYYY-MM-DD format)."""
+    acquired_at: Optional[str]
+    """Date the local copy was generated (dataset ``prov:generatedAtTime``), YYYY-MM-DD."""
 
-    acquisition_method: str
-    """Method used to acquire the data (e.g., 'manual-download', 'api', 'scraping')."""
+    acquisition_method: Optional[str]
+    """How the local copy was generated (dataset ``prov:wasGeneratedBy.dct:type``: 'manual-download', 'api', 'scraping')."""
 
-    license: str
-    """SPDX license identifier."""
+    license: Optional[str]
+    """SPDX license identifier (``dct:license``)."""
 
     updated: Optional[str] = None
     """Optional description of update frequency."""
 
-    publisher: Optional[str] = None
-    """Organisation that makes the data available (``dct:publisher``)."""
+    publisher: Optional[AgentLike] = None
+    """Organisation that makes the data available (``dct:publisher``). A plain name is read as ``SourceAgent(label=name)``."""
 
-    creator: Optional[str] = None
-    """Organisation or person that produced the data (``dct:creator``)."""
+    creator: Union[AgentLike, Sequence[AgentLike], None] = None
+    """Authors or producing organisations (``dct:creator``). Plain names are read as ``SourceAgent(label=name)``."""
+
+    id: Optional[str] = None
+    """Persistent identifier of the source (``"@id"``): a DOI as ``https://doi.org/<doi>``, or another IRI."""
+
+    issued: Optional[str] = None
+    """Publication year or date (``dct:issued``), kept as written."""
+
+    is_part_of: Optional[Dict[str, Any]] = None
+    """Container node (``dct:isPartOf``) as written, e.g. ``{"rdfs:label": "Aquaculture Reports 26"}``."""
+
+    bibliographic_citation: Optional[str] = None
+    """Full citation string (``dct:bibliographicCitation``)."""
 
     @property
     def agent(self) -> Agent:
@@ -242,14 +295,20 @@ class FieldSchema:
     unit: Optional[str] = None
     """Human-readable unit of measure (e.g., 'kg', '%', 'people')."""
 
-    source: Optional[str] = None
-    """Slug of the input dataset this field's data comes from."""
+    source: Union[str, Dict[str, Any], None] = None
+    """Where this field's data comes from (``dct:source``): a name, or a source object in the new key form."""
 
     unit_source: Optional[str] = None
     """Original unit string format for round-tripping (e.g. QUDT URI). None means Pint string."""
 
     custom_properties: Optional[Dict[str, Any]] = None
     """Field-level custom/RDF properties (e.g. sosa:observedProperty), expanded at build time."""
+
+    title: Optional[str] = None
+    """Human-readable label (DP ``title``)."""
+
+    legacy_source: Any = field(default=None, compare=False, repr=False)
+    """The old-form ``source`` object as authored, emitted unchanged as datapackage.json ``source`` in 1.x."""
 
 
 @dataclass
@@ -637,8 +696,10 @@ class Metadata:
         "dcat": "http://www.w3.org/ns/dcat#",
         "dct": "http://purl.org/dc/terms/",
         "prov": "http://www.w3.org/ns/prov#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
         "si": "https://sunstone.institute/rdf/vocab#",
         "schema": "http://schema.org/",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
     }
 
     def __setitem__(self, key: str, value: Any) -> None:
@@ -718,9 +779,9 @@ class Metadata:
                 if loc and loc.about:
                     source_doc["dcat:landingPage"] = loc.about
                 if src.source and src.source.publisher:
-                    source_doc["dct:publisher"] = src.source.publisher
+                    source_doc["dct:publisher"] = _agent_doc(src.source.publisher)
                 if src.source and src.source.creator:
-                    source_doc["dct:creator"] = src.source.creator
+                    source_doc["dct:creator"] = [_agent_doc(a) for a in as_source_agents(src.source.creator)]
                 sources_list.append(source_doc)
             doc["prov:wasDerivedFrom"] = sources_list
 
@@ -781,8 +842,10 @@ class Metadata:
             "dcat": "http://www.w3.org/ns/dcat#",
             "dct": "http://purl.org/dc/terms/",
             "prov": "http://www.w3.org/ns/prov#",
+            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
             "si": "https://sunstone.institute/rdf/vocab#",
             "schema": "http://schema.org/",
+            "skos": "http://www.w3.org/2004/02/skos/core#",
         }
 
         # Extract user prefixes from @context

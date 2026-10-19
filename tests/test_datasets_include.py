@@ -230,7 +230,7 @@ class TestDatasetsInclude:
             "        type: string\n"
         )
 
-        with pytest.raises(DatasetValidationError, match="Duplicate dataset slug 'same-slug'"):
+        with pytest.raises(DatasetValidationError, match="Duplicate dataset name 'same-slug'"):
             DatasetsManager(tmp_path)
 
     def test_duplicate_package_name_across_files_raises(self, tmp_path: Path) -> None:
@@ -359,5 +359,5 @@ class TestDatasetsInclude:
             "        type: string\n"
         )
 
-        with pytest.raises(DatasetValidationError, match="Duplicate dataset slug 'dupe'.*file2.yaml.*file1.yaml"):
+        with pytest.raises(DatasetValidationError, match="Duplicate dataset name 'dupe'.*file2.yaml.*file1.yaml"):
             DatasetsManager(tmp_path)

@@ -1,4 +1,4 @@
-"""Tests for sunstone.datasets_schema (datasets.yaml key/value validation)."""
+"""Tests for sunstone.datasets_schema (value checks on normalized datasets.yaml)."""
 
 from __future__ import annotations
 
@@ -37,7 +37,11 @@ class TestProfiles:
 
 
 def _ds(**extra: Any) -> dict[str, Any]:
-    return {"name": "A", "slug": "a", "location": "outputs/a.csv", **extra}
+    return {"title": "A", "name": "a", "path": "outputs/a.csv", **extra}
+
+
+def _fields(*fields: dict[str, Any], **schema: Any) -> dict[str, Any]:
+    return {"schema": {"fields": list(fields), **schema}}
 
 
 def _doc(**extra: Any) -> dict[str, Any]:
@@ -74,18 +78,9 @@ class TestValidDocuments:
 
     def test_everything_allowed(self) -> None:
         doc = {
-            "min_sunstone_version": "1.15.0",
-            "include": ["more.yaml"],
-            "lint": {"disable": {"R104": "reason"}},
-            "plugins": {"gcs": {"project": "x"}},
-            "rdfPrefixes": {"si": "https://sunstone.institute/rdf/vocab#"},
-            "defaults": {"rdfPrefixes": {"si": "https://x/"}, "si:organization": "Sunstone"},
-            "si:methodology": "docs/method.md",
             "publish": {
                 "enabled": True,
                 "to": "sunstone:projects/x",
-                "flatten": False,
-                "as": "https://x/",
                 "public": True,
                 "dialect": {"delimiter": ";", "headerRows": [1, 2], "doubleQuote": False},
             },
@@ -94,99 +89,53 @@ class TestValidDocuments:
                 "description": "D",
                 "version": "1.0.0",
                 "keywords": ["a"],
-                "license": "MIT",
                 "homepage": "https://x",
                 "id": "urn:x",
                 "image": "img.png",
                 "created": "2026-01-01T00:00:00Z",
                 "licenses": [{"name": "MIT"}],
                 "sources": [{"title": "S"}],
-                "contributors": [
-                    {
-                        "title": "X",
-                        "roles": ["author"],
-                        "email": "x@y",
-                        "path": "https://x",
-                        "givenName": "X",
-                        "familyName": "Y",
-                        "organization": "O",
-                    }
-                ],
+                "contributors": [{"title": "X", "roles": ["author"], "email": "x@y", "givenName": "X"}],
                 "dcat:theme": "t",
             },
             "inputs": [
                 _ds(
                     type="file",
+                    path="gs://bucket/../a.png",
                     format="png",
                     description="d",
-                    title="t",
                     encoding="utf-8",
                     mediatype="image/png",
                     homepage="https://x",
                     licenses=[{"path": "https://x"}],
                     bytes=12,
                     hash="sha256:ab",
-                    strict=True,
-                    license="CC-BY-4.0",
-                    rdfPrefixes={"ex": "https://e/"},
-                    lineage={"anything": 1},
                     publish={"enabled": True, "as_name": "renamed"},
                     dialect={"delimiter": "\t", "quoteChar": "'", "header": True},
-                    source={
-                        "name": "S",
-                        "location": {"data": "https://d", "metadata": "https://m", "about": "https://a"},
-                        "attributedTo": {
-                            "id": "https://org",
-                            "type": "prov:Organization",
-                            "label": "Org",
-                            "version": "1",
-                        },
-                        "acquiredAt": "2026-01-01",
-                        "acquisitionMethod": "manual-download",
-                        "license": "CC0-1.0",
-                        "updated": "2026-02-01",
-                        "notes": "free text",
-                    },
-                    **{"si:category": "c", "https://sunstone.institute/rdf/vocab#x": 1},
+                    source={"title": "S", "dct:license": "CC0-1.0"},
                 ),
             ],
             "outputs": [
                 _ds(
-                    fields=[
+                    **_fields(
                         {
                             "name": "n",
                             "type": "number",
-                            "unit": "m",
-                            "source": "a",
+                            "si:unit": "m",
                             "description": "d",
                             "title": "N",
                             "format": "default",
-                            "example": "1.5",
                             "missingValues": ["", "NA"],
                             "rdfType": "https://x",
-                            "constraints": {
-                                "minimum": 0,
-                                "maximum": "10",
-                                "required": True,
-                                "unique": False,
-                                "enum": [1],
-                            },
-                            "qudt:hasQuantityKind": "q",
-                            "groupChar": ",",
-                            "decimalChar": ".",
+                            "constraints": {"minimum": 0, "maximum": "10", "required": True, "enum": [1]},
                             "bareNumber": True,
                         },
                         {"name": "s"},
-                        {
-                            "name": "c",
-                            "type": "string",
-                            "categories": ["a", "b"],
-                            "categoriesOrdered": True,
-                            "constraints": {"maxLength": 3, "pattern": "^a"},
-                        },
+                        {"name": "c", "type": "string", "constraints": {"maxLength": 3, "pattern": "^a"}},
                         {"name": "b", "type": "boolean", "trueValues": ["y"], "falseValues": ["n"]},
                         {"name": "g", "type": "geojson", "rdfType": "geo:Geometry"},
-                    ]
+                        primaryKey=["n"],
+                    )
                 ),
             ],
         }
@@ -195,15 +144,7 @@ class TestValidDocuments:
     def test_packages_list(self) -> None:
         doc = {
             "outputs": [_ds()],
-            "packages": [
-                {
-                    "name": "p",
-                    "datasets": ["a"],
-                    "title": "T",
-                    "license": "MIT",
-                    "publish": {"enabled": True, "to": "gs://b/"},
-                }
-            ],
+            "packages": [{"name": "p", "datasets": ["a"], "title": "T", "publish": {"enabled": True, "to": "gs://b/"}}],
         }
         assert validate_datasets_data(doc) == []
 
@@ -211,7 +152,7 @@ class TestValidDocuments:
         assert validate_datasets_data(_doc(publish=True)) == []
 
     def test_plugin_field_type_accepted(self) -> None:
-        doc = {"outputs": [_ds(fields=[{"name": "g", "type": "custom_type"}])]}
+        doc = {"outputs": [_ds(**_fields({"name": "g", "type": "custom_type"}))]}
         assert validate_datasets_data(doc, field_types=("custom_type",)) == []
         assert validate_datasets_data(doc, field_types=lambda: ["custom_type"]) == []
 
@@ -219,42 +160,23 @@ class TestValidDocuments:
         def boom() -> list[str]:
             raise AssertionError("registry touched")
 
-        doc = {"outputs": [_ds(fields=[{"name": "n", "type": "integer"}])]}
+        doc = {"outputs": [_ds(**_fields({"name": "n", "type": "integer"}))]}
         assert validate_datasets_data(doc, field_types=boom) == []
 
+    def test_unknown_keys_left_to_r301(self) -> None:
+        doc = _doc(foo=1, package={"foo": 1}, defaults={"foo": 1})
+        doc["outputs"] = [_ds(foo=1, source={"foo": 1}, **_fields({"name": "x", "type": "number", "bogus": 1}))]
+        assert validate_datasets_data(doc) == []
 
-class TestUnknownKeys:
-    def test_top_level(self) -> None:
-        assert validate_datasets_data(_doc(foo=1)) == [
-            "top level: unknown key 'foo' (not a sunstone top-level key; custom metadata keys need a prefix such as 'si:foo')"
-        ]
 
-    def test_dataset(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(foo=1)]})
-        assert errors == [
-            "outputs[0]: unknown key 'foo' (not a Data Resource property or a sunstone dataset key; "
-            "custom metadata keys need a prefix such as 'si:foo')"
-        ]
-
-    @pytest.mark.parametrize("key", ["path", "data"])
-    def test_dataset_generated_keys_rejected(self, key: str) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(**{key: "x"})]})
-        assert len(errors) == 1 and f"unknown key '{key}'" in errors[0]
-
-    def test_field(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(fields=[{"name": "x", "type": "number", "bogus": 1}])]})
-        assert errors == [
-            "outputs[0].fields[0]: unknown key 'bogus' (not a Table Schema field property or a sunstone field key; "
-            "custom metadata keys need a prefix such as 'si:bogus')"
-        ]
-
+class TestKeysWithPerTypeRules:
     def test_constraint_for_other_type(self) -> None:
         valid = ", ".join(sorted(_field_alternatives()["integer"]["properties"]["constraints"]["properties"]))
         errors = validate_datasets_data(
-            {"outputs": [_ds(fields=[{"name": "x", "type": "integer", "constraints": {"minLength": 2}}])]}
+            {"outputs": [_ds(**_fields({"name": "x", "type": "integer", "constraints": {"minLength": 2}}))]}
         )
         assert errors == [
-            "outputs[0].fields[0].constraints: unknown key 'minLength' (not a constraint for type 'integer'; "
+            "outputs[0].schema.fields[0].constraints: unknown key 'minLength' (not a constraint for type 'integer'; "
             "valid: " + valid + "; custom keys need a prefix such as 'si:minLength')"
         ]
 
@@ -274,49 +196,6 @@ class TestUnknownKeys:
         assert key not in DIALECT_KEYS
         errors = validate_datasets_data({"publish": {"dialect": {key: "x"}}})
         assert len(errors) == 1 and f"unknown key '{key}'" in errors[0]
-
-    def test_publish(self) -> None:
-        errors = validate_datasets_data({"publish": {"enabled": True, "too": "x"}})
-        assert errors == [
-            "publish: unknown key 'too' (not a sunstone publish key; custom metadata keys need a prefix such as 'si:too')"
-        ]
-
-    def test_package_and_generated_resources(self) -> None:
-        errors = validate_datasets_data({"package": {"title": "T", "foo": 1, "resources": [], "datasets": ["a"]}})
-        assert [e.split(" (")[0] for e in errors] == [
-            "package: unknown key 'foo'",
-            "package: unknown key 'resources'",
-            "package: unknown key 'datasets'",
-        ]
-
-    def test_contributor(self) -> None:
-        errors = validate_datasets_data({"package": {"contributors": [{"title": "X", "twitter": "@x"}]}})
-        assert errors == [
-            "package.contributors[0]: unknown key 'twitter' (not a Data Package contributor property; "
-            "custom metadata keys need a prefix such as 'si:twitter')"
-        ]
-
-    def test_source_nested(self) -> None:
-        src = {
-            "name": "s",
-            "location": {"data": "u", "mirror": "v"},
-            "attributedTo": {"id": "x", "role": "y"},
-            "foo": 1,
-        }
-        errors = validate_datasets_data({"inputs": [_ds(source=src)]})
-        assert [e.split(" (")[0] for e in errors] == [
-            "inputs[0].source: unknown key 'foo'",
-            "inputs[0].source.location: unknown key 'mirror'",
-            "inputs[0].source.attributedTo: unknown key 'role'",
-        ]
-
-    def test_defaults(self) -> None:
-        errors = validate_datasets_data({"defaults": {"rdfPrefixes": {}, "si:x": 1, "foo": 2}})
-        assert len(errors) == 1 and "defaults: unknown key 'foo'" in errors[0]
-
-    def test_non_string_key(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(**{})], 1: "x"})
-        assert errors == ["top level: key 1 must be a string"]
 
 
 class TestValues:
@@ -346,21 +225,25 @@ class TestValues:
         ]
 
     def test_field_requires_name(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(fields=[{"type": "integer"}])]})
-        assert errors == ["outputs[0].fields[0]: 'name' is a required property"]
+        errors = validate_datasets_data({"outputs": [_ds(**_fields({"type": "integer"}))]})
+        assert errors == ["outputs[0].schema.fields[0]: 'name' is a required property"]
 
     def test_field_invalid_type_lists_profile_and_plugin_types(self) -> None:
         errors = validate_datasets_data(
-            {"outputs": [_ds(fields=[{"name": "x", "type": "text"}])]}, field_types=["custom_type"]
+            {"outputs": [_ds(**_fields({"name": "x", "type": "text"}))]}, field_types=["custom_type"]
         )
         expected = ", ".join(sorted(profile_field_types() | {"custom_type"}))
-        assert errors == [f"outputs[0].fields[0]: invalid type 'text' (must be one of: {expected})"]
+        assert errors == [f"outputs[0].schema.fields[0]: invalid type 'text' (must be one of: {expected})"]
+
+    def test_geometry_is_not_a_type(self) -> None:
+        errors = validate_datasets_data({"outputs": [_ds(**_fields({"name": "g", "type": "geometry"}))]})
+        assert len(errors) == 1 and "invalid type 'geometry'" in errors[0]
 
     def test_constraint_values(self) -> None:
-        fields = [{"name": "x", "type": "string", "constraints": {"maxLength": "ten", "required": "yes"}}]
-        assert validate_datasets_data({"outputs": [_ds(fields=fields)]}) == [
-            "outputs[0].fields[0].constraints.maxLength: 'ten' is not of type 'integer'",
-            "outputs[0].fields[0].constraints.required: 'yes' is not of type 'boolean'",
+        fld = {"name": "x", "type": "string", "constraints": {"maxLength": "ten", "required": "yes"}}
+        assert validate_datasets_data({"outputs": [_ds(**_fields(fld))]}) == [
+            "outputs[0].schema.fields[0].constraints.maxLength: 'ten' is not of type 'integer'",
+            "outputs[0].schema.fields[0].constraints.required: 'yes' is not of type 'boolean'",
         ]
 
     def test_dataset_type_is_sunstone_key(self) -> None:
@@ -377,24 +260,20 @@ class TestShape:
         assert validate_datasets_data([]) == ["datasets.yaml must be a mapping"]
 
     def test_sections(self) -> None:
-        errors = validate_datasets_data(
-            {"inputs": {}, "outputs": [1], "package": [], "packages": {}, "publish": "x", "defaults": []}
-        )
+        errors = validate_datasets_data({"inputs": {}, "outputs": [1], "package": [], "packages": {}, "publish": "x"})
         assert errors == [
             "'inputs' must be a list",
             "outputs[0]: must be an object",
             "package: must be a mapping",
             "'packages' must be a list",
             "publish: must be a mapping or a boolean",
-            "defaults: must be a mapping",
         ]
 
     def test_nested_shapes(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(fields={}, dialect=[], source="x", publish=[])]})
+        errors = validate_datasets_data({"outputs": [_ds(dialect=[], publish=[], schema={"fields": {}})]})
         assert errors == [
             "outputs[0].dialect: must be a mapping",
-            "outputs[0].fields: must be a list",
-            "outputs[0].source: must be a mapping",
+            "outputs[0].schema.fields: must be a list",
             "outputs[0].publish: must be a mapping or a boolean",
         ]
 
@@ -443,16 +322,16 @@ class TestDescriptors:
 class TestMalformedValuesAndPrimaryKey:
     @pytest.mark.parametrize("bad", [["integer"], {"a": 1}])
     def test_non_string_field_type(self, bad: Any) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(fields=[{"name": "x", "type": bad}])]})
+        errors = validate_datasets_data({"outputs": [_ds(**_fields({"name": "x", "type": bad}))]})
         assert len(errors) == 1 and f"invalid type {bad!r} (must be one of:" in errors[0]
 
-    def test_null_fields_and_dialect_skipped(self) -> None:
-        assert validate_datasets_data({"outputs": [_ds(fields=None, dialect=None, publish=None)]}) == []
+    def test_null_dialect_and_publish_skipped(self) -> None:
+        assert validate_datasets_data({"outputs": [_ds(dialect=None, publish=None, schema={"fields": None})]}) == []
 
     @pytest.mark.parametrize("pk", [["a", "b"], "a"])
     def test_primary_key_ok(self, pk: Any) -> None:
-        assert validate_datasets_data({"outputs": [_ds(primaryKey=pk)]}) == []
+        assert validate_datasets_data({"outputs": [_ds(**_fields(primaryKey=pk))]}) == []
 
     def test_primary_key_bad(self) -> None:
-        errors = validate_datasets_data({"outputs": [_ds(primaryKey=3)]})
-        assert len(errors) == 1 and errors[0].startswith("outputs[0].primaryKey: 3 ")
+        errors = validate_datasets_data({"outputs": [_ds(**_fields(primaryKey=3))]})
+        assert len(errors) == 1 and errors[0].startswith("outputs[0].schema.primaryKey: 3 ")

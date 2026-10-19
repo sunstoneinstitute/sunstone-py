@@ -209,8 +209,8 @@ class TestFieldSchemaExtendedProperties:
         )
         dataset = sunstone.DatasetsManager(tmp_path).find_dataset_by_slug("data")
         assert dataset is not None and dataset.fields is not None
+        assert dataset.fields[0].title == "The X"
         assert dataset.fields[0].custom_properties == {
-            "title": "The X",
             "missingValues": ["", "NA"],
             "rdfType": "geo:Geometry",
             "qudt:hasQuantityKind": "quantitykind:Length",
@@ -269,8 +269,8 @@ class TestFieldSchemaSerialization:
             "type": "integer",
             "constraints": {"minimum": 0},
             "description": "Total population",
-            "unit": "people",
-            "source": "census-data",
+            "si:unit": "people",
+            "dct:source": "census-data",
         }
 
     def test_field_to_dict_omits_none(self) -> None:
@@ -1284,15 +1284,34 @@ class TestMinSunstoneVersion:
         # Should be set to the current running version
         from importlib.metadata import version as pkg_version
 
+        from sunstone.aliases import MIN_NEW_FORM_VERSION, version_key
+
         try:
             expected = pkg_version("sunstone-py")
         except Exception:
             expected = "1.8.0"
+        # Every save also raises it to the first version that reads the new key form.
+        expected = max(expected, MIN_NEW_FORM_VERSION, key=version_key)
         assert data["min_sunstone_version"] == expected
 
 
+class TestEnsureMinVersion:
+    def test_inserts_at_top_and_reads_pre_release_versions(self, tmp_path: Path) -> None:
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "datasets.yaml").write_text("package:\n  title: T\ninputs: []\noutputs: []\n")
+        manager = DatasetsManager(tmp_path)
+        manager._ensure_min_version("1.20.0rc1")
+        text = (tmp_path / "datasets.yaml").read_text()
+        assert text.startswith("min_sunstone_version: 1.20.0rc1\n"), text
+        manager._ensure_min_version("1.20.0")  # rc1 reads as 1.20.0: no change
+        assert (tmp_path / "datasets.yaml").read_text() == text
+        manager._ensure_min_version("1.21.0")
+        assert (tmp_path / "datasets.yaml").read_text().startswith("min_sunstone_version: 1.21.0\n")
+
+
 class TestPerDatasetPublishDeprecation:
-    """Test that per-dataset publish: emits a deprecation warning."""
+    """Per-dataset publish.to, .flatten and .as are deprecated; enabled, as_name, public and dialect are not."""
 
     def test_warns_on_per_dataset_publish(self, tmp_path: Path) -> None:
         yaml_file = tmp_path / "datasets.yaml"
@@ -1319,8 +1338,29 @@ class TestPerDatasetPublishDeprecation:
             mgr.get_all_outputs()
             deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
             assert len(deprecation_warnings) == 1
-            assert "publish" in str(deprecation_warnings[0].message).lower()
+            assert "'publish.to'" in str(deprecation_warnings[0].message)
             assert "packages:" in str(deprecation_warnings[0].message)
+
+    @pytest.mark.parametrize(
+        "block",
+        [
+            "    publish: true\n",
+            "    publish:\n      enabled: true\n      as_name: test_v2\n      public: true\n"
+            "      dialect:\n        delimiter: ';'\n",
+        ],
+    )
+    def test_no_warning_for_dataset_only_keys(self, tmp_path: Path, block: str) -> None:
+        import warnings
+
+        from sunstone.datasets import DatasetsManager
+
+        (tmp_path / "datasets.yaml").write_text(
+            "outputs:\n  - name: Test\n    slug: test\n    location: test.csv\n" + block
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            DatasetsManager(tmp_path).get_all_outputs()
+        assert not [x for x in w if issubclass(x.category, DeprecationWarning)]
 
 
 def test_dataset_format_field_parsed(tmp_path):

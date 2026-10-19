@@ -145,7 +145,7 @@ def _find_output_data(slug: str, mgr: DatasetsManager) -> Optional[dict[str, Any
             return {"slug": slug, "lineage": dict(lock_entry)}
 
     for output_data in mgr._data.get("outputs", []):
-        if output_data.get("slug") == slug:
+        if output_data.get("name") == slug:
             return dict(output_data)
     return None
 
@@ -294,7 +294,7 @@ def get_full_attribution(
             Attribution(
                 organization=org,
                 dataset_name=name,
-                license=ds.source.license,
+                license=ds.source.license or "",
                 acquired_at=ds.source.acquired_at,
                 source_url=source_url,
             )

@@ -613,18 +613,18 @@ class TestMetadataIntegration:
             data = yaml.load(f)
         output = None
         for o in data["outputs"]:
-            if o["slug"] == "top-five-members":
+            if o["name"] == "top-five-members":
                 output = o
                 break
         assert output is not None, "Output dataset not found in datasets.yaml"
-        assert output["name"] == "Top Five Members"
+        assert output["title"] == "Top Five Members"
         assert output["description"] == "First five UN member states"
         assert output["rdfPrefixes"] == {"schema": "https://schema.org/"}
         assert output["schema:about"] == "United Nations"
-        fields_by_name = {f["name"]: f for f in output["fields"]}
+        fields_by_name = {f["name"]: f for f in output["schema"]["fields"]}
         assert fields_by_name["Member State"]["description"] == "Country name"
         assert fields_by_name["ISO Code"]["description"] == "ISO 3166-1 alpha-3"
-        assert fields_by_name["ISO Code"]["source"] == "official-un-member-states"
+        assert fields_by_name["ISO Code"]["dct:source"] == "official-un-member-states"
         # Lineage is in the lock file, not in datasets.yaml
         with open(test_project / "datasets.lock.yaml") as f:
             lock_data = yaml.load(f)
@@ -653,8 +653,8 @@ class TestMetadataIntegration:
         yaml = YAML()
         with open(test_project / "datasets.yaml") as f:
             data = yaml.load(f)
-        output = next(o for o in data["outputs"] if o["slug"] == "meta-slug")
-        assert output["name"] == "Meta Name"
+        output = next(o for o in data["outputs"] if o["name"] == "meta-slug")
+        assert output["title"] == "Meta Name"
 
     def test_to_csv_params_override_metadata(self, project_path: Path, tmp_path: Path):
         """Explicit to_csv params override metadata values."""
@@ -678,8 +678,8 @@ class TestMetadataIntegration:
         yaml = YAML()
         with open(test_project / "datasets.yaml") as f:
             data = yaml.load(f)
-        output = next(o for o in data["outputs"] if o["slug"] == "param-slug")
-        assert output["name"] == "Param Name"
+        output = next(o for o in data["outputs"] if o["name"] == "param-slug")
+        assert output["title"] == "Param Name"
 
 
 class TestMetadataJsonLd:
@@ -1040,3 +1040,69 @@ def test_metadata_from_jsonld_ignores_unknown_keys():
     }
     m = Metadata.from_jsonld(doc)
     assert m.slug == "x"
+
+
+def test_to_jsonld_agent_prefixes_in_context():
+    from sunstone.lineage import SourceAgent
+
+    m = Metadata(
+        slug="t",
+        name="T",
+        lineage=LineageMetadata(
+            sources=[
+                DatasetMetadata(
+                    name="S",
+                    slug="s",
+                    location="s.csv",
+                    source=Source(
+                        name="S",
+                        location=SourceLocation(data="https://example.org/s.csv"),
+                        attributed_to="Org",
+                        acquired_at="2026-01-01",
+                        acquisition_method="manual-download",
+                        license="CC-BY-4.0",
+                        publisher=SourceAgent(label="Example Organisation", alt_label="Example Org"),
+                    ),
+                )
+            ]
+        ),
+    )
+    doc = m.to_jsonld()
+    assert doc["prov:wasDerivedFrom"][0]["dct:publisher"] == {
+        "rdfs:label": "Example Organisation",
+        "skos:altLabel": "Example Org",
+    }
+    assert doc["@context"]["rdfs"] == "http://www.w3.org/2000/01/rdf-schema#"
+    assert doc["@context"]["skos"] == "http://www.w3.org/2004/02/skos/core#"
+    assert Metadata.from_jsonld(doc).rdf_prefixes is None
+
+
+def test_source_accepts_plain_agent_names():
+    """1.19 code passed publisher/creator as strings; they are read as SourceAgent(label=...)."""
+    from sunstone import STANDARD_RDF_PREFIXES, SourceAgent
+    from sunstone.cli import _source_entry
+
+    source = Source(
+        name="S",
+        location=SourceLocation(data="https://example.org/s.csv"),
+        attributed_to="Org",
+        acquired_at="2026-01-01",
+        acquisition_method="manual-download",
+        license="CC-BY-4.0",
+        publisher="Example Organisation",
+        creator="Jane Doe",
+    )
+    m = Metadata(
+        slug="t",
+        name="T",
+        lineage=LineageMetadata(sources=[DatasetMetadata(name="S", slug="s", location="s.csv", source=source)]),
+    )
+    derived = m.to_jsonld()["prov:wasDerivedFrom"][0]
+    assert derived["dct:publisher"] == {"rdfs:label": "Example Organisation"}
+    assert derived["dct:creator"] == [{"rdfs:label": "Jane Doe"}]
+
+    dct, rdfs = STANDARD_RDF_PREFIXES["dct"], STANDARD_RDF_PREFIXES["rdfs"]
+    entry = _source_entry(source)
+    assert entry[f"{dct}publisher"] == {f"{rdfs}label": "Example Organisation"}
+    assert entry[f"{dct}creator"] == [{f"{rdfs}label": "Jane Doe"}]
+    assert SourceAgent(label="X") == SourceAgent("X")

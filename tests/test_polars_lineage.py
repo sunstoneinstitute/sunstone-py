@@ -122,7 +122,7 @@ def test_dataset_level_metadata_flows_to_datasets_yaml(project_copy) -> None:
     with open(project_copy / "datasets.yaml") as f:
         data = yaml.load(f)
 
-    output = next((d for d in data.get("outputs", []) if d["slug"] == "meta-flow"), None)
+    output = next((d for d in data.get("outputs", []) if d["name"] == "meta-flow"), None)
     assert output is not None, "output not registered in datasets.yaml"
     assert output.get("description") == "polars metadata test"
     # datasets.yaml uses camelCase for rdfPrefixes, custom props are top-level keys.
@@ -146,11 +146,11 @@ def test_explicit_field_metadata_flows_to_datasets_yaml(project_copy) -> None:
     with open(project_copy / "datasets.yaml") as f:
         data = yaml.load(f)
 
-    output = next((d for d in data.get("outputs", []) if d["slug"] == "field-flow"), None)
+    output = next((d for d in data.get("outputs", []) if d["name"] == "field-flow"), None)
     assert output is not None, "output not registered in datasets.yaml"
-    fields = {f["name"]: f for f in output.get("fields", [])}
+    fields = {f["name"]: f for f in output.get("schema", {}).get("fields", [])}
     assert first_col in fields, f"column '{first_col}' missing from registered fields"
-    assert fields[first_col].get("unit") == "dimensionless"
+    assert fields[first_col].get("si:unit") == "dimensionless"
     assert fields[first_col].get("description") == "polars field test"
 
 

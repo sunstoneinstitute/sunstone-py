@@ -189,7 +189,7 @@ class TestFlushAndPersist:
         # datasets.yaml should NOT have lineage
         with open(flow_project / "datasets.yaml") as f:
             yaml_data = yaml.load(f)
-        yaml_output = next(d for d in yaml_data["outputs"] if d["slug"] == "merged-output")
+        yaml_output = next(d for d in yaml_data["outputs"] if d["name"] == "merged-output")
         assert "lineage" not in yaml_output
 
     @patch("sunstone.context.detect_execution_context", side_effect=_mock_detect_context)
