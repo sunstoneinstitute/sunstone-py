@@ -1,57 +1,159 @@
 # Each entry below intentionally exercises one or more lint rules.
+# R306 new-form file without min_sunstone_version; R362 publishing without
+# dcat-si:methodology; R351 package without title while publishing.
+package:
+  description: Lint fixture package without a title.
+
 publish:
   enabled: true
   to: gs://example-bucket/lint-fixture/
 
 inputs:
-  # R001 missing name, R002 missing slug, R003 missing location, R004 missing
-  # description, R101 missing source.
+  # R001 missing title, R002 missing name, R003 missing path, R004 missing
+  # description, R101 missing source, R301 unknown key, R312 no acquisition.
   - foo: bar
-  # R005 license missing on source.
-  - name: No License Input
-    slug: no-license-input
-    location: inputs/x.csv
+  # R005 license missing on source (also R102), R307 dct:title duplicates
+  # title and si:publisher duplicates dct:publisher.
+  - title: No License Input
+    name: no-license-input
+    path: inputs/x.csv
     description: Has a source but the source lacks a license.
+    dct:title: No License Input
     source:
-      name: Some Provider
-      location:
-        data: https://example.com/x.csv
-      attributedTo: Example Org
-      acquiredAt: 2026-01-01
-      acquisitionMethod: manual-download
-  # R006 license is not a recognised identifier.
-  - name: Bad License Input
-    slug: bad-license-input
-    location: inputs/y.csv
+      title: Some Provider
+      dcat:downloadURL: https://example.com/x.csv
+      dct:publisher: &example-org
+        rdfs:label: Example Organisation
+        skos:altLabel: Example Org
+      dct:issued: '2025'
+      dct:modified: '2026-01-01'
+      si:publisher: Example Org
+    prov:generatedAtTime: '2026-01-01'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+  # R006 license is not a recognised identifier, R311 missing recommended keys
+  # (no skos:altLabel, dct:issued, dct:modified), R316 field source object
+  # missing keys, R317 field source repeating the dataset source.
+  - title: Bad License Input
+    name: bad-license-input
+    path: inputs/y.csv
     description: License value is not on the SPDX or allow-list.
     source:
+      title: Provider
+      dcat:downloadURL: https://example.com/y.csv
+      dct:publisher:
+        rdfs:label: Provider
+      dct:license: free
+    schema:
+      fields:
+        - name: country
+          type: string
+          dct:source: provider
+        - name: emissions
+          type: string
+          dct:source:
+            title: EDGAR
+    prov:generatedAtTime: '2026-01-01'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+  # R102 source block missing required keys, R104 name not kebab-case,
+  # R302 undeclared prefix, R303 unknown term.
+  - title: Sloppy Source
+    name: Sloppy_Source
+    path: inputs/z.csv
+    description: Name is wrong-case and source is incomplete.
+    source:
+      title: Provider
+    zzz:thing: 1
+    prov:wasAttributedTooo: nobody
+  # R315 DOI used as a link; the alias reuses the publisher anchored above.
+  - title: Paper Input
+    name: paper-input
+    path: inputs/paper.csv
+    description: A journal article whose DOI sits in the landing page.
+    source:
+      title: A Paper
+      dct:publisher: *example-org
+      dcat:landingPage: https://doi.org/10.1000/xyz
+      dct:issued: '2022'
+      dct:modified: '2026-01-01'
+      dct:license: CC-BY-4.0
+    prov:generatedAtTime: '2026-01-01'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+  # R304 deprecated keys (old form).
+  - name: Old Form Input
+    slug: old-form-input
+    location: inputs/old.csv
+    description: Still uses the old keys.
+    source:
       name: Provider
       location:
-        data: https://example.com/y.csv
+        data: https://example.com/old.csv
       attributedTo: Example Org
       acquiredAt: 2026-01-01
       acquisitionMethod: manual-download
-      license: free
-  # R102 source block missing required keys, R104 slug not kebab-case.
-  - name: Sloppy Source
-    slug: Sloppy_Source
-    location: inputs/z.csv
-    description: Slug is wrong-case and source is incomplete.
-    source:
-      name: Provider
-      location: {}
+      license: CC-BY-4.0
+  # R305 both slug and title.
+  - slug: ambiguous
+    title: Ambiguous
+    name: ambiguous-name
+    path: inputs/amb.csv
+    description: Has both slug and title.
 
 outputs:
   # R007 field missing name, R008 field missing type, R103 numeric without
   # unit, R105 published field with no description, R201 generic field name
-  # without description, R202 generic dataset name.
-  - name: Output
-    slug: bare-output
-    location: outputs/bare.csv
-    description: Generic name, generic field, missing types.
-    license: CC-BY-4.0
-    fields:
-      - type: string
-      - name: total
-        type: number
-      - name: value
+  # without description, R202 generic dataset title, R307 qudt:unit duplicates
+  # si:unit, R313 published without sources, R314 no coverage properties,
+  # R321 no lock entry, R331 unknown type, R341 unparseable unit.
+  - title: Output
+    name: bare-output
+    path: outputs/bare.csv
+    description: Generic title, generic field, missing types.
+    licenses:
+      - name: CC-BY-4.0
+    schema:
+      fields:
+        - type: string
+        - name: total
+          type: number
+        - name: value
+        - name: weird
+          type: text
+          description: Unknown type.
+        - name: speed
+          type: number
+          si:unit: widgets
+          qudt:unit: http://qudt.org/vocab/unit/M-PER-SEC
+          description: Unparseable unit.
+  # R323 inline lineage.
+  - title: Inline Lineage Output
+    name: inline-lineage-output
+    path: outputs/inline.csv
+    description: Has inline lineage.
+    licenses:
+      - name: CC-BY-4.0
+    lineage:
+      sources: []
+  # R318 field source repeating the output's only source (its source block).
+  - title: Sourced Output
+    name: sourced-output
+    path: outputs/sourced.csv
+    description: Output with its own source block.
+    licenses:
+      - name: CC-BY-4.0
+    source:
+      title: Some Provider
+      dcat:downloadURL: https://example.com/s.csv
+      dct:publisher: *example-org
+      dct:license: CC-BY-4.0
+    schema:
+      fields:
+        - name: country
+          type: string
+          description: Country name.
+          dct:source: Example Org
