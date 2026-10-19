@@ -1,0 +1,261 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sunstoneinstitute.github.io/sunstone-py/schemas/datapackage-profile.json",
+  "title": "sunstone Data Package profile",
+  "description": "Data Package 2.0 (https://datapackage.org/profiles/2.0/datapackage.json) with extras restricted to prefixed names or IRIs.",
+  "$ref": "#/definitions/package",
+  "definitions": {
+    "package": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "contributors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/contributor"
+          }
+        },
+        "created": {},
+        "description": {},
+        "homepage": {},
+        "id": {},
+        "image": {},
+        "keywords": {},
+        "license": {},
+        "licenses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/license"
+          }
+        },
+        "name": {},
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/resource"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/source"
+          }
+        },
+        "title": {},
+        "version": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "bytes": {},
+        "data": {},
+        "description": {},
+        "dialect": {
+          "$ref": "#/definitions/dialect"
+        },
+        "encoding": {},
+        "format": {},
+        "hash": {},
+        "homepage": {},
+        "licenses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/license"
+          }
+        },
+        "mediatype": {},
+        "name": {},
+        "path": {},
+        "schema": {
+          "$ref": "#/definitions/schema"
+        },
+        "scheme": {},
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/source"
+          }
+        },
+        "title": {},
+        "type": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "email": {},
+        "path": {},
+        "title": {},
+        "version": {},
+        "@id": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/field"
+          }
+        },
+        "fieldsMatch": {},
+        "foreignKeys": {},
+        "missingValues": {},
+        "primaryKey": {},
+        "uniqueKeys": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "bareNumber": {},
+        "categories": {},
+        "categoriesOrdered": {},
+        "constraints": {
+          "$ref": "#/definitions/constraints"
+        },
+        "decimalChar": {},
+        "description": {},
+        "example": {},
+        "falseValues": {},
+        "format": {},
+        "groupChar": {},
+        "missingValues": {},
+        "name": {},
+        "rdfType": {},
+        "source": {},
+        "title": {},
+        "trueValues": {},
+        "type": {},
+        "unit": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "enum": {},
+        "exclusiveMaximum": {},
+        "exclusiveMinimum": {},
+        "jsonSchema": {},
+        "maxLength": {},
+        "maximum": {},
+        "minLength": {},
+        "minimum": {},
+        "pattern": {},
+        "required": {},
+        "unique": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "license": {
+      "type": "object",
+      "properties": {
+        "name": {},
+        "path": {},
+        "title": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "dialect": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "commentChar": {},
+        "commentRows": {},
+        "delimiter": {},
+        "doubleQuote": {},
+        "escapeChar": {},
+        "header": {},
+        "headerJoin": {},
+        "headerRows": {},
+        "itemKeys": {},
+        "itemType": {},
+        "lineTerminator": {},
+        "nullSequence": {},
+        "property": {},
+        "quoteChar": {},
+        "sheetName": {},
+        "sheetNumber": {},
+        "skipInitialSpace": {},
+        "table": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "contributor": {
+      "type": "object",
+      "properties": {
+        "email": {},
+        "familyName": {},
+        "givenName": {},
+        "organization": {},
+        "path": {},
+        "roles": {},
+        "title": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "@id": {
+          "type": "string"
+        },
+        "@type": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    }
+  }
+}

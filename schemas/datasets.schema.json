@@ -1,0 +1,344 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sunstoneinstitute.github.io/sunstone-py/schemas/datasets.schema.json",
+  "title": "sunstone datasets.yaml",
+  "description": "Keys are Data Package 2.0 properties, sunstone config keys, or RDF properties (prefix:local or IRI).",
+  "$ref": "#/definitions/document",
+  "definitions": {
+    "document": {
+      "type": "object",
+      "properties": {
+        "defaults": {
+          "$ref": "#/definitions/defaults"
+        },
+        "include": {},
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dataset"
+          }
+        },
+        "lint": {
+          "$ref": "#/definitions/lint"
+        },
+        "min_sunstone_version": {},
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/dataset"
+          }
+        },
+        "package": {
+          "$ref": "#/definitions/package"
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/package"
+          }
+        },
+        "plugins": {},
+        "publish": {
+          "$ref": "#/definitions/publish"
+        },
+        "rdfPrefixes": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "dataset": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "bytes": {},
+        "data": {},
+        "description": {},
+        "dialect": {
+          "$ref": "#/definitions/dialect"
+        },
+        "encoding": {},
+        "format": {},
+        "hash": {},
+        "homepage": {},
+        "licenses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/license"
+          }
+        },
+        "mediatype": {},
+        "name": {},
+        "path": {},
+        "publish": {
+          "$ref": "#/definitions/publish"
+        },
+        "rdfPrefixes": {},
+        "schema": {
+          "$ref": "#/definitions/schema"
+        },
+        "source": {
+          "$ref": "#/definitions/source"
+        },
+        "sources": {},
+        "strict": {},
+        "title": {},
+        "type": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "email": {},
+        "path": {},
+        "title": {},
+        "version": {},
+        "@id": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/field"
+          }
+        },
+        "fieldsMatch": {},
+        "foreignKeys": {},
+        "missingValues": {},
+        "primaryKey": {},
+        "uniqueKeys": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "bareNumber": {},
+        "categories": {},
+        "categoriesOrdered": {},
+        "constraints": {
+          "$ref": "#/definitions/constraints"
+        },
+        "decimalChar": {},
+        "description": {},
+        "example": {},
+        "falseValues": {},
+        "format": {},
+        "groupChar": {},
+        "missingValues": {},
+        "name": {},
+        "rdfType": {},
+        "title": {},
+        "trueValues": {},
+        "type": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "enum": {},
+        "exclusiveMaximum": {},
+        "exclusiveMinimum": {},
+        "jsonSchema": {},
+        "maxLength": {},
+        "maximum": {},
+        "minLength": {},
+        "minimum": {},
+        "pattern": {},
+        "required": {},
+        "unique": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "license": {
+      "type": "object",
+      "properties": {
+        "name": {},
+        "path": {},
+        "title": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "dialect": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "commentChar": {},
+        "commentRows": {},
+        "delimiter": {},
+        "doubleQuote": {},
+        "escapeChar": {},
+        "header": {},
+        "headerJoin": {},
+        "headerRows": {},
+        "itemKeys": {},
+        "itemType": {},
+        "lineTerminator": {},
+        "nullSequence": {},
+        "property": {},
+        "quoteChar": {},
+        "sheetName": {},
+        "sheetNumber": {},
+        "skipInitialSpace": {},
+        "table": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "$schema": {},
+        "contributors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/contributor"
+          }
+        },
+        "created": {},
+        "datasets": {},
+        "description": {},
+        "homepage": {},
+        "id": {},
+        "image": {},
+        "keywords": {},
+        "licenses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/license"
+          }
+        },
+        "name": {},
+        "publish": {
+          "$ref": "#/definitions/publish"
+        },
+        "resources": {},
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/source"
+          }
+        },
+        "title": {},
+        "version": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "contributor": {
+      "type": "object",
+      "properties": {
+        "email": {},
+        "familyName": {},
+        "givenName": {},
+        "organization": {},
+        "path": {},
+        "roles": {},
+        "title": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "publish": {
+      "type": "object",
+      "properties": {
+        "as": {},
+        "as_name": {},
+        "dialect": {
+          "$ref": "#/definitions/dialect"
+        },
+        "enabled": {},
+        "flatten": {},
+        "public": {},
+        "to": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "lint": {
+      "type": "object",
+      "properties": {
+        "disable": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "rdfPrefixes": {}
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "@id": {
+          "type": "string"
+        },
+        "@type": {
+          "type": "string"
+        }
+      },
+      "patternProperties": {
+        "^[A-Za-z][A-Za-z0-9_-]*:[^\\s]+$": {},
+        "^https?://": {}
+      },
+      "additionalProperties": false
+    }
+  }
+}
