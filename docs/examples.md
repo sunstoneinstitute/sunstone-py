@@ -48,48 +48,55 @@ Combining data from various sources with proper attribution.
 **datasets.yaml:**
 
 ```yaml
+min_sunstone_version: 1.20.0
+
 publish:
   enabled: true
   to: gs://my-bucket/datasets/economic-indicators/
 
 inputs:
-  - name: Population Data
-    slug: population
-    location: data/population.csv
+  - title: Population Data
+    name: population
+    path: data/population.csv
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: api
     source:
-      name: World Bank
-      location:
-        data: https://data.worldbank.org/indicator/SP.POP.TOTL
-      license: CC-BY-4.0
-      attributedTo: World Bank
-      acquiredAt: '2025-01-15'
-      acquisitionMethod: api
-    fields:
-      - name: country
-        type: string
-      - name: year
-        type: integer
-      - name: population
-        type: integer
+      title: Population, total
+      dcat:downloadURL: https://data.worldbank.org/indicator/SP.POP.TOTL
+      dct:publisher:
+        rdfs:label: World Bank
+      dct:license: CC-BY-4.0
+    schema:
+      fields:
+        - name: country
+          type: string
+        - name: year
+          type: integer
+        - name: population
+          type: integer
 
-  - name: GDP Data
-    slug: gdp
-    location: data/gdp.csv
+  - title: GDP Data
+    name: gdp
+    path: data/gdp.csv
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: manual-download
     source:
-      name: IMF
-      location:
-        data: https://www.imf.org/external/datamapper/NGDP
-      license: Custom
-      attributedTo: International Monetary Fund
-      acquiredAt: '2025-01-15'
-      acquisitionMethod: manual-download
-    fields:
-      - name: country
-        type: string
-      - name: year
-        type: integer
-      - name: gdp_usd
-        type: number
+      title: GDP, current prices
+      dcat:downloadURL: https://www.imf.org/external/datamapper/NGDP
+      dct:publisher:
+        rdfs:label: International Monetary Fund
+        skos:altLabel: IMF
+      dct:license: CC-BY-4.0
+    schema:
+      fields:
+        - name: country
+          type: string
+        - name: year
+          type: integer
+        - name: gdp_usd
+          type: number
 ```
 
 **Script:**
@@ -132,37 +139,54 @@ Production pipeline with strict mode enabled.
 **Step 1: Setup datasets.yaml**
 
 ```yaml
+min_sunstone_version: 1.20.0
+
 publish:
   enabled: true
   to: gs://my-bucket/datasets/sales/
 
 inputs:
-  - name: Raw Sales Data
-    slug: raw-sales
-    location: data/raw_sales.csv
+  - title: Raw Sales Data
+    name: raw-sales
+    path: data/raw_sales.csv
+    licenses:
+      - name: CC-BY-4.0
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: manual-download
+    source:
+      title: Point-of-sale export
+      dcat:downloadURL: https://example.com/exports/raw_sales.csv
+      dct:publisher:
+        rdfs:label: Example Retail
+      dct:license: CC-BY-4.0
     strict: true
-    fields:
-      - name: transaction_id
-        type: string
-      - name: date
-        type: date
-      - name: amount
-        type: number
-      - name: customer_id
-        type: string
+    schema:
+      fields:
+        - name: transaction_id
+          type: string
+        - name: date
+          type: date
+        - name: amount
+          type: number
+        - name: customer_id
+          type: string
 
 outputs:
-  - name: Daily Sales Summary
-    slug: daily-summary
-    location: outputs/daily_summary.csv
+  - title: Daily Sales Summary
+    name: daily-summary
+    path: outputs/daily_summary.csv
+    licenses:
+      - name: CC-BY-4.0
     strict: true
-    fields:
-      - name: date
-        type: date
-      - name: total_sales
-        type: number
-      - name: transaction_count
-        type: integer
+    schema:
+      fields:
+        - name: date
+          type: date
+        - name: total_sales
+          type: number
+        - name: transaction_count
+          type: integer
 ```
 
 **Step 2: Lock datasets via CLI**

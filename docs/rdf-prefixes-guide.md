@@ -9,6 +9,7 @@ Sunstone includes these built-in prefixes that are always available (no need to 
 | Prefix | Namespace | Purpose |
 |--------|-----------|---------|
 | `dcat:` | `http://www.w3.org/ns/dcat#` | Data Catalog Vocabulary |
+| `dcat-si:` | `https://sunstone.institute/rdf/data#` | Sunstone dataset-level terms (methodology) |
 | `dct:` | `http://purl.org/dc/terms/` | Dublin Core Terms |
 | `dwc:` | `http://rs.tdwg.org/dwc/terms/` | Darwin Core (biodiversity) |
 | `geo:` | `http://www.opengis.net/ont/geosparql#` | OGC GeoSPARQL (geometry classes and datatypes) |
@@ -39,6 +40,7 @@ Prefixes can be defined at three levels, with this precedence order (highest fir
 Define prefixes once and they apply to all datasets:
 
 ```yaml
+min_sunstone_version: 1.20.0
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
@@ -46,32 +48,35 @@ defaults:
     dcat: "http://www.w3.org/ns/dcat#"
 
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
     si:monitorsThreat: si30:27
     si:category: environmental
     dcat:theme: climate
-    fields:
-      - name: year
-        type: integer
+    schema:
+      fields:
+        - name: year
+          type: integer
 ```
 
 ### Top-level prefixes
 
 ```yaml
+min_sunstone_version: 1.20.0
 rdfPrefixes:
   si: "https://sunstone.institute/rdf/vocab#"
   si30: "https://sunstone.institute/rdf/threat/"
 
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
     si:monitorsThreat: si30:27
-    fields:
-      - name: year
-        type: integer
+    schema:
+      fields:
+        - name: year
+          type: integer
 ```
 
 ### Per-dataset override
@@ -79,39 +84,43 @@ outputs:
 A dataset can override inherited prefixes:
 
 ```yaml
+min_sunstone_version: 1.20.0
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
 
 outputs:
-  - name: Special Dataset
-    slug: special-dataset
-    location: outputs/special.csv
+  - title: Special Dataset
+    name: special-dataset
+    path: outputs/special.csv
     rdfPrefixes:
       si: "https://other.example.com/vocab#"  # overrides default
     si:customProp: value
-    fields:
-      - name: id
-        type: integer
+    schema:
+      fields:
+        - name: id
+          type: integer
 ```
 
 ## Adding RDF Properties
 
-Any key containing `:` (or starting with `http://`/`https://`) on a dataset entry is treated as a custom RDF property. Standard dataset fields (`name`, `slug`, `location`, `fields`, `source`, `strict`, `lineage`, `rdfPrefixes`, `publish`) are excluded.
+Any key containing `:` (or starting with `http://`/`https://`) on a dataset entry is treated as a custom RDF property. Standard dataset fields (`title`, `name`, `path`, `schema`, `licenses`, `source`, `strict`, `rdfPrefixes`, `publish`) are excluded.
 
 ### Using prefixed names
 
 ```yaml
+min_sunstone_version: 1.20.0
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
     si:monitorsThreat: si30:27      # both key and value use prefixes
     si:category: environmental       # value is a plain string
     dcat:theme: climate
-    fields:
-      - name: year
-        type: integer
+    schema:
+      fields:
+        - name: year
+          type: integer
 ```
 
 ### Using full URIs
@@ -119,14 +128,16 @@ outputs:
 You can also use full URIs directly without defining prefixes:
 
 ```yaml
+min_sunstone_version: 1.20.0
 outputs:
-  - name: My Dataset
-    slug: my-dataset
-    location: outputs/data.csv
+  - title: My Dataset
+    name: my-dataset
+    path: outputs/data.csv
     https://sunstone.institute/rdf/vocab#datasetType: observational
-    fields:
-      - name: id
-        type: integer
+    schema:
+      fields:
+        - name: id
+          type: integer
 ```
 
 ## Default Properties
@@ -134,6 +145,7 @@ outputs:
 RDF properties in the `defaults:` section are inherited by all datasets:
 
 ```yaml
+min_sunstone_version: 1.20.0
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
@@ -141,21 +153,23 @@ defaults:
   si:license: "CC-BY-4.0"
 
 outputs:
-  - name: Dataset 1
-    slug: dataset-1
-    location: outputs/data1.csv
+  - title: Dataset 1
+    name: dataset-1
+    path: outputs/data1.csv
     si:theme: climate
-    fields:
-      - name: id
-        type: integer
+    schema:
+      fields:
+        - name: id
+          type: integer
 
-  - name: Dataset 2
-    slug: dataset-2
-    location: outputs/data2.csv
+  - title: Dataset 2
+    name: dataset-2
+    path: outputs/data2.csv
     si:theme: biodiversity
-    fields:
-      - name: id
-        type: integer
+    schema:
+      fields:
+        - name: id
+          type: integer
 ```
 
 Both datasets inherit `si:organization` and `si:license` from defaults. Dataset-level properties override defaults when they share the same key.
@@ -188,7 +202,7 @@ No configuration needed — this makes all generated packages compatible with DC
 
 ## Methodology Property
 
-The `si:methodology` property has special handling. When its value is a local file path, it is resolved as a relative URI against `publish.as` during publishing:
+The `dcat-si:methodology` property has special handling. When its value is a local file path, it is resolved as a relative URI against `publish.as` during publishing:
 
 ```yaml
 publish:
@@ -199,19 +213,22 @@ publish:
 defaults:
   rdfPrefixes:
     si: "https://sunstone.institute/rdf/vocab#"
-  si:methodology: docs/default-methodology.md
+  dcat-si:methodology: docs/default-methodology.md
 
 outputs:
-  - name: Climate Dataset
-    slug: climate-dataset
-    location: outputs/climate.csv
-    si:methodology: docs/climate-methodology.md  # per-dataset override
-    fields:
-      - name: year
-        type: integer
+  - title: Climate Dataset
+    name: climate-dataset
+    path: outputs/climate.csv
+    dcat-si:methodology: docs/climate-methodology.md  # per-dataset override
+    schema:
+      fields:
+        - name: year
+          type: integer
 ```
 
 On publish, the value becomes `https://cdn.example.com/datasets/project/docs/climate-methodology.md` and the file is uploaded alongside the data.
+
+`datapackage.json` carries the methodology under both `https://sunstone.institute/rdf/data#methodology` and the older `https://sunstone.institute/rdf/vocab#methodology` in 1.x; 2.0 drops the older key.
 
 ## Further Reading
 

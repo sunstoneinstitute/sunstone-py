@@ -7,27 +7,31 @@ Get started with sunstone-py in minutes.
 Create a `datasets.yaml` file in your project directory:
 
 ```yaml
+min_sunstone_version: 1.20.0
+
 publish:
   enabled: true
   to: gs://my-bucket/datasets/schools/
 
 inputs:
-  - name: School Data
-    slug: school-data
-    location: data/schools.csv
+  - title: School Data
+    name: school-data
+    path: data/schools.csv
+    prov:generatedAtTime: '2025-01-15'
+    prov:wasGeneratedBy:
+      dct:type: manual-download
     source:
-      name: Ministry of Education
-      location:
-        data: https://example.com/schools.csv
-      attributedTo: Ministry of Education
-      acquiredAt: 2025-01-15
-      acquisitionMethod: manual-download
-      license: CC-BY-4.0
-    fields:
-      - name: school_id
-        type: string
-      - name: enrollment
-        type: integer
+      title: School register
+      dcat:downloadURL: https://example.com/schools.csv
+      dct:publisher:
+        rdfs:label: Ministry of Education
+      dct:license: CC-BY-4.0
+    schema:
+      fields:
+        - name: school_id
+          type: string
+        - name: enrollment
+          type: integer
 
 outputs: []
 ```

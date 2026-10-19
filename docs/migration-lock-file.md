@@ -99,6 +99,32 @@ inputs:
 
 You do not need to edit this file manually — sunstone-py maintains it automatically when you write datasets.
 
+### Source keys in 1.20
+
+Since 1.20, source attribution and license in a lock entry use the same key names as `datasets.yaml`. Old form (before 1.20):
+
+```yaml
+outputs:
+  - slug: processed-feed
+    sources:
+      - slug: feed-consumption-raw
+        attributedTo: Example Org
+        license: CC-BY-4.0
+```
+
+New form:
+
+```yaml
+outputs:
+  - slug: processed-feed
+    sources:
+      - slug: feed-consumption-raw
+        prov:wasAttributedTo: Example Org
+        dct:license: CC-BY-4.0
+```
+
+`sunstone migrate` rewrites the lock file's keys together with `datasets.yaml`.
+
 ---
 
 ## Deprecation notice

@@ -89,15 +89,16 @@ publish:
     header: true
 
 outputs:
-  - slug: result
+  - name: result
     publish:
+      enabled: true   # a dataset's own publish block replaces the top-level one
       as_name: result_v2
 ```
 
 | Field | Meaning |
 |---|---|
-| `publish.to` | `sunstone:<ns>` names the target namespace. Each resource becomes `<ns>/<slug>` with a sanitized slug. |
-| `publish.as_name` | Overrides the slug for a resource. Allowed only on a dataset's own `publish:` block. |
+| `publish.to` | `sunstone:<ns>` names the target namespace. Each resource becomes `<ns>/<name>` with a sanitized name. |
+| `publish.as_name` | Overrides the dataset name for a resource. Allowed only on a dataset's own `publish:` block. |
 | `publish.public` | `true` makes the package public. Non-public packages need a Keycloak token to read. |
 | `publish.dialect` | Package defaults for CSV and TSV output, using the delimited-text properties of [Frictionless Table Dialect](https://datapackage.org/standard/table-dialect/): `delimiter`, `lineTerminator`, `quoteChar`, `doubleQuote`, `escapeChar`, `nullSequence`, `skipInitialSpace`, `header`, `headerRows`, `headerJoin`, `commentRows`, `commentChar`. Unknown keys and wrong value types are rejected when the file loads. |
 

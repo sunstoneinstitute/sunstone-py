@@ -11,37 +11,42 @@ A Sunstone project's `datasets.yaml` declares **inputs** (source data), **output
 Every project starts with `inputs:` and `outputs:` sections. Inputs describe the raw data you consume; outputs describe what your scripts produce.
 
 ```yaml
+min_sunstone_version: 1.20.0
 inputs:
-  - name: Raw Survey Data
-    slug: raw-survey-data
-    location: inputs/survey_raw.csv
+  - title: Raw Survey Data
+    name: raw-survey-data
+    path: inputs/survey_raw.csv
     source:
-      name: National Statistics Office
-      location:
-        data: https://example.org/survey-2025.csv
-      attributedTo: "National Statistics Office"
-      acquiredAt: 2025-06-01
-      acquisitionMethod: manual-download
-      license: CC-BY-4.0
-    fields:
-      - name: respondent_id
-        type: integer
-      - name: region
-        type: string
-      - name: score
-        type: number
+      title: National Statistics Office
+      dcat:downloadURL: https://example.org/survey-2025.csv
+      dct:publisher:
+        rdfs:label: National Statistics Office
+      dct:license: CC-BY-4.0
+    prov:generatedAtTime: '2025-06-01'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+    schema:
+      fields:
+        - name: respondent_id
+          type: integer
+        - name: region
+          type: string
+        - name: score
+          type: number
 
 outputs:
-  - name: Survey Summary
-    slug: survey-summary
-    location: outputs/survey_summary.csv
-    fields:
-      - name: region
-        type: string
-      - name: mean_score
-        type: number
-      - name: respondent_count
-        type: integer
+  - title: Survey Summary
+    name: survey-summary
+    path: outputs/survey_summary.csv
+    schema:
+      fields:
+        - name: region
+          type: string
+        - name: mean_score
+          type: number
+        - name: respondent_count
+          type: integer
 ```
 
 Inputs need a `source:` block to record provenance. Outputs get their lineage tracked automatically when you write data using `sunstone.pandas`.
@@ -51,11 +56,13 @@ Inputs need a `source:` block to record provenance. Outputs get their lineage tr
 For projects that produce one data package, use the singular `package:` key with a top-level `publish:` block:
 
 ```yaml
+min_sunstone_version: 1.20.0
 package:
   title: Regional Survey Results
   description: Aggregated survey scores by region.
   version: "1.0.0"
-  license: CC-BY-4.0
+  licenses:
+    - name: CC-BY-4.0
   keywords:
     - survey
     - regional-statistics
@@ -69,15 +76,15 @@ publish:
   to: gs://my-bucket/datasets/survey-results/
 
 inputs:
-  - name: Raw Survey Data
-    slug: raw-survey-data
-    location: inputs/survey_raw.csv
+  - title: Raw Survey Data
+    name: raw-survey-data
+    path: inputs/survey_raw.csv
     # ... fields, source, etc.
 
 outputs:
-  - name: Survey Summary
-    slug: survey-summary
-    location: outputs/survey_summary.csv
+  - title: Survey Summary
+    name: survey-summary
+    path: outputs/survey_summary.csv
     # ... fields
 ```
 
@@ -97,12 +104,14 @@ When you run `sunstone package build`, all outputs are bundled into a single `da
 When a project produces datasets that should be published as separate packages (different audiences, licenses, or destinations), use the plural `packages:` key:
 
 ```yaml
+min_sunstone_version: 1.20.0
 packages:
   - name: survey-public
     title: Public Survey Results
     description: Anonymized regional aggregates.
     version: "1.0.0"
-    license: CC-BY-4.0
+    licenses:
+      - name: CC-BY-4.0
     datasets:
       - survey-summary
     publish:
@@ -121,30 +130,30 @@ packages:
       to: gs://internal-bucket/survey/
 
 inputs:
-  - name: Raw Survey Data
-    slug: raw-survey-data
-    location: inputs/survey_raw.csv
+  - title: Raw Survey Data
+    name: raw-survey-data
+    path: inputs/survey_raw.csv
     # ...
 
 outputs:
-  - name: Survey Summary
-    slug: survey-summary
-    location: outputs/survey_summary.csv
+  - title: Survey Summary
+    name: survey-summary
+    path: outputs/survey_summary.csv
     # ...
 
-  - name: Survey Detailed
-    slug: survey-detailed
-    location: outputs/survey_detailed.csv
+  - title: Survey Detailed
+    name: survey-detailed
+    path: outputs/survey_detailed.csv
     # ...
 ```
 
 ### Key differences from single package
 
 - Each entry **must** have `name` and `datasets`.
-- `datasets` is a list of slugs referencing entries in `inputs:` or `outputs:`. All slugs are validated at load time.
+- `datasets` is a list of dataset names referencing entries in `inputs:` or `outputs:`. All names are validated at load time.
 - Each entry has its own `publish:` block — there is no top-level `publish:` (this is enforced).
 - You **cannot** use both `package:` and `packages:` in the same file.
-- A dataset slug can appear in multiple packages.
+- A dataset name can appear in multiple packages.
 
 ### Build output
 
@@ -168,7 +177,7 @@ Both `package:` and `packages:` entries support the same metadata fields:
 | `title` | string | Human-readable package title. |
 | `description` | string | Longer description (supports multiline YAML). |
 | `version` | string | Semantic version (e.g. `"1.0.0"`). |
-| `license` | string | SPDX license identifier. |
+| `licenses` | list | SPDX licenses, e.g. `[{name: CC-BY-4.0}]`. |
 | `keywords` | list | Search keywords. |
 | `contributors` | list | People or organizations (each with `title`, optional `roles`, `path`, `email`). |
 | `homepage` | string | URL to project homepage. |
@@ -190,44 +199,50 @@ A typical project lifecycle:
 ### Minimal complete example
 
 ```yaml
+min_sunstone_version: 1.20.0
 package:
   title: UN Member States
   version: "1.0.0"
-  license: CC-BY-4.0
+  licenses:
+    - name: CC-BY-4.0
 
 publish:
   enabled: true
   to: gs://my-bucket/datasets/un-members/
 
 inputs:
-  - name: Official UN Member States
-    slug: official-un-member-states
-    location: inputs/un_member_states_raw.csv
+  - title: Official UN Member States
+    name: official-un-member-states
+    path: inputs/un_member_states_raw.csv
     source:
-      name: United Nations
-      location:
-        data: https://example.org/member_states.csv
-      attributedTo: "United Nations"
-      acquiredAt: 2025-10-08
-      acquisitionMethod: manual-download
-      license: CC-BY-NC-3.0-IGO
-    fields:
-      - name: Member State
-        type: string
-      - name: ISO Code
-        type: string
+      title: United Nations
+      dcat:downloadURL: https://example.org/member_states.csv
+      dct:publisher:
+        rdfs:label: United Nations
+      dct:license: CC-BY-NC-3.0-IGO
+    prov:generatedAtTime: '2025-10-08'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+    schema:
+      fields:
+        - name: Member State
+          type: string
+        - name: ISO Code
+          type: string
 
 outputs:
-  - name: Current UN Member States
-    slug: current-un-member-states
-    location: outputs/current_un_member_states.csv
-    fields:
-      - name: Country
-        type: string
-      - name: ISO Code
-        type: string
-      - name: Date of Admission
-        type: date
+  - title: Current UN Member States
+    name: current-un-member-states
+    path: outputs/current_un_member_states.csv
+    schema:
+      fields:
+        - name: Country
+          type: string
+        - name: ISO Code
+          type: string
+        - name: Date of Admission
+          type: date
 ```
 
 Run the workflow:

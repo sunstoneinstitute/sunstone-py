@@ -94,7 +94,7 @@ from sunstone import pandas as pd
 df = pd.read_csv('inputs/data.csv')      # csv, tsv (via .tsv/.txt)
 df = pd.read_excel('inputs/data.xlsx')   # xlsx, xls
 df = pd.read_json('inputs/data.json')    # json
-df = pd.read_dataset('my-slug')          # any format; uses datasets.yaml location
+df = pd.read_dataset('my-slug')          # any format; uses the datasets.yaml path
 ```
 
 For writes, only CSV and Parquet are supported by built-in handlers:
@@ -162,7 +162,7 @@ values unchanged.
 
 Sunstone tracks two layers of metadata:
 
-- **Dataset-level**: name, slug, description, license, sources, RDF
+- **Dataset-level**: title, name, description, licenses, source, RDF
   prefixes, custom properties, package membership.
 - **Field-level**: per-column description, unit, source, derivation, type.
 
@@ -210,10 +210,11 @@ block on a dataset entry in `datasets.yaml` controls how the file is
 parsed and written without forcing every call site to pass kwargs:
 
 ```yaml
+min_sunstone_version: 1.20.0
 inputs:
-  - name: Semi-Colon Sample
-    slug: semi
-    location: inputs/semi.csv
+  - title: Semi-Colon Sample
+    name: semi
+    path: inputs/semi.csv
     dialect:
       delimiter: ";"
       quoteChar: "'"
@@ -222,7 +223,7 @@ inputs:
 
 The block accepts the delimited-text properties of the Frictionless
 [Table Dialect](https://datapackage.org/standard/table-dialect/) (see
-[datasets.yaml reference](datasets-yaml.md)); `sunstone dataset validate
+[validation rules](datasets-yaml.md)); `sunstone dataset validate
 --strict` rejects other keys. The reader and writer use these three:
 
 | Field       | Default | Meaning                                                          |
@@ -248,9 +249,11 @@ defaults.
 dialect (or pass `sep='\t'` explicitly):
 
 ```yaml
+min_sunstone_version: 1.20.0
 outputs:
-  - slug: tab-output
-    location: outputs/result.tsv
+  - title: Tab Output
+    name: tab-output
+    path: outputs/result.tsv
     dialect:
       delimiter: "\t"
 ```

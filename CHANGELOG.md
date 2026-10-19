@@ -4,6 +4,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone migrate` rewrites `datasets.yaml`, include files and the lock file to DP 2.0 key names.
+- Added: `sunstone vocab search` finds RDF terms and allowed keys; `--at <path>` lists the keys allowed at a level.
+- Added: lint rules R301–R362 for unknown keys, provenance, lineage, field types, units and naming; `--json` includes `path` and `fix`.
+- Added: generated `schemas/datasets.schema.json` for editor validation and `docs/datasets-yaml-reference.md`.
+- Added: source references accept a DOI `"@id"`, agent objects for `dct:publisher`/`dct:creator`, `dct:issued` and `dct:isPartOf`.
+- Added: lint warnings R316–R318 for incomplete field source objects and field sources that repeat the dataset source.
+- Changed: `datasets.yaml` uses DP 2.0 key names; old keys load with a `FutureWarning`, run `sunstone migrate`.
+- Changed: a source must have `title`, a `dct:publisher` object, a link and `dct:license`.
+- Changed: `datapackage.json` source `dct:publisher` and `dct:creator` are now agent objects instead of strings.
+- Changed: every save raises `min_sunstone_version` to 1.20.0 or higher.
+- Changed: `sunstone dataset validate --strict` checks keys with lint rules R301–R303 and values on the normalized document.
+- Changed: R004 (missing description) is a warning.
+- Changed: new and stricter lint rules (R3xx, R102, R104) warn in 1.x and become errors in 2.0.
+- Changed: field-level `source` becomes `dct:source` (string or source object).
+- Deprecated: `slug`, `location`, `fields`, `license` and the old source, field and `si:methodology` keys; removed in 2.0.
+- Fixed: a dataset's own `publish:` block warns only for the deprecated `to`, `flatten` and `as`.
+
 ## [1.19.0] - 2026-10-16
 
 - Added: `sunstone package push` publishes to `sunstone:` namespaces through a package-push plugin, with `--branch`, `--yes`, `--force` and `--replace`.

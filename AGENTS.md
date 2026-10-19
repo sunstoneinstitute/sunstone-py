@@ -21,14 +21,16 @@ The `sunstone-py` package provides:
 src/sunstone
 ├── __init__.py
 ├── adapter.py           # DataFrame/engine adapter protocol
+├── aliases.py           # old -> new datasets.yaml key normalization (ruamel-aware)
 ├── asset.py             # Asset envelope (payload + kind + metadata)
 ├── cli.py
 ├── component.py
 ├── config.py
+├── conformance.py       # validators for datasets.yaml, lock file, datapackage.json
 ├── context.py
 ├── dataframe.py         # sunstone.DataFrame facade over a TABULAR Asset
 ├── datasets.py
-├── datasets_schema.py   # datasets.yaml key allow-list + Data Package v2 profile validation
+├── datasets_schema.py   # Data Package v2 profile value checks (vendored profiles)
 ├── derive_policies.py
 ├── env.py               # environment/config resolution (sunstone env ...)
 ├── errors.py
@@ -47,6 +49,7 @@ src/sunstone
 ├── licenses.py
 ├── lineage.py
 ├── lint.py
+├── migrate.py           # sunstone migrate
 ├── packaging.py         # data-package build/push
 ├── pandas/              # lineage-tracking pandas facade
 │   ├── core.py          #   DataFrame
@@ -66,15 +69,18 @@ src/sunstone
 ├── queries.py
 ├── rdf.py               # IRI / LangString / TypedLiteral
 ├── resource.py
+├── rules.py             # rule registry (R001-R362)
 ├── session.py
 ├── ssrf.py
 ├── units.py
-└── validation.py
+├── validation.py
+├── vocab/               # DP 2.0 property sets, config keys, shipped RDF vocabularies (JSON)
+└── vocab_search.py      # sunstone vocab search
 ```
 
 Tests live in `tests/`, with fixture projects under `tests/testdata/`.
 Extended docs are in `docs/` (`pandas.md`, `polars.md`, `geopandas.md`,
-`api.md`, `datasets-yaml.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
+`api.md`, `datasets-yaml.md`, `datasets-yaml-reference.md`, `formats.md`, `sunstone-push.md`, ADRs under `docs/adr/`).
 
 ## Usage for Data Scientists
 
@@ -112,7 +118,7 @@ result.to_csv(
 4. **Save with metadata**: `to_csv()` requires `slug` and `name` for new outputs (can be set via `df.metadata.slug`/`df.metadata.name` or passed as parameters)
 5. **Metadata container**: Use `df.metadata` for dataset-level metadata (description, RDF prefixes, custom properties) and `df.set_field_metadata()` for column-level metadata. All metadata propagates through operations and flows to `datasets.yaml` on write.
 6. **Lineage via metadata**: Access lineage through `df.metadata.lineage` (the old `df.lineage` accessor is deprecated)
-7. **Keys**: `sunstone dataset validate --strict` rejects any `datasets.yaml` key without a `:` that is neither a Data Package v2 property nor a sunstone key (`docs/datasets-yaml.md`).
+7. **Keys**: `sunstone dataset validate --strict` rejects keys that fail R301-R303 and values that fail the Data Package v2 profiles (`docs/datasets-yaml.md`, keys in `docs/datasets-yaml-reference.md`).
 
 ## Plugin System
 
@@ -158,6 +164,9 @@ uv sync
 ```bash
 uv run pytest
 ```
+
+Regenerate vocabularies: `uv run --group vocab python scripts/sync_vocab.py`
+Regenerate schemas and the key reference: `uv run python scripts/gen_schemas.py` (a test fails when they are stale).
 
 ### Releasing
 
