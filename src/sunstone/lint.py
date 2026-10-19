@@ -1,63 +1,24 @@
-"""Linter for ``datasets.yaml`` against the Sunstone Minimum Viable Metadata recommendations.
+"""Linter for ``datasets.yaml`` against the Sunstone conformance rules.
 
-Each rule has a stable identifier (``R001``, ``R101`` ...) and a severity tier:
-
-- ``ERROR``   — required metadata is missing or invalid (R0xx)
-- ``WARNING`` — recommended metadata is missing (R1xx)
-- ``INFO``    — style/quality observations (R2xx)
-
-The public entry point is :func:`lint_project`. Use the CLI via ``sunstone lint``
-or call :func:`lint_project` directly for programmatic use.
+Rules live in :mod:`sunstone.rules`; checks in :mod:`sunstone.conformance`.
+This module loads the files (and ``include:`` files), runs the checks and
+applies ``lint.disable`` suppressions. Entry point: :func:`lint_project` / ``sunstone lint``.
 """
 
 from __future__ import annotations
 
 import json
-import re
-from collections.abc import Iterator
-from dataclasses import asdict, dataclass, field
-from enum import Enum
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from ruamel.yaml import YAML
+from .aliases import Conflict, Rename, lock_uses_new_form, make_yaml, normalize_document, normalize_lock
+from .conformance import Violation, validate_datasets_yaml, validate_lock
+from .rules import RULES, Level, Rule, Severity
 
-_yaml = YAML()
-_yaml.preserve_quotes = True
+__all__ = ["RULES", "Rule", "Severity", "Violation", "LintReport", "lint_project", "report_to_json"]
 
-
-class Severity(str, Enum):
-    """Severity tier for a lint rule."""
-
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
-
-
-@dataclass(frozen=True)
-class Rule:
-    """A lint rule definition."""
-
-    id: str
-    severity: Severity
-    title: str
-    description: str
-
-
-@dataclass
-class Violation:
-    """A single rule violation found in a project."""
-
-    rule_id: str
-    severity: Severity
-    message: str
-    location: str
-    fix_hint: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        d = asdict(self)
-        d["severity"] = self.severity.value
-        return d
+_yaml = make_yaml()
 
 
 @dataclass
@@ -141,426 +102,83 @@ class LintReport:
         return "\n".join(lines)
 
 
-# --------------------------------------------------------------------------- #
-# Rule registry
-# --------------------------------------------------------------------------- #
+def _merge_includes(data: dict[str, Any], base_dir: Path, result: Any) -> tuple[list[Conflict], list[Violation]]:
+    """Merge ``include:`` files into ``data`` like ``DatasetsManager``.
 
-RULES: dict[str, Rule] = {
-    # Required (errors)
-    "R001": Rule("R001", Severity.ERROR, "Dataset missing 'name'", "Every dataset must have a human-readable name."),
-    "R002": Rule("R002", Severity.ERROR, "Dataset missing 'slug'", "Every dataset must have a unique slug."),
-    "R003": Rule("R003", Severity.ERROR, "Dataset missing 'location'", "Every dataset must declare its location."),
-    "R004": Rule(
-        "R004",
-        Severity.ERROR,
-        "Dataset missing 'description'",
-        "Every dataset must have a description (one or two sentences explaining what the data is).",
-    ),
-    "R005": Rule(
-        "R005",
-        Severity.ERROR,
-        "Dataset missing 'license'",
-        "Every dataset must declare a license. For inputs, this lives on the source block; for outputs, on the dataset itself or in package.license.",
-    ),
-    "R006": Rule(
-        "R006",
-        Severity.ERROR,
-        "License is not a recognised identifier",
-        "License must be an SPDX identifier or one of the project allow-list values (e.g. 'public-domain').",
-    ),
-    "R007": Rule("R007", Severity.ERROR, "Field missing 'name'", "Every field entry must have a name."),
-    "R008": Rule("R008", Severity.ERROR, "Field missing 'type'", "Every field entry must declare a type."),
-    "R009": Rule(
-        "R009",
-        Severity.ERROR,
-        "Malformed lint.disable entry",
-        "Each entry under 'lint.disable' must map a known rule ID to a non-empty justification string. R009 itself cannot be suppressed.",
-    ),
-    # Recommended (warnings)
-    "R101": Rule(
-        "R101",
-        Severity.WARNING,
-        "Input missing 'source' block",
-        "Inputs should declare provenance via a 'source' block (name, location, attributedTo, acquiredAt, acquisitionMethod, license).",
-    ),
-    "R102": Rule(
-        "R102",
-        Severity.WARNING,
-        "Source block missing required keys",
-        "A source block needs name, location.data, attributedTo, acquiredAt, acquisitionMethod, and license.",
-    ),
-    "R103": Rule(
-        "R103",
-        Severity.WARNING,
-        "Numeric field missing 'unit'",
-        "Numeric fields should declare a unit (e.g. 'meter', 'USD'). Skipped when the lock file already records a unit derived from arithmetic.",
-    ),
-    "R104": Rule(
-        "R104",
-        Severity.WARNING,
-        "Slug not in kebab-case",
-        "Slugs must be lowercase ASCII letters/digits separated by single hyphens (e.g. 'un-member-states').",
-    ),
-    "R105": Rule(
-        "R105",
-        Severity.WARNING,
-        "Output field missing 'description'",
-        "Published outputs (publish.enabled or top-level publish) should have a description on every field.",
-    ),
-    # Style (info)
-    "R201": Rule(
-        "R201",
-        Severity.INFO,
-        "Generic field name without description",
-        "Fields named like 'total' or 'value' are ambiguous; add a description to clarify.",
-    ),
-    "R202": Rule(
-        "R202",
-        Severity.INFO,
-        "Generic dataset name",
-        "Dataset names like 'data' or 'output' are ambiguous; choose something domain-specific.",
-    ),
-}
-
-
-# A small, opinionated allow-list. Not intended to be the full SPDX list — the
-# goal is to catch obviously wrong values like 'free' or 'unknown' while
-# allowing common identifiers without forcing a network or large data dependency.
-ALLOWED_LICENSES = frozenset(
-    {
-        "CC0-1.0",
-        "CC-BY-4.0",
-        "CC-BY-3.0",
-        "CC-BY-3.0-IGO",
-        "CC-BY-SA-4.0",
-        "CC-BY-SA-3.0",
-        "CC-BY-NC-4.0",
-        "CC-BY-NC-3.0",
-        "CC-BY-NC-3.0-IGO",
-        "CC-BY-NC-SA-4.0",
-        "CC-BY-NC-ND-4.0",
-        "CC-BY-ND-4.0",
-        "MIT",
-        "Apache-2.0",
-        "BSD-2-Clause",
-        "BSD-3-Clause",
-        "GPL-2.0-only",
-        "GPL-2.0-or-later",
-        "GPL-3.0-only",
-        "GPL-3.0-or-later",
-        "LGPL-3.0-only",
-        "LGPL-3.0-or-later",
-        "MPL-2.0",
-        "ODbL-1.0",
-        "ODC-By-1.0",
-        "PDDL-1.0",
-        "Unlicense",
-        # Project-specific allow-list values
-        "public-domain",
-        "proprietary",
-    }
-)
-
-GENERIC_FIELD_NAMES = frozenset({"total", "value", "count", "data", "amount", "number", "n", "x", "y", "z"})
-GENERIC_DATASET_NAMES = frozenset({"data", "output", "results", "result", "input"})
-
-# ASCII kebab-case: lowercase letters/digits, separated by single hyphens.
-SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-
-# Field types pandas/sunstone treat as numeric.
-NUMERIC_FIELD_TYPES = frozenset({"integer", "number", "float", "decimal"})
-
-
-# --------------------------------------------------------------------------- #
-# Rule implementations
-# --------------------------------------------------------------------------- #
-
-
-def _check_dataset_required(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R001/R002/R003/R004."""
-    for rule_id, key, hint in (
-        ("R001", "name", "Add a 'name:' line."),
-        ("R002", "slug", "Add a kebab-case 'slug:' line."),
-        ("R003", "location", "Add a 'location:' relative path."),
-        ("R004", "description", "Add a one-line 'description:' explaining what the data is."),
-    ):
-        if not ds.get(key):
-            yield ctx.violation(rule_id, f"missing '{key}'", loc, hint)
-
-
-def _check_dataset_license(ds: dict[str, Any], loc: str, ds_type: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R005/R006: license must be present and recognised.
-
-    For inputs, license lives on ``source.license``. For outputs, license can
-    live on the dataset itself or be inherited from ``package.license``.
+    Returns the includes' conflicts at merged paths and an R308 violation for each include that cannot be merged.
+    The includes' renames, ambiguous paths and new-form flag are folded into ``result``.
     """
-    license_value: Any
-    license_loc: str
-    if ds_type == "input":
-        raw_source = ds.get("source")
-        source = raw_source if isinstance(raw_source, dict) else {}
-        license_value = source.get("license")
-        license_loc = f"{loc}.source.license"
-    else:
-        package_license = ctx.package_license_for(ds.get("slug"))
-        license_value = ds.get("license") or package_license[0] or ctx.package_license
-        if ds.get("license"):
-            license_loc = f"{loc}.license"
-        elif package_license[0]:
-            license_loc = package_license[1]
-        else:
-            license_loc = "package.license"
+    from .datasets import DatasetsManager, _shift_path
 
-    if not license_value:
-        yield ctx.violation(
-            "R005",
-            "missing license",
-            license_loc,
-            "Add an SPDX license identifier (e.g. 'CC-BY-4.0', 'MIT').",
-        )
-        return
+    include_list = data.pop("include", None)
+    conflicts: list[Conflict] = []
+    problems: list[Violation] = []
+    if not isinstance(include_list, list):
+        return conflicts, problems
 
-    if license_value not in ALLOWED_LICENSES:
-        yield ctx.violation(
-            "R006",
-            f"license '{license_value}' is not a recognised identifier",
-            license_loc,
-            "Use an SPDX identifier (https://spdx.org/licenses/) or a project allow-list value.",
-        )
-
-
-def _check_fields(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R007/R008/R103/R105/R201."""
-    fields = ds.get("fields")
-    if not isinstance(fields, list):
-        return
-
-    publish_enabled = _is_publish_enabled(ds, ctx)
-    locked_units = ctx.locked_units_for(ds.get("slug"))
-
-    for i, fld in enumerate(fields):
-        if not isinstance(fld, dict):
-            continue
-        floc = f"{loc}.fields[{i}]"
-        name = fld.get("name")
-        if not name:
-            yield ctx.violation("R007", "field missing 'name'", floc, "Add a 'name:' line.")
-        if not fld.get("type"):
-            yield ctx.violation(
-                "R008", "field missing 'type'", floc, "Add a 'type:' line (string, integer, number, ...)."
+    def r308(i: int, reason: str) -> None:
+        problems.append(
+            Violation(
+                "R308",
+                Level.MUST,
+                f"include[{i}]",
+                f"include file cannot be merged: {reason}",
+                "Fix or remove this 'include' entry.",
+                RULES["R308"].severity,
             )
-
-        ftype = fld.get("type")
-        if ftype in NUMERIC_FIELD_TYPES and not fld.get("unit") and name not in locked_units:
-            yield ctx.violation(
-                "R103",
-                f"numeric field '{name}' has no unit",
-                floc,
-                "Add a 'unit:' (e.g. 'meter', 'USD'), or accept the lock-file unit if derived from arithmetic.",
-            )
-
-        description = (fld.get("description") or "").strip()
-        if publish_enabled and not description:
-            yield ctx.violation(
-                "R105",
-                f"published field '{name}' has no description",
-                floc,
-                "Add a 'description:' line — required for publishable outputs.",
-            )
-
-        if name and name.lower() in GENERIC_FIELD_NAMES and len(description) < 10:
-            yield ctx.violation(
-                "R201",
-                f"generic field name '{name}' without a substantive description",
-                floc,
-                "Either rename the field to something domain-specific or add a clear description.",
-            )
-
-
-def _check_input_source(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R101/R102: inputs should have a complete source block."""
-    source = ds.get("source")
-    if source is None:
-        yield ctx.violation(
-            "R101",
-            "input has no 'source' block",
-            f"{loc}.source",
-            "Add a 'source:' block with name, location, attributedTo, acquiredAt, acquisitionMethod, license.",
-        )
-        return
-
-    if not isinstance(source, dict):
-        yield ctx.violation(
-            "R102",
-            "source block must be a mapping",
-            f"{loc}.source",
-            "Use a 'source:' block with name, location, attributedTo, acquiredAt, acquisitionMethod, license.",
-        )
-        return
-
-    missing = []
-    for key in ("name", "attributedTo", "acquiredAt", "acquisitionMethod", "license"):
-        if not source.get(key):
-            missing.append(key)
-
-    location = source.get("location")
-    if not isinstance(location, dict) or not any(
-        location.get(k) for k in ("data", "dcat:downloadURL", "dcat:accessURL")
-    ):
-        missing.append("location.data")
-
-    if missing:
-        yield ctx.violation(
-            "R102",
-            f"source block missing keys: {', '.join(missing)}",
-            f"{loc}.source",
-            "Fill in the missing source fields.",
         )
 
-
-def _check_slug(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R104: slug must be kebab-case."""
-    slug = ds.get("slug")
-    if isinstance(slug, str) and slug and not SLUG_PATTERN.fullmatch(slug):
-        yield ctx.violation(
-            "R104",
-            f"slug '{slug}' is not kebab-case",
-            f"{loc}.slug",
-            "Use lowercase ASCII letters/digits separated by single hyphens.",
-        )
-
-
-def _check_dataset_name(ds: dict[str, Any], loc: str, ctx: "_LintContext") -> Iterator[Violation]:
-    """R202: dataset name should not be generic."""
-    name = ds.get("name")
-    if isinstance(name, str) and name.strip().lower() in GENERIC_DATASET_NAMES:
-        yield ctx.violation(
-            "R202",
-            f"generic dataset name '{name}'",
-            f"{loc}.name",
-            "Choose a domain-specific name (e.g. 'Current UN Member States' rather than 'Output').",
-        )
-
-
-# --------------------------------------------------------------------------- #
-# Lint runner
-# --------------------------------------------------------------------------- #
-
-
-def _is_publish_enabled(ds: dict[str, Any], ctx: "_LintContext") -> bool:
-    """True when the dataset would be published — top-level, package, or per-dataset."""
-    if "publish" in ds:
-        return _publish_enabled(ds.get("publish"))
-    if ctx.is_published_by_package(ds.get("slug")):
-        return True
-    return ctx.top_level_publish_enabled
-
-
-@dataclass
-class _LintContext:
-    """Shared state across rule applications for one project."""
-
-    project_path: Path
-    rule_filter: set[str] | None
-    package_license: Any
-    package_licenses_by_slug: dict[str, tuple[Any, str]]
-    package_published_slugs: set[str]
-    top_level_publish_enabled: bool
-    lock_data: dict[str, Any]
-
-    def violation(self, rule_id: str, message: str, location: str, hint: str | None) -> Violation:
-        rule = RULES[rule_id]
-        return Violation(
-            rule_id=rule_id,
-            severity=rule.severity,
-            message=message,
-            location=location,
-            fix_hint=hint,
-        )
-
-    def is_enabled(self, rule_id: str) -> bool:
-        return self.rule_filter is None or rule_id in self.rule_filter
-
-    def package_license_for(self, slug: str | None) -> tuple[Any, str]:
-        if not slug:
-            return None, "package.license"
-        return self.package_licenses_by_slug.get(slug, (None, "package.license"))
-
-    def is_published_by_package(self, slug: str | None) -> bool:
-        return slug in self.package_published_slugs if slug else False
-
-    def locked_units_for(self, slug: str | None) -> set[str]:
-        """Return the set of field names that have a unit recorded in datasets.lock.yaml.
-
-        Used to suppress R103 (numeric field missing unit) when the lock file
-        already has unit metadata derived from arithmetic.
-        """
-        if not slug:
-            return set()
-        units: set[str] = set()
-        for kind in ("inputs", "outputs"):
-            for entry in self.lock_data.get(kind, []) or []:
-                if entry.get("slug") != slug:
-                    continue
-                for fld in entry.get("fields") or []:
-                    if isinstance(fld, dict) and fld.get("name") and fld.get("unit"):
-                        units.add(fld["name"])
-        return units
-
-
-_DATASET_CHECKERS: list[Callable[[dict[str, Any], str, "_LintContext"], Iterator[Violation]]] = [
-    _check_dataset_required,
-    _check_slug,
-    _check_dataset_name,
-    _check_fields,
-]
-
-
-def _publish_enabled(raw: Any) -> bool:
-    """Return whether a publish block uses an accepted enabled form."""
-    if isinstance(raw, bool):
-        return raw
-    if isinstance(raw, dict):
-        return bool(raw.get("enabled"))
-    return False
-
-
-def _package_licenses_by_slug(data: dict[str, Any]) -> dict[str, tuple[Any, str]]:
-    """Map output dataset slugs to package-level licenses from ``packages:`` entries."""
-    result: dict[str, tuple[Any, str]] = {}
-    packages = data.get("packages")
-    if not isinstance(packages, list):
-        return result
-
-    for i, package in enumerate(packages):
-        if not isinstance(package, dict) or "license" not in package:
+    origins: dict[tuple[str, str], str] = {}
+    for section in ("inputs", "outputs", "packages"):
+        for entry in data.get(section) or []:
+            if isinstance(entry, dict) and entry.get("name"):
+                origins[(section if section == "packages" else "dataset", str(entry["name"]))] = base_dir.name
+    for i, rel_path in enumerate(include_list):
+        inc_file = (base_dir / str(rel_path)).resolve()
+        if not inc_file.is_file():
+            r308(i, f"Included file not found: {rel_path} (resolved to {inc_file})")
             continue
-        datasets = package.get("datasets")
-        if not isinstance(datasets, list):
+        with open(inc_file, "r") as f:
+            inc_data = _yaml.load(f) or {}
+        if not isinstance(inc_data, dict):
+            r308(i, f"{rel_path} is not a mapping")
             continue
-        for slug in datasets:
-            if isinstance(slug, str) and slug not in result:
-                result[slug] = (package.get("license"), f"packages[{i}].license")
+        inc_result = normalize_document(inc_data)
 
-    return result
-
-
-def _package_published_slugs(data: dict[str, Any]) -> set[str]:
-    """Return dataset slugs included in a package with publishing enabled."""
-    result: set[str] = set()
-    packages = data.get("packages")
-    if not isinstance(packages, list):
-        return result
-
-    for package in packages:
-        if not isinstance(package, dict) or not _publish_enabled(package.get("publish")):
+        if "include" in inc_data:
+            r308(i, f"Nested includes are not supported: {rel_path} contains an 'include:' key")
             continue
-        datasets = package.get("datasets")
-        if not isinstance(datasets, list):
+        bad_keys = DatasetsManager._INCLUDE_DISALLOWED_KEYS & set(inc_data.keys())
+        if bad_keys:
+            r308(i, f"Included file {rel_path} contains disallowed top-level keys: {', '.join(sorted(bad_keys))}")
             continue
-        result.update(slug for slug in datasets if isinstance(slug, str))
-
-    return result
+        duplicate = None
+        for section in ("inputs", "outputs", "packages"):
+            kind = section if section == "packages" else "dataset"
+            for entry in inc_data.get(section) or []:
+                name = entry.get("name") if isinstance(entry, dict) else None
+                if name and (kind, str(name)) in origins:
+                    duplicate = f"Duplicate {'package' if kind == 'packages' else 'dataset'} name '{name}' found in '{rel_path}'"
+                    break
+            if duplicate:
+                break
+        if duplicate:
+            r308(i, duplicate)
+            continue
+        # Only an include that passes every check is merged, so its paths exist in the merged document.
+        offsets = {sec: len(data.get(sec) or []) for sec in ("inputs", "outputs", "packages")}
+        result.renames.extend(Rename(_shift_path(r.path, offsets), r.old, r.new) for r in inc_result.renames)
+        result.ambiguous.extend(_shift_path(p, offsets) for p in inc_result.ambiguous)
+        conflicts.extend(Conflict(_shift_path(c.path, offsets), c.old, c.new) for c in inc_result.conflicts)
+        result.new_form = result.new_form or inc_result.new_form
+        for section in ("inputs", "outputs", "packages"):
+            kind = section if section == "packages" else "dataset"
+            for entry in inc_data.get(section) or []:
+                if isinstance(entry, dict) and entry.get("name"):
+                    origins[(kind, str(entry["name"]))] = str(rel_path)
+            if isinstance(inc_data.get(section), list):
+                data.setdefault(section, []).extend(inc_data[section])
+    return conflicts, problems
 
 
 def lint_project(
@@ -569,7 +187,7 @@ def lint_project(
     datasets_file: str = "datasets.yaml",
     rules: set[str] | None = None,
 ) -> LintReport:
-    """Lint a Sunstone project's ``datasets.yaml`` against the recommendations.
+    """Lint a Sunstone project's ``datasets.yaml`` against the conformance rules.
 
     Args:
         project_path: Project directory or direct path to ``datasets.yaml``.
@@ -587,76 +205,57 @@ def lint_project(
         yaml_path = project / datasets_file
 
     if not yaml_path.exists():
-        report = LintReport(project_path=project)
-        return report
+        return LintReport(project_path=project)
 
     with open(yaml_path, "r") as f:
         data = _yaml.load(f) or {}
+    result = normalize_document(data)
+    include_conflicts, include_problems = _merge_includes(data, yaml_path.parent, result)
 
-    lock_path = project / "datasets.lock.yaml"
+    lock_path = yaml_path.parent / "datasets.lock.yaml"
     lock_data: dict[str, Any] = {}
+    lock_result = None
     if lock_path.exists():
         with open(lock_path, "r") as f:
             lock_data = _yaml.load(f) or {}
+        # A new-form lock needs the same min_sunstone_version pin as new-form datasets.yaml (R306).
+        result.new_form = result.new_form or lock_uses_new_form(lock_data)
+        lock_result = normalize_lock(lock_data)
 
-    package_value = data.get("package")
-    package = package_value if isinstance(package_value, dict) else {}
-    ctx = _LintContext(
-        project_path=project,
-        rule_filter=rules,
-        package_license=package.get("license"),
-        package_licenses_by_slug=_package_licenses_by_slug(data),
-        package_published_slugs=_package_published_slugs(data),
-        top_level_publish_enabled=_publish_enabled(data.get("publish")),
-        lock_data=lock_data,
-    )
+    from .plugins import PluginRegistry
+
+    field_types = PluginRegistry.get(project).field_types.known()
 
     report = LintReport(project_path=project)
-
     suppressions, config_violations = _parse_lint_config(data.get("lint"))
     report.suppressions = suppressions
 
-    # R009 violations are NEVER suppressed — that's how we keep lint.disable honest.
+    def enabled(rule_id: str) -> bool:
+        return rules is None or rule_id in rules
+
+    # R009 violations are NEVER suppressed: that's how we keep lint.disable honest.
     for v in config_violations:
-        if ctx.is_enabled(v.rule_id):
+        if enabled(v.rule_id):
             report.add(v)
 
-    for ds_kind, ds_type in (("inputs", "input"), ("outputs", "output")):
-        items = data.get(ds_kind) or []
-        if not isinstance(items, list):
+    violations = include_problems + validate_datasets_yaml(
+        data, lock=lock_data, field_types=field_types, normalize=False, result=result, suppress=include_conflicts
+    )
+    if lock_result is not None:
+        violations += validate_lock(lock_data, data, normalize=False, result=lock_result)
+
+    for v in violations:
+        if not enabled(v.rule_id):
             continue
-        for i, ds in enumerate(items):
-            if not isinstance(ds, dict):
-                continue
-            loc = f"{ds_kind}[{i}]"
-
-            for checker in _DATASET_CHECKERS:
-                for v in checker(ds, loc, ctx):
-                    _apply_violation(v, ctx, suppressions, report)
-
-            for v in _check_dataset_license(ds, loc, ds_type, ctx):
-                _apply_violation(v, ctx, suppressions, report)
-
-            if ds_type == "input":
-                for v in _check_input_source(ds, loc, ctx):
-                    _apply_violation(v, ctx, suppressions, report)
-
+        if v.rule_id in suppressions:
+            report.suppressed.append(v)
+        else:
+            report.add(v)
     return report
 
 
-def _apply_violation(
-    v: Violation,
-    ctx: "_LintContext",
-    suppressions: dict[str, str],
-    report: LintReport,
-) -> None:
-    """Route a violation to ``report.violations`` or ``report.suppressed`` based on ``lint.disable``."""
-    if not ctx.is_enabled(v.rule_id):
-        return
-    if v.rule_id in suppressions:
-        report.suppressed.append(v)
-    else:
-        report.add(v)
+def _r009(message: str, location: str, hint: str) -> Violation:
+    return Violation("R009", Level.MUST, location, message, hint, Severity.ERROR)
 
 
 def _parse_lint_config(raw: Any) -> tuple[dict[str, str], list[Violation]]:
@@ -677,15 +276,7 @@ def _parse_lint_config(raw: Any) -> tuple[dict[str, str], list[Violation]]:
         return suppressions, violations
 
     if not isinstance(raw, dict):
-        violations.append(
-            Violation(
-                rule_id="R009",
-                severity=Severity.ERROR,
-                message="'lint' must be a mapping",
-                location="lint",
-                fix_hint="Use 'lint:\\n  disable:\\n    R104: \"reason\"'.",
-            )
-        )
+        violations.append(_r009("'lint' must be a mapping", "lint", "Use 'lint:\\n  disable:\\n    R104: \"reason\"'."))
         return suppressions, violations
 
     disable = raw.get("disable")
@@ -694,12 +285,10 @@ def _parse_lint_config(raw: Any) -> tuple[dict[str, str], list[Violation]]:
 
     if not isinstance(disable, dict):
         violations.append(
-            Violation(
-                rule_id="R009",
-                severity=Severity.ERROR,
-                message="'lint.disable' must be a mapping of rule ID to justification",
-                location="lint.disable",
-                fix_hint="Use 'lint.disable:\\n  R104: \"reason\"'.",
+            _r009(
+                "'lint.disable' must be a mapping of rule ID to justification",
+                "lint.disable",
+                "Use 'lint.disable:\\n  R104: \"reason\"'.",
             )
         )
         return suppressions, violations
@@ -710,36 +299,28 @@ def _parse_lint_config(raw: Any) -> tuple[dict[str, str], list[Violation]]:
 
         if rule_id_str not in RULES:
             violations.append(
-                Violation(
-                    rule_id="R009",
-                    severity=Severity.ERROR,
-                    message=f"unknown rule ID '{rule_id_str}' in lint.disable",
-                    location=loc,
-                    fix_hint=f"Use one of: {', '.join(sorted(RULES))}",
+                _r009(
+                    f"unknown rule ID '{rule_id_str}' in lint.disable", loc, f"Use one of: {', '.join(sorted(RULES))}"
                 )
             )
             continue
 
         if rule_id_str == "R009":
             violations.append(
-                Violation(
-                    rule_id="R009",
-                    severity=Severity.ERROR,
-                    message="R009 itself cannot be suppressed",
-                    location=loc,
-                    fix_hint="Remove this entry or fix the underlying lint.disable error.",
+                _r009(
+                    "R009 itself cannot be suppressed",
+                    loc,
+                    "Remove this entry or fix the underlying lint.disable error.",
                 )
             )
             continue
 
         if not isinstance(justification, str) or not justification.strip():
             violations.append(
-                Violation(
-                    rule_id="R009",
-                    severity=Severity.ERROR,
-                    message=f"justification for '{rule_id_str}' must be a non-empty string",
-                    location=loc,
-                    fix_hint="Provide a sentence explaining why this rule does not apply here.",
+                _r009(
+                    f"justification for '{rule_id_str}' must be a non-empty string",
+                    loc,
+                    "Provide a sentence explaining why this rule does not apply here.",
                 )
             )
             continue

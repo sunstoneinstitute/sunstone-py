@@ -1,42 +1,55 @@
+min_sunstone_version: 1.20.0
 package:
   title: Clean Lint Fixture
   description: A datasets.yaml that should produce zero violations.
   version: "1.0.0"
-  license: CC-BY-4.0
+  licenses:
+    - name: CC-BY-4.0
+
+dcat-si:methodology: METHODOLOGY.md
 
 inputs:
-  - name: Clean Input
-    slug: clean-input
-    location: inputs/clean.csv
+  - title: Clean Input
+    name: clean-input
+    path: inputs/clean.csv
     description: A pristine input dataset for testing the linter.
     source:
-      name: Test Source
-      location:
-        data: https://example.com/clean.csv
-      attributedTo: Example Org
-      acquiredAt: 2026-01-01
-      acquisitionMethod: manual-download
-      license: CC-BY-4.0
-    fields:
-      - name: country
-        type: string
-        description: ISO country code.
-      - name: gdp_usd
-        type: number
-        unit: USD
-        description: Gross domestic product in current US dollars.
+      title: Test Source
+      dcat:downloadURL: https://example.com/clean.csv
+      dcat:landingPage: https://example.com/clean
+      dct:publisher:
+        rdfs:label: Example Organisation
+        skos:altLabel: Example Org
+      dct:issued: '2025'
+      dct:license: CC-BY-4.0
+      dct:modified: '2026-01-01'
+    prov:generatedAtTime: '2026-01-01'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+    schema:
+      fields:
+        - name: country
+          type: string
+          description: ISO country code.
+        - name: area_km2
+          type: number
+          si:unit: km**2
+          description: Land area in square kilometres.
 
 outputs:
-  - name: Clean Output
-    slug: clean-output
-    location: outputs/clean.csv
+  - title: Clean Output
+    name: clean-output
+    path: outputs/clean.csv
     description: A pristine output dataset for testing the linter.
-    license: CC-BY-4.0
-    fields:
-      - name: country
-        type: string
-        description: ISO country code.
-      - name: gdp_per_capita_usd
-        type: number
-        unit: USD
-        description: GDP per capita in current US dollars.
+    licenses:
+      - name: CC-BY-4.0
+    schema:
+      fields:
+        - name: country
+          type: string
+          description: ISO country code.
+        - name: area_per_capita
+          type: number
+          si:unit: km**2
+          description: Land area per person.
