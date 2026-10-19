@@ -1,9 +1,8 @@
-"""Validate ``datasets.yaml`` keys and values against the Data Package v2 profiles.
+"""Validate ``datasets.yaml`` values against the Data Package v2 profiles.
 
-Rule: a property key without ``:`` must be a property of the Data Package
-profile that matches its level, or one of the sunstone keys listed below.
-Keys containing ``:`` are RDF/custom properties and are not checked. Values of
-profile properties are validated with the profile's JSON Schema.
+Input is the normalized (new key form, see ``aliases.py``) document. Values of
+Data Package properties are validated with the profile's JSON Schema; which keys
+are allowed is checked by the conformance rules R301-R303 (``conformance.py``).
 
 The profiles under ``src/sunstone/profiles/`` were fetched on 2026-10-08 from
 https://datapackage.org/profiles/2.0/<name>.json (public domain, see the
@@ -22,51 +21,11 @@ from jsonschema import Draft7Validator
 
 PROFILE_NAMES = ("datapackage", "dataresource", "tableschema", "tabledialect")
 
-# Sunstone keys per level. Everything else without ":" must come from the profile named in the comment.
-TOP_KEYS = frozenset(
-    {
-        "inputs",
-        "outputs",
-        "package",
-        "packages",
-        "publish",
-        "defaults",
-        "rdfPrefixes",
-        "include",
-        "lint",
-        "plugins",
-        "min_sunstone_version",
-    }
-)
-# inputs[]/outputs[]: Data Resource profile + these. ``type`` is sunstone's resource kind (table, file, geojson, ...).
-DATASET_SUNSTONE_KEYS = frozenset(
-    {
-        "slug",
-        "location",
-        "type",
-        "fields",
-        "source",
-        "license",
-        "strict",
-        "lineage",
-        "rdfPrefixes",
-        "publish",
-        "dialect",
-        "primaryKey",
-    }
-)
-DATASET_GENERATED_KEYS = frozenset({"path", "data"})  # derived from ``location`` at build time
-FIELD_SUNSTONE_KEYS = frozenset({"unit", "source"})  # fields[]: Table Schema field profile + these
-PACKAGE_SUNSTONE_KEYS = frozenset({"license", "publish"})  # package: Data Package profile + these
-PACKAGES_ENTRY_SUNSTONE_KEYS = PACKAGE_SUNSTONE_KEYS | {"datasets"}  # packages[]
+# Resource keys whose values follow sunstone semantics, not the Data Resource profile:
+# ``type`` is sunstone's resource kind (table, file, geojson, ...), ``path`` may be any sunstone location,
+# ``schema`` is checked per field type below, ``dialect`` by the delimited-text rule.
+DATASET_UNCHECKED_KEYS = frozenset({"type", "path", "data", "schema", "dialect"})
 PACKAGE_GENERATED_KEYS = frozenset({"resources"})  # derived from datasets at build time
-PUBLISH_KEYS = frozenset({"enabled", "to", "flatten", "as", "as_name", "public", "dialect"})
-SOURCE_KEYS = frozenset(
-    {"name", "location", "attributedTo", "acquiredAt", "acquisitionMethod", "license", "updated", "notes"}
-)
-SOURCE_LOCATION_KEYS = frozenset({"data", "metadata", "about"})
-AGENT_KEYS = frozenset({"id", "type", "label", "version"})
-DEFAULTS_KEYS = frozenset({"rdfPrefixes"})
 # Table Dialect v2 properties for delimited text; the spreadsheet/JSON ones are not accepted.
 DIALECT_KEYS = frozenset(
     {
@@ -104,19 +63,9 @@ def _validator(name: str) -> Draft7Validator:
 
 
 @cache
-def _resource_props() -> frozenset[str]:
-    return frozenset(profile("dataresource")["properties"])
-
-
-@cache
 def package_profile_keys() -> frozenset[str]:
     """Property names of the Data Package profile (package level)."""
     return frozenset(profile("datapackage")["properties"])
-
-
-@cache
-def _contributor_props() -> frozenset[str]:
-    return frozenset(profile("datapackage")["properties"]["contributors"]["items"]["properties"])
 
 
 @cache
@@ -161,16 +110,6 @@ def _join(loc: str, path: Iterable[Any]) -> str:
     return out
 
 
-def _check_keys(obj: dict, allowed: Collection[str], loc: str, what: str, ctx: _Ctx) -> None:
-    for key in obj:
-        if not isinstance(key, str):
-            ctx.errors.append(f"{loc}: key {key!r} must be a string")
-            continue
-        if ":" in key or key in allowed:
-            continue
-        ctx.errors.append(f"{loc}: unknown key '{key}' ({what}; custom metadata keys need a prefix such as 'si:{key}')")
-
-
 def _check_value(value: Any, schema: dict[str, Any], loc: str, ctx: _Ctx) -> None:
     for err in sorted(Draft7Validator(schema).iter_errors(value), key=lambda e: e.json_path):
         ctx.errors.append(f"{_join(loc, err.absolute_path)}: {err.message}")
@@ -180,7 +119,7 @@ def _check_dialect(data: Any, loc: str, ctx: _Ctx) -> None:
     if not isinstance(data, dict):
         ctx.errors.append(f"{loc}: must be a mapping")
         return
-    # Closed set: unlike other blocks, prefixed (``:``) keys are rejected too.
+    # Closed set: only delimited-text properties; prefixed (``:``) keys are rejected too.
     for key in data:
         if key not in DIALECT_KEYS:
             ctx.errors.append(f"{loc}: unknown key {key!r} (not a delimited-text Table Dialect property)")
@@ -196,22 +135,8 @@ def _check_publish(data: Any, loc: str, ctx: _Ctx) -> None:
     if not isinstance(data, dict):
         ctx.errors.append(f"{loc}: must be a mapping or a boolean")
         return
-    _check_keys(data, PUBLISH_KEYS, loc, "not a sunstone publish key", ctx)
     if data.get("dialect") is not None:
         _check_dialect(data["dialect"], f"{loc}.dialect", ctx)
-
-
-def _check_source(data: Any, loc: str, ctx: _Ctx) -> None:
-    if not isinstance(data, dict):
-        ctx.errors.append(f"{loc}: must be a mapping")
-        return
-    _check_keys(data, SOURCE_KEYS, loc, "not a sunstone source key", ctx)
-    location = data.get("location")
-    if isinstance(location, dict):
-        _check_keys(location, SOURCE_LOCATION_KEYS, f"{loc}.location", "not a sunstone source location key", ctx)
-    agent = data.get("attributedTo")
-    if isinstance(agent, dict):
-        _check_keys(agent, AGENT_KEYS, f"{loc}.attributedTo", "not a sunstone agent key", ctx)
 
 
 def _check_fields(fields: Any, loc: str, ctx: _Ctx) -> None:
@@ -219,13 +144,11 @@ def _check_fields(fields: Any, loc: str, ctx: _Ctx) -> None:
         ctx.errors.append(f"{loc}: must be a list")
         return
     alts = _field_alternatives()
-    allowed = field_profile_keys() | FIELD_SUNSTONE_KEYS
     for i, fld in enumerate(fields):
         floc = f"{loc}[{i}]"
         if not isinstance(fld, dict):
             ctx.errors.append(f"{floc}: must be an object")
             continue
-        _check_keys(fld, allowed, floc, "not a Table Schema field property or a sunstone field key", ctx)
         ftype = fld.get("type", "string")
         alt = alts.get(ftype) if isinstance(ftype, str) else None
         if alt is not None:
@@ -240,66 +163,55 @@ def _check_fields(fields: Any, loc: str, ctx: _Ctx) -> None:
                             f"{floc}.constraints: unknown key '{key}' "
                             f"(not a constraint for type '{ftype}'; valid: {valid_keys}; custom keys need a prefix such as 'si:{key}')"
                         )
-                    elif not isinstance(key, str):
-                        ctx.errors.append(f"{floc}.constraints: key {key!r} must be a string")
         elif not isinstance(ftype, str) or ftype not in ctx.extra_field_types():
             valid = ", ".join(sorted(set(alts) | ctx.extra_field_types()))
             ctx.errors.append(f"{floc}: invalid type {ftype!r} (must be one of: {valid})")
 
 
+def _check_schema(schema: Any, loc: str, ctx: _Ctx) -> None:
+    if not isinstance(schema, dict):
+        return  # a string schema is a reference; R301 and the loader handle other shapes
+    props = profile("tableschema")["properties"]
+    for key, value in schema.items():
+        if key in props and key not in ("fields", "$schema"):
+            _check_value(value, props[key], f"{loc}.{key}", ctx)
+    if schema.get("fields") is not None:
+        _check_fields(schema["fields"], f"{loc}.fields", ctx)
+
+
 def _check_dataset(ds: dict, loc: str, ctx: _Ctx) -> None:
-    props = _resource_props()
-    allowed = (props - DATASET_GENERATED_KEYS) | DATASET_SUNSTONE_KEYS
-    _check_keys(ds, allowed, loc, "not a Data Resource property or a sunstone dataset key", ctx)
     schema_props = profile("dataresource")["properties"]
     for key, value in ds.items():
-        if key in props and key not in DATASET_GENERATED_KEYS | DATASET_SUNSTONE_KEYS:
+        if key in schema_props and key not in DATASET_UNCHECKED_KEYS:
             _check_value(value, schema_props[key], f"{loc}.{key}", ctx)
-    if "primaryKey" in ds:
-        _check_value(ds["primaryKey"], profile("tableschema")["properties"]["primaryKey"], f"{loc}.primaryKey", ctx)
     if ds.get("dialect") is not None:
         _check_dialect(ds["dialect"], f"{loc}.dialect", ctx)
-    if ds.get("fields") is not None:
-        _check_fields(ds["fields"], f"{loc}.fields", ctx)
-    if "source" in ds:
-        _check_source(ds["source"], f"{loc}.source", ctx)
+    if "schema" in ds:
+        _check_schema(ds["schema"], f"{loc}.schema", ctx)
     if "publish" in ds:
         _check_publish(ds["publish"], f"{loc}.publish", ctx)
 
 
-def _check_package(pkg: dict, loc: str, sunstone_keys: Collection[str], ctx: _Ctx) -> None:
-    props = package_profile_keys()
-    allowed = (props - PACKAGE_GENERATED_KEYS) | set(sunstone_keys)
-    _check_keys(pkg, allowed, loc, "not a Data Package property or a sunstone package key", ctx)
+def _check_package(pkg: dict, loc: str, ctx: _Ctx) -> None:
     schema_props = profile("datapackage")["properties"]
     for key, value in pkg.items():
-        if key in props and key not in PACKAGE_GENERATED_KEYS:
+        if key in schema_props and key not in PACKAGE_GENERATED_KEYS:
             _check_value(value, schema_props[key], f"{loc}.{key}", ctx)
-    contributors = pkg.get("contributors")
-    if isinstance(contributors, list):
-        for i, contributor in enumerate(contributors):
-            if isinstance(contributor, dict):
-                _check_keys(
-                    contributor,
-                    _contributor_props(),
-                    f"{loc}.contributors[{i}]",
-                    "not a Data Package contributor property",
-                    ctx,
-                )
     if "publish" in pkg:
         _check_publish(pkg["publish"], f"{loc}.publish", ctx)
 
 
 def validate_datasets_data(data: Any, *, field_types: FieldTypes = ()) -> list[str]:
-    """Return every key/value problem in a raw ``datasets.yaml`` mapping, as ``<path>: <message>`` strings.
+    """Return every value problem in a normalized ``datasets.yaml`` mapping, as ``<path>: <message>`` strings.
 
-    ``field_types`` lists plugin-registered field types (or a callable returning them) that are accepted in
-    ``fields[].type`` in addition to the Table Schema types. Returns an empty list when the data is valid.
+    Checks Data Package property values against the v2 profiles, ``schema.fields[]`` against the
+    sub-schema of their type, and dialects against the delimited-text rule. Unknown keys are left to
+    R301. ``field_types`` lists plugin-registered field types (or a callable returning them) that are
+    accepted in ``schema.fields[].type`` in addition to the Table Schema types.
     """
     ctx = _Ctx(field_types)
     if not isinstance(data, dict):
         return ["datasets.yaml must be a mapping"]
-    _check_keys(data, TOP_KEYS, "top level", "not a sunstone top-level key", ctx)
     for section in ("inputs", "outputs"):
         items = data.get(section)
         if items is None:
@@ -316,7 +228,7 @@ def validate_datasets_data(data: Any, *, field_types: FieldTypes = ()) -> list[s
     pkg = data.get("package")
     if pkg is not None:
         if isinstance(pkg, dict):
-            _check_package(pkg, "package", PACKAGE_SUNSTONE_KEYS, ctx)
+            _check_package(pkg, "package", ctx)
         else:
             ctx.errors.append("package: must be a mapping")
     pkgs = data.get("packages")
@@ -326,17 +238,11 @@ def validate_datasets_data(data: Any, *, field_types: FieldTypes = ()) -> list[s
         else:
             for i, entry in enumerate(pkgs):
                 if isinstance(entry, dict):
-                    _check_package(entry, f"packages[{i}]", PACKAGES_ENTRY_SUNSTONE_KEYS, ctx)
+                    _check_package(entry, f"packages[{i}]", ctx)
                 else:
                     ctx.errors.append(f"packages[{i}]: must be a mapping")
     if "publish" in data:
         _check_publish(data["publish"], "publish", ctx)
-    defaults = data.get("defaults")
-    if defaults is not None:
-        if isinstance(defaults, dict):
-            _check_keys(defaults, DEFAULTS_KEYS, "defaults", "not a sunstone defaults key", ctx)
-        else:
-            ctx.errors.append("defaults: must be a mapping")
     return ctx.errors
 
 

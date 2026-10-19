@@ -5,14 +5,25 @@ Parser and manager for datasets.yaml files.
 import contextlib
 import contextvars
 import logging
+import re
 import shutil
+import warnings
 from datetime import date as _date
 from datetime import datetime as _datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-from ruamel.yaml import YAML
-
+from .aliases import (
+    MIN_NEW_FORM_VERSION,
+    Conflict,
+    NormalizeResult,
+    ensure_min_version,
+    lock_uses_new_form,
+    make_yaml,
+    normalize_document,
+    normalize_lock,
+    version_key,
+)
 from .datasets_schema import PACKAGE_GENERATED_KEYS
 from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import (
@@ -31,11 +42,27 @@ from .lineage import (
     PackageMetadata,
     PublishConfig,
     Source,
+    SourceAgent,
     SourceLocation,
     UsageRecord,
 )
 
 logger = logging.getLogger(__name__)
+
+# Round-trip YAML (preserves comments, quotes and anchors)
+_yaml = make_yaml()
+
+
+_INDEXED_PATH = re.compile(r"^(inputs|outputs|packages)\[(\d+)\]")
+
+
+def _shift_path(path: str, offsets: Dict[str, int]) -> str:
+    """``outputs[0].x`` -> ``outputs[<0 + offset>].x``: an include entry's path in the merged document."""
+    m = _INDEXED_PATH.match(path)
+    if not m:
+        return path
+    return f"{m.group(1)}[{int(m.group(2)) + offsets.get(m.group(1), 0)}]{path[m.end() :]}"
+
 
 # Data Package properties sunstone maps onto PackageMetadata fields; the rest of the profile goes to ``extra``.
 _PACKAGE_MODELLED_KEYS = frozenset(
@@ -43,12 +70,10 @@ _PACKAGE_MODELLED_KEYS = frozenset(
 )
 _PACKAGE_NON_EXTRA_KEYS = _PACKAGE_MODELLED_KEYS | PACKAGE_GENERATED_KEYS
 
-# Configure ruamel.yaml for round-trip parsing (preserves comments) with proper indentation
-_yaml = YAML()
-_yaml.preserve_quotes = True
-_yaml.default_flow_style = False
-_yaml.width = 4096
-_yaml.indent(mapping=2, sequence=4, offset=2)
+
+_PER_DATASET_PUBLISH_DEPRECATED = frozenset({"to", "flatten", "as"})
+"""Per-dataset ``publish:`` keys whose job moved to package-level publish. ``enabled``, ``as_name``,
+``public`` and ``dialect`` stay valid on a dataset."""
 
 
 def _iso_dates(value: Any) -> Any:
@@ -216,14 +241,18 @@ def _field_schema_to_dict(field: FieldSchema) -> dict:
     d: dict = {"name": field.name}
     if field.type is not None:
         d["type"] = field.type
+    if field.title:
+        d["title"] = field.title
     if field.constraints:
         d["constraints"] = field.constraints
     if field.description:
         d["description"] = field.description
     if field.unit:
-        d["unit"] = field.unit_source if field.unit_source else field.unit
+        d["si:unit"] = field.unit
+        if field.unit_source:
+            d["qudt:hasUnit"] = field.unit_source
     if field.source:
-        d["source"] = field.source
+        d["dct:source"] = field.source
     if field.custom_properties:
         for key, value in field.custom_properties.items():
             d[key] = value
@@ -282,31 +311,21 @@ class DatasetsManager:
         # mtime stamps used by the opt-in manager cache to detect external edits.
         self._datasets_mtime_ns: Optional[int] = None
         self._lock_mtime_ns: Optional[int] = None
+        self._normalize_result: NormalizeResult = NormalizeResult()
         self._load(check_version=True)
 
     @staticmethod
     def _compare_versions(a: str, b: str) -> int:
-        """Compare two semver version strings. Returns -1, 0, or 1."""
-
-        def parse(v: str) -> tuple[int, ...]:
-            parts = v.split("-")[0].split("+")[0].split(".")
-            return tuple(int(p) for p in parts[:3])
-
-        pa, pb = parse(a), parse(b)
-        if pa < pb:
-            return -1
-        if pa > pb:
-            return 1
-        return 0
+        """Compare two version strings (``1.20.0rc1`` reads as ``1.20.0``). Returns -1, 0, or 1."""
+        ka, kb = version_key(a), version_key(b)
+        return (ka > kb) - (ka < kb)
 
     def _ensure_min_version(self, required: str) -> None:
-        """Set min_sunstone_version in datasets.yaml if absent or lower."""
-        current_min = self._data.get("min_sunstone_version")
-        if current_min is None or self._compare_versions(current_min, required) < 0:
-            self._data["min_sunstone_version"] = required
+        """Insert or raise ``min_sunstone_version`` in datasets.yaml; never lowers it."""
+        if ensure_min_version(self._data, required):
             self._save()
 
-    def _merge_includes(self) -> None:
+    def _merge_includes(self, warn: bool) -> None:
         """Merge datasets from included files into self._data.
 
         Pops the ``include`` key, loads each referenced YAML file,
@@ -324,7 +343,7 @@ class DatasetsManager:
         main_label = self.datasets_file.name
         for section in ("inputs", "outputs"):
             for entry in self._data.get(section, []):
-                slug = entry.get("slug", "")
+                slug = entry.get("name", "")
                 if slug:
                     slug_origins[slug] = main_label
 
@@ -344,6 +363,21 @@ class DatasetsManager:
 
             inc_label = str(rel_path)
 
+            # Alias keys are reported per file; MUST violations once for the merged document (spec C4).
+            inc_result = normalize_document(inc_data)
+            if warn:
+                from .conformance import warn_aliases
+
+                warn_aliases(inc_label, inc_result.renames, inc_result.conflicts)
+            # Shift the include's paths to the merged positions of its entries.
+            offsets = {sec: len(self._data.get(sec) or []) for sec in ("inputs", "outputs", "packages")}
+            self._normalize_result.ambiguous.extend(_shift_path(p, offsets) for p in inc_result.ambiguous)
+            self._include_conflicts.extend(
+                Conflict(_shift_path(c.path, offsets), c.old, c.new) for c in inc_result.conflicts
+            )
+            self._normalize_result.new_form = self._normalize_result.new_form or inc_result.new_form
+            self._normalize_result.field_sources.update(inc_result.field_sources)
+
             # Reject nested includes
             if "include" in inc_data:
                 raise DatasetValidationError(
@@ -360,10 +394,10 @@ class DatasetsManager:
             # Merge list sections
             for section in ("inputs", "outputs"):
                 for entry in inc_data.get(section, []):
-                    slug = entry.get("slug", "")
+                    slug = entry.get("name", "")
                     if slug in slug_origins:
                         raise DatasetValidationError(
-                            f"Duplicate dataset slug '{slug}' found in '{inc_label}' and '{slug_origins[slug]}'"
+                            f"Duplicate dataset name '{slug}' found in '{inc_label}' and '{slug_origins[slug]}'"
                         )
                     slug_origins[slug] = inc_label
                 self._data.setdefault(section, []).extend(inc_data.get(section, []))
@@ -380,12 +414,18 @@ class DatasetsManager:
                 self._data.setdefault("packages", []).extend(inc_data["packages"])
 
     def _load(self, check_version: bool = False) -> None:
-        """Load and parse the datasets.yaml file."""
+        """Load datasets.yaml (and includes), normalized to the new key form.
+
+        The version check and conformance warnings run on the initial load only
+        (``check_version=True``), not on reloads after this manager's own writes.
+        """
         with open(self.datasets_file, "r") as f:
             self._data = _yaml.load(f) or {}
+        self._normalize_result = normalize_document(self._data)
+        self._include_conflicts: List[Conflict] = []
 
         # Merge included files before anything else
-        self._merge_includes()
+        self._merge_includes(warn=check_version)
 
         # Check min_sunstone_version compatibility (only on initial load)
         min_version = self._data.get("min_sunstone_version")
@@ -396,6 +436,8 @@ class DatasetsManager:
                 current = pkg_version("sunstone-py")
             except Exception:
                 current = "0.0.0"
+            if self._compare_versions(current, MIN_NEW_FORM_VERSION) < 0:
+                current = MIN_NEW_FORM_VERSION  # unreleased checkout of the code that reads the new form
             if self._compare_versions(current, min_version) < 0:
                 raise RuntimeError(
                     f"This project requires sunstone-py >= {min_version} "
@@ -419,20 +461,23 @@ class DatasetsManager:
                 self._lock_data = _yaml.load(f) or {}
         else:
             self._lock_data = {}
+        lock_result = normalize_lock(self._lock_data) if self._lock_data else NormalizeResult()
 
-        # Warn about inline lineage when no lock file exists
-        if not self.lock_file.exists():
-            for output in self._data.get("outputs", []):
-                if "lineage" in output:
-                    import warnings
+        if check_version:
+            from .conformance import enforce, validate_datasets_yaml, validate_lock
+            from .plugins import PluginRegistry
 
-                    warnings.warn(
-                        "Inline lineage in datasets.yaml is deprecated. "
-                        "Run 'sunstone dataset migrate' to move lineage to datasets.lock.yaml.",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-                    break
+            field_types = PluginRegistry.get(self.project_path).field_types.known()
+            violations = validate_datasets_yaml(
+                self._data,
+                lock=self._lock_data,
+                field_types=field_types,
+                normalize=False,
+                result=self._normalize_result,
+                suppress=self._include_conflicts,
+            )
+            violations += validate_lock(self._lock_data, self._data, normalize=False, result=lock_result)
+            enforce(violations, where=self.datasets_file.name, already_warned=self._include_conflicts)
 
         # Record the mtimes that correspond to the state we just loaded.
         self._stamp_mtimes()
@@ -459,13 +504,18 @@ class DatasetsManager:
         )
 
     def _save(self) -> None:
-        """Save the current data back to datasets.yaml."""
+        """Save the current (normalized) data back to datasets.yaml, raising ``min_sunstone_version`` if needed."""
+        ensure_min_version(self._data)
         with open(self.datasets_file, "w") as f:
             _yaml.dump(self._data, f)
         self._stamp_mtimes()
 
     def _save_lock(self) -> None:
-        """Save the current lock data to datasets.lock.yaml."""
+        """Save the current lock data to datasets.lock.yaml.
+
+        A lock with new-form source keys also raises ``min_sunstone_version`` in
+        datasets.yaml, so an older sunstone-py refuses the project instead of losing attribution.
+        """
         # ruamel.yaml round-trip mode preserves the leading comment from a previous
         # write; clear it so the manual header below isn't duplicated on every save.
         ca = getattr(self._lock_data, "ca", None)
@@ -474,58 +524,107 @@ class DatasetsManager:
         with open(self.lock_file, "w") as f:
             f.write("# Auto-generated by sunstone. Do not edit manually.\n")
             _yaml.dump(self._lock_data, f)
+        if lock_uses_new_form(self._lock_data):
+            self._ensure_min_version_on_disk()
         self._stamp_mtimes()
 
-    def _parse_source_location(self, loc_data: Dict[str, Any]) -> SourceLocation:
-        """Parse source location data from YAML.
+    def _ensure_min_version_on_disk(self) -> None:
+        """Raise ``min_sunstone_version`` in datasets.yaml as written, leaving the rest of the file untouched."""
+        with open(self.datasets_file) as f:
+            raw = _yaml.load(f) or {}
+        if ensure_min_version(raw):
+            with open(self.datasets_file, "w") as f:
+                _yaml.dump(raw, f)
+        ensure_min_version(self._data)
 
-        DCAT keys take precedence over their aliases: ``dcat:downloadURL`` over
-        ``data``, ``dcat:landingPage`` over ``about`` over ``web``.
-        """
+    def _parse_source_location(self, source_data: Dict[str, Any]) -> SourceLocation:
+        """Source URLs live directly on the source block as DCAT/RDFS keys."""
         return SourceLocation(
-            data=loc_data.get("dcat:downloadURL") or loc_data.get("data"),
-            metadata=loc_data.get("metadata"),
-            about=loc_data.get("dcat:landingPage") or loc_data.get("about") or loc_data.get("web"),
-            access=loc_data.get("dcat:accessURL"),
+            data=source_data.get("dcat:downloadURL"),
+            metadata=source_data.get("rdfs:seeAlso"),
+            about=source_data.get("dcat:landingPage"),
+            access=source_data.get("dcat:accessURL"),
         )
 
-    def _parse_source(self, source_data: Dict[str, Any]) -> Source:
-        """Parse source attribution data from YAML."""
-        attributed_to_raw = source_data["attributedTo"]
-        if isinstance(attributed_to_raw, dict):
-            attributed_to: str | Agent = Agent(
-                id=attributed_to_raw["id"],
-                type=AgentType(attributed_to_raw.get("type", "prov:Organization")),
-                label=attributed_to_raw.get("label"),
-                version=attributed_to_raw.get("version"),
+    def _parse_source(self, source_data: Dict[str, Any], dataset_data: Dict[str, Any]) -> Source:
+        """Parse a normalized source block; acquisition metadata comes from the dataset."""
+        raw_agent = source_data.get("prov:wasAttributedTo")
+        attributed_to: str | Agent
+        if isinstance(raw_agent, dict):
+            attributed_to = Agent(
+                id=str(raw_agent.get("@id", raw_agent.get("rdfs:label", ""))),
+                type=AgentType(raw_agent.get("@type", "prov:Organization")),
+                label=raw_agent.get("rdfs:label"),
+                version=source_data.get("version"),
             )
         else:
-            attributed_to = str(attributed_to_raw)
+            attributed_to = "" if raw_agent is None else str(raw_agent)
+
+        generated_by = dataset_data.get("prov:wasGeneratedBy")
+        method = generated_by.get("dct:type") if isinstance(generated_by, dict) else None
+        acquired = dataset_data.get("prov:generatedAtTime")
+
+        creators = source_data.get("dct:creator")
+        creator_list = (
+            [a for a in (self._parse_agent(c) for c in creators) if a] if isinstance(creators, list) else None
+        )
+        is_part_of = source_data.get("dct:isPartOf")
+        citation = source_data.get("dct:bibliographicCitation")
+        modified = source_data.get("dct:modified")
+        source_id = source_data.get("@id")
+        issued = source_data.get("dct:issued")
 
         return Source(
-            name=source_data["name"],
-            location=self._parse_source_location(source_data["location"]),
+            name=str(source_data.get("title", "")),
+            location=self._parse_source_location(source_data),
             attributed_to=attributed_to,
-            acquired_at=source_data["acquiredAt"],
-            acquisition_method=source_data["acquisitionMethod"],
-            license=source_data["license"],
-            updated=source_data.get("updated"),
-            publisher=source_data.get("dct:publisher"),
-            creator=source_data.get("dct:creator"),
+            acquired_at=None if acquired is None else str(acquired),
+            acquisition_method=None if method is None else str(method),
+            license=source_data.get("dct:license"),
+            updated=None if modified is None else str(modified),
+            publisher=self._parse_agent(source_data.get("dct:publisher")),
+            creator=creator_list or None,
+            id=None if source_id is None else str(source_id),
+            issued=None if issued is None else str(issued),
+            is_part_of=dict(is_part_of) if isinstance(is_part_of, dict) else None,
+            bibliographic_citation=None if citation is None else str(citation),
+        )
+
+    @staticmethod
+    def _parse_agent(value: Any) -> Optional[SourceAgent]:
+        """An agent object (``rdfs:label``, ``skos:altLabel``, ``"@id"``). Anything else is None (R102 reports it)."""
+        if not isinstance(value, dict) or not value.get("rdfs:label"):
+            return None
+        alt = value.get("skos:altLabel")
+        iri = value.get("@id")
+        return SourceAgent(
+            label=str(value["rdfs:label"]),
+            alt_label=None if alt is None else str(alt),
+            id=None if iri is None else str(iri),
         )
 
     def _parse_fields(self, fields_data: List[Dict[str, Any]]) -> List[FieldSchema]:
-        """Parse field schema data from YAML."""
+        """Parse normalized field schema data from YAML."""
         from .datasets_schema import field_profile_keys
         from .units import is_qudt_uri, parse_unit_string
 
-        known_keys = {"name", "type", "constraints", "description", "unit", "source"}
+        # Keys modelled on FieldSchema; other Table Schema properties pass through verbatim.
+        known_keys = {
+            "name",
+            "type",
+            "constraints",
+            "description",
+            "title",
+            "si:unit",
+            "dct:source",
+            "qudt:hasUnit",
+        }
 
         result = []
         for field in fields_data:
-            unit_str = field.get("unit")
+            unit_str = field.get("si:unit")
             unit_value = unit_str
-            unit_source = None
+            unit_source = field.get("qudt:hasUnit")
 
             if unit_str and is_qudt_uri(unit_str):
                 try:
@@ -536,8 +635,8 @@ class DatasetsManager:
                     unit_source = unit_str
 
             # Field-level custom properties: RDF keys (sosa:observedProperty) and Table Schema
-            # properties sunstone does not model (title, format, missingValues, rdfType, ...).
-            # Other unknown keys are ignored; `sunstone dataset validate --strict` reports them.
+            # properties sunstone does not model (format, missingValues, rdfType, ...).
+            # Other unknown keys are ignored; R301 reports them.
             passthrough = field_profile_keys() - known_keys
             custom_properties = {
                 key: _iso_dates(value)
@@ -548,13 +647,15 @@ class DatasetsManager:
             result.append(
                 FieldSchema(
                     name=field["name"],
-                    type=field["type"],
+                    type=field.get("type"),
                     constraints=field.get("constraints"),
                     description=field.get("description"),
                     unit=unit_value,
-                    source=field.get("source"),
+                    source=_iso_dates(field.get("dct:source")),
                     unit_source=unit_source,
                     custom_properties=custom_properties or None,
+                    title=field.get("title"),
+                    legacy_source=self._normalize_result.field_sources.get(id(field)),
                 )
             )
         return result
@@ -759,7 +860,7 @@ class DatasetsManager:
             description=package_data.get("description"),
             version=package_data.get("version"),
             keywords=package_data.get("keywords"),
-            license=package_data.get("license"),
+            license=self._first_license(package_data.get("licenses")),
             contributors=contributors,
             homepage=package_data.get("homepage"),
             id=package_data.get("id"),
@@ -783,19 +884,20 @@ class DatasetsManager:
         """
         # Standard dataset fields to exclude from custom properties
         standard_fields = {
+            "title",
             "name",
-            "slug",
-            "type",
+            "path",
             "description",
-            "location",
-            "fields",
+            "schema",
             "source",
             "strict",
             "lineage",
             "rdfPrefixes",
             "publish",
             "dialect",
-            "primaryKey",
+            "licenses",
+            "type",
+            "format",
         }
 
         # Get RDF prefixes with precedence: dataset > top-level > defaults
@@ -818,6 +920,14 @@ class DatasetsManager:
 
         return (rdf_prefixes if rdf_prefixes else None, custom_properties if custom_properties else None)
 
+    @staticmethod
+    def _first_license(value: Any) -> Optional[str]:
+        """The first ``licenses[].name``, or None."""
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            name = value[0].get("name")
+            return None if name is None else str(name)
+        return None
+
     def _get_lock_entry(self, slug: str, dataset_type: str) -> Dict[str, Any]:
         """Get the lock file entry for a dataset by slug."""
         section = "inputs" if dataset_type == "input" else "outputs"
@@ -837,30 +947,35 @@ class DatasetsManager:
         Returns:
             Parsed DatasetMetadata object.
         """
+        from datetime import datetime as _dt
+
         source = None
-        if "source" in dataset_data:
-            source = self._parse_source(dataset_data["source"])
+        if isinstance(dataset_data.get("source"), dict):
+            source = self._parse_source(dataset_data["source"], dataset_data)
 
         rdf_prefixes, custom_properties = self._extract_rdf_properties(dataset_data)
 
-        fields_data = dataset_data.get("fields")
+        raw_schema = dataset_data.get("schema")
+        schema_data: Dict[str, Any] = raw_schema if isinstance(raw_schema, dict) else {}
+        fields_data = schema_data.get("fields")
         fields = self._parse_fields(fields_data) if fields_data is not None else None
 
         publish = self._parse_publish(dataset_data.get("publish"))
 
-        slug = dataset_data["slug"]
-        if publish is not None:
-            import warnings
-
+        slug = dataset_data["name"]
+        raw_publish = dataset_data.get("publish")
+        moved = sorted(_PER_DATASET_PUBLISH_DEPRECATED & set(raw_publish)) if isinstance(raw_publish, dict) else []
+        if moved:
+            keys = ", ".join(f"publish.{k}" for k in moved)
             warnings.warn(
-                f"Per-dataset 'publish:' on '{slug}' is deprecated. Use 'packages:' with a 'datasets:' list instead.",
+                f"Per-dataset '{keys}' on '{slug}' is deprecated. Use 'packages:' with a 'datasets:' list instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )
 
         # Parse PROV-O fields from lineage section (outputs only)
         # Lock file takes precedence over inline lineage
-        lock_entry = self._get_lock_entry(dataset_data.get("slug", ""), dataset_type)
+        lock_entry = self._get_lock_entry(slug, dataset_type)
         if lock_entry:
             lineage_raw = lock_entry
         else:
@@ -871,8 +986,6 @@ class DatasetsManager:
         field_derivations_parsed = None
 
         if lineage_raw:
-            from datetime import datetime as _dt
-
             # was_derived_from from sources list
             sources_raw = lineage_raw.get("sources", [])
             if sources_raw:
@@ -896,16 +1009,22 @@ class DatasetsManager:
             if fd_raw:
                 field_derivations_parsed = self._parse_field_derivations(fd_raw)
 
+        if dataset_type == "input" and generated_at_time is None and dataset_data.get("prov:generatedAtTime"):
+            try:
+                generated_at_time = _dt.fromisoformat(str(dataset_data["prov:generatedAtTime"]))
+            except (ValueError, TypeError):
+                pass
+
         return DatasetMetadata(
-            name=dataset_data["name"],
-            slug=dataset_data["slug"],
-            location=dataset_data["location"],
+            name=dataset_data.get("title", slug),
+            slug=slug,
+            location=dataset_data["path"],
             description=dataset_data.get("description"),
             resource_type=dataset_data.get("type"),
             format=dataset_data.get("format"),
             fields=fields,
             source=source,
-            license=dataset_data.get("license"),
+            license=self._first_license(dataset_data.get("licenses")),
             strict=dataset_data.get("strict", False),
             dataset_type=dataset_type,
             rdf_prefixes=rdf_prefixes,
@@ -916,7 +1035,7 @@ class DatasetsManager:
             generated_at_time=generated_at_time,
             field_derivations=field_derivations_parsed,
             dialect=_parse_dialect(dataset_data.get("dialect")),
-            primary_key=_parse_primary_key(dataset_data.get("primaryKey"), slug, fields),
+            primary_key=_parse_primary_key(schema_data.get("primaryKey"), slug, fields),
         )
 
     @classmethod
@@ -951,7 +1070,7 @@ class DatasetsManager:
 
         for section in ("inputs", "outputs"):
             for entry in self._data.get(section) or []:
-                loc = entry.get("location")
+                loc = entry.get("path")
                 if loc is None:
                     continue
                 if loc == location:
@@ -1003,7 +1122,7 @@ class DatasetsManager:
         for dtype in search_types:
             key = "inputs" if dtype == "input" else "outputs"
             for dataset_data in self._data.get(key, []):
-                dataset_location = dataset_data["location"]
+                dataset_location = dataset_data["path"]
 
                 # Try multiple resolution strategies:
                 # 1. Direct string match
@@ -1061,7 +1180,7 @@ class DatasetsManager:
         for dtype in search_types:
             key = "inputs" if dtype == "input" else "outputs"
             for dataset_data in self._data.get(key, []):
-                if dataset_data["slug"] == slug:
+                if dataset_data.get("name") == slug:
                     return self._parse_dataset(dataset_data, dtype)
 
         return None
@@ -1167,11 +1286,11 @@ class DatasetsManager:
         if datasets is None:
             raise ValueError(f"Package '{name}': 'datasets' list is required in each packages: entry.")
 
-        # Validate all slugs exist
-        all_slugs = {ds.get("slug") for ds in self._data.get("inputs", []) + self._data.get("outputs", [])}
+        # Validate all dataset names exist
+        all_names = {ds.get("name") for ds in self._data.get("inputs", []) + self._data.get("outputs", [])}
         for slug in datasets:
-            if slug not in all_slugs:
-                raise ValueError(f"Package '{name}': dataset slug '{slug}' not found in inputs or outputs.")
+            if slug not in all_names:
+                raise ValueError(f"Package '{name}': dataset name '{slug}' not found in inputs or outputs.")
 
         # Everything except the entry's own keys is package metadata (profile keys, license, RDF keys).
         metadata_data = {k: v for k, v in entry_data.items() if k not in ("name", "datasets", "publish")}
@@ -1265,15 +1384,15 @@ class DatasetsManager:
         if self.find_dataset_by_slug(slug, "output"):
             raise DatasetValidationError(f"Output dataset with slug '{slug}' already exists")
         dataset_data: Dict[str, Any] = {
-            "name": name,
-            "slug": slug,
-            "location": location,
-            "fields": [_field_schema_to_dict(field) for field in fields],
+            "title": name,
+            "name": slug,
+            "path": location,
+            "schema": {"fields": [_field_schema_to_dict(field) for field in fields]},
         }
         if description is not None:
             dataset_data["description"] = description
         if license is not None:
-            dataset_data["license"] = license
+            dataset_data["licenses"] = [{"name": license}]
         if rdf_prefixes is not None:
             dataset_data["rdfPrefixes"] = rdf_prefixes
         if dialect is not None:
@@ -1315,15 +1434,18 @@ class DatasetsManager:
             DatasetNotFoundError: If the dataset doesn't exist.
         """
         for dataset_data in self._data["outputs"]:
-            if dataset_data["slug"] == slug:
+            if dataset_data.get("name") == slug:
                 if fields is not None:
-                    dataset_data["fields"] = [_field_schema_to_dict(field) for field in fields]
+                    schema = dataset_data.setdefault("schema", {})
+                    if not isinstance(schema, dict):
+                        raise DatasetValidationError(f"Output dataset '{slug}': 'schema' is not a mapping")
+                    schema["fields"] = [_field_schema_to_dict(field) for field in fields]
                 if location is not None:
-                    dataset_data["location"] = location
+                    dataset_data["path"] = location
                 if description is not None:
                     dataset_data["description"] = description
                 if license is not None:
-                    dataset_data["license"] = license
+                    dataset_data["licenses"] = [{"name": license}]
                 if rdf_prefixes is not None:
                     dataset_data["rdfPrefixes"] = rdf_prefixes
                 if dialect is not None:
@@ -1353,7 +1475,7 @@ class DatasetsManager:
         for dtype in search_types:
             key = "inputs" if dtype == "input" else "outputs"
             for dataset_data in self._data.get(key, []):
-                if dataset_data["slug"] == slug:
+                if dataset_data.get("name") == slug:
                     if strict:
                         dataset_data["strict"] = True
                     elif "strict" in dataset_data:
@@ -1401,7 +1523,7 @@ class DatasetsManager:
         # Validate the output dataset exists in datasets.yaml
         found = False
         for dataset_data in self._data["outputs"]:
-            if dataset_data["slug"] == slug:
+            if dataset_data.get("name") == slug:
                 found = True
                 break
 
@@ -1447,9 +1569,9 @@ class DatasetsManager:
                     else:
                         attr_str = str(attributed_to)
                     if attr_str:
-                        source_entry["attributedTo"] = attr_str
-                    if src.source.license:
-                        source_entry["license"] = src.source.license
+                        source_entry["prov:wasAttributedTo"] = attr_str
+                    if src.source.license is not None:
+                        source_entry["dct:license"] = src.source.license
                 sources_list.append(source_entry)
             lineage_data["sources"] = sources_list
         if context:

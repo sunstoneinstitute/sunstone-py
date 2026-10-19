@@ -206,7 +206,11 @@ def push_group(
             + ". Run 'git lfs pull' to download the actual files before pushing."
         )
 
+    from .conformance import enforce, validate_datapackage
+    from .vocab import DP_PROFILE_URL
+
     datapackage: dict[str, Any] = {
+        "$schema": DP_PROFILE_URL,
         "name": project_slug,
         f"{_RDF_TYPE_URI}": _DCAT_DATASET_URI,
         "resources": resources,
@@ -221,6 +225,7 @@ def push_group(
     if top_level_props:
         datapackage.update(top_level_props)
 
+    enforce(validate_datapackage(datapackage), where=datapackage_url)
     if descriptor_check is not None:
         descriptor_check(datapackage)
 

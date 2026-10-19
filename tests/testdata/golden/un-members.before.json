@@ -1,0 +1,55 @@
+{
+  "name": "un-members",
+  "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Dataset",
+  "resources": [
+    {
+      "name": "current-un-member-states",
+      "type": "table",
+      "title": "Current UN Member States",
+      "path": "outputs/current_un_member_states.csv",
+      "scheme": "file",
+      "format": "csv",
+      "mediatype": "text/csv",
+      "encoding": "utf-8",
+      "schema": {
+        "fields": [
+          {
+            "name": "Country",
+            "type": "string"
+          },
+          {
+            "name": "Code",
+            "type": "string"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "title": "United Nations Member States Authority File",
+          "path": "https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv",
+          "http://www.w3.org/ns/dcat#downloadURL": "https://digitallibrary.un.org/record/4082085/files/member_states_auths_2025-10-08.csv",
+          "http://www.w3.org/ns/dcat#landingPage": "https://digitallibrary.un.org/record/4082085"
+        }
+      ],
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#type": "http://www.w3.org/ns/dcat#Distribution"
+    }
+  ],
+  "title": "UN Member States Dataset",
+  "description": "Processed data from the official UN Member States Authority File,\nproviding clean, standardized information about current UN members.\n",
+  "version": "1.0.0",
+  "keywords": [
+    "united-nations",
+    "member-states",
+    "international-organizations"
+  ],
+  "license": "CC-BY-NC-3.0-IGO",
+  "contributors": [
+    {
+      "title": "Sunstone Institute",
+      "roles": [
+        "creator",
+        "publisher"
+      ]
+    }
+  ]
+}

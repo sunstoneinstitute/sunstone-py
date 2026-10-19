@@ -212,7 +212,7 @@ class TestLockFileWriting:
         # datasets.yaml should NOT have lineage
         with open(lock_project / "datasets.yaml") as f:
             yaml_data = _yaml.load(f)
-        yaml_output = next(o for o in yaml_data["outputs"] if o["slug"] == "output-data")
+        yaml_output = next(o for o in yaml_data["outputs"] if o["name"] == "output-data")
         assert "lineage" not in yaml_output
 
     def test_update_lineage_creates_lock_file(self, tmp_path: Path) -> None:
@@ -425,7 +425,7 @@ class TestMigrateCommand:
         # datasets.yaml should no longer have lineage
         with open(project / "datasets.yaml") as f:
             yaml_data = _yaml.load(f)
-        yaml_output = next(o for o in yaml_data["outputs"] if o["slug"] == "out")
+        yaml_output = next(o for o in yaml_data["outputs"] if o["name"] == "out")
         assert "lineage" not in yaml_output
 
         # datasets.lock.yaml should have the lineage
@@ -520,9 +520,33 @@ class TestMigrateCommand:
         assert "nothing to migrate" in result.output.lower() or "no inline" in result.output.lower()
 
 
+@pytest.mark.parametrize("command", ["resolve", "migrate"])
+def test_new_form_lock_raises_min_version(lock_project: Path, command: str) -> None:
+    """A lock rewritten with new-form source keys raises min_sunstone_version, so 1.19 refuses the project."""
+    from sunstone.aliases import MIN_NEW_FORM_VERSION, version_key
+
+    with open(lock_project / "datasets.lock.yaml") as f:
+        lock = _yaml.load(f)
+    lock["outputs"][0]["sources"][0]["attributedTo"] = "Example Org"
+    lock["inputs"][0]["content_hash"] = "abc123"  # gives `dataset migrate` a reason to rewrite the lock
+    _write_yaml(lock_project / "datasets.lock.yaml", lock)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        result = CliRunner().invoke(app, ["dataset", command, "-f", str(lock_project / "datasets.yaml")])
+    assert result.exit_code == 0, result.output
+
+    with open(lock_project / "datasets.lock.yaml") as f:
+        source = _yaml.load(f)["outputs"][0]["sources"][0]
+    assert source["prov:wasAttributedTo"] == "Example Org"
+    with open(lock_project / "datasets.yaml") as f:
+        data = _yaml.load(f)
+    assert version_key(str(data["min_sunstone_version"])) >= version_key(MIN_NEW_FORM_VERSION)
+
+
 class TestDeprecationWarning:
     def test_inline_lineage_emits_deprecation_warning(self, tmp_path: Path) -> None:
-        """Loading inline lineage should emit a DeprecationWarning."""
+        """Loading inline lineage emits a FutureWarning naming R323."""
         project = tmp_path / "project"
         project.mkdir()
         _write_yaml(
@@ -546,9 +570,8 @@ class TestDeprecationWarning:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             DatasetsManager(project)
-            deprecations = [x for x in w if issubclass(x.category, DeprecationWarning)]
-            assert len(deprecations) >= 1
-            assert "datasets.lock.yaml" in str(deprecations[0].message)
+            future = [str(x.message) for x in w if x.category is FutureWarning]
+            assert any("[R323] outputs[0].lineage" in m for m in future), future
 
     def test_no_warning_when_lock_file_present(self, lock_project: Path) -> None:
         """No deprecation warning when lineage is in lock file."""
@@ -611,8 +634,8 @@ class TestDenormalizeAttribution:
 
         source_entry = lock_data["outputs"][0]["sources"][0]
         assert source_entry["slug"] == "unesco-stats"
-        assert source_entry["attributedTo"] == "UNESCO Institute for Statistics"
-        assert source_entry["license"] == "CC-BY-SA-4.0"
+        assert source_entry["prov:wasAttributedTo"] == "UNESCO Institute for Statistics"
+        assert source_entry["dct:license"] == "CC-BY-SA-4.0"
 
     def test_source_without_attribution_omits_fields(self, tmp_path: Path) -> None:
         """Sources without attribution/license should not include those fields."""
@@ -716,12 +739,12 @@ class TestDenormalizeAttribution:
         assert len(sources) == 2
 
         attr_src = next(s for s in sources if s["slug"] == "attributed-input")
-        assert attr_src["attributedTo"] == "The World Bank"
-        assert attr_src["license"] == "CC-BY-4.0"
+        assert attr_src["prov:wasAttributedTo"] == "The World Bank"
+        assert attr_src["dct:license"] == "CC-BY-4.0"
 
         plain_src = next(s for s in sources if s["slug"] == "plain-input")
-        assert "attributedTo" not in plain_src
-        assert "license" not in plain_src
+        assert "prov:wasAttributedTo" not in plain_src
+        assert "dct:license" not in plain_src
 
     def test_backward_compat_lock_without_attribution_fields(self, tmp_path: Path) -> None:
         """Lock files without attributedTo/license fields should load without errors."""
@@ -811,5 +834,5 @@ class TestDenormalizeAttribution:
             lock_data = _yaml.load(f)
 
         source_entry = lock_data["outputs"][0]["sources"][0]
-        assert source_entry["attributedTo"] == "UNESCO Institute for Statistics"
-        assert source_entry["license"] == "CC-BY-SA-4.0"
+        assert source_entry["prov:wasAttributedTo"] == "UNESCO Institute for Statistics"
+        assert source_entry["dct:license"] == "CC-BY-SA-4.0"

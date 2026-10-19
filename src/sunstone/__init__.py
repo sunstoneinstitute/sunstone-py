@@ -38,6 +38,7 @@ from typing import TYPE_CHECKING, Any
 # Eager because the dict is cheap and frequently consulted by the CLI.
 STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
+    "dcat-si": "https://sunstone.institute/rdf/data#",
     "dct": "http://purl.org/dc/terms/",
     "dwc": "http://rs.tdwg.org/dwc/terms/",
     "geo": "http://www.opengis.net/ont/geosparql#",
@@ -220,6 +221,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str]] = {
     "Metadata": ("sunstone.lineage", "Metadata"),
     "PackageMetadata": ("sunstone.lineage", "PackageMetadata"),
     "Source": ("sunstone.lineage", "Source"),
+    "SourceAgent": ("sunstone.lineage", "SourceAgent"),
     "SourceLocation": ("sunstone.lineage", "SourceLocation"),
     "UsageRecord": ("sunstone.lineage", "UsageRecord"),
     # Plugin system
@@ -311,6 +313,7 @@ if TYPE_CHECKING:
         Metadata,
         PackageMetadata,
         Source,
+        SourceAgent,
         SourceLocation,
         UsageRecord,
     )
@@ -408,6 +411,7 @@ __all__ = [
     "FieldSchema",
     "PackageMetadata",
     "Source",
+    "SourceAgent",
     "SourceLocation",
     # PROV-O types
     "Activity",

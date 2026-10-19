@@ -732,3 +732,36 @@ outputs:
             results = collect_methodology_files(datasets, top_props, prefixes, manager, base_url)
             assert len(results) == 1
             assert results[0][1] == "https://cdn.example.com/datasets/project/docs/methodology.md"
+
+
+class TestNestedCustomPropertiesUnchanged:
+    """Nested values of existing custom properties are emitted as before 1.20 (only dates become strings)."""
+
+    def test_nested_values_match_base_behaviour(self) -> None:
+        from datetime import date
+
+        prefixes = {
+            "dct": "http://purl.org/dc/terms/",
+            "schema": "http://schema.org/",
+            "sosa": "http://www.w3.org/ns/sosa/",
+        }
+        custom_props = {
+            "dct:temporal": {"schema:startDate": "2020", "schema:endDate": date(2021, 1, 1)},
+            "schema:spatialCoverage": {"@type": "schema:Place", "schema:name": "Norway"},
+            "sosa:observedProperty": ["schema:Temperature", "schema:Weight"],
+        }
+        result = expand_custom_properties(custom_props, prefixes)
+        assert result == {
+            "http://purl.org/dc/terms/temporal": {"schema:startDate": "2020", "schema:endDate": "2021-01-01"},
+            "http://schema.org/spatialCoverage": {"@type": "schema:Place", "schema:name": "Norway"},
+            "http://www.w3.org/ns/sosa/observedProperty": ["schema:Temperature", "schema:Weight"],
+        }
+
+    def test_was_generated_by_is_expanded(self) -> None:
+        from sunstone import STANDARD_RDF_PREFIXES
+
+        custom_props = {"prov:wasGeneratedBy": {"@type": "prov:Activity", "dct:type": "manual-download"}}
+        result = expand_custom_properties(custom_props, STANDARD_RDF_PREFIXES)
+        prov = STANDARD_RDF_PREFIXES["prov"]
+        dct = STANDARD_RDF_PREFIXES["dct"]
+        assert result == {f"{prov}wasGeneratedBy": {"@type": f"{prov}Activity", f"{dct}type": "manual-download"}}

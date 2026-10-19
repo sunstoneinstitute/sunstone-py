@@ -1,0 +1,64 @@
+# Fully conformant, new-form project used by conformance tests.
+min_sunstone_version: 1.20.0
+package:
+  title: Conformant Fixture
+  description: A new-form datasets.yaml with zero lint findings.
+  version: "1.0.0"
+  licenses:
+    - name: CC-BY-4.0
+
+publish:
+  enabled: true
+  to: gs://example-bucket/conformant/
+
+dcat-si:methodology: METHODOLOGY.md
+
+inputs:
+  - title: Clean Input
+    name: clean-input
+    path: inputs/clean.csv
+    description: A pristine input dataset.
+    source:
+      title: Test Source
+      dcat:downloadURL: https://example.com/clean.csv
+      dcat:landingPage: https://example.com/clean
+      dct:publisher:
+        rdfs:label: Example Organisation
+        skos:altLabel: Example Org
+      dct:issued: '2025'
+      dct:license: CC-BY-4.0
+      dct:modified: '2026-01-01'
+      prov:wasAttributedTo: Example Org
+    prov:generatedAtTime: '2026-01-02'
+    prov:wasGeneratedBy:
+      '@type': prov:Activity
+      dct:type: manual-download
+    schema:
+      fields:
+        - name: country
+          type: string
+          description: ISO country code.
+        - name: area_km2
+          type: number
+          si:unit: km**2
+          description: Land area in square kilometres.
+
+outputs:
+  - title: Clean Output
+    name: clean-output
+    path: outputs/clean.csv
+    description: A pristine output dataset.
+    licenses:
+      - name: CC-BY-4.0
+    dct:temporal: '2020/2024'
+    dct:spatial: Norway and Sweden
+    dcat:theme: https://sunstone.institute/rdf/threats#01
+    schema:
+      fields:
+        - name: country
+          type: string
+          description: ISO country code.
+        - name: area_km2
+          type: number
+          si:unit: km**2
+          description: Land area in square kilometres.

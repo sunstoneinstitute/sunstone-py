@@ -364,7 +364,7 @@ class TestWriteTimeEnforcement:
             index=False,
             license="CC-BY-NC-SA-4.0",
         )
-        assert "license: CC-BY-NC-SA-4.0" in (project_with_inputs / "datasets.yaml").read_text()
+        assert "- name: CC-BY-NC-SA-4.0" in (project_with_inputs / "datasets.yaml").read_text()
 
     def test_no_target_license_inherits_single_source(self, project_with_inputs: Path):
         _write_yaml(

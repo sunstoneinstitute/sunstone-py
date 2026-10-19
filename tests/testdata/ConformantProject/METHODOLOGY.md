@@ -1,0 +1,3 @@
+# Methodology
+
+Fixture methodology document.

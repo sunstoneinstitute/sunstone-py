@@ -17,10 +17,23 @@ import typer
 from ruamel.yaml import YAML
 
 from . import STANDARD_RDF_PREFIXES
+from .aliases import legacy_field_source
 from .datasets import DatasetsManager
 from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
-from .lineage import Contributor, DatasetMetadata, PackageEntry, PackageMetadata, PublishConfig, Source
+from .lineage import (
+    Agent,
+    AgentLike,
+    Contributor,
+    DatasetMetadata,
+    FieldSchema,
+    PackageEntry,
+    PackageMetadata,
+    PublishConfig,
+    Source,
+    as_source_agent,
+    as_source_agents,
+)
 
 if TYPE_CHECKING:
     from .asset import AssetKind
@@ -170,6 +183,25 @@ def is_uri(value: str) -> bool:
 
 
 METHODOLOGY_URI = "https://sunstone.institute/rdf/vocab#methodology"
+DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/data#methodology"
+METHODOLOGY_URIS = (METHODOLOGY_URI, DCAT_SI_METHODOLOGY_URI)
+
+
+_PROV = STANDARD_RDF_PREFIXES["prov"]
+_DCT = STANDARD_RDF_PREFIXES["dct"]
+_RDFS = STANDARD_RDF_PREFIXES["rdfs"]
+_SKOS = STANDARD_RDF_PREFIXES["skos"]
+_SI = STANDARD_RDF_PREFIXES["si"]
+_QUDT = STANDARD_RDF_PREFIXES["qudt"]
+
+
+def with_both_methodology_keys(props: dict[str, Any]) -> dict[str, Any]:
+    """1.x emits the methodology under the old and the new IRI (2.0 drops the old one)."""
+    out = dict(props)
+    for have, want in ((DCAT_SI_METHODOLOGY_URI, METHODOLOGY_URI), (METHODOLOGY_URI, DCAT_SI_METHODOLOGY_URI)):
+        if have in out and want not in out:
+            out[want] = out[have]
+    return out
 
 
 def resolve_methodology_value(value: str, base_url: str | None = None, flatten: bool = False) -> str:
@@ -207,7 +239,7 @@ def _extract_methodology_value(props: dict[str, Any], prefixes: dict[str, str]) 
     """Extract the raw methodology value from a set of custom properties, if present."""
     for key, value in props.items():
         expanded_key = expand_rdf_prefixes(key, prefixes)
-        if expanded_key == METHODOLOGY_URI and isinstance(value, str):
+        if expanded_key in METHODOLOGY_URIS and isinstance(value, str):
             return value
     return None
 
@@ -272,6 +304,54 @@ def collect_methodology_files(
     return [(path, uri) for path, uri in seen.items()]
 
 
+def _expand_value(value: Any, prefixes: dict[str, str]) -> Any:
+    """Expand prefixed names in a property value, recursing into nested nodes (keys too, except ``@id``/``@type``)."""
+    from datetime import date, datetime
+
+    if isinstance(value, str):
+        return expand_rdf_prefixes(value, prefixes)
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {
+            (k if k in ("@id", "@type") else expand_rdf_prefixes(k, prefixes)): _expand_value(v, prefixes)
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_expand_value(v, prefixes) for v in value]
+    return value
+
+
+def _expand_keys(value: Any, prefixes: dict[str, str]) -> Any:
+    """Expand prefixed keys (not values) at any depth; DP keys, ``@id`` and ``@type`` stay."""
+    if isinstance(value, dict):
+        return {
+            (k if k in ("@id", "@type") else expand_rdf_prefixes(k, prefixes)): _expand_keys(v, prefixes)
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_expand_keys(v, prefixes) for v in value]
+    return value
+
+
+def _isoformat_dates(value: Any) -> Any:
+    """Convert date/datetime values (at any depth) to ISO strings and leave everything else unchanged."""
+    from datetime import date, datetime
+
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _isoformat_dates(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_isoformat_dates(v) for v in value]
+    return value
+
+
+# Custom properties whose nested nodes are emitted expanded. Nested values of
+# other custom properties stay as written, so existing datapackage.json output does not change.
+_NESTED_EXPANSION_KEYS = frozenset({f"{_PROV}wasGeneratedBy"})
+
+
 def expand_custom_properties(
     custom_props: dict[str, Any],
     prefixes: dict[str, str],
@@ -280,7 +360,10 @@ def expand_custom_properties(
     flatten: bool = False,
 ) -> dict[str, Any]:
     """
-    Expand all RDF prefixes in custom properties (both keys and values).
+    Expand RDF prefixes in custom property keys and string values.
+
+    Nested list/dict values are kept as written (dates become ISO strings),
+    except for ``prov:wasGeneratedBy``, whose nested keys and values are expanded too.
 
     Special handling for the methodology property (expanded URI
     https://sunstone.institute/rdf/vocab#methodology): if the value is not
@@ -301,15 +384,13 @@ def expand_custom_properties(
         # Expand the key if it's a prefixed name
         expanded_key = expand_rdf_prefixes(key, prefixes)
 
-        # Expand the value if it's a string that might contain a prefix
-        if isinstance(value, str):
-            # Special case for methodology: resolve as relative URI against base
-            if expanded_key == METHODOLOGY_URI:
-                expanded_value = resolve_methodology_value(value, base_url, flatten=flatten)
-            else:
-                expanded_value = expand_rdf_prefixes(value, prefixes)
+        if isinstance(value, str) and expanded_key in METHODOLOGY_URIS:
+            # Methodology: resolve as relative URI against base
+            expanded_value = resolve_methodology_value(value, base_url, flatten=flatten)
+        elif isinstance(value, str) or expanded_key in _NESTED_EXPANSION_KEYS:
+            expanded_value = _expand_value(value, prefixes)
         else:
-            expanded_value = value
+            expanded_value = _isoformat_dates(value)
 
         expanded[expanded_key] = expanded_value
 
@@ -749,8 +830,7 @@ def dataset_validate(
     strict: bool = typer.Option(
         False,
         "--strict",
-        help="Also reject keys that are neither Data Package v2 properties nor sunstone keys, "
-        "and check Data Package property values against the v2 profiles.",
+        help="Also apply key rules R301-R303 and check Data Package property values against the v2 profiles.",
     ),
     datasets: Optional[list[str]] = typer.Argument(
         None, autocompletion=complete_dataset_slugs, help="Dataset slugs to validate (same as --dataset)."
@@ -760,7 +840,7 @@ def dataset_validate(
 
     Without slugs, validates the whole file including package-level checks. With slugs
     (positional or --dataset), only those datasets are checked. --strict adds the key and
-    value rules described in docs/datasets-yaml.md.
+    value rules described in docs/datasets-yaml.md, on the normalized (new key form) document.
     """
     selected = set(datasets or []) | set(dataset or [])
     datasets_path = Path(datasets_file).resolve()
@@ -782,10 +862,17 @@ def dataset_validate(
         typer.echo("  - datasets.yaml must be a mapping", err=True)
         sys.exit(1)
 
+    from .aliases import normalize_document
     from .datasets_schema import profile_field_types
     from .plugins import PluginRegistry
 
     valid_field_types = profile_field_types() | set(PluginRegistry.get(datasets_path.parent).field_types.known())
+    normalized = normalize_document(data)  # validate the normalized (new key form) view
+
+    def first_license(value: Any) -> Any:
+        if isinstance(value, list) and value and isinstance(value[0], dict):
+            return value[0].get("name")
+        return None
 
     # Check structure
     if "inputs" not in data and "outputs" not in data:
@@ -798,7 +885,7 @@ def dataset_validate(
 
     def validate_dataset_entry(ds: dict, ds_type: str, index: int) -> None:
         prefix = f"{ds_type}[{index}]"
-        slug = ds.get("slug")
+        slug = ds.get("name")
 
         # Skip if specific datasets requested and this isn't one of them
         if datasets_to_validate and slug not in datasets_to_validate:
@@ -809,7 +896,7 @@ def dataset_validate(
         selected_locations.add(prefix)
 
         # Required fields
-        for field in ["name", "slug", "location"]:
+        for field in ["title", "name", "path"]:
             if field not in ds:
                 errors.append(f"{prefix}: missing required field '{field}'")
 
@@ -823,8 +910,9 @@ def dataset_validate(
         # Check type
         resource_type = ds.get("type")
 
-        # Check fields (under --strict the walker reports missing names and bad types)
-        fields = ds.get("fields")
+        # Check fields
+        schema = ds.get("schema")
+        fields = schema.get("fields") if isinstance(schema, dict) else None
         if resource_type == "table" and fields is None:
             errors.append(f"{prefix}: 'fields' is required for table resources")
         elif fields is not None:
@@ -849,7 +937,7 @@ def dataset_validate(
         from .licenses import is_valid_spdx
 
         if ds_type == "outputs":
-            license_value = ds.get("license")
+            license_value = first_license(ds.get("licenses"))
             if license_value is not None and not is_valid_spdx(str(license_value)):
                 errors.append(
                     f"{prefix}: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {license_value!r}"
@@ -859,7 +947,7 @@ def dataset_validate(
         if ds_type == "inputs":
             source = ds.get("source")
             if isinstance(source, dict):
-                source_license = source.get("license")
+                source_license = source.get("dct:license")
                 if source_license is not None and not is_valid_spdx(str(source_license)):
                     errors.append(
                         f"{prefix}.source: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {source_license!r}"
@@ -883,7 +971,7 @@ def dataset_validate(
 
         package_block = data.get("package")
         if isinstance(package_block, dict):
-            pkg_license = package_block.get("license")
+            pkg_license = first_license(package_block.get("licenses"))
             if pkg_license is not None and not _is_valid_spdx(str(pkg_license)):
                 errors.append(
                     f"package: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
@@ -893,17 +981,21 @@ def dataset_validate(
             for i, pkg in enumerate(packages_block):
                 if not isinstance(pkg, dict):
                     continue
-                pkg_license = pkg.get("license")
+                pkg_license = first_license(pkg.get("licenses"))
                 if pkg_license is not None and not _is_valid_spdx(str(pkg_license)):
                     errors.append(
                         f"packages[{i}]: 'license' is not a recognized SPDX identifier or LicenseRef-* form: {pkg_license!r}"
                     )
 
-    # Strict: allow-listed keys and Data Package property values (docs/datasets-yaml.md)
+    # Strict: key rules R301-R303 (conformance) and Data Package property values (profiles)
     if strict:
+        from .conformance import validate_datasets_yaml
         from .datasets_schema import validate_datasets_data
 
-        schema_errors = validate_datasets_data(data, field_types=valid_field_types)
+        key_rules = ("R301", "R302", "R303")
+        violations = validate_datasets_yaml(data, field_types=valid_field_types, normalize=False, result=normalized)
+        schema_errors = [f"{v.path}: [{v.rule_id}] {v.message}" for v in violations if v.rule_id in key_rules]
+        schema_errors += validate_datasets_data(data, field_types=valid_field_types)
         if datasets_to_validate:
             # Keep messages rooted at a selected dataset: "inputs[3]..." or "inputs[3].fields[0]..."
             schema_errors = [e for e in schema_errors if e.split(":", 1)[0].split(".", 1)[0] in selected_locations]
@@ -952,7 +1044,7 @@ def dataset_migrate(
     for output in manager._data.get("outputs", []):
         lineage = output.get("lineage")
         if lineage:
-            slug = output["slug"]
+            slug = output["name"]
             lock_entry: dict = {"slug": slug}
             lock_entry.update(lineage)
             # Strip source entries to just slug to match update_output_lineage format
@@ -1233,6 +1325,27 @@ _NON_FRICTIONLESS_SUFFIXES: frozenset[str] = frozenset({".parquet", ".parq"})
 _PARQUET_MEDIATYPE = "application/vnd.apache.parquet"
 
 
+def _augment_field_dict(field_dict: dict[str, Any], f: FieldSchema, prefixes: dict[str, str]) -> None:
+    """Add datasets.yaml field metadata to a descriptor field. Legacy keys stay (1.x)."""
+    if f.description and "description" not in field_dict:
+        field_dict["description"] = f.description
+    if f.title:
+        field_dict["title"] = f.title
+        field_dict[f"{_DCT}title"] = f.title
+    if f.unit:
+        field_dict["unit"] = f.unit
+        field_dict[f"{_SI}unit"] = f.unit
+        if f.unit_source:
+            field_dict[f"{_QUDT}hasUnit"] = f.unit_source
+    if f.source:
+        field_dict["source"] = f.legacy_source if f.legacy_source is not None else legacy_field_source(f.source)
+        field_dict[f"{_DCT}source"] = f.source if isinstance(f.source, str) else _expand_keys(f.source, prefixes)
+    if f.constraints and "constraints" not in field_dict:
+        field_dict["constraints"] = f.constraints
+    if f.custom_properties:
+        field_dict.update(_expand_field_custom_properties(f.custom_properties, prefixes))
+
+
 def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
     """Build a Frictionless-compatible schema dict from datasets.yaml field declarations.
 
@@ -1240,20 +1353,11 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
     """
     if not ds.fields:
         return None
+    prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
     field_dicts = []
     for f in ds.fields:
         field_dict: dict[str, Any] = {"name": f.name, "type": f.type}
-        if f.description:
-            field_dict["description"] = f.description
-        if f.unit:
-            field_dict["unit"] = f.unit
-        if f.source:
-            field_dict["source"] = f.source
-        if f.constraints:
-            field_dict["constraints"] = f.constraints
-        if f.custom_properties:
-            prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-            field_dict.update(_expand_field_custom_properties(f.custom_properties, prefixes))
+        _augment_field_dict(field_dict, f, prefixes)
         field_dicts.append(field_dict)
     schema: dict[str, Any] = {"fields": field_dicts}
     if ds.primary_key:
@@ -1261,20 +1365,56 @@ def _build_schema_from_yaml(ds: DatasetMetadata) -> Optional[dict[str, Any]]:
     return schema
 
 
+def _agent_node(agent: AgentLike) -> dict[str, Any]:
+    """Spec "Source references" agent object with expanded keys."""
+    agent = as_source_agent(agent)
+    node: dict[str, Any] = {}
+    if agent.id:
+        node["@id"] = agent.id
+    node[f"{_RDFS}label"] = agent.label
+    if agent.alt_label:
+        node[f"{_SKOS}altLabel"] = agent.alt_label
+    return node
+
+
 def _source_entry(source: Source) -> dict[str, Any]:
-    entry: dict[str, Any] = {"title": source.name}
+    entry: dict[str, Any] = {}
+    if source.id:
+        entry["@id"] = source.id
+    entry["title"] = source.name
     loc = source.location
-    path = loc.data or loc.about or loc.metadata or loc.access
+    path = loc.data or loc.about or loc.metadata or loc.access or source.id
     if path:
         entry["path"] = path
     dcat = STANDARD_RDF_PREFIXES["dcat"]
     for prop, value in (("downloadURL", loc.data), ("accessURL", loc.access), ("landingPage", loc.about)):
         if value:
             entry[f"{dcat}{prop}"] = value
-    dct = STANDARD_RDF_PREFIXES["dct"]
-    for prop, value in (("publisher", source.publisher), ("creator", source.creator)):
+    if loc.metadata:
+        entry[f"{_RDFS}seeAlso"] = loc.metadata
+    if source.publisher:
+        entry[f"{_DCT}publisher"] = _agent_node(source.publisher)
+    if source.creator:
+        entry[f"{_DCT}creator"] = [_agent_node(a) for a in as_source_agents(source.creator)]
+    if source.issued:
+        entry[f"{_DCT}issued"] = source.issued
+    if source.is_part_of:
+        entry[f"{_DCT}isPartOf"] = _expand_value(source.is_part_of, STANDARD_RDF_PREFIXES)
+    if source.bibliographic_citation:
+        entry[f"{_DCT}bibliographicCitation"] = source.bibliographic_citation
+    agent = source.attributed_to
+    if isinstance(agent, Agent):
+        node: dict[str, Any] = {"@id": agent.id, "@type": expand_rdf_prefixes(agent.type.value, STANDARD_RDF_PREFIXES)}
+        if agent.label:
+            node[f"{_RDFS}label"] = agent.label
+        entry[f"{_PROV}wasAttributedTo"] = node
+        if agent.version:
+            entry["version"] = agent.version
+    elif agent:
+        entry[f"{_PROV}wasAttributedTo"] = str(agent)
+    for prop, value in (("license", source.license), ("modified", source.updated)):
         if value:
-            entry[f"{dct}{prop}"] = value
+            entry[f"{_DCT}{prop}"] = value
     return entry
 
 
@@ -1446,19 +1586,14 @@ def build_resource_dict(
         # Convert to dict and add custom RDF properties
         resource_dict: dict[str, Any] = resource.to_dict()
 
-        # Add field-level unit and source from datasets.yaml (custom properties)
+        # Add field-level metadata from datasets.yaml
         if ds.fields:
             yaml_fields_by_name = {f.name: f for f in ds.fields}
+            prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
             for field_dict in resource_dict.get("schema", {}).get("fields", []):
                 yaml_field = yaml_fields_by_name.get(field_dict["name"])
                 if yaml_field:
-                    if yaml_field.unit:
-                        field_dict["unit"] = yaml_field.unit
-                    if yaml_field.source:
-                        field_dict["source"] = yaml_field.source
-                    if yaml_field.custom_properties:
-                        prefixes = {**STANDARD_RDF_PREFIXES, **(ds.rdf_prefixes or {})}
-                        field_dict.update(_expand_field_custom_properties(yaml_field.custom_properties, prefixes))
+                    _augment_field_dict(field_dict, yaml_field, prefixes)
 
         sources = _build_sources_from_yaml(ds, manager)
         if sources:
@@ -1509,6 +1644,8 @@ def _package_metadata_to_dict(metadata: PackageMetadata) -> dict[str, Any]:
         value = getattr(metadata, field)
         if value is not None:
             d[field] = value
+    if metadata.license is not None:
+        d["licenses"] = [{"name": metadata.license}]
     if metadata.contributors is not None:
         d["contributors"] = [_contributor_to_dict(c) for c in metadata.contributors]
     d.update(metadata.extra)
@@ -1579,9 +1716,13 @@ def build_datapackage(
         top_level_props = expand_custom_properties(
             top_level_props, rdf_prefixes, base_url=as_url, flatten=should_flatten
         )
+        top_level_props = with_both_methodology_keys(top_level_props)
     datapackage.update(top_level_props)
 
+    from .conformance import enforce, validate_datapackage
     from .datasets_schema import validate_datapackage_descriptor
+
+    enforce(validate_datapackage(datapackage), where="datapackage.json")
 
     problems = validate_datapackage_descriptor(datapackage)
     if problems:
@@ -1805,6 +1946,7 @@ def push_group_to_blob_store(
         top_level_props = expand_custom_properties(
             top_level_props, rdf_prefixes, base_url=as_url, flatten=publish_config.flatten
         )
+        top_level_props = with_both_methodology_keys(top_level_props)
 
     # Collect methodology files for upload
     methodology_files = collect_methodology_files(
