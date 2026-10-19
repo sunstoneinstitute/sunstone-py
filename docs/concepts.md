@@ -509,7 +509,7 @@ The registry is intentionally focused on common research-data licenses. Anything
 |---|---|
 | `CC0-1.0`, `PDDL-1.0`, `LicenseRef-US-PD` | Public domain |
 | `CC-BY-4.0`, `CC-BY-3.0`, `CC-BY-3.0-IGO` | Attribution only |
-| `ODC-By-1.0`, `LicenseRef-OGL-3.0`, `NLOD-1.0`, `NLOD-2.0` | Attribution only |
+| `ODC-By-1.0`, `LicenseRef-OGL-3.0`, `NLOD-1.0`, `NLOD-2.0`, `LicenseRef-GODL-India` | Attribution only |
 | `CC-BY-SA-4.0`, `CC-BY-SA-3.0`, `ODbL-1.0` | Attribution + ShareAlike (each is its own family) |
 | `CC-BY-NC-4.0`, `CC-BY-NC-3.0-IGO` | Attribution + NonCommercial |
 | `CC-BY-NC-SA-4.0`, `CC-BY-NC-SA-3.0`, `CC-BY-NC-SA-3.0-IGO` | Attribution + NonCommercial + ShareAlike (each is its own family) |
