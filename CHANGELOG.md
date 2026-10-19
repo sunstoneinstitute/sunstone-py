@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 - Added: license registry entry for the Government Open Data License - India (`LicenseRef-GODL-India`).
+- Fixed: `sunstone dataset resolve` keeps output `data_hash`, and writes record `file_hash`, so `resolve --check` passes right after a write.
 - Fixed: output source entries keep both `dct:creator` and `prov:wasAttributedTo` (lock entries update on the next data change).
 - Fixed: `sunstone package build` writes `dct:creator` and other prefixed keys in a field's `source` as full IRIs.
 

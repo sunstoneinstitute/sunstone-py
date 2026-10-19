@@ -388,6 +388,39 @@ class TestResolveCommand:
         )
         assert result.exit_code == 1
 
+    def test_resolve_and_write_agree(self, tmp_path: Path) -> None:
+        """resolve keeps the writer's data_hash, and the writer records file_hash, so --check passes after a write."""
+        import sunstone
+        from sunstone import pandas as spd
+
+        (tmp_path / "inputs").mkdir()
+        (tmp_path / "outputs").mkdir()
+        (tmp_path / "inputs" / "raw.csv").write_text("a\n1\n")
+        _write_yaml(
+            tmp_path / "datasets.yaml",
+            {
+                "min_sunstone_version": "1.20.0",
+                "inputs": [{"title": "Raw", "name": "raw", "path": "inputs/raw.csv", "source": {"title": "S"}}],
+                "outputs": [{"title": "Out", "name": "out", "path": "outputs/out.csv"}],
+            },
+        )
+        runner = CliRunner()
+        datasets_file = str(tmp_path / "datasets.yaml")
+        assert runner.invoke(app, ["dataset", "resolve", "-f", datasets_file]).exit_code == 0
+
+        sunstone.set_project_path(tmp_path)
+        spd.read_csv("inputs/raw.csv").to_csv("outputs/out.csv", slug="out", name="Out", index=False)
+        with open(tmp_path / "datasets.lock.yaml") as f:
+            written = _yaml.load(f)["outputs"][0]
+        assert written["file_hash"].startswith("sha256:")
+
+        result = runner.invoke(app, ["dataset", "resolve", "--check", "-f", datasets_file])
+        assert result.exit_code == 0, result.output
+
+        assert runner.invoke(app, ["dataset", "resolve", "-f", datasets_file]).exit_code == 0
+        with open(tmp_path / "datasets.lock.yaml") as f:
+            assert _yaml.load(f)["outputs"][0]["data_hash"] == written["data_hash"]
+
 
 @pytest.mark.filterwarnings("ignore:Inline lineage:DeprecationWarning")
 class TestMigrateCommand:
