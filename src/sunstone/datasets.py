@@ -1557,6 +1557,13 @@ class DatasetsManager:
         lineage_data: dict[str, Any] = {}
         lineage_data["slug"] = slug
         lineage_data["data_hash"] = data_hash
+        # Same file hash as `sunstone dataset resolve`, so `resolve --check` passes after a write
+        output_ds = self.find_dataset_by_slug(slug, "output")
+        output_path = self.get_absolute_path(output_ds.location) if output_ds is not None else None
+        if output_path is not None and output_path.is_file():
+            import hashlib
+
+            lineage_data["file_hash"] = f"sha256:{hashlib.sha256(output_path.read_bytes()).hexdigest()}"
         if timestamp:
             lineage_data["created_at"] = timestamp
         if lineage.sources:

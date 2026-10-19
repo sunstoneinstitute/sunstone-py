@@ -1214,7 +1214,15 @@ def dataset_resolve(
 
         # Preserve existing lineage from lock file
         existing = manager._get_lock_entry(ds.slug, "output")
-        for key in ("created_at", "sources", "activity", "field_derivations", "context", "transformation_params"):
+        for key in (
+            "data_hash",
+            "created_at",
+            "sources",
+            "activity",
+            "field_derivations",
+            "context",
+            "transformation_params",
+        ):
             if key in existing:
                 entry[key] = existing[key]
 
