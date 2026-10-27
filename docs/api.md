@@ -304,7 +304,7 @@ Read CSV file with lineage tracking.
 
 **Parameters:**
 
-- `filepath` (str | Path): Path to CSV file, URL, or dataset slug
+- `filepath` (str | Path): Path to CSV file, URL, or registered dataset name. There is no `slug=` argument
 - `project_path` (str | Path | None): Path to project directory containing `datasets.yaml`. Defaults to the value set with `sunstone.set_project_path()`, or `Path.cwd()` if none is set
 - `strict` (bool | None): If True, dataset must be pre-registered in `datasets.yaml`. If None, reads from `SUNSTONE_DATAFRAME_STRICT` env var
 - `**kwargs`: Additional arguments passed to `pandas.read_csv()`
@@ -528,6 +528,8 @@ df.to_csv(
 
 **Note:** Publishing is controlled by the top-level `publish` configuration in `datasets.yaml`, not per-dataset.
 
+**Lineage-tracking writers:** Only `to_csv` and `to_parquet` record lineage. Other writers such as `to_json` and `to_excel` fall through to plain pandas, so `slug=` and `name=` raise `TypeError`. Writers take no `project_path=` or `description=` argument: the project comes from the DataFrame's lineage (see `set_project_path`) and the description from `df.metadata.description`. An unknown keyword is forwarded to pandas and raises `TypeError`. To record parameters of a processing step, pass `transformation_params={...}`.
+
 ---
 
 #### `to_parquet(path, slug, name, *, license=None, check_license=True, track=True, **kwargs)`
@@ -627,31 +629,6 @@ Concatenate with other DataFrames.
 - `**kwargs`: Arguments passed to `pandas.concat()`
 
 **Returns:** New `DataFrame` with combined lineage
-
----
-
-#### `apply_operation(operation, description)`
-
-Apply transformation with lineage tracking.
-
-**Parameters:**
-
-- `operation` (callable): Function that takes a pandas DataFrame and returns a pandas DataFrame
-- `description` (str): Human-readable description of the operation
-
-**Returns:** New `DataFrame` with operation recorded in lineage
-
-**Example:**
-
-```python
-def adjust_enrollment(df):
-    return df.assign(adjusted=df['enrollment'] * 1.1)
-
-result = df.apply_operation(
-    adjust_enrollment,
-    description="Apply 10% enrollment adjustment factor"
-)
-```
 
 ---
 

@@ -842,16 +842,16 @@ name: output
 name: final_final_v2
 ```
 
-### Track Operations Explicitly
+### Record Step Parameters
 
 ```python
-# Instead of chaining without description
-result = df.apply(complex_function)
+result = df.assign(adjusted=df['enrollment'] * 1.1)
 
-# Add operation description for lineage
-result = df.apply_operation(
-    complex_function,
-    description="Apply enrollment adjustment factors"
+result.to_csv(
+    'outputs/adjusted.csv',
+    slug='adjusted',
+    name='Adjusted Enrollment',
+    transformation_params={'factor': 1.1},
 )
 ```
 

@@ -78,7 +78,7 @@ remains as a typed shortcut for tabular kinds and is the recommended
 way to set per-column metadata for now.
 
 ```python
-df.set_field_metadata("temperature", units="celsius",
+df.set_field_metadata("temperature", unit="celsius",
                      description="Daily mean air temperature")
 ```
 
@@ -91,6 +91,12 @@ Lineage flows through pandas operations (`merge`, `concat`, `groupby`,
 column-level transforms). Field-level derivations populate on read and
 update as columns change. See [Core Concepts](concepts.md) for the full
 lineage model.
+
+## Reading and writing
+
+- Only `to_csv` and `to_parquet` record lineage. `to_json` and `to_excel` are plain pandas.
+- Writers take no `project_path=` or `description=` argument.
+- There is no `sunstone.pandas.read_parquet`. Read Parquet with `read_dataset`.
 
 ## Extras
 
