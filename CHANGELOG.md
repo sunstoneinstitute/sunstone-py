@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `groupby` aggregations on a sunstone DataFrame return sunstone DataFrames that keep lineage and accept `to_csv(slug=...)`.
+
 ## [1.21.0] - 2026-10-19
 
 - Added: `sunstone dataset resolve --refresh` rebuilds output source entries in the lock file from `datasets.yaml`.

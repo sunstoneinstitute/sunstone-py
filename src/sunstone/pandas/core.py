@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 import pandas as pd
+from pandas.api.typing import DataFrameGroupBy, SeriesGroupBy
 
 from ..config import get_project_path
 from ..datasets import DatasetsManager
@@ -178,8 +179,11 @@ class DataFrame(ReadMixin, WriteMixin, MetadataMixin, OpsMixin):
         """Wrap a pandas result in a Sunstone DataFrame if applicable.
 
         Copies all metadata, dropping field_metadata and field_derivations
-        for columns no longer present.
+        for columns no longer present. GroupBy objects are wrapped so their
+        DataFrame results carry the same metadata.
         """
+        if isinstance(result, (DataFrameGroupBy, SeriesGroupBy)):
+            return _GroupBy(result, self)
         if isinstance(result, pd.DataFrame):
             new_field_meta = {k: replace(v) for k, v in self.metadata.field_metadata.items() if k in result.columns}
 
@@ -305,6 +309,38 @@ class DataFrame(ReadMixin, WriteMixin, MetadataMixin, OpsMixin):
     def __iter__(self) -> Any:
         """Iterate over column names."""
         return iter(self.data)
+
+
+class _GroupBy:
+    """Proxy for a pandas GroupBy that rewraps DataFrame results with the parent's metadata."""
+
+    def __init__(self, groupby: Any, parent: DataFrame):
+        self._groupby = groupby
+        self._parent = parent
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("__"):
+            raise AttributeError(name)
+        attr = getattr(self._groupby, name)
+        if callable(attr):
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return self._parent._wrap_result(attr(*args, **kwargs))
+
+            return wrapper
+        return self._parent._wrap_result(attr)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._parent._wrap_result(self._groupby[key])
+
+    def __iter__(self) -> Any:
+        return iter(self._groupby)
+
+    def __len__(self) -> int:
+        return len(self._groupby)
+
+    def __repr__(self) -> str:
+        return repr(self._groupby)
 
 
 def _read_tabular_asset(path: str, *, format: Optional[str] = None, **kw: Any) -> "Asset":

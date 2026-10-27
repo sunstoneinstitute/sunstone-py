@@ -473,3 +473,29 @@ def test_existing_workflows_unchanged_post_phase5(tmp_path, monkeypatch):
     # 3. to_csv writes successfully
     df.to_csv("outputs/tiny.csv", slug="tiny-output", name="Tiny Out", index=False)
     assert (project / "outputs" / "tiny.csv").exists()
+
+
+class TestGroupByLineage:
+    """GroupBy results stay sunstone DataFrames carrying the source lineage."""
+
+    @pytest.fixture
+    def sample_df(self, project_copy: Path) -> sunstone.DataFrame:
+        df = spd.read_dataset("official-un-member-states", project_path=project_copy, strict=False)
+        df["has_iso"] = df["ISO Code"].notna()
+        return df
+
+    def test_groupby_results_keep_lineage_and_write(self, sample_df: sunstone.DataFrame) -> None:
+        sources = sample_df.metadata.lineage.sources
+        assert sources
+        results = {
+            "agg": sample_df.groupby("has_iso").agg({"M49 Code": "count"}),
+            "sum": sample_df[["has_iso", "M49 Code"]].groupby("has_iso").sum(),
+            "series-agg": sample_df.groupby("has_iso")["M49 Code"].agg(["count", "nunique"]),
+        }
+        for label, result in results.items():
+            assert isinstance(result, sunstone.DataFrame), label
+            assert result.metadata.lineage.sources == sources, label
+            out = result.reset_index()
+            assert isinstance(out, sunstone.DataFrame), label
+            assert out.metadata.lineage.sources == sources, label
+            out.to_csv(f"outputs/groupby_{label}.csv", slug=f"groupby-{label}", name=f"GroupBy {label}", index=False)
