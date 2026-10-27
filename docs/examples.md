@@ -300,33 +300,15 @@ PROJECT_PATH = Path.cwd()
 
 df = pd.read_csv('data/measurements.csv', project_path=PROJECT_PATH)
 
-# Define custom operation
-def remove_outliers(data):
-    """Remove values beyond 3 standard deviations."""
-    mean = data['value'].mean()
-    std = data['value'].std()
-    mask = np.abs(data['value'] - mean) <= 3 * std
-    return data[mask]
+# Remove values beyond 3 standard deviations
+mean = df['value'].mean()
+std = df['value'].std()
+cleaned = df[np.abs(df['value'] - mean) <= 3 * std]
 
-# Apply with lineage tracking
-cleaned = df.apply_operation(
-    remove_outliers,
-    description="Remove outliers (>3 std dev)"
-)
-
-# Define another operation
-def normalize_values(data):
-    """Normalize values to 0-1 range."""
-    min_val = data['value'].min()
-    max_val = data['value'].max()
-    data['value'] = (data['value'] - min_val) / (max_val - min_val)
-    return data
-
-# Chain operations
-normalized = cleaned.apply_operation(
-    normalize_values,
-    description="Normalize values to [0,1] range"
-)
+# Normalize values to 0-1 range
+min_val = cleaned['value'].min()
+max_val = cleaned['value'].max()
+normalized = cleaned.assign(value=(cleaned['value'] - min_val) / (max_val - min_val))
 
 # Save final result
 normalized.to_csv(
@@ -604,10 +586,7 @@ PROJECT_PATH = Path.cwd()
 raw = pd.read_csv('data/raw_data.csv', project_path=PROJECT_PATH)
 
 # Stage 2: Clean
-cleaned = raw.apply_operation(
-    lambda df: df.dropna(),
-    description="Remove missing values"
-)
+cleaned = raw.dropna()
 
 cleaned.to_csv(
     'intermediate/cleaned.csv',
@@ -616,11 +595,8 @@ cleaned.to_csv(
 )
 
 # Stage 3: Transform
-transformed = cleaned.apply_operation(
-    lambda df: df.assign(
-        normalized=df['value'] / df['value'].max()
-    ),
-    description="Normalize values"
+transformed = cleaned.assign(
+    normalized=cleaned['value'] / cleaned['value'].max()
 )
 
 transformed.to_csv(
