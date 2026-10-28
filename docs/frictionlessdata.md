@@ -1,3 +1,7 @@
+---
+description: "Background on the Frictionless Data standards that data packages build on."
+---
+
 # Frictionless Data Standard
 
 ## Overview

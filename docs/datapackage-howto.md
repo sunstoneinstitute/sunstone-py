@@ -1,3 +1,7 @@
+---
+description: "Configure datasets.yaml packages and build/publish them with `sunstone package`."
+---
+
 # Data Packages How-To
 
 This guide explains how to configure `datasets.yaml` to define, build, and publish data packages using the `sunstone` CLI.

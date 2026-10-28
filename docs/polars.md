@@ -1,3 +1,7 @@
+---
+description: "Tabular data with the lineage-tracking `sunstone.polars` facade (`[polars]` extra)."
+---
+
 # polars
 
 Tabular data backed by a polars `DataFrame`. The Asset envelope is

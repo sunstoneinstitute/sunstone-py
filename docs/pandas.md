@@ -1,3 +1,7 @@
+---
+description: "Tabular data with the lineage-tracking `sunstone.pandas` facade."
+---
+
 # pandas
 
 Tabular data backed by a pandas `DataFrame`. This is the kind that

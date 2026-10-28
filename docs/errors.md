@@ -1,3 +1,7 @@
+---
+description: "Catching pandas exceptions through `sunstone.errors`."
+---
+
 # Error handling
 
 The `sunstone.errors` module re-exports everything from `pandas.errors`,

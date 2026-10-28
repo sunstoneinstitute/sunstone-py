@@ -1,3 +1,7 @@
+---
+description: "Vector geospatial data (GeoJSON, TopoJSON) with the geopandas facade."
+---
+
 # geopandas
 
 Vector geospatial data backed by a geopandas `GeoDataFrame`. This is the

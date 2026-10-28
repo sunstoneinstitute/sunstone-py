@@ -1,3 +1,7 @@
+---
+description: "Background on the Data Package v2 standard."
+---
+
 # Data Package Standard (v2)
 
 ## Overview

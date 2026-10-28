@@ -1,3 +1,7 @@
+---
+description: "The Asset envelope, strict vs relaxed mode, PROV-O lineage, metadata, plugins, units, licenses, and project layout."
+---
+
 # Core Concepts
 
 Understanding the key concepts behind sunstone-py's data management and lineage tracking.

@@ -1,3 +1,7 @@
+---
+description: "Emulating Google Cloud Storage locally with fake-gcs-server for tests."
+---
+
 # GCS Local Testing with fake-gcs-server
 
 This document describes how to emulate Google Cloud Storage (GCS) locally using `fsouza/fake-gcs-server` for development and testing.

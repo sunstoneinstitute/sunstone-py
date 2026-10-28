@@ -1,3 +1,7 @@
+---
+description: "Raster data (satellite imagery, gridded fields) as NumPy ndarrays."
+---
+
 # Images (raster ndarrays)
 
 Single-payload raster data — satellite imagery, photographs, scanned
