@@ -1,0 +1,1718 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python library for managing datasets with lineage tracking">
+      
+      
+      
+        <link rel="canonical" href="https://sunstoneinstitute.github.io/sunstone-py/1.21.2/superpowers/plans/2026-10-16-datapackage-conformance-skill/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Datapackage Conformance (claude-plugins, C10) Implementation Plan - Sunstone Python Library</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    <link rel="alternate" type="text/markdown" href="../2026-10-16-datapackage-conformance-skill.md">
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#datapackage-conformance-claude-plugins-c10-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Sunstone Python Library" class="md-header__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Sunstone Python Library
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Datapackage Conformance (claude-plugins, C10) Implementation Plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Sunstone Python Library" class="md-nav__button md-logo" aria-label="Sunstone Python Library" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Sunstone Python Library
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sunstoneinstitute/sunstone-py" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sunstoneinstitute/sunstone-py
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datasets-yaml-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets.yaml key reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datasets-yaml/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating datasets.yaml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    File Formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Kinds
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Kinds
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../pandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../polars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    polars
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../geopandas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    geopandas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../nbtiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tile pyramids (nbtiles)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tensors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tensors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../sunstone-push/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pushing to sunstone: namespaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Standard
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data Package Standard
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../frictionlessdata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Frictionless Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Package Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../datapackage-extra-metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata Extensibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#global-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global Constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File map
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File map">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-1-sync-script-and-the-generated-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Sync script and the generated reference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-2-rewrite-skillmd-for-the-new-key-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: Rewrite SKILL.md for the new key form
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-3-references-in-new-key-form" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: References in new key form
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-4-pull-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 4: Pull request
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-review-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-review notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="datapackage-conformance-claude-plugins-c10-implementation-plan">Datapackage Conformance (claude-plugins, C10) Implementation Plan<a class="headerlink" href="#datapackage-conformance-claude-plugins-c10-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> The <code>sunstone-core:dataset</code> skill teaches agents the new <code>datasets.yaml</code> key form, points them at the generated key reference, <code>sunstone vocab search</code> and <code>sunstone lint --json --warnings-as-errors</code>, never shows an old key, and teaches how to restructure a free-text source into parts (DOI in <code>"@id"</code>, publisher and authors as agent objects, year, container, citation) with lint as the checklist.</p>
+<p><strong>Architecture:</strong> The hand-written <code>references/datasets-yaml-schema.md</code> is replaced by <code>references/datasets-yaml-reference.md</code>, a copy of sunstone-py's generated <code>docs/datasets-yaml-reference.md</code> kept current by a sync script. <code>SKILL.md</code> and the other references are rewritten to the new key form with a fixed "find a key, write it, lint" loop, plus a "Restructuring sources" procedure (spec "Source references": <code>sunstone migrate</code> makes only the mechanical changes; splitting citations into parts is this skill's job, project by project, during the 1.x grace period).</p>
+<p><strong>Tech Stack:</strong> Markdown skill files, Python 3 sync script under <code>scripts/</code>, repo validation scripts.</p>
+<p><strong>Spec:</strong> <code>sunstone-py</code> repo, <code>docs/superpowers/specs/2026-10-15-datapackage-conformance-design.md</code>, section C10 (spec names the skill <code>sunstone-core:dataset</code>; it lives in <code>plugins/sunstone-core/skills/dataset/</code>, see sunstone-py plan conflict SC1).</p>
+<p><strong>Prerequisite:</strong> sunstone-py plan <code>2026-10-16-datapackage-conformance-sunstone-py.md</code> is merged and released as 1.20.0 (the reference doc, <code>sunstone migrate</code> and <code>sunstone vocab search</code> must exist). The sync script reads the reference from a local sunstone-py checkout, so execution needs <code>~/git/sunstone/sunstone-py</code> at a commit that contains <code>docs/datasets-yaml-reference.md</code>.</p>
+<h2 id="global-constraints">Global Constraints<a class="headerlink" href="#global-constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Repo: <code>/Users/stig/git/sunstone/claude-plugins</code>, <code>git fetch origin</code>, then work on a feature branch off <code>origin/main</code>; all paths below are relative to the repo root.</li>
+<li>Do not edit <code>version</code> in <code>plugins/sunstone-core/.claude-plugin/plugin.json</code> or <code>marketplace.json</code>; the PR gets the <code>bump-minor</code> label (new content).</li>
+<li>Skill prose follows <code>CLAUDE.md</code> "Naming Conventions" and the writing rules already used in <code>SKILL.md</code> (plain language, no emoji, no decorative headings).</li>
+<li>Every <code>datasets.yaml</code> example in the skill uses the new key form: <code>title</code>, <code>name</code>, <code>path</code>, <code>schema.fields</code>, <code>licenses</code>; source <code>"@id"</code>/<code>title</code>/<code>dct:publisher</code> (agent object)/<code>dct:creator</code>/<code>dct:issued</code>/<code>dct:isPartOf</code>/<code>dct:bibliographicCitation</code>/<code>dcat:downloadURL</code>/<code>dcat:landingPage</code>/<code>dct:license</code>/<code>dct:modified</code>; dataset <code>prov:generatedAtTime</code>/<code>prov:wasGeneratedBy</code>; field <code>si:unit</code>/<code>si:sourceField</code>/<code>title</code>.</li>
+<li>Source MUST keys (spec "Provenance"): <code>title</code>; <code>dct:publisher</code> object with <code>rdfs:label</code>; a link (<code>"@id"</code>, <code>dcat:downloadURL</code> or <code>dcat:landingPage</code>); <code>dct:license</code>. <code>prov:wasAttributedTo</code> is MAY (legacy free text). A <code>doi.org</code> URL never goes in <code>dcat:downloadURL</code>/<code>dcat:landingPage</code> (R315); it goes in <code>"@id"</code>.</li>
+<li>Agent object: <code>rdfs:label</code> (full name), <code>skos:altLabel</code> (short name, SHOULD), <code>"@id"</code> (IRI, optional). The same agent is repeated within one file with a YAML anchor (<code>&amp;fao</code> on first use, <code>*fao</code> after); anchors do not cross include files. There is no lookup table.</li>
+<li><code>"@id"</code> is always quoted in YAML (<code>"@id":</code>), <code>@type</code> likewise (<code>'@type':</code>).</li>
+<li>Acquisition method literal lives in <code>prov:wasGeneratedBy.dct:type</code> (sunstone-py plan conflict SC11).</li>
+<li>Validation before the PR: <code>uv run python scripts/validate-claude-metadata.py</code>, <code>scripts/check-plugin-structure.sh</code>, <code>claude plugin validate .</code>, <code>uv run pytest scripts/tests</code>.</li>
+<li>Commit messages: conventional prefix, no Co-authored-by lines.</li>
+</ul>
+<h2 id="file-map">File map<a class="headerlink" href="#file-map" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/sync-dataset-reference.py</code></td>
+<td>Copies sunstone-py <code>docs/datasets-yaml-reference.md</code> into the skill with a provenance header</td>
+</tr>
+<tr>
+<td><code>scripts/tests/test_sync_dataset_reference.py</code></td>
+<td>Tests the sync script on a temp tree</td>
+</tr>
+<tr>
+<td><code>plugins/sunstone-core/skills/dataset/references/datasets-yaml-reference.md</code></td>
+<td>Synced key reference (generated; replaces <code>datasets-yaml-schema.md</code>)</td>
+</tr>
+<tr>
+<td><code>plugins/sunstone-core/skills/dataset/SKILL.md</code></td>
+<td>Capture rule, key loop, examples</td>
+</tr>
+<tr>
+<td><code>plugins/sunstone-core/skills/dataset/references/registry-patterns.md</code>, <code>api-reference.md</code>, <code>troubleshooting.md</code></td>
+<td>Examples in new key form</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="task-1-sync-script-and-the-generated-reference">Task 1: Sync script and the generated reference<a class="headerlink" href="#task-1-sync-script-and-the-generated-reference" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Create: <code>scripts/sync-dataset-reference.py</code>, <code>scripts/tests/test_sync_dataset_reference.py</code>
+- Create (by running the script): <code>plugins/sunstone-core/skills/dataset/references/datasets-yaml-reference.md</code>
+- Delete: <code>plugins/sunstone-core/skills/dataset/references/datasets-yaml-schema.md</code></p>
+<p><strong>Interfaces:</strong>
+- Produces: <code>scripts/sync-dataset-reference.py [--sunstone-py PATH] [--check]</code>; exit 0 when the file was written (or, with <code>--check</code>, already current), exit 1 with <code>--check</code> when stale, exit 2 when the source file is missing.</p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test <code>scripts/tests/test_sync_dataset_reference.py</code></strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">SCRIPT</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;sync-dataset-reference.py&quot;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">_run</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CompletedProcess</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">SCRIPT</span><span class="p">),</span> <span class="o">*</span><span class="n">args</span><span class="p">],</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">_fake_sunstone_py</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;# datasets.yaml key reference</span><span class="se">\n\n</span><span class="s2">body</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">src</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;sunstone-py&quot;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="p">(</span><span class="n">src</span> <span class="o">/</span> <span class="s2">&quot;docs&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="p">(</span><span class="n">src</span> <span class="o">/</span> <span class="s2">&quot;docs&quot;</span> <span class="o">/</span> <span class="s2">&quot;datasets-yaml-reference.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="p">(</span><span class="n">src</span> <span class="o">/</span> <span class="s2">&quot;pyproject.toml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s1">&#39;[project]</span><span class="se">\n</span><span class="s1">name = &quot;sunstone-py&quot;</span><span class="se">\n</span><span class="s1">version = &quot;1.20.0&quot;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="k">return</span> <span class="n">src</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_writes_reference_with_header</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">src</span> <span class="o">=</span> <span class="n">_fake_sunstone_py</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">dest</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;dest.md&quot;</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="n">r</span> <span class="o">=</span> <span class="n">_run</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="p">))</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="k">assert</span> <span class="n">r</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">stderr</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">text</span> <span class="o">=</span> <span class="n">dest</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="k">assert</span> <span class="n">text</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;&lt;!-- Synced from sunstone-py 1.20.0 docs/datasets-yaml-reference.md by scripts/sync-dataset-reference.py. Do not edit. --&gt;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="k">assert</span> <span class="n">text</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;body</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_check_mode</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">src</span> <span class="o">=</span> <span class="n">_fake_sunstone_py</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">dest</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;dest.md&quot;</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>    <span class="k">assert</span> <span class="n">_run</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="p">))</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="k">assert</span> <span class="n">_run</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span> <span class="s2">&quot;--check&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>    <span class="p">(</span><span class="n">src</span> <span class="o">/</span> <span class="s2">&quot;docs&quot;</span> <span class="o">/</span> <span class="s2">&quot;datasets-yaml-reference.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;# changed</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>    <span class="k">assert</span> <span class="n">_run</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">src</span><span class="p">),</span> <span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">dest</span><span class="p">),</span> <span class="s2">&quot;--check&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">1</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_missing_source</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    <span class="n">r</span> <span class="o">=</span> <span class="n">_run</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;nope&quot;</span><span class="p">),</span> <span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;d.md&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    <span class="k">assert</span> <span class="n">r</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="s2">&quot;docs/datasets-yaml-reference.md&quot;</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">stderr</span>
+</code></pre></div>
+<p>Run: <code>uv run pytest scripts/tests/test_sync_dataset_reference.py -q</code>
+Expected: FAIL (script missing).</p>
+<ul>
+<li>[ ] <strong>Step 2: Write <code>scripts/sync-dataset-reference.py</code></strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="ch">#!/usr/bin/env python3</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sd">&quot;&quot;&quot;Copy sunstone-py&#39;s generated datasets.yaml key reference into the dataset skill.</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="sd">Usage:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="sd">    scripts/sync-dataset-reference.py [--sunstone-py ~/git/sunstone/sunstone-py] [--dest PATH] [--check]</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="sd">Exit codes: 0 written or current, 1 stale (--check), 2 source missing.</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="n">REPO</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">DEFAULT_SRC</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span> <span class="o">/</span> <span class="s2">&quot;git&quot;</span> <span class="o">/</span> <span class="s2">&quot;sunstone&quot;</span> <span class="o">/</span> <span class="s2">&quot;sunstone-py&quot;</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">DEFAULT_DEST</span> <span class="o">=</span> <span class="n">REPO</span> <span class="o">/</span> <span class="s2">&quot;plugins&quot;</span> <span class="o">/</span> <span class="s2">&quot;sunstone-core&quot;</span> <span class="o">/</span> <span class="s2">&quot;skills&quot;</span> <span class="o">/</span> <span class="s2">&quot;dataset&quot;</span> <span class="o">/</span> <span class="s2">&quot;references&quot;</span> <span class="o">/</span> <span class="s2">&quot;datasets-yaml-reference.md&quot;</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">REL</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs&quot;</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;datasets-yaml-reference.md&quot;</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="k">def</span><span class="w"> </span><span class="nf">_version</span><span class="p">(</span><span class="n">sunstone_py</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>    <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">sunstone_py</span> <span class="o">/</span> <span class="s2">&quot;pyproject.toml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^version\s*=\s*&quot;([^&quot;]+)&quot;&#39;</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">MULTILINE</span><span class="p">)</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>    <span class="k">return</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">m</span> <span class="k">else</span> <span class="s2">&quot;unknown&quot;</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="n">sunstone_py</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>    <span class="n">body</span> <span class="o">=</span> <span class="p">(</span><span class="n">sunstone_py</span> <span class="o">/</span> <span class="n">REL</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>    <span class="n">header</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>        <span class="sa">f</span><span class="s2">&quot;&lt;!-- Synced from sunstone-py </span><span class="si">{</span><span class="n">_version</span><span class="p">(</span><span class="n">sunstone_py</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">REL</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span><span class="si">}</span><span class="s2"> &quot;</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>        <span class="s2">&quot;by scripts/sync-dataset-reference.py. Do not edit. --&gt;</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>    <span class="p">)</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>    <span class="k">return</span> <span class="n">header</span> <span class="o">+</span> <span class="n">body</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>    <span class="n">ap</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--sunstone-py&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">DEFAULT_SRC</span><span class="p">))</span>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--dest&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">DEFAULT_DEST</span><span class="p">))</span>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>    <span class="n">ap</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--check&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>    <span class="n">args</span> <span class="o">=</span> <span class="n">ap</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>    <span class="n">src</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">sunstone_py</span><span class="p">)</span>
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">src</span> <span class="o">/</span> <span class="n">REL</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;error: </span><span class="si">{</span><span class="n">src</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">REL</span><span class="si">}</span><span class="s2"> not found&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>        <span class="k">return</span> <span class="mi">2</span>
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>    <span class="n">dest</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">dest</span><span class="p">)</span>
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>    <span class="n">text</span> <span class="o">=</span> <span class="n">render</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">check</span><span class="p">:</span>
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>        <span class="n">current</span> <span class="o">=</span> <span class="n">dest</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">dest</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>        <span class="k">if</span> <span class="n">current</span> <span class="o">==</span> <span class="n">text</span><span class="p">:</span>
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dest</span><span class="si">}</span><span class="s2"> is current&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>            <span class="k">return</span> <span class="mi">0</span>
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dest</span><span class="si">}</span><span class="s2"> is stale; run scripts/sync-dataset-reference.py&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>        <span class="k">return</span> <span class="mi">1</span>
+<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>    <span class="n">dest</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>    <span class="n">dest</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;wrote </span><span class="si">{</span><span class="n">dest</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a>    <span class="k">return</span> <span class="mi">0</span>
+<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>
+<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a>
+<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+<a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a>    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</code></pre></div>
+<p><code>chmod +x scripts/sync-dataset-reference.py</code>.</p>
+<p>Run: <code>uv run pytest scripts/tests/test_sync_dataset_reference.py -q</code>
+Expected: PASS.</p>
+<ul>
+<li>[ ] <strong>Step 3: Generate the reference and remove the old schema file</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>scripts/sync-dataset-reference.py
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>git<span class="w"> </span>rm<span class="w"> </span>plugins/sunstone-core/skills/dataset/references/datasets-yaml-schema.md
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>grep<span class="w"> </span>-rn<span class="w"> </span><span class="s2">&quot;datasets-yaml-schema&quot;</span><span class="w"> </span>plugins/sunstone-core<span class="w"> </span>--include<span class="o">=</span>*.md
+</code></pre></div>
+<p>Expected: the grep lists only <code>SKILL.md</code> (two links: the "References" list and the <code>## The datasets.yaml registry</code> section). Both are rewritten in Task 2; for now replace the path text <code>references/datasets-yaml-schema.md</code> with <code>references/datasets-yaml-reference.md</code> in those two places so no link dangles.</p>
+<p>Add a line to <code>CLAUDE.md</code> under "Testing Changes": "<code>scripts/sync-dataset-reference.py</code> refreshes the dataset skill's key reference from a sunstone-py checkout; run it after each sunstone-py release that changes <code>docs/datasets-yaml-reference.md</code>."</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git<span class="w"> </span>add<span class="w"> </span>scripts/sync-dataset-reference.py<span class="w"> </span>scripts/tests/test_sync_dataset_reference.py<span class="w"> </span>plugins/sunstone-core/skills/dataset<span class="w"> </span>CLAUDE.md
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat(dataset): sync generated datasets.yaml key reference from sunstone-py&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-2-rewrite-skillmd-for-the-new-key-form">Task 2: Rewrite <code>SKILL.md</code> for the new key form<a class="headerlink" href="#task-2-rewrite-skillmd-for-the-new-key-form" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>plugins/sunstone-core/skills/dataset/SKILL.md</code></p>
+<p>The sections below name the current heading or sentence to replace and give the replacement text in full. Everything else in the file stays.</p>
+<ul>
+<li>[ ] <strong>Step 1: Step 2 of the capture rule</strong></li>
+</ul>
+<p>Replace the YAML block under <code>### Step 2: Register the source in datasets.yaml before downloading</code> and the paragraph starting "All six <code>source</code> keys are required by this rule" with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="sb">```yaml</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Air Quality Measurements 2024</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">air-quality-2024</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/air-quality-2024.csv</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hourly PM2.5 and NO2 readings for 2024.</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example Agency Air Quality Database</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Example Environment Agency</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">        </span><span class="nt">skos:altLabel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">EEA</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="nt">dcat:downloadURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://data.example.org/air-quality/2024.csv</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">dcat:landingPage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://data.example.org/air-quality</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="nt">dct:issued</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2024&#39;</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">      </span><span class="nt">dct:modified</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-09-01&#39;</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span><span class="w">                 </span><span class="c1"># SPDX identifier</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span><span class="nt">prov:generatedAtTime</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2026-09-24&#39;</span><span class="w">       </span><span class="c1"># when this copy was fetched</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">    </span><span class="nt">prov:wasGeneratedBy</span><span class="p">:</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">      </span><span class="s">&#39;@type&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Activity</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">      </span><span class="nt">dct:type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api</span><span class="w">                           </span><span class="c1"># manual-download, api, scraping</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="sb">```</span>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="sb">```python</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="kn">from</span><span class="w"> </span><span class="nn">sunstone</span><span class="w"> </span><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_dataset</span><span class="p">(</span><span class="s1">&#39;air-quality-2024&#39;</span><span class="p">)</span>   <span class="c1"># downloads to inputs/ on first call</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="sb">```</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>The capture rule requires, on the source: <span class="sb">`title`</span>; <span class="sb">`dct:publisher`</span> as an object with <span class="sb">`rdfs:label`</span>; a link (<span class="sb">`dcat:downloadURL`</span> for a file, <span class="sb">`dcat:landingPage`</span> for a page, or <span class="sb">`&quot;@id&quot;`</span> for a DOI); <span class="sb">`dct:license`</span>. On the dataset: <span class="sb">`prov:generatedAtTime`</span> and <span class="sb">`prov:wasGeneratedBy`</span> with <span class="sb">`dct:type`</span>. Add <span class="sb">`skos:altLabel`</span> on the publisher, <span class="sb">`dct:issued`</span> and <span class="sb">`dct:modified`</span> when the publisher&#39;s page shows them. A publication (paper, report) is written as in &quot;Restructuring sources&quot; below. Check with:
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="sb">```bash</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>sunstone<span class="w"> </span>lint<span class="w"> </span>--json<span class="w"> </span>--warnings-as-errors
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="sb">```</span>
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>The capture is done only when that command prints no violations.
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Add the key loop</strong></li>
+</ul>
+<p>Insert a new section immediately after the "## Platform quick reference" section (before "## The capture rule"):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="gu">## Writing keys in datasets.yaml</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Every key in <span class="sb">`datasets.yaml`</span> is one of three things: a Data Package 2.0 property for its level (<span class="sb">`title`</span>, <span class="sb">`name`</span>, <span class="sb">`path`</span>, <span class="sb">`schema`</span>, <span class="sb">`licenses`</span>, ...), a sunstone config key (<span class="sb">`inputs`</span>, <span class="sb">`source`</span>, <span class="sb">`publish`</span>, <span class="sb">`rdfPrefixes`</span>, ...), or an RDF property written as <span class="sb">`prefix:local`</span> (<span class="sb">`dct:publisher`</span>, <span class="sb">`prov:wasAttributedTo`</span>, <span class="sb">`si:unit`</span>). Nothing else is allowed, and <span class="sb">`sunstone lint`</span> reports any other key as R301.
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Never invent a key. To record a concept that has no key in [<span class="nt">datasets-yaml-reference.md</span>](<span class="na">references/datasets-yaml-reference.md</span>):
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="sb">```bash</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>sunstone<span class="w"> </span>vocab<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;&lt;concept&gt;&quot;</span><span class="w"> </span>--at<span class="w"> </span>&lt;path&gt;<span class="w"> </span>--json<span class="w">   </span><span class="c1"># e.g. --at inputs.source, --at outputs.schema.fields</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>sunstone<span class="w"> </span>vocab<span class="w"> </span>search<span class="w"> </span>--at<span class="w"> </span>inputs.source<span class="w">                </span><span class="c1"># every allowed key at that level, with its rule level</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="sb">```</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>Pick a result from the output (the first hit is usually right; prefer <span class="sb">`dct`</span>, <span class="sb">`dcat`</span>, <span class="sb">`prov`</span> over <span class="sb">`schema`</span>, and <span class="sb">`si`</span> only for sunstone-specific concepts). Use its <span class="sb">`curie`</span> as the key. If no result fits, leave the concept out and tell the user; do not write a key the search did not return.
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>A key may take an object value when the property points at a thing with its own properties:
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="sb">```yaml</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="nt">prov:wasGeneratedBy</span><span class="p">:</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">  </span><span class="s">&#39;@type&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Activity</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">  </span><span class="nt">dct:type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-download</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="sb">```</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>Keys inside the object follow the same rules (<span class="sb">`@id`</span> and <span class="sb">`@type`</span> are also allowed).
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>Projects created before sunstone-py 1.20 use older keys (<span class="sb">`slug`</span>, <span class="sb">`location`</span>, <span class="sb">`fields`</span>, <span class="sb">`attributedTo`</span>, <span class="sb">`acquiredAt`</span>, ...). They still load, with one <span class="sb">`FutureWarning`</span> per file. Run <span class="sb">`sunstone migrate`</span> once to rewrite <span class="sb">`datasets.yaml`</span>, its include files and <span class="sb">`datasets.lock.yaml`</span>; it keeps comments, moves a DOI from <span class="sb">`location.*`</span> to <span class="sb">`&quot;@id&quot;`</span>, keeps the old <span class="sb">`attributedTo`</span> text as <span class="sb">`prov:wasAttributedTo`</span>, and reports keys it cannot map, each with suggestions from <span class="sb">`sunstone vocab search`</span>. It never splits free text: that is the next section.
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="gu">## Restructuring sources</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>Most existing sources are free text: <span class="sb">`title`</span> holds a whole citation and <span class="sb">`prov:wasAttributedTo`</span> mixes authors, affiliation and publisher. sunstone-py 2.0 requires every source to carry its parts, and <span class="sb">`sunstone lint`</span> reports what is missing (R102 is an error, R311 a warning, R315 an error). Do this once per project, source by source:
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="k">1.</span> Run <span class="sb">`sunstone lint --json`</span> and collect every violation whose <span class="sb">`path`</span> starts with <span class="sb">`inputs[...].source`</span>.
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="k">2.</span> For each source, read <span class="sb">`title`</span> and <span class="sb">`prov:wasAttributedTo`</span> and split them into parts. Put each part under its key; never leave a part in two places.
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>| Part | Key | Example |
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>|---|---|---|
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>| DOI or persistent IRI | <span class="sb">`&quot;@id&quot;`</span> | <span class="sb">`&quot;@id&quot;: https://doi.org/10.1016/j.aqrep.2022.101316`</span> |
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>| Work title only | <span class="sb">`title`</span> | <span class="sb">`title: Utilization of feed resources in the production of Atlantic salmon (Salmo salar) in Norway`</span> |
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>| Publisher | <span class="sb">`dct:publisher`</span> | <span class="sb">`{rdfs:label: Elsevier}`</span>; <span class="sb">`{rdfs:label: Food and Agriculture Organization of the United Nations, skos:altLabel: FAO}`</span> |
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>| Authors | <span class="sb">`dct:creator`</span> | <span class="sb">`[{rdfs:label: &#39;Aas, T. S.&#39;}, {rdfs:label: &#39;Asgard, T. E.&#39;}]`</span> |
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>| Year | <span class="sb">`dct:issued`</span> | <span class="sb">`&#39;2022&#39;`</span> |
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>| Journal, volume, pages | <span class="sb">`dct:isPartOf`</span> | <span class="sb">`{rdfs:label: &#39;Aquaculture Reports 26, 101316&#39;}`</span> |
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>| Full citation as published | <span class="sb">`dct:bibliographicCitation`</span> | the citation string, when the publisher gives one |
+<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>| Links | <span class="sb">`dcat:downloadURL`</span>, <span class="sb">`dcat:landingPage`</span> | the file, the page; never a <span class="sb">`doi.org`</span> URL |
+<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>| License | <span class="sb">`dct:license`</span> | SPDX id |
+<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>
+<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="k">3.</span> Keep the original <span class="sb">`prov:wasAttributedTo`</span> text until every part is placed, then delete it (it is MAY, so keeping it is not an error; deleting it keeps the file short).
+<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="k">4.</span> Define each agent once per file. On the first use write <span class="sb">`dct:publisher: &amp;fao`</span> followed by the object; on every later use in the same file write <span class="sb">`dct:publisher: *fao`</span>. Include files anchor their own agents.
+<a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a><span class="k">5.</span> Rerun <span class="sb">`sunstone lint --json --warnings-as-errors`</span>. Done when no violation has a <span class="sb">`path`</span> under <span class="sb">`source`</span>.
+<a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>
+<a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>A statistics release has a publisher and no authors; a paper has authors and a publisher (the journal&#39;s publisher, not the authors&#39; institution). When a part is not known, leave the key out; do not guess a year or an author.
+<a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>
+<a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>Before, from a real project:
+<a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>
+<a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a><span class="sb">```yaml</span>
+<a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mottet, de Haan, Falcucci, Tempio, Opio &amp; Gerber (2017), Livestock</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">On our plates or eating at our table? A new analysis of the feed/food debate, Global Food Security 14, 1-8</span>
+<a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a><span class="w">      </span><span class="nt">dcat:landingPage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://doi.org/10.1016/j.gfs.2017.01.001</span>
+<a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a><span class="w">      </span><span class="nt">prov:wasAttributedTo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mottet, A.; de Haan, C.; Falcucci, A.; Tempio, G.; Opio, C.; Gerber, P. (FAO); published by Elsevier in Global Food Security</span>
+<a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-NC-ND-4.0</span>
+<a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a><span class="sb">```</span>
+<a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>
+<a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>After:
+<a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>
+<a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a><span class="sb">```yaml</span>
+<a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a><span class="w">      </span><span class="s">&quot;@id&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://doi.org/10.1016/j.gfs.2017.01.001</span>
+<a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Livestock:</span><span class="nv"> </span><span class="s">On</span><span class="nv"> </span><span class="s">our</span><span class="nv"> </span><span class="s">plates</span><span class="nv"> </span><span class="s">or</span><span class="nv"> </span><span class="s">eating</span><span class="nv"> </span><span class="s">at</span><span class="nv"> </span><span class="s">our</span><span class="nv"> </span><span class="s">table?</span><span class="nv"> </span><span class="s">A</span><span class="nv"> </span><span class="s">new</span><span class="nv"> </span><span class="s">analysis</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">feed/food</span><span class="nv"> </span><span class="s">debate&quot;</span>
+<a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span><span class="w"> </span><span class="nl">&amp;elsevier</span>
+<a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Elsevier</span>
+<a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a><span class="w">      </span><span class="nt">dct:creator</span><span class="p">:</span>
+<a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mottet, A.</span>
+<a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">de Haan, C.</span>
+<a id="__codelineno-5-72" name="__codelineno-5-72" href="#__codelineno-5-72"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Falcucci, A.</span>
+<a id="__codelineno-5-73" name="__codelineno-5-73" href="#__codelineno-5-73"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Tempio, G.</span>
+<a id="__codelineno-5-74" name="__codelineno-5-74" href="#__codelineno-5-74"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Opio, C.</span>
+<a id="__codelineno-5-75" name="__codelineno-5-75" href="#__codelineno-5-75"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gerber, P.</span>
+<a id="__codelineno-5-76" name="__codelineno-5-76" href="#__codelineno-5-76"></a><span class="w">      </span><span class="nt">dct:issued</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2017&#39;</span>
+<a id="__codelineno-5-77" name="__codelineno-5-77" href="#__codelineno-5-77"></a><span class="w">      </span><span class="nt">dct:isPartOf</span><span class="p">:</span>
+<a id="__codelineno-5-78" name="__codelineno-5-78" href="#__codelineno-5-78"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Global Food Security 14, 1-8</span>
+<a id="__codelineno-5-79" name="__codelineno-5-79" href="#__codelineno-5-79"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-NC-ND-4.0</span>
+<a id="__codelineno-5-80" name="__codelineno-5-80" href="#__codelineno-5-80"></a><span class="sb">```</span>
+<a id="__codelineno-5-81" name="__codelineno-5-81" href="#__codelineno-5-81"></a>
+<a id="__codelineno-5-82" name="__codelineno-5-82" href="#__codelineno-5-82"></a>The next Elsevier paper in the same file writes <span class="sb">`dct:publisher: *elsevier`</span>.
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 3: Version floor</strong></li>
+</ul>
+<p>Replace "This guide requires <strong>sunstone-py &gt;= 1.13</strong>. The data-platform plugin requires &gt;= 1.15." and the following code block with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>This guide requires <span class="gs">**sunstone-py &gt;= 1.20**</span> (new key names, <span class="sb">`sunstone migrate`</span>, <span class="sb">`sunstone vocab search`</span>). The data-platform plugin requires &gt;= 1.15.
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="sb">```bash</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="s1">&#39;sunstone-py&gt;=1.20&#39;</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="sb">```</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: File structure example</strong></li>
+</ul>
+<p>Replace the <code># datasets.yaml — human-authored</code> YAML block under "### File structure and fields" with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># datasets.yaml — human-authored</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">min_sunstone_version</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1.20.0&quot;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User Data</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">users</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/users.csv</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">One row per registered user.</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User Database Export</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Data Engineering Team</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">      </span><span class="nt">dcat:downloadURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.com/exports/users.csv</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">    </span><span class="nt">prov:generatedAtTime</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-15&#39;</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="nt">prov:wasGeneratedBy</span><span class="p">:</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">      </span><span class="s">&#39;@type&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Activity</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">      </span><span class="nt">dct:type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">manual-download</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">    </span><span class="nt">schema</span><span class="p">:</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">      </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user_id</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User ID</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Email Address</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">created_at</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">datetime</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Account Created At</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="nt">outputs</span><span class="p">:</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User Analysis Results</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user-analysis</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">outputs/user_analysis.csv</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Users per category with average value.</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a><span class="w">    </span><span class="nt">schema</span><span class="p">:</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a><span class="w">      </span><span class="nt">fields</span><span class="p">:</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">category</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Category</span>
+<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user_count</span>
+<a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">User Count</span>
+<a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a><span class="w">          </span><span class="nt">si:unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">count</span>
+<a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">avg_value</span>
+<a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a><span class="w">          </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">number</span>
+<a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a><span class="w">          </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Average Value</span>
+<a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a><span class="w">          </span><span class="nt">si:unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">USD</span>
+</code></pre></div>
+<p>In the lock-file example that follows, change <code>sources:\n      - slug: users</code> to:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="w">    </span><span class="nt">sources</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">slug</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">users</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">        </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 5: Key Fields section</strong></li>
+</ul>
+<p>Replace the whole "### Key Fields" section with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gu">### Key fields</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>The full list, per level and with rule levels, is [<span class="nt">datasets-yaml-reference.md</span>](<span class="na">references/datasets-yaml-reference.md</span>). The ones you write most:
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="gs">**Every dataset (MUST):**</span> <span class="sb">`title`</span> (human-readable), <span class="sb">`name`</span> (kebab-case identifier used in code), <span class="sb">`path`</span> (relative to the project root). <span class="sb">`description`</span> is SHOULD.
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="gs">**Inputs (MUST, by the capture rule):**</span> <span class="sb">`source`</span> with <span class="sb">`title`</span>, <span class="sb">`dct:publisher`</span> (object with <span class="sb">`rdfs:label`</span>), a link (<span class="sb">`&quot;@id&quot;`</span>, <span class="sb">`dcat:downloadURL`</span> or <span class="sb">`dcat:landingPage`</span>), <span class="sb">`dct:license`</span>; plus <span class="sb">`prov:generatedAtTime`</span> and <span class="sb">`prov:wasGeneratedBy.dct:type`</span> on the dataset. SHOULD: <span class="sb">`skos:altLabel`</span> on the publisher, <span class="sb">`dct:issued`</span>, <span class="sb">`dct:modified`</span>; for a publication also <span class="sb">`dct:creator`</span> and <span class="sb">`&quot;@id&quot;`</span>. MAY: <span class="sb">`dct:isPartOf`</span>, <span class="sb">`dct:bibliographicCitation`</span>, <span class="sb">`prov:wasAttributedTo`</span> (legacy free text). See &quot;Restructuring sources&quot;.
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="gs">**Fields (`schema.fields`):**</span> <span class="sb">`name`</span> and <span class="sb">`type`</span> (MUST; types: string, integer, number, boolean, date, datetime, time, year, yearmonth, duration, array, object, any, plus plugin types such as geometry). SHOULD: <span class="sb">`description`</span>, and <span class="sb">`si:unit`</span> on integer/number fields (a Pint string like <span class="sb">`kg`</span>, <span class="sb">`USD`</span>, <span class="sb">`km**2`</span>, or a QUDT IRI). <span class="sb">`title`</span> is the chart label.
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="gs">**Outputs:**</span> <span class="sb">`licenses: [{name: &lt;SPDX&gt;}]`</span> on the dataset or on the package.
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 6: "What goes where" table and the legacy note</strong></li>
+</ul>
+<p>In the table under "### What goes where" replace the first three rows with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>| <span class="sb">`title`</span>, <span class="sb">`name`</span>, <span class="sb">`path`</span> | ✅ | — |
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>| <span class="sb">`source:`</span> block (URLs, attribution, license), <span class="sb">`prov:generatedAtTime`</span>, <span class="sb">`prov:wasGeneratedBy`</span> | ✅ | — |
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>| <span class="sb">`schema.fields:`</span> (incl. <span class="sb">`title`</span>, <span class="sb">`description`</span>, <span class="sb">`si:unit`</span>) | ✅ | — |
+</code></pre></div>
+<p>Replace the sentence "This includes overriding an inferred field type, adding a <code>description</code> or <code>dct:title</code>, attaching custom RDF properties, or pre-registering an output before strict-mode runs." with "This includes overriding an inferred field type, adding a <code>description</code> or <code>title</code>, attaching RDF properties, or pre-registering an output before strict-mode runs."</p>
+<p>Replace the "&gt; <strong>Legacy projects:</strong>" paragraph with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">&gt; </span><span class="ge">**Legacy projects:** a project last touched under sunstone-py &lt; 1.20 uses the old key names, and one under &lt; 1.7 may keep lineage inline in `datasets.yaml`. Run `sunstone migrate` (key names, comments kept) and, if lineage is inline, `sunstone dataset migrate`; then commit both files. Both commands are no-ops on a current project.</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 7: Validation section</strong></li>
+</ul>
+<p>Replace the "## Validation" section with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="gu">## Validation</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>Run the linter before committing. It checks every key against the allowed set (R301–R307), provenance (R102, R311–R315), lineage (R321–R323), field types (R331), units (R341), naming (R001–R008, R104, R351) and methodology (R361, R362):
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="sb">```bash</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>sunstone<span class="w"> </span>lint<span class="w"> </span>--json<span class="w"> </span>--warnings-as-errors<span class="w">   </span><span class="c1"># the done criterion: no violations</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>sunstone<span class="w"> </span>lint<span class="w">                               </span><span class="c1"># human-readable</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>sunstone<span class="w"> </span>dataset<span class="w"> </span>resolve<span class="w"> </span>--check<span class="w">            </span><span class="c1"># lock file is current</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="sb">```</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>Every JSON violation carries <span class="sb">`rule_id`</span>, <span class="sb">`path`</span> (the key, e.g. <span class="sb">`inputs[3].source.attributedTo`</span>) and <span class="sb">`fix`</span>. Fix the key named by <span class="sb">`path`</span>; when the fix says to search, run the <span class="sb">`sunstone vocab search`</span> command it gives and use one of its results. When the fix says to run <span class="sb">`sunstone migrate`</span>, run it once for the whole project. R102, R311 and R315 under a <span class="sb">`source`</span> path mean the source still needs restructuring (see &quot;Restructuring sources&quot;).
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 8: References list and the non-tabular section</strong></li>
+</ul>
+<p>In "## References", replace the <code>datasets-yaml-schema.md</code> bullet with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">-</span><span class="w"> </span>[<span class="nt">datasets-yaml-reference.md</span>](<span class="na">references/datasets-yaml-reference.md</span>): every allowed <span class="sb">`datasets.yaml`</span> key per level with its class (dp, config, rdf, jsonld), rule level and an example; the agent object and YAML anchor rule; the alias table (old key to new key); the lint rule list. Generated by sunstone-py, synced with <span class="sb">`scripts/sync-dataset-reference.py`</span>.
+</code></pre></div>
+<p>In "## Non-tabular assets", the sentence "Register them in <code>datasets.yaml</code> with a full <code>source:</code> block." stays; no other change.</p>
+<ul>
+<li>[ ] <strong>Step 9: Check and commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;attributedTo\|acquiredAt\|acquisitionMethod\|slug:\|location:\|dct:title\|  unit:&quot;</span><span class="w"> </span>plugins/sunstone-core/skills/dataset/SKILL.md
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>grep<span class="w"> </span>-n<span class="w"> </span><span class="s2">&quot;dct:publisher: [A-Za-z]&quot;</span><span class="w"> </span>plugins/sunstone-core/skills/dataset/SKILL.md
+</code></pre></div>
+<p>Expected for the first grep: the sentence in "## Writing keys in datasets.yaml" that lists the old keys, the lock-file <code>slug:</code> line (lock entries keep <code>slug</code>), and the "Before" example and steps 2 and 3 in "## Restructuring sources" (they name <code>prov:wasAttributedTo</code> on purpose). Expected for the second grep: no match (a publisher is never a bare string; <code>&amp;name</code> anchors and <code>*name</code> aliases are fine). Then:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/validate-claude-metadata.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>scripts/check-plugin-structure.sh
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>git<span class="w"> </span>add<span class="w"> </span>plugins/sunstone-core/skills/dataset/SKILL.md
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs(dataset): teach the DP 2.0 key form, vocab search and the lint done-criterion&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-3-references-in-new-key-form">Task 3: References in new key form<a class="headerlink" href="#task-3-references-in-new-key-form" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>plugins/sunstone-core/skills/dataset/references/registry-patterns.md</code>, <code>references/api-reference.md</code>, <code>references/troubleshooting.md</code></p>
+<ul>
+<li>[ ] <strong>Step 1: <code>registry-patterns.md</code></strong></li>
+</ul>
+<p>Replace the YAML inside the "### Cross-Project Lineage Tracking" docstring with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Aggregated Data from Project A</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">project-a-aggregated</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/project_a_aggregated.csv</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Project A Analysis Pipeline</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Data Science Team</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">      </span><span class="nt">dcat:downloadURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file:///path/to/project_a/outputs/aggregated.csv</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">    </span><span class="nt">prov:generatedAtTime</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;2025-01-16&#39;</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">    </span><span class="nt">prov:wasGeneratedBy</span><span class="p">:</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="w">      </span><span class="s">&#39;@type&#39;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prov:Activity</span>
+<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="w">      </span><span class="nt">dct:type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">import</span>
+</code></pre></div>
+<p>Replace the "### Basic URL Fetching" YAML with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># In datasets.yaml</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nt">inputs</span><span class="p">:</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Remote Dataset</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remote-data</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">inputs/remote_data.csv</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Data Provider Export</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Data Provider</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">      </span><span class="nt">dcat:downloadURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://example.com/data.csv</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">      </span><span class="nt">dct:license</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">CC-BY-4.0</span>
+</code></pre></div>
+<p>and change the sentence above it to "When <code>source.dcat:downloadURL</code> contains a URL, sunstone downloads the file on first read if the local copy does not exist:". Around line 124, the Python dict with <code>'attributedTo': 'Sales Team'</code> is a batch-registration helper: rename the keys in that dict to <code>'title'</code>, <code>'dcat:downloadURL'</code>, <code>'dct:publisher': {'rdfs:label': 'Sales Team'}</code>, <code>'dct:license'</code> and the dataset keys to <code>'title'</code>, <code>'name'</code>, <code>'path'</code>, so the generated YAML is in new form (read the surrounding function and keep its behavior).</p>
+<ul>
+<li>[ ] <strong>Step 2: <code>api-reference.md</code></strong></li>
+</ul>
+<p>Replace the "### Source" attribute list with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="gs">**Attributes (Python names; the YAML keys differ):**</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="k">-</span><span class="w"> </span><span class="sb">`name`</span> (str): Source title (YAML <span class="sb">`title`</span>)
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="k">-</span><span class="w"> </span><span class="sb">`location`</span> (SourceLocation): <span class="sb">`.data`</span> (<span class="sb">`dcat:downloadURL`</span>), <span class="sb">`.about`</span> (<span class="sb">`dcat:landingPage`</span>), <span class="sb">`.metadata`</span> (<span class="sb">`rdfs:seeAlso`</span>), <span class="sb">`.access`</span> (<span class="sb">`dcat:accessURL`</span>)
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="k">-</span><span class="w"> </span><span class="sb">`id`</span> (str | None): YAML <span class="sb">`&quot;@id&quot;`</span> (DOI as <span class="sb">`https://doi.org/&lt;doi&gt;`</span>, or another IRI)
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="k">-</span><span class="w"> </span><span class="sb">`attributed_to`</span> (str | Agent): YAML <span class="sb">`prov:wasAttributedTo`</span> (legacy free text; empty string when absent)
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="k">-</span><span class="w"> </span><span class="sb">`acquired_at`</span> (str | None): dataset <span class="sb">`prov:generatedAtTime`</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="k">-</span><span class="w"> </span><span class="sb">`acquisition_method`</span> (str | None): dataset <span class="sb">`prov:wasGeneratedBy.dct:type`</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="k">-</span><span class="w"> </span><span class="sb">`license`</span> (str | None): <span class="sb">`dct:license`</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="k">-</span><span class="w"> </span><span class="sb">`publisher`</span> (SourceAgent | None): <span class="sb">`dct:publisher`</span>; <span class="sb">`SourceAgent(label, alt_label=None, id=None)`</span> maps <span class="sb">`rdfs:label`</span>, <span class="sb">`skos:altLabel`</span>, <span class="sb">`&quot;@id&quot;`</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="k">-</span><span class="w"> </span><span class="sb">`creator`</span> (list[SourceAgent] | None): <span class="sb">`dct:creator`</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="k">-</span><span class="w"> </span><span class="sb">`issued`</span>, <span class="sb">`updated`</span>, <span class="sb">`bibliographic_citation`</span> (str | None): <span class="sb">`dct:issued`</span>, <span class="sb">`dct:modified`</span>, <span class="sb">`dct:bibliographicCitation`</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="k">-</span><span class="w"> </span><span class="sb">`is_part_of`</span> (dict | None): <span class="sb">`dct:isPartOf`</span> node as written, e.g. <span class="sb">`{&quot;rdfs:label&quot;: &quot;Aquaculture Reports 26&quot;}`</span>
+</code></pre></div>
+<p>Function signatures (<code>slug: str</code>, <code>location: str</code>, <code>license: Optional[str]</code>) are Python parameter names and stay unchanged. Add one sentence under <code>add_output_dataset</code>: "Writes the entry in the new key form (<code>title</code>, <code>name</code>, <code>path</code>, <code>schema.fields</code>, <code>licenses</code>)."</p>
+<ul>
+<li>[ ] <strong>Step 3: <code>troubleshooting.md</code></strong></li>
+</ul>
+<p>Rewrite every <code>datasets.yaml</code> snippet to the new form: <code>slug:</code> → <code>name:</code>, <code>location:</code> → <code>path:</code>, <code>name:</code> (human-readable) → <code>title:</code>; update the prose next to them ("Typo in slug" → "Typo in name", <code>grep "slug:" datasets.yaml</code> → <code>grep "name:" datasets.yaml</code>, "Verify the slug matches exactly" → "Verify the name matches exactly"). The indentation example near line 415 becomes <code>name: dataset-name     # 4 spaces (item properties)</code>. Lines 472–488 (duplicate-slug examples) use <code>name:</code>. Lines 528–537 (absolute vs relative) use <code>path:</code>. Keep the minimum-version lines at 1.13 only in the "Verify installation" step if they refer to the data-platform plugin; otherwise raise them to 1.20 to match <code>SKILL.md</code>.</p>
+<p>Add a troubleshooting entry at the end of the file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="gu">## Lint reports R301 &quot;unknown key&quot;</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>The key is not a Data Package property, a config key or an RDF property. Either it is an old sunstone key (run <span class="sb">`sunstone migrate`</span>), or it is invented. Find the right key:
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="sb">```bash</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>sunstone<span class="w"> </span>vocab<span class="w"> </span>search<span class="w"> </span><span class="s2">&quot;&lt;what the key means&gt;&quot;</span><span class="w"> </span>--at<span class="w"> </span>&lt;path<span class="w"> </span>from<span class="w"> </span>the<span class="w"> </span>violation,<span class="w"> </span>without<span class="w"> </span><span class="o">[</span>n<span class="o">]</span>&gt;
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="sb">```</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>Use a returned <span class="sb">`curie`</span> as the key. R302 means the prefix is not declared: add it under <span class="sb">`rdfPrefixes:`</span> or use a standard prefix (<span class="sb">`dct`</span>, <span class="sb">`dcat`</span>, <span class="sb">`prov`</span>, <span class="sb">`schema`</span>, <span class="sb">`skos`</span>, <span class="sb">`rdfs`</span>, <span class="sb">`qudt`</span>, <span class="sb">`si`</span>, <span class="sb">`dcat-si`</span>). R303 means the term does not exist in that vocabulary: search again and pick a listed term.
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="gu">## Lint reports R102, R311 or R315 on a source</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>The source is still free text or has a DOI in the wrong key. R102 (error): <span class="sb">`dct:publisher`</span> must be an object with <span class="sb">`rdfs:label`</span>, and the source needs a link (<span class="sb">`&quot;@id&quot;`</span>, <span class="sb">`dcat:downloadURL`</span> or <span class="sb">`dcat:landingPage`</span>) and <span class="sb">`dct:license`</span>; a bare <span class="sb">`dct:publisher: Name`</span> from before 1.20 is rewritten to <span class="sb">`{rdfs:label: Name}`</span> by <span class="sb">`sunstone migrate`</span>. R315 (error): move the <span class="sb">`doi.org`</span> URL from <span class="sb">`dcat:landingPage`</span>/<span class="sb">`dcat:downloadURL`</span> to <span class="sb">`&quot;@id&quot;`</span>. R311 (warning): add <span class="sb">`skos:altLabel`</span> on the publisher, <span class="sb">`dct:issued`</span>, <span class="sb">`dct:modified`</span>, and for a paper <span class="sb">`dct:creator`</span> and <span class="sb">`&quot;@id&quot;`</span>. Follow &quot;Restructuring sources&quot; in SKILL.md; the source is done when <span class="sb">`sunstone lint --json --warnings-as-errors`</span> reports nothing under its path.
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="gu">## The same publisher appears many times</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a>Write the object once with an anchor and reuse it with an alias in the same file:
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="sb">```yaml</span>
+<a id="__codelineno-19-20" name="__codelineno-19-20" href="#__codelineno-19-20"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span><span class="w"> </span><span class="nl">&amp;ssb</span>
+<a id="__codelineno-19-21" name="__codelineno-19-21" href="#__codelineno-19-21"></a><span class="w">        </span><span class="nt">rdfs:label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Statistics Norway</span>
+<a id="__codelineno-19-22" name="__codelineno-19-22" href="#__codelineno-19-22"></a><span class="w">        </span><span class="nt">skos:altLabel</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SSB</span>
+<a id="__codelineno-19-23" name="__codelineno-19-23" href="#__codelineno-19-23"></a><span class="c1"># later, in the same file</span>
+<a id="__codelineno-19-24" name="__codelineno-19-24" href="#__codelineno-19-24"></a><span class="w">      </span><span class="nt">dct:publisher</span><span class="p">:</span><span class="w"> </span><span class="nv">*ssb</span>
+<a id="__codelineno-19-25" name="__codelineno-19-25" href="#__codelineno-19-25"></a><span class="sb">```</span>
+<a id="__codelineno-19-26" name="__codelineno-19-26" href="#__codelineno-19-26"></a>
+<a id="__codelineno-19-27" name="__codelineno-19-27" href="#__codelineno-19-27"></a>Anchors do not cross include files; each include file anchors its own. Saving through sunstone keeps anchors and aliases as written.
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: Check and commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>grep<span class="w"> </span>-rn<span class="w"> </span><span class="s2">&quot;attributedTo\|acquiredAt\|acquisitionMethod\|slug:\|location:\|dct:title&quot;</span><span class="w"> </span>plugins/sunstone-core/skills/dataset/references/*.md<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span>datasets-yaml-reference.md
+</code></pre></div>
+<p>Expected: no matches except Python parameter names in <code>api-reference.md</code> (<code>slug: str</code>, <code>location: str</code>) and the lock-file <code>slug:</code> lines. Then:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/validate-claude-metadata.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>scripts/check-plugin-structure.sh<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>claude<span class="w"> </span>plugin<span class="w"> </span>validate<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>scripts/tests<span class="w"> </span>-q
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>git<span class="w"> </span>add<span class="w"> </span>plugins/sunstone-core/skills/dataset/references
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs(dataset): references use the DP 2.0 key form&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-4-pull-request">Task 4: Pull request<a class="headerlink" href="#task-4-pull-request" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>Step 1:</strong> Push the branch and open a PR titled "dataset skill: DP 2.0 key form, structured sources, vocab search, lint done-criterion" with label <code>bump-minor</code> (do not edit <code>version</code>). The body lists: reference now generated and synced from sunstone-py 1.20; old keys removed from all examples; the three new instructions (never invent a key, <code>sunstone vocab search --at</code>, <code>sunstone lint --json --warnings-as-errors</code> is the done criterion); the "Restructuring sources" procedure (DOI in <code>"@id"</code>, publisher and authors as agent objects, anchors for repeats, lint as the checklist), which is how the org repos get ready for sunstone-py 2.0 (spec "Releases").</li>
+<li>[ ] <strong>Step 2:</strong> Note in the PR that <code>plugins/sunstone-core/skills/data-package/references/package-rules.md</code> still shows <code>attributedTo</code> and is out of this plan's scope (C10 covers the dataset skill only); file a follow-up issue.</li>
+</ul>
+<h2 id="self-review-notes">Self-review notes<a class="headerlink" href="#self-review-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Spec C10 coverage: reference replaced by the generated doc with a sync script (Task 1); "never write a key absent from the reference", <code>vocab search --at --json</code>, done-criterion (Task 2 Steps 2 and 7); examples in new form (Tasks 2 and 3).</li>
+<li>Spec "Source references" coverage: the skill teaches the parts table, the split procedure with a real before/after, agent objects with YAML anchors (no lookup table), DOI in <code>"@id"</code> (R315), and lint as the checklist (Task 2 Step 2 "Restructuring sources", Step 1 capture rule, Step 5 key fields, Step 7 validation; Task 3 troubleshooting entries and <code>api-reference.md</code> <code>SourceAgent</code> attributes).</li>
+<li>Nothing in this plan needs Opus; every step is a text replacement with the replacement given, plus one small script with tests.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

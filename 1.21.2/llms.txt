@@ -1,0 +1,42 @@
+# Sunstone Python Library
+
+> Python library for managing datasets with lineage tracking
+
+## Docs
+
+- [Home](index.md): What sunstone-py is, its main features, and installation.
+- [API Reference](api.md): Full Python API: Asset, pandas/polars modules, DataFrame, DatasetsManager, metadata, plugins, units, licenses, exceptions.
+- [Pushing to sunstone: namespaces](sunstone-push.md): Pushing data packages to `sunstone:` namespaces on the Sunstone data platform.
+- [Examples](examples.md): Complete worked examples of data pipelines with lineage tracking.
+
+## Getting Started
+
+- [Quick Start](quickstart.md): Set up datasets.yaml, read and write data with lineage, and run the CLI in a new project.
+- [CLI Guide](cli.md): Every `sunstone` CLI command: env, dataset, lint, key migration and search, package build/push, license.
+- [Core Concepts](concepts.md): The Asset envelope, strict vs relaxed mode, PROV-O lineage, metadata, plugins, units, licenses, and project layout.
+- [datasets.yaml key reference](datasets-yaml-reference.md): Every allowed datasets.yaml key at each level, with its source vocabulary and rule level.
+- [Validating datasets.yaml](datasets-yaml.md): What `sunstone dataset validate` checks in datasets.yaml and how to fix failures.
+- [File Formats](formats.md): Built-in format and URL handlers, where each stores metadata, and how to add your own.
+
+## Data Kinds
+
+- [pandas](pandas.md): Tabular data with the lineage-tracking `sunstone.pandas` facade.
+- [polars](polars.md): Tabular data with the lineage-tracking `sunstone.polars` facade (`[polars]` extra).
+- [geopandas](geopandas.md): Vector geospatial data (GeoJSON, TopoJSON) with the geopandas facade.
+- [Images](images.md): Raster data (satellite imagery, gridded fields) as NumPy ndarrays.
+- [Tile pyramids (nbtiles)](nbtiles.md): Tile pyramids (MBTiles, XYZ tile directories, vector tiles).
+- [Tensors](tensors.md): N-dimensional arrays (NPZ, HDF5, Zarr).
+
+## Data Package Standard
+
+- [Frictionless Data](frictionlessdata.md): Background on the Frictionless Data standards that data packages build on.
+- [Data Package Spec](datapackage.md): Background on the Data Package v2 standard.
+- [Metadata Extensibility](datapackage-extra-metadata.md): Adding RDF and custom metadata to datapackage.json through datasets.yaml.
+
+## Other pages
+
+- [Data Packages How-To](datapackage-howto.md): Configure datasets.yaml packages and build/publish them with `sunstone package`.
+- [Error handling](errors.md): Catching pandas exceptions through `sunstone.errors`.
+- [GCS Local Testing with fake-gcs-server](gcs-testing.md): Emulating Google Cloud Storage locally with fake-gcs-server for tests.
+- [Migration Guide: datasets.lock.yaml (v1.7)](migration-lock-file.md): Migrating to the datasets.yaml / datasets.lock.yaml split introduced in v1.7.
+- [RDF Prefixes in datasets.yaml](rdf-prefixes-guide.md): Built-in and custom RDF prefixes for semantic metadata in datasets.yaml.
