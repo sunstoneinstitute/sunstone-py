@@ -1,3 +1,7 @@
+---
+description: "Built-in and custom RDF prefixes for semantic metadata in datasets.yaml."
+---
+
 # RDF Prefixes in datasets.yaml
 
 This guide covers how to use RDF (Resource Description Framework) prefixes in `datasets.yaml` to add semantic metadata to your datasets. For the full specification including datapackage.json output and advanced use cases, see [Data Package Metadata Extensibility](datapackage-extra-metadata.md).

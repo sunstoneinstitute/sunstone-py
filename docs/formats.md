@@ -1,3 +1,7 @@
+---
+description: "Built-in format and URL handlers, where each stores metadata, and how to add your own."
+---
+
 # File Formats
 
 Sunstone wraps every payload — tabular, raster, array, tile — in a

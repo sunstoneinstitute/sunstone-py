@@ -1,3 +1,7 @@
+---
+description: "Pushing data packages to `sunstone:` namespaces on the Sunstone data platform."
+---
+
 # Pushing packages to `sunstone:` namespaces
 
 Status: the sunstone-py side is built. The push API and the `sunstone_data` plugin are not.

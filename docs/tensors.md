@@ -1,3 +1,7 @@
+---
+description: "N-dimensional arrays (NPZ, HDF5, Zarr)."
+---
+
 # Tensors (n-D variable arrays)
 
 Multi-variable n-dimensional arrays — climate reanalysis datasets,

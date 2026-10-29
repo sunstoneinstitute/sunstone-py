@@ -1,3 +1,7 @@
+---
+description: "What sunstone-py is, its main features, and installation."
+---
+
 # Sunstone Python Library
 
 A Python library for managing datasets with lineage tracking in data science projects.

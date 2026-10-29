@@ -1,3 +1,7 @@
+---
+description: "Every `sunstone` CLI command: env, dataset, lint, key migration and search, package build/push, license."
+---
+
 # CLI Guide
 
 The `sunstone` command-line interface provides tools for managing datasets and building data packages.

@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: the docs site publishes `llms.txt`, an index of the raw Markdown pages for AI agents, per docs version.
+
 ## [1.21.1] - 2026-10-27
 
 - Fixed: `groupby` aggregations on a sunstone DataFrame return sunstone DataFrames that keep lineage and accept `to_csv(slug=...)`.

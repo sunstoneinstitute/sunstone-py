@@ -1,3 +1,7 @@
+---
+description: "Tile pyramids (MBTiles, XYZ tile directories, vector tiles)."
+---
+
 # Tile pyramids (nbtiles)
 
 Pre-tiled, multi-resolution geospatial data — MBTiles, XYZ tile

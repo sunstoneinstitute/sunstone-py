@@ -1,3 +1,7 @@
+---
+description: "Set up datasets.yaml, read and write data with lineage, and run the CLI in a new project."
+---
+
 # Quick Start
 
 Get started with sunstone-py in minutes.

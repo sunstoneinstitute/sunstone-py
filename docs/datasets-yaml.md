@@ -1,3 +1,7 @@
+---
+description: "What `sunstone dataset validate` checks in datasets.yaml and how to fix failures."
+---
+
 # Validating datasets.yaml
 
 The allowed keys at every level are listed in the generated

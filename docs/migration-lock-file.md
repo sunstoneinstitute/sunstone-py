@@ -1,3 +1,7 @@
+---
+description: "Migrating to the datasets.yaml / datasets.lock.yaml split introduced in v1.7."
+---
+
 # Migration Guide: datasets.lock.yaml (v1.7)
 
 Starting in v1.7, sunstone-py separates `datasets.yaml` into two files:

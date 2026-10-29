@@ -1,3 +1,7 @@
+---
+description: "Complete worked examples of data pipelines with lineage tracking."
+---
+
 # Examples
 
 Real-world examples of using sunstone-py for data science workflows.

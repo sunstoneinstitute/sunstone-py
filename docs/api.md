@@ -1,3 +1,7 @@
+---
+description: "Full Python API: Asset, pandas/polars modules, DataFrame, DatasetsManager, metadata, plugins, units, licenses, exceptions."
+---
+
 # API Reference
 
 Complete API documentation for sunstone-py.

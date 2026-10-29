@@ -1,3 +1,7 @@
+---
+description: "Adding RDF and custom metadata to datapackage.json through datasets.yaml."
+---
+
 # Data Package Metadata Extensibility
 
 ## Overview
