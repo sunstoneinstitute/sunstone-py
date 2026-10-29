@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.21.2] - 2026-10-29
+
 - Added: the docs site publishes `llms.txt`, an index of the raw Markdown pages for AI agents, per docs version.
 
 ## [1.21.1] - 2026-10-27
