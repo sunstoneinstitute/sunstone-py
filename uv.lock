@@ -2173,6 +2173,7 @@ dependencies = [
     { name = "rdflib" },
     { name = "ruamel-yaml" },
     { name = "tomlkit" },
+    { name = "truststore" },
     { name = "typer" },
 ]
 
@@ -2242,6 +2243,7 @@ requires-dist = [
     { name = "shapely", marker = "extra == 'geo'", specifier = ">=2.0" },
     { name = "tomlkit", specifier = ">=0.12.0" },
     { name = "topojson", marker = "extra == 'geo'", specifier = ">=1.9" },
+    { name = "truststore", specifier = ">=0.10" },
     { name = "typer", specifier = ">=0.15" },
     { name = "zarr", marker = "extra == 'zarr'", specifier = ">=2.18" },
 ]
@@ -2302,6 +2304,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/79/f3/74330050d8f7e05e140e6043302f71524e159f9a83bbee9681c86282f8fd/topojson-1.10.tar.gz", hash = "sha256:a7f53406324061a0310bec46740a6609147c24daeb354596c68345b9527b38c1", size = 25444042, upload-time = "2025-07-22T20:27:31.638Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6f/7a/2a8ea3b2b6e50cbec74c53082b69617d71f31e1247e35e65bf9a6edc44cf/topojson-1.10-py3-none-any.whl", hash = "sha256:0879d727c7798939e3268e8969fa87c2cd23274189fe3d8038a0fb11ff263925", size = 83318, upload-time = "2025-07-22T20:27:28.374Z" },
+]
+
+[[package]]
+name = "truststore"
+version = "0.10.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz", hash = "sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd", size = 28091, upload-time = "2026-10-12T22:27:31.808Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/e9/3a7820be2bb0fe53b6bc9c3be26d3d1158004e4c3ab953aa6840b955b1e9/truststore-0.10.5-py3-none-any.whl", hash = "sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c", size = 19017, upload-time = "2026-10-12T22:27:30.377Z" },
 ]
 
 [[package]]
