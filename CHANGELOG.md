@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.21.3] - 2026-11-06
+
 - Fixed: `sunstone package push` writes Iceberg field ids into tabular Parquet uploads, so the push API accepts them.
 
 ## [1.21.2] - 2026-10-29
