@@ -196,18 +196,72 @@ def _dataset_name(ds: "DatasetMetadata") -> str:
     return sanitize_segment(ds.slug)
 
 
+_FIELD_ID = b"PARQUET:field_id"
+
+
+def _has_field_ids(schema: Any) -> bool:
+    """True if the top-level fields carry Iceberg field ids 1..n in order."""
+    ids = [(f.metadata or {}).get(_FIELD_ID) for f in schema]
+    return ids == [str(i).encode() for i in range(1, len(schema) + 1)]
+
+
+def with_field_ids(schema: Any) -> Any:
+    """Return `schema` with Iceberg field ids as a new table gets them.
+
+    The data-platform push API refuses Parquet without `PARQUET:field_id`.
+    Top-level fields get 1..n in order. Nested fields get unique ids above n.
+    """
+    import pyarrow as pa  # type: ignore[import-untyped]
+
+    next_id = len(schema)
+
+    def take(count: int = 1) -> int:
+        nonlocal next_id
+        next_id += count
+        return next_id - count + 1
+
+    def assign(field: Any, fid: int) -> Any:
+        t = field.type
+        if pa.types.is_struct(t):
+            first = take(t.num_fields)
+            t = pa.struct([assign(t.field(i), first + i) for i in range(t.num_fields)])
+        elif pa.types.is_list(t) or pa.types.is_large_list(t):
+            item = assign(t.value_field, take())
+            t = pa.large_list(item) if pa.types.is_large_list(t) else pa.list_(item)
+        elif pa.types.is_map(t):
+            first = take(2)
+            t = pa.map_(assign(t.key_field, first), assign(t.item_field, first + 1), keys_sorted=t.keys_sorted)
+        return field.with_type(t).with_metadata({**(field.metadata or {}), _FIELD_ID: str(fid).encode()})
+
+    return pa.schema([assign(f, i) for i, f in enumerate(schema, 1)], metadata=schema.metadata)
+
+
+def _write_with_field_ids(table: Any, out: Path) -> Path:
+    import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+    pq.write_table(table.cast(with_field_ids(table.schema)), out)
+    return out
+
+
 def _to_parquet(source: Path, ds: "DatasetMetadata", registry: "PluginRegistry", staging_dir: Path, name: str) -> Path:
-    """Write a tabular dataset as Parquet for upload. Parquet sources are used as-is."""
+    """Write a tabular dataset as Parquet with Iceberg field ids for upload.
+
+    Parquet sources that already carry field ids are used as-is.
+    """
+    import pyarrow as pa  # type: ignore[import-untyped]
+    import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+    out = staging_dir / f"{name}.parquet"
     if source.suffix.lower() == ".parquet":
-        return source
+        if _has_field_ids(pq.read_schema(source)):
+            return source
+        return _write_with_field_ids(pq.read_table(source), out)
     handler = registry.find_format_reader(source, ds.format)
     assert handler is not None  # resource_kind() already resolved it
     with open(source, "rb") as f:
         result = handler.read(f, path=source.as_posix(), format=ds.format, dialect=ds.dialect)
     df: Any = result.payload if hasattr(result, "payload") else result  # legacy handlers return a DataFrame
-    out = staging_dir / f"{name}.parquet"
-    df.to_parquet(out, index=False)
-    return out
+    return _write_with_field_ids(pa.Table.from_pandas(df, preserve_index=False), out)
 
 
 def build_push_package(

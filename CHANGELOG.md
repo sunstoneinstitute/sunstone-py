@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Fixed: `sunstone package push` writes Iceberg field ids into tabular Parquet uploads, so the push API accepts them.
+
 ## [1.21.2] - 2026-10-29
 
 - Added: the docs site publishes `llms.txt`, an index of the raw Markdown pages for AI agents, per docs version.

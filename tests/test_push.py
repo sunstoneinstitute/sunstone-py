@@ -15,6 +15,7 @@ from sunstone.push import (
     normalize_branch,
     parse_namespace,
     sanitize_segment,
+    with_field_ids,
 )
 
 
@@ -222,3 +223,60 @@ def test_turtle_is_graph(tmp_path):
     (res,) = _build(tmp_path, [_ds("g", "g.ttl")]).resources
     assert res.kind is AssetKind.GRAPH
     assert res.media_type == "text/turtle"
+
+
+def _field_ids(schema):
+    return [int(f.metadata[b"PARQUET:field_id"]) for f in schema]
+
+
+def test_csv_parquet_has_iceberg_field_ids(tmp_path):
+    import pyarrow.parquet as pq
+
+    (tmp_path / "a.csv").write_text("country,value,note\nNO,1,x\n")
+    (res,) = _build(tmp_path, [_ds("a", "a.csv")]).resources
+    assert _field_ids(pq.read_schema(res.path)) == [1, 2, 3]
+
+
+def test_parquet_without_field_ids_is_rewritten(tmp_path):
+    import pyarrow.parquet as pq
+
+    pd.DataFrame({"x": [1], "y": ["a"]}).to_parquet(tmp_path / "a.parquet", index=False)
+    (res,) = _build(tmp_path, [_ds("a", "a.parquet")]).resources
+    assert res.path.parent == tmp_path / "staging"
+    assert _field_ids(pq.read_schema(res.path)) == [1, 2]
+    assert pq.read_table(res.path).to_pydict() == {"x": [1], "y": ["a"]}
+
+
+def test_parquet_with_field_ids_is_uploaded_as_is(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    table = pa.table({"x": [1]})
+    pq.write_table(table.cast(with_field_ids(table.schema)), tmp_path / "a.parquet")
+    (res,) = _build(tmp_path, [_ds("a", "a.parquet")]).resources
+    assert res.path == tmp_path / "a.parquet"
+
+
+def test_nested_fields_get_unique_ids_above_top_level():
+    import pyarrow as pa
+
+    schema = with_field_ids(
+        pa.schema(
+            [
+                pa.field("s", pa.struct([pa.field("a", pa.int64()), pa.field("b", pa.list_(pa.int64()))])),
+                pa.field("m", pa.map_(pa.string(), pa.int64())),
+            ]
+        )
+    )
+    assert _field_ids(schema) == [1, 2]
+    s = schema.field("s").type
+    m = schema.field("m").type
+    nested = [
+        s.field(0).metadata,
+        s.field(1).metadata,
+        s.field(1).type.value_field.metadata,
+        m.key_field.metadata,
+        m.item_field.metadata,
+    ]
+    ids = [int(md[b"PARQUET:field_id"]) for md in nested]
+    assert len(set(ids)) == len(ids) and min(ids) > 2
