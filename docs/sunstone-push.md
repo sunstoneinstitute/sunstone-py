@@ -65,9 +65,10 @@ extension.
 
 GEOFEATURES moves to Iceberg once pyiceberg supports geometry.
 
-TABULAR resources are written to Parquet on the client before upload. The
-server appends the files to Iceberg. Schema checks run against the Parquet
-schema.
+TABULAR resources are written to Parquet on the client before upload, with
+Iceberg field ids (`PARQUET:field_id`) 1..n on the top-level columns. A
+Parquet source that already has them is uploaded as-is. The server appends
+the files to Iceberg. Schema checks run against the Parquet schema.
 
 ### AssetKind.GRAPH
 
