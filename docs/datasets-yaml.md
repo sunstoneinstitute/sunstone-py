@@ -33,6 +33,21 @@ or `package.version: 1.0 is not of type 'string'` (quote the version).
 `include:`; `sunstone lint` covers those. With `--dataset` or positional
 names, only those datasets are checked. Run `--strict` in CI.
 
+## Suppressing lint rules
+
+Silence a rule for the whole file with `lint.disable`, a map of rule ID to a
+non-empty justification:
+
+```yaml
+lint:
+  disable:
+    R103: "Pure-count column, unit would be misleading"
+```
+
+Suppressed findings are listed under `suppressed` in the lint report, with the
+justification. An unknown rule ID or empty justification raises R009, which
+cannot be suppressed. See [CLI](cli.md#suppressing-rules) for output examples.
+
 ## Field types
 
 `type` must be a Table Schema type (`any`, `array`, `boolean`, `date`,
