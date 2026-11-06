@@ -34,6 +34,10 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any
 
+from sunstone._tls import use_system_trust_store
+
+use_system_trust_store()
+
 # Standard RDF and DCAT prefixes for automatic type properties.
 # Eager because the dict is cheap and frequently consulted by the CLI.
 STANDARD_RDF_PREFIXES = {
