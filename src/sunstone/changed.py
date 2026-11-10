@@ -14,8 +14,7 @@ from typing import Iterable, Sequence
 
 from ruamel.yaml import YAML
 
-DATASETS_FILE = "datasets.yaml"
-LOCK_FILE = "datasets.lock.yaml"
+from .config import DATASETS_FILE, LOCK_FILE
 
 _SKIP_DIRS = frozenset({".git", ".venv", "venv", "node_modules", "__pycache__"})
 

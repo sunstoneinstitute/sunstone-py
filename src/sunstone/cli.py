@@ -18,6 +18,7 @@ from ruamel.yaml import YAML
 
 from . import STANDARD_RDF_PREFIXES
 from .aliases import legacy_field_source
+from .config import DATASETS_FILE, LOCK_FILE
 from .datasets import DatasetsManager
 from .packaging import PathTraversalError
 from .exceptions import DatasetNotFoundError
@@ -471,7 +472,7 @@ def get_manager(datasets_file: str) -> tuple[DatasetsManager, Path]:
 def complete_dataset_slugs(incomplete: str) -> list[str]:
     """Shell completion for dataset slugs."""
     try:
-        manager, _ = get_manager("datasets.yaml")
+        manager, _ = get_manager(DATASETS_FILE)
         all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
         return [slug for ds in all_datasets if (slug := ds.slug).startswith(incomplete)]
     except Exception:
@@ -777,7 +778,7 @@ def env_unset(
 
 @dataset_app.command("list")
 def dataset_list(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
 ) -> None:
     """List all datasets."""
     try:
@@ -825,7 +826,7 @@ def dataset_list(
 
 @dataset_app.command("validate")
 def dataset_validate(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     dataset: Optional[list[str]] = typer.Option(
         None, "--dataset", help="Validate only this dataset slug (repeatable).", autocompletion=complete_dataset_slugs
     ),
@@ -1024,7 +1025,7 @@ def dataset_validate(
 
 @dataset_app.command("migrate")
 def dataset_migrate(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
 ) -> None:
     """Migrate inline lineage from datasets.yaml to datasets.lock.yaml.
 
@@ -1158,7 +1159,7 @@ def dataset_migrate(
             line = "datasets.lock.yaml linguist-generated=true\n"
             if gitattributes.exists():
                 content = gitattributes.read_text()
-                if "datasets.lock.yaml" not in content:
+                if LOCK_FILE not in content:
                     gitattributes.write_text(content.rstrip("\n") + "\n" + line)
                     typer.echo("Updated .gitattributes")
             else:
@@ -1170,7 +1171,7 @@ def dataset_migrate(
 
 @dataset_app.command("resolve")
 def dataset_resolve(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     check: bool = typer.Option(False, "--check", help="Exit non-zero if lock file is out of date"),
     refresh: bool = typer.Option(
         False,
@@ -1264,7 +1265,7 @@ def dataset_resolve(
 
 @dataset_app.command("strict")
 def dataset_strict(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
 ) -> None:
     """Enable strict mode for datasets.
@@ -1301,7 +1302,7 @@ def dataset_strict(
 
 @dataset_app.command("unstrict")
 def dataset_unstrict(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     datasets: Optional[list[str]] = typer.Argument(None, autocompletion=complete_dataset_slugs),
 ) -> None:
     """Disable strict mode for datasets.
@@ -1876,7 +1877,7 @@ def _build_from_groups(
 
 @package_app.command("build")
 def package_build(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     output_file: str = typer.Option("datapackage.json", "-o", "--output", help="Output file path"),
 ) -> None:
     """Build a datapackage.json from datasets.yaml.
@@ -2203,7 +2204,7 @@ def _preflight_blob_destinations(dest_urls: list[str], manager: DatasetsManager,
 @package_app.command("push")
 def package_push(
     env: str = typer.Option("prod", "--env", help="Target environment, as configured with 'sunstone env'"),
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     destination: Optional[str] = typer.Option(
         None, "--destination", "-d", help="Override the destination for all datasets"
     ),
@@ -2451,7 +2452,7 @@ def package_changed(
 @lineage_app.command("upstream")
 def lineage_upstream(
     slug: str = typer.Argument(...),
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     depth: int = typer.Option(10, "--depth", help="Maximum traversal depth"),
     json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
@@ -2476,7 +2477,7 @@ def lineage_upstream(
 @lineage_app.command("tree")
 def lineage_tree(
     slug: str = typer.Argument(...),
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     depth: int = typer.Option(3, "--depth", help="Maximum tree depth"),
 ) -> None:
     """Show lineage tree for a dataset (alias for upstream with depth=3)."""
@@ -2530,7 +2531,7 @@ def vocab_search_cmd(
 
 @app.command("lint")
 def lint_cmd(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     rules: Optional[str] = typer.Option(
         None,
         "--rules",
@@ -2575,7 +2576,7 @@ def lint_cmd(
 
 @app.command("migrate")
 def migrate_cmd(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Report what would change without writing."),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
 ) -> None:
@@ -2647,7 +2648,7 @@ def migrate_cmd(
 @lineage_app.command("attribution")
 def lineage_attribution(
     slug: str = typer.Argument(..., help="Dataset slug to show attributions for"),
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     format: str = typer.Option("text", "--format", help="Output format: text, markdown, or html"),
 ) -> None:
     """Show source attributions for a dataset by traversing its lineage tree."""
@@ -2676,7 +2677,7 @@ def _resolve_license_project_path(datasets_file: str) -> tuple[Path, str]:
     yaml_path = Path(datasets_file).resolve()
     if yaml_path.is_dir():
         project_path = yaml_path
-        file_name = "datasets.yaml"
+        file_name = DATASETS_FILE
     else:
         project_path = yaml_path.parent
         file_name = yaml_path.name
@@ -2685,7 +2686,7 @@ def _resolve_license_project_path(datasets_file: str) -> tuple[Path, str]:
 
 @license_app.command("list")
 def license_list(
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
 ) -> None:
     """List every license used in the project, with the datasets that declare it."""
@@ -2727,7 +2728,7 @@ def license_list(
 @license_app.command("check")
 def license_check(
     slug: Optional[str] = typer.Argument(None, help="Output dataset slug to check (omit to check all outputs)."),
-    datasets_file: str = typer.Option("datasets.yaml", "-f", "--file", help="Path to datasets.yaml"),
+    datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON instead of text."),
 ) -> None:
     """Check license compatibility for one output (or every output) against its sources."""

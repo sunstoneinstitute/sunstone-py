@@ -24,6 +24,7 @@ from .aliases import (
     normalize_lock,
     version_key,
 )
+from .config import DATASETS_FILE, LOCK_FILE
 from .datasets_schema import PACKAGE_GENERATED_KEYS
 from .exceptions import DatasetNotFoundError, DatasetValidationError
 from .lineage import (
@@ -130,7 +131,7 @@ def _resolve_datasets_file(
         df_path = Path(datasets_file)
         resolved = df_path if df_path.is_absolute() else base / df_path
     else:
-        resolved = base / "datasets.yaml"
+        resolved = base / DATASETS_FILE
     return resolved.resolve()
 
 
@@ -316,12 +317,12 @@ class DatasetsManager:
             df_path = Path(datasets_file)
             self.datasets_file = df_path if df_path.is_absolute() else self.project_path / df_path
         else:
-            self.datasets_file = self.project_path / "datasets.yaml"
+            self.datasets_file = self.project_path / DATASETS_FILE
 
         if not self.datasets_file.exists():
             raise FileNotFoundError(f"{self.datasets_file} not found")
 
-        self.lock_file = self.datasets_file.parent / "datasets.lock.yaml"
+        self.lock_file = self.datasets_file.parent / LOCK_FILE
         self._data: Dict[str, Any] = {}
         self._defaults: Dict[str, Any] = {}
         self._lock_data: Dict[str, Any] = {}

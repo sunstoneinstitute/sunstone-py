@@ -13,6 +13,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+DATASETS_FILE = "datasets.yaml"
+"""File name of a project's dataset registry."""
+
+LOCK_FILE = "datasets.lock.yaml"
+"""File name of the lock file kept beside ``DATASETS_FILE``."""
+
 _project_path: contextvars.ContextVar[Path | None] = contextvars.ContextVar("sunstone_project_path", default=None)
 
 
