@@ -647,8 +647,7 @@ sunstone package changed --since origin/main --namespaces-only --json
 | `--namespaces-only` | List only projects that publish to a `sunstone:` namespace. |
 | `--json` | Print `file`, `triggers` and `destinations` for each project. |
 
-A project that fails to load is still listed, so that the push reports the error. In CI, use the
-[`sunstone-package-push`](https://github.com/sunstoneinstitute/actions#sunstone-package-push) action.
+A project that fails to load is still listed, so that the push reports the error.
 
 ### Build and Push Pipeline
 
