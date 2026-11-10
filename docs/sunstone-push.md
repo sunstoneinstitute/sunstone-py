@@ -114,7 +114,7 @@ Push also refuses a generated `datapackage.json` or resource that fails the Data
 ## CLI
 
 ```
-sunstone package push [--env ENV] [--branch BRANCH] [--yes] [--force] [--replace]
+sunstone package push [--env ENV] [--branch BRANCH] [--yes] [--force] [--replace] [--namespaces-only]
 ```
 
 - `--env` selects the environment through the existing `sunstone env` config.
@@ -134,6 +134,13 @@ sunstone package push [--env ENV] [--branch BRANCH] [--yes] [--force] [--replace
   incompatible schema change, overwriting a named version, deleting removed
   datasets, `--replace` retraction and snapshot expiry. Protected refs
   reject it without the elevated role.
+
+- `--namespaces-only` skips destinations no push plugin claims. Use it for
+  pushes from a PR branch: blob stores have no branches.
+
+`sunstone package changed --since REF` lists the `datasets.yaml` files whose
+`datasets.yaml`, `datasets.lock.yaml` or `include:` files changed. CI uses it to
+push only the affected projects (see [cli.md](cli.md)).
 
 ### Blob-store fallback
 

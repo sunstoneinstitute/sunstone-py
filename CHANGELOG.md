@@ -4,6 +4,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone package changed` lists the `datasets.yaml` files, `include:` files resolved, that a change affects.
+- Added: `sunstone package push --namespaces-only` skips blob-store destinations.
+
 ## [1.21.4] - 2026-11-07
 
 - Fixed: TLS verification now uses the OS trust store, so internally issued CAs are trusted.

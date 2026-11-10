@@ -2023,6 +2023,7 @@ class _PushRun:
     force: bool
     replace: bool
     allow_outside_project: bool
+    namespaces_only: bool = False
 
 
 def _namespace_resource_metadata(
@@ -2129,14 +2130,20 @@ def _push_destination(
     publish_config: PublishConfig,
     run: _PushRun,
     package_entry: Optional[PackageEntry] = None,
-) -> None:
-    """Send one destination group to a push plugin if one claims it, else to the blob store."""
+) -> bool:
+    """Send one destination group to a push plugin if one claims it, else to the blob store.
+
+    Returns False when the group was skipped (a blob store under --namespaces-only).
+    """
     from .plugins import PluginRegistry
 
     handler = PluginRegistry.get(manager.project_path).find_package_push_handler(dest_url)
     if handler is not None:
         push_group_to_namespace(handler, dest_url, datasets, manager, project_slug, publish_config, run, package_entry)
-        return
+        return True
+    if run.namespaces_only and not dest_url.startswith("sunstone:"):
+        typer.echo(f"Skipping {dest_url}: not a sunstone: namespace (--namespaces-only)")
+        return False
     if dest_url.startswith("sunstone:"):
         typer.echo(
             f"Error: no plugin handles {dest_url}. Install the sunstone-data plugin to push to sunstone: namespaces.",
@@ -2152,12 +2159,33 @@ def _push_destination(
         allow_outside_project=run.allow_outside_project,
         package_entry=package_entry,
     )
+    return True
+
+
+def _is_namespace_destination(dest_url: str, manager: DatasetsManager) -> bool:
+    """True for a destination pushed through a package-push plugin (a sunstone: namespace)."""
+    from .plugins import PluginRegistry
+
+    if dest_url.startswith("sunstone:"):
+        return True
+    return PluginRegistry.get(manager.project_path).find_package_push_handler(dest_url) is not None
+
+
+def _publish_destinations(manager: DatasetsManager) -> list[str]:
+    """The destinations `package push` would push to, in push order."""
+    packages = manager.get_packages()
+    if packages:
+        return [expand_env_vars(p.publish.to or "") for p in packages if p.publish and p.publish.enabled]
+    all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
+    return list(group_datasets_by_destination(all_datasets, manager.get_publish_config()))
 
 
 def _preflight_blob_destinations(dest_urls: list[str], manager: DatasetsManager, run: _PushRun) -> None:
     """Check every blob-store destination before anything is pushed. Exits 1 on failure."""
     from .plugins import PluginRegistry
 
+    if run.namespaces_only:
+        return
     registry = PluginRegistry.get(manager.project_path)
     for dest_url in dest_urls:
         if dest_url.startswith("sunstone:") or registry.find_package_push_handler(dest_url) is not None:
@@ -2194,6 +2222,11 @@ def package_push(
         "--allow-outside-project",
         help="Allow publishing files outside the project root (use with caution)",
     ),
+    namespaces_only: bool = typer.Option(
+        False,
+        "--namespaces-only",
+        help="Push only to sunstone: namespaces and skip blob-store destinations, which have no branches",
+    ),
 ) -> None:
     """Push data packages to sunstone: namespaces or a blob store.
 
@@ -2209,8 +2242,15 @@ def package_push(
     if env in env_folder_map:
         os.environ["SUNSTONE_PUBLIC_DATASETS_FOLDER"] = env_folder_map[env]
     run = _PushRun(
-        env=env, branch=branch, yes=yes, force=force, replace=replace, allow_outside_project=allow_outside_project
+        env=env,
+        branch=branch,
+        yes=yes,
+        force=force,
+        replace=replace,
+        allow_outside_project=allow_outside_project,
+        namespaces_only=namespaces_only,
     )
+    pushed = 0
 
     try:
         manager, project_path = get_manager(datasets_file)
@@ -2251,7 +2291,7 @@ def package_push(
         dest_url = expand_env_vars(destination)
         _preflight_blob_destinations([dest_url], manager, run)
         try:
-            _push_destination(dest_url, publishable, manager, project_slug, override_config, run)
+            pushed += _push_destination(dest_url, publishable, manager, project_slug, override_config, run)
         except ImportError:
             typer.echo("Error: the blob-store client for this destination is not installed", err=True)
             typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
@@ -2277,7 +2317,7 @@ def package_push(
                     has_publishable = True
                     pkg_datasets = _resolve_package_datasets(pkg, manager)
                     dest_url = expand_env_vars(pkg.publish.to or "")
-                    _push_destination(
+                    pushed += _push_destination(
                         dest_url, pkg_datasets, manager, project_slug, pkg.publish, run, package_entry=pkg
                     )
                     typer.echo()
@@ -2286,8 +2326,7 @@ def package_push(
                     typer.echo("Error: No publishable datasets found (need publish.enabled: true)", err=True)
                     sys.exit(1)
 
-                enabled_count = sum(1 for p in packages if p.publish and p.publish.enabled)
-                typer.echo(f"✓ Pushed {enabled_count} package(s)")
+                typer.echo(f"✓ Pushed {pushed} package(s)")
             except ImportError:
                 typer.echo("Error: the blob-store client for this destination is not installed", err=True)
                 typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
@@ -2306,10 +2345,10 @@ def package_push(
             _preflight_blob_destinations(list(groups), manager, run)
             try:
                 for dest_url, (pub_config, datasets) in groups.items():
-                    _push_destination(dest_url, datasets, manager, project_slug, pub_config, run)
+                    pushed += _push_destination(dest_url, datasets, manager, project_slug, pub_config, run)
                     typer.echo()
 
-                typer.echo(f"✓ Pushed to {len(groups)} destination(s)")
+                typer.echo(f"✓ Pushed to {pushed} destination(s)")
             except ImportError:
                 typer.echo("Error: the blob-store client for this destination is not installed", err=True)
                 typer.echo("Install with: pip install 'sunstone-py[gcs]' or 'sunstone-py[s3]'", err=True)
@@ -2317,6 +2356,88 @@ def package_push(
             except Exception as e:
                 typer.echo(f"Error uploading: {e}", err=True)
                 sys.exit(1)
+
+    if namespaces_only and not pushed:
+        typer.echo("Error: No sunstone: namespace destinations found (--namespaces-only)", err=True)
+        sys.exit(1)
+
+
+@package_app.command("changed")
+def package_changed(
+    paths: Optional[list[str]] = typer.Argument(None, help="Changed file paths (instead of, or added to, --since)"),
+    since: Optional[str] = typer.Option(
+        None, "--since", help="Git ref to compare HEAD with; the comparison starts at their merge base"
+    ),
+    datasets_files: Optional[list[str]] = typer.Option(
+        None,
+        "-f",
+        "--file",
+        help="Candidate datasets.yaml (repeatable). Default: every datasets.yaml under --root",
+    ),
+    root: str = typer.Option(".", "--root", help="Directory searched for datasets.yaml files"),
+    namespaces_only: bool = typer.Option(
+        False, "--namespaces-only", help="List only projects that publish to a sunstone: namespace"
+    ),
+    as_json: bool = typer.Option(False, "--json", help="Print JSON with the triggering files and destinations"),
+) -> None:
+    """List the datasets.yaml files that need `package build` and `package push` after a change.
+
+    A datasets.yaml is listed when it, its datasets.lock.yaml or one of its `include:` files
+    changed, and it has something to publish. Prints one path per line, relative to the
+    current directory. Prints nothing when no project is affected.
+    """
+    from .changed import ChangedError, affected_projects, discover_datasets_files, git_changed_paths
+
+    if since is None and not paths:
+        typer.echo("Error: pass --since REF or the changed paths", err=True)
+        sys.exit(2)
+
+    root_path = Path(root).resolve()
+    try:
+        changed = [Path(p).resolve() for p in paths or []]
+        if since is not None:
+            changed += git_changed_paths(root_path, since)
+        if datasets_files:
+            candidates = [Path(f).resolve() for f in datasets_files]
+            missing = [str(c) for c in candidates if not c.is_file()]
+            if missing:
+                raise ChangedError(f"datasets file not found: {', '.join(missing)}")
+        else:
+            candidates = discover_datasets_files(root_path)
+    except ChangedError as e:
+        typer.echo(f"Error: {e}", err=True)
+        sys.exit(2)
+
+    def display(path: Path) -> str:
+        return Path(os.path.relpath(path, Path.cwd())).as_posix()
+
+    rows: list[dict[str, Any]] = []
+    for project in affected_projects(candidates, changed):
+        row: dict[str, Any] = {
+            "file": display(project.datasets_file),
+            "triggers": [display(t) for t in project.triggers],
+        }
+        try:
+            # A file other than datasets.yaml cannot be loaded as a project; `package push` reads datasets.yaml.
+            manager = DatasetsManager(project.datasets_file.parent)
+            destinations = _publish_destinations(manager)
+            if namespaces_only:
+                destinations = [d for d in destinations if _is_namespace_destination(d, manager)]
+        except Exception as e:
+            # Keep a project that fails to load, so that the push reports the error instead of skipping it.
+            row["error"] = str(e)
+            typer.echo(f"Warning: {row['file']} could not be loaded: {e}", err=True)
+        else:
+            if not destinations:
+                continue
+            row["destinations"] = destinations
+        rows.append(row)
+
+    if as_json:
+        typer.echo(json.dumps(rows, indent=2))
+    else:
+        for row in rows:
+            typer.echo(row["file"])
 
 
 # =============================================================================
