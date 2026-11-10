@@ -23,6 +23,7 @@ src/sunstone
 ├── adapter.py           # DataFrame/engine adapter protocol
 ├── aliases.py           # old -> new datasets.yaml key normalization (ruamel-aware)
 ├── asset.py             # Asset envelope (payload + kind + metadata)
+├── changed.py           # sunstone package changed (projects affected by changed files)
 ├── cli.py
 ├── component.py
 ├── config.py

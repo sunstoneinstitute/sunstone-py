@@ -443,6 +443,7 @@ sunstone package push --env dev -f path/to/datasets.yaml
 | Option | Meaning |
 |---|---|
 | `--env` | Target environment, as configured with `sunstone env`. Default `prod`. |
+| `--namespaces-only` | Push only to `sunstone:` namespaces. Blob-store destinations, which have no branches, are skipped. |
 | `--branch` | Target branch for `sunstone:` pushes. Default: `GITHUB_HEAD_REF`, `GITHUB_REF_NAME`, then the current git branch. |
 | `--yes` | Confirm a push to a protected ref or to the prod blob store. |
 | `--force` | Allow force operations: incompatible schema, version overwrite, deletes. |
@@ -619,6 +620,34 @@ sunstone dataset lock
 git add datasets.yaml
 git commit -m "Lock datasets for production"
 ```
+
+### Find the projects a change affects
+
+`sunstone package changed` lists the `datasets.yaml` files that need a rebuild and push after a
+change. A file is listed when it, the `datasets.lock.yaml` beside it or one of its `include:` files
+changed, and it has something to publish. It prints one path per line and nothing when no project is
+affected.
+
+```bash
+# Compare HEAD with a ref, starting at their merge base
+sunstone package changed --since origin/main
+
+# Or pass the changed paths
+sunstone package changed FishFarming/inputs.yaml
+
+# Only projects that publish to a sunstone: namespace, as JSON with the triggering files
+sunstone package changed --since origin/main --namespaces-only --json
+```
+
+| Option | Meaning |
+|---|---|
+| `--since REF` | Git ref to compare HEAD with. |
+| `-f`, `--file` | Candidate `datasets.yaml`, repeatable. Default: every tracked `datasets.yaml` under `--root`. |
+| `--root` | Directory searched for `datasets.yaml` files. Default: the current directory. |
+| `--namespaces-only` | List only projects that publish to a `sunstone:` namespace. |
+| `--json` | Print `file`, `triggers` and `destinations` for each project. |
+
+A project that fails to load is still listed, so that the push reports the error.
 
 ### Build and Push Pipeline
 

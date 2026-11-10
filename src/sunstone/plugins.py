@@ -30,6 +30,7 @@ from typing import (
 import typer
 from ruamel.yaml import YAML
 
+from .config import DATASETS_FILE
 from .lineage import DatasetMetadata
 
 if TYPE_CHECKING:
@@ -288,7 +289,7 @@ def _load_cascading_config(name: str, project_path: Path) -> dict | None:
     config: dict = {}
 
     # Source 1: datasets.yaml
-    datasets_path = project_path / "datasets.yaml"
+    datasets_path = project_path / DATASETS_FILE
     if datasets_path.exists():
         with open(datasets_path) as f:
             data = _config_yaml.load(f) or {}

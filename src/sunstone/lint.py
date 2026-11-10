@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .aliases import Conflict, Rename, lock_uses_new_form, make_yaml, normalize_document, normalize_lock
+from .config import DATASETS_FILE, LOCK_FILE
 from .conformance import Violation, validate_datasets_yaml, validate_lock
 from .rules import RULES, Level, Rule, Severity
 
@@ -184,7 +185,7 @@ def _merge_includes(data: dict[str, Any], base_dir: Path, result: Any) -> tuple[
 def lint_project(
     project_path: Path | str,
     *,
-    datasets_file: str = "datasets.yaml",
+    datasets_file: str = DATASETS_FILE,
     rules: set[str] | None = None,
 ) -> LintReport:
     """Lint a Sunstone project's ``datasets.yaml`` against the conformance rules.
@@ -212,7 +213,7 @@ def lint_project(
     result = normalize_document(data)
     include_conflicts, include_problems = _merge_includes(data, yaml_path.parent, result)
 
-    lock_path = yaml_path.parent / "datasets.lock.yaml"
+    lock_path = yaml_path.parent / LOCK_FILE
     lock_data: dict[str, Any] = {}
     lock_result = None
     if lock_path.exists():
