@@ -455,6 +455,8 @@ sunstone package push --env dev -f path/to/datasets.yaml
 
 The `publish.to` field determines where files are uploaded:
 
+`publish.to` can also be a list. `package push` then pushes the package to each entry, and each entry resolves as below.
+
 1. **Directory path** (no `.json` extension):
    ```yaml
    publish:
