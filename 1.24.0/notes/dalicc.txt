@@ -1,0 +1,119 @@
+# DALICC Research Collection
+
+DALICC = Data Licenses Clearance Center. A framework and tooling for
+formal, machine-readable license representation and automated license
+compatibility checking, with a focus on data (not just code). Developed
+primarily at WU Vienna and Semantic Web Company.
+
+This file collects entry points: known URLs (high confidence) and search
+queries you can run yourself to surface papers, slides, and code.
+
+================================================================================
+PRIMARY URLS (high confidence)
+================================================================================
+
+# Project home page (license library, composer demo, documentation)
+https://www.dalicc.net/
+
+# License library browser
+https://www.dalicc.net/license-library/
+
+# License composer (compatibility checking demo UI)
+https://www.dalicc.net/license-composer/
+
+================================================================================
+SEARCH QUERIES — CORE PROJECT
+================================================================================
+
+DALICC Data Licenses Clearance Center
+DALICC license library RDF
+DALICC license composer compatibility
+DALICC API documentation
+DALICC GitHub source code
+DALICC architecture overview
+
+================================================================================
+SEARCH QUERIES — KEY AUTHORS / RESEARCH GROUP
+================================================================================
+
+Tassilo Pellegrini DALICC
+Sabrina Kirrane license compatibility
+Axel Polleres license reasoning RDF
+WU Vienna license clearance data
+Semantic Web Company DALICC
+
+================================================================================
+SEARCH QUERIES — KEY PAPERS AND TALKS
+================================================================================
+
+DALICC framework publishing consuming data assets legally
+DALICC formal license representation
+license compatibility reasoning data sharing RDF
+Pellegrini DALICC SEMANTiCS conference
+DALICC ESWC paper
+DALICC ISWC paper
+DALICC SWAT4LS
+
+================================================================================
+SEARCH QUERIES — RELATED FORMALISMS AND STANDARDS
+================================================================================
+
+ODRL Open Digital Rights Language license expression
+ODRL profile licenses W3C
+licensed linked data resources LDR
+license expression deontic logic compatibility
+RDF license vocabulary
+Creative Commons machine-readable license RDF
+ccREL Creative Commons Rights Expression Language
+
+================================================================================
+SEARCH QUERIES — COMPARISON TO ADJACENT TOOLS
+================================================================================
+
+DALICC vs OSADL license compatibility matrix
+DALICC vs FOSSology license clearance
+DALICC vs ScanCode
+DALICC vs flict license compatibility
+DALICC vs Joinup Licensing Assistant JLA EUPL
+data license compatibility tools comparison
+
+================================================================================
+SEARCH QUERIES — SPECIFIC CAPABILITIES TO INVESTIGATE
+================================================================================
+
+DALICC how does license composition algorithm work
+DALICC handling Creative Commons ShareAlike compatibility
+DALICC NonCommercial license combination
+DALICC inbound outbound license direction
+DALICC unknown license fail-closed behavior
+DALICC supported licenses list
+
+================================================================================
+SEARCH QUERIES — APPLICATION TO DATA PIPELINES
+================================================================================
+
+automatic license compatibility checking data pipeline
+license metadata data lineage provenance
+DCAT-AP license compatibility
+PROV-O license attribution combine
+linter license incompatible datasets combination
+
+================================================================================
+SUGGESTED READING ORDER
+================================================================================
+
+1. Start with https://www.dalicc.net/ — read the project description and
+   walk through the license composer demo with a few examples
+   (e.g., CC-BY + CC-BY-SA, CC-BY-SA + CC-BY-NC-SA).
+
+2. Use the search queries under "KEY PAPERS AND TALKS" to find the
+   foundational paper(s). Look for one published around 2018-2020 that
+   introduces the framework.
+
+3. Then read comparison material to position DALICC against OSADL and
+   FOSSology, since those are the alternatives you may end up using
+   for code-side licenses.
+
+4. Finally, dig into ODRL — DALICC builds on top of it, and any future
+   work you do in this area will benefit from understanding ODRL
+   directly.
