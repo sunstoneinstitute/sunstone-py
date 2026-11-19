@@ -1464,6 +1464,21 @@ class TestPublishNamespaceFields:
         )
         assert m.get_publish_config().dialect["nullSequence"] == "NA"
 
+    def test_to_accepts_list(self, tmp_path):
+        m = self._manager(tmp_path, "  enabled: true\n  to:\n    - gs://a/x/\n    - sunstone:projects/x\n")
+        cfg = m.get_publish_config()
+        assert cfg.to == ["gs://a/x/", "sunstone:projects/x"]
+        assert cfg.destinations == ["gs://a/x/", "sunstone:projects/x"]
+
+    def test_to_string_destinations(self, tmp_path):
+        m = self._manager(tmp_path, "  enabled: true\n  to: gs://a/x/\n")
+        assert m.get_publish_config().destinations == ["gs://a/x/"]
+
+    @pytest.mark.parametrize("value", ["42", "[gs://a/, 1]", "{a: b}"])
+    def test_to_invalid_type_raises(self, tmp_path, value):
+        with pytest.raises(ValueError, match="publish.to"):
+            self._manager(tmp_path, f"  enabled: true\n  to: {value}\n").get_publish_config()
+
     def test_public_false_parses_as_false(self, tmp_path):
         m = self._manager(tmp_path, "  enabled: true\n  to: sunstone:projects/x\n  public: false\n")
         assert m.get_publish_config().public is False

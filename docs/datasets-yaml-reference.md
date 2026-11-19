@@ -248,7 +248,7 @@ Path: `publish`
 | `enabled` | config | MAY | Whether publishing is enabled | `enabled: ...` |
 | `flatten` | config | MAY | Put all files next to datapackage.json | `flatten: ...` |
 | `public` | config | MAY | Make the pushed package public | `public: ...` |
-| `to` | config | MAY | Destination URL or path | `to: ...` |
+| `to` | config | MAY | Destination URL or path, or a list of them | `to: ...` |
 
 ## Lint
 

@@ -2,6 +2,7 @@
 Sunstone command-line interface.
 """
 
+import dataclasses
 import json
 import logging
 import os
@@ -454,10 +455,11 @@ def group_datasets_by_destination(
         effective = get_effective_publish(ds, top_level)
         if effective is None or not effective.enabled:
             continue
-        dest = expand_env_vars(effective.to or "")
-        if dest not in groups:
-            groups[dest] = (effective, [])
-        groups[dest][1].append(ds)
+        for to in effective.destinations or [""]:
+            dest = expand_env_vars(to)
+            if dest not in groups:
+                groups[dest] = (dataclasses.replace(effective, to=to), [])
+            groups[dest][1].append(ds)
     return groups
 
 
@@ -794,8 +796,8 @@ def dataset_list(
     # Show publish configuration if present
     if publish_config and publish_config.enabled:
         typer.echo("Publishing:")
-        if publish_config.to:
-            typer.echo(f"  to: {publish_config.to}")
+        if publish_config.destinations:
+            typer.echo(f"  to: {', '.join(publish_config.destinations)}")
         if publish_config.flatten:
             typer.echo("  flatten: true")
         typer.echo()
@@ -1825,7 +1827,7 @@ def _build_from_packages(
             n = len(datapackage["resources"])
             total_resources += n
             files_created += 1
-            dest = pkg.publish.to if pkg.publish else "local"
+            dest = ", ".join(pkg.publish.destinations) if pkg.publish and pkg.publish.to else "local"
             typer.echo(f"\n✓ Created {out_path} with {n} resource(s) -> {dest}")
 
         typer.echo(f"\n✓ Created {files_created} datapackage file(s) with {total_resources} total resource(s)")
@@ -2172,11 +2174,21 @@ def _is_namespace_destination(dest_url: str, manager: DatasetsManager) -> bool:
     return PluginRegistry.get(manager.project_path).find_package_push_handler(dest_url) is not None
 
 
+def _package_destinations(packages: list[PackageEntry]) -> list[tuple[PackageEntry, str]]:
+    """(package, expanded destination) pairs for every enabled package, one per ``publish.to`` entry."""
+    return [
+        (p, expand_env_vars(to))
+        for p in packages
+        if p.publish and p.publish.enabled
+        for to in p.publish.destinations or [""]
+    ]
+
+
 def _publish_destinations(manager: DatasetsManager) -> list[str]:
     """The destinations `package push` would push to, in push order."""
     packages = manager.get_packages()
     if packages:
-        return [expand_env_vars(p.publish.to or "") for p in packages if p.publish and p.publish.enabled]
+        return [dest for _, dest in _package_destinations(packages)]
     all_datasets = manager.get_all_inputs() + manager.get_all_outputs()
     return list(group_datasets_by_destination(all_datasets, manager.get_publish_config()))
 
@@ -2306,20 +2318,16 @@ def package_push(
         if packages:
             # New packages:-based path
             has_publishable = False
-            _preflight_blob_destinations(
-                [expand_env_vars(p.publish.to or "") for p in packages if p.publish and p.publish.enabled],
-                manager,
-                run,
-            )
+            pkg_dests = _package_destinations(packages)
+            _preflight_blob_destinations([dest for _, dest in pkg_dests], manager, run)
             try:
-                for pkg in packages:
-                    if not pkg.publish or not pkg.publish.enabled:
-                        continue
+                for pkg, dest_url in pkg_dests:
+                    assert pkg.publish is not None
                     has_publishable = True
                     pkg_datasets = _resolve_package_datasets(pkg, manager)
-                    dest_url = expand_env_vars(pkg.publish.to or "")
+                    pub_config = dataclasses.replace(pkg.publish, to=dest_url)
                     pushed += _push_destination(
-                        dest_url, pkg_datasets, manager, project_slug, pkg.publish, run, package_entry=pkg
+                        dest_url, pkg_datasets, manager, project_slug, pub_config, run, package_entry=pkg
                     )
                     typer.echo()
 

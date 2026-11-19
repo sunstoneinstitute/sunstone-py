@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Added: `sunstone package changed` lists the `datasets.yaml` files, `include:` files resolved, that a change affects.
 - Added: `sunstone package push --namespaces-only` skips blob-store destinations.
+- Added: `publish.to` in `datasets.yaml` accepts a list of destinations; `package push` pushes to each.
 
 ## [1.21.4] - 2026-11-07
 

@@ -385,8 +385,8 @@ class PublishConfig:
     enabled: bool = False
     """Whether publishing is enabled."""
 
-    to: Optional[str] = None
-    """Destination URL or path. If not ending in .json, /datapackage.json is appended."""
+    to: Union[str, List[str], None] = None
+    """Destination URL or path, or a list of them. If not ending in .json, /datapackage.json is appended."""
 
     flatten: bool = False
     """If true, ignore directory structure and put all files in the same directory as datapackage.json."""
@@ -402,6 +402,13 @@ class PublishConfig:
 
     dialect: Optional[Dict[str, Any]] = None
     """Package defaults for CSV/TSV output, as Frictionless Table Dialect properties."""
+
+    @property
+    def destinations(self) -> List[str]:
+        """``to`` as a list: empty when unset, one entry for a string."""
+        if self.to is None:
+            return []
+        return [self.to] if isinstance(self.to, str) else list(self.to)
 
 
 @dataclass
