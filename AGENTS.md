@@ -69,6 +69,7 @@ src/sunstone
 ├── profiles/            # vendored datapackage.org v2 JSON Schemas (public domain)
 ├── queries.py
 ├── rdf.py               # IRI / LangString / TypedLiteral
+├── rerun.py             # package build --rerun staleness check
 ├── resource.py
 ├── rules.py             # rule registry (R001-R362)
 ├── session.py

@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone package build --rerun` runs the pyproject.toml `project` script first when outputs are stale.
+
 ## [1.23.0] - 2026-11-19
 
 - Added: `sunstone --version` also lists installed extension packages and their versions.

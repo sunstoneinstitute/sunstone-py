@@ -380,6 +380,8 @@ sunstone package build -o path/to/package.json
 sunstone package build -f path/to/datasets.yaml -o package.json
 ```
 
+`--rerun` runs the `project` script from `[project.scripts]` in pyproject.toml, in the datasets.yaml directory, before building when an output file is missing or older than an input file, a `*.py` file in the project, `pyproject.toml` or `uv.lock`. It uses the Python running `sunstone`, so the project's dependencies must be installed there. The default is `--no-rerun`.
+
 This creates a [Data Package v2](https://datapackage.org/) with all publishable output datasets as resources.
 
 **Example output:**
