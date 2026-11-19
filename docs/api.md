@@ -1113,7 +1113,7 @@ Top-level publishing configuration.
 **Attributes:**
 
 - `enabled` (bool): Whether publishing is enabled
-- `to` (str | None): Destination URL or path
+- `to` (str | list[str] | None): Destination URL or path, or a list of them (`destinations` returns it as a list)
 - `flatten` (bool): Whether to flatten directory structure (default: False)
 
 **Path Resolution:**

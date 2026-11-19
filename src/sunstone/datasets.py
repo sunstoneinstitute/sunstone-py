@@ -687,7 +687,7 @@ class DatasetsManager:
         Supports both legacy boolean format and new object format:
         - publish: true -> PublishConfig(enabled=True)
         - publish: false -> None
-        - publish: { enabled: true, to: "...", flatten: false, as: "...",
+        - publish: { enabled: true, to: "..." | ["...", ...], flatten: false, as: "...",
           as_name: "...", public: false, dialect: {...} } -> PublishConfig(...)
         """
         if publish_data is None:
@@ -699,9 +699,16 @@ class DatasetsManager:
             public = publish_data.get("public", False)
             if not isinstance(public, bool):
                 raise ValueError(f"publish.public must be true or false, got {public!r}")
+            to = publish_data.get("to")
+            if isinstance(to, list) and not to:
+                to = None
+            if to is not None and not (
+                isinstance(to, str) or (isinstance(to, list) and all(isinstance(t, str) for t in to))
+            ):
+                raise ValueError(f"publish.to must be a string or a list of strings, got {to!r}")
             return PublishConfig(
                 enabled=enabled,
-                to=publish_data.get("to"),
+                to=to,
                 flatten=publish_data.get("flatten", False),
                 as_url=publish_data.get("as"),
                 as_name=publish_data.get("as_name"),

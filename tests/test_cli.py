@@ -1415,6 +1415,21 @@ class TestPackagePushCommand:
         yaml_path.write_text(text)
         return yaml_path
 
+    @pytest.mark.parametrize("drop_package", [False, True])
+    def test_push_to_list_pushes_every_destination(
+        self, runner: CliRunner, test_project: Path, drop_package: bool
+    ) -> None:
+        self._write_output(test_project)
+        yaml_path = self._set_destination(test_project, "\n    - gs://bucket-a/pkg/\n    - gs://bucket-b/pkg/")
+        if drop_package:
+            yaml_path = self._drop_package_block(test_project)
+        handler = _MockURLHandler()
+        with handler.patch(), patch.dict(os.environ, {}):
+            result = runner.invoke(app, ["package", "push", "--env", "dev", "-f", str(yaml_path)])
+        assert result.exit_code == 0, result.output
+        assert "Package pushed to: gs://bucket-a/pkg/" in result.output
+        assert "Package pushed to: gs://bucket-b/pkg/" in result.output
+
     def test_blob_push_without_package_block_emits_schema(self, runner: CliRunner, test_project: Path) -> None:
         self._write_output(test_project)
         yaml_path = self._drop_package_block(test_project)

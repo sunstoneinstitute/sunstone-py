@@ -150,7 +150,7 @@
     },
     "publish": {
       "enabled": "Whether publishing is enabled",
-      "to": "Destination URL or path",
+      "to": "Destination URL or path, or a list of them",
       "flatten": "Put all files next to datapackage.json",
       "as": "Public base URL for resource paths",
       "as_name": "Published resource name (dataset publish only)",
