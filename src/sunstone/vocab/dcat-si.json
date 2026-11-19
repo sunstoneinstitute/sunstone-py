@@ -1,53 +1,53 @@
 {
   "prefix": "dcat-si",
-  "namespace": "https://sunstone.institute/rdf/data#",
-  "source": "rdf/data.ttl",
+  "namespace": "https://sunstone.institute/rdf/dcat#",
+  "source": "rdf/dcat.ttl",
   "terms": [
     {
       "curie": "dcat-si:hasNamespace",
-      "iri": "https://sunstone.institute/rdf/data#hasNamespace",
+      "iri": "https://sunstone.institute/rdf/dcat#hasNamespace",
       "label": "has namespace",
       "definition": ""
     },
     {
       "curie": "dcat-si:hasSnapshot",
-      "iri": "https://sunstone.institute/rdf/data#hasSnapshot",
+      "iri": "https://sunstone.institute/rdf/dcat#hasSnapshot",
       "label": "has snapshot",
       "definition": ""
     },
     {
       "curie": "dcat-si:methodology",
-      "iri": "https://sunstone.institute/rdf/data#methodology",
+      "iri": "https://sunstone.institute/rdf/dcat#methodology",
       "label": "methodology",
       "definition": "The document describing the method actually applied to produce a dataset or data package: sources, acquisition, processing and limitations. Unlike prov:hadPlan, it is documentation of what was done, not a plan of intent attached to an activity. Unlike schema:measurementTechnique, it covers the whole resource, not the measurement of one variable."
     },
     {
       "curie": "dcat-si:onRef",
-      "iri": "https://sunstone.institute/rdf/data#onRef",
+      "iri": "https://sunstone.institute/rdf/dcat#onRef",
       "label": "on Nessie ref",
       "definition": ""
     },
     {
       "curie": "dcat-si:rowCount",
-      "iri": "https://sunstone.institute/rdf/data#rowCount",
+      "iri": "https://sunstone.institute/rdf/dcat#rowCount",
       "label": "row count",
       "definition": ""
     },
     {
       "curie": "dcat-si:sha256",
-      "iri": "https://sunstone.institute/rdf/data#sha256",
+      "iri": "https://sunstone.institute/rdf/dcat#sha256",
       "label": "SHA-256 of imported source file",
       "definition": "Full file hash on the import-source prov:Entity. Distinct from vocab:dataHash, which hashes just the data content on a Distribution."
     },
     {
       "curie": "dcat-si:snapshotId",
-      "iri": "https://sunstone.institute/rdf/data#snapshotId",
+      "iri": "https://sunstone.institute/rdf/dcat#snapshotId",
       "label": "Iceberg snapshot id",
       "definition": "Iceberg snapshot IDs are int64; stored as decimal strings today."
     },
     {
       "curie": "dcat-si:tripleCount",
-      "iri": "https://sunstone.institute/rdf/data#tripleCount",
+      "iri": "https://sunstone.institute/rdf/dcat#tripleCount",
       "label": "triple count",
       "definition": "Number of triples visible in the graph a distribution gives access to."
     }

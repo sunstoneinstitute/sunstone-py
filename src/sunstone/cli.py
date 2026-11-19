@@ -185,7 +185,7 @@ def is_uri(value: str) -> bool:
 
 
 METHODOLOGY_URI = "https://sunstone.institute/rdf/vocab#methodology"
-DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/data#methodology"
+DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/dcat#methodology"
 METHODOLOGY_URIS = (METHODOLOGY_URI, DCAT_SI_METHODOLOGY_URI)
 
 
