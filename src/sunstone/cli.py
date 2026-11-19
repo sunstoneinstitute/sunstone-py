@@ -1886,6 +1886,11 @@ def _build_from_groups(
 def package_build(
     datasets_file: str = typer.Option(DATASETS_FILE, "-f", "--file", help="Path to datasets.yaml"),
     output_file: str = typer.Option("datapackage.json", "-o", "--output", help="Output file path"),
+    rerun: bool = typer.Option(
+        False,
+        "--rerun/--no-rerun",
+        help="Run the pyproject.toml 'project' script first when outputs are missing or older than inputs, *.py, pyproject.toml or uv.lock.",
+    ),
 ) -> None:
     """Build a datapackage.json from datasets.yaml.
 
@@ -1897,6 +1902,19 @@ def package_build(
     except FileNotFoundError as e:
         typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
+
+    if rerun:
+        from .rerun import RerunError, run_project, stale_reason
+
+        reason = stale_reason(manager, project_path)
+        if reason:
+            typer.echo(f"Running project script in {project_path}: {reason}", err=True)
+            try:
+                run_project(project_path)
+            except RerunError as e:
+                typer.echo(f"Error: {e}", err=True)
+                sys.exit(1)
+            manager, project_path = get_manager(datasets_file)
 
     try:
         from frictionless import describe  # noqa: F401
