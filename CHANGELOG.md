@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+- Added: `sunstone --version` also lists installed extension packages and their versions.
+
 ## [1.22.0] - 2026-11-19
 
 - Added: `sunstone package changed` lists the `datasets.yaml` files, `include:` files resolved, that a change affects.

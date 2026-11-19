@@ -490,7 +490,12 @@ def _version_callback(value: bool) -> None:
     if value:
         from importlib.metadata import version
 
+        from sunstone.plugins import _get_entry_points
+
         typer.echo(f"sunstone {version('sunstone-py')}")
+        dists = {ep.dist.name: ep.dist.version for ep in _get_entry_points() if ep.dist is not None}
+        for name in sorted(dists):
+            typer.echo(f"  {name} {dists[name]}")
         raise typer.Exit()
 
 
