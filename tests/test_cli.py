@@ -3991,3 +3991,37 @@ def test_effective_publish_carries_package_fields():
     assert eff.dialect == {"delimiter": ";"}
     assert eff.as_name == "r_v2"
     assert eff.to == "sunstone:projects/x"
+
+
+class TestVersion:
+    """`sunstone --version` lists installed extension distributions."""
+
+    @staticmethod
+    def _ep(dist_name: str | None, dist_version: str = "") -> MagicMock:
+        ep = MagicMock()
+        if dist_name is None:
+            ep.dist = None
+        else:
+            ep.dist.name = dist_name
+            ep.dist.version = dist_version
+        return ep
+
+    def test_lists_extension_versions(self) -> None:
+        eps = [
+            self._ep("sunstone-ext-b", "2.0.0"),
+            self._ep("sunstone-ext-a", "1.2.3"),
+            self._ep("sunstone-ext-a", "1.2.3"),
+            self._ep(None),
+        ]
+        with patch("sunstone.plugins._get_entry_points", return_value=eps):
+            result = CliRunner().invoke(app, ["--version"])
+        assert result.exit_code == 0
+        lines = result.output.splitlines()
+        assert lines[0].startswith("sunstone ")
+        assert lines[1:] == ["  sunstone-ext-a 1.2.3", "  sunstone-ext-b 2.0.0"]
+
+    def test_no_extensions(self) -> None:
+        with patch("sunstone.plugins._get_entry_points", return_value=[]):
+            result = CliRunner().invoke(app, ["--version"])
+        assert result.exit_code == 0
+        assert len(result.output.splitlines()) == 1
