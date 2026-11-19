@@ -148,7 +148,7 @@ def test_descriptor_violation_warns(tmp_path: Path) -> None:
 
 
 VOCAB_METHODOLOGY = "https://sunstone.institute/rdf/vocab#methodology"
-DATA_METHODOLOGY = "https://sunstone.institute/rdf/data#methodology"
+DATA_METHODOLOGY = "https://sunstone.institute/rdf/dcat#methodology"
 
 
 def test_methodology_emitted_under_both_keys(tmp_path: Path) -> None:

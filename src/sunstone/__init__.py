@@ -42,7 +42,7 @@ use_system_trust_store()
 # Eager because the dict is cheap and frequently consulted by the CLI.
 STANDARD_RDF_PREFIXES = {
     "dcat": "http://www.w3.org/ns/dcat#",
-    "dcat-si": "https://sunstone.institute/rdf/data#",
+    "dcat-si": "https://sunstone.institute/rdf/dcat#",
     "dct": "http://purl.org/dc/terms/",
     "dwc": "http://rs.tdwg.org/dwc/terms/",
     "geo": "http://www.opengis.net/ont/geosparql#",
