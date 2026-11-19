@@ -2159,7 +2159,7 @@ wheels = [
 
 [[package]]
 name = "sunstone-py"
-version = "1.21.4"
+version = "1.22.0"
 source = { editable = "." }
 dependencies = [
     { name = "frictionless" },
