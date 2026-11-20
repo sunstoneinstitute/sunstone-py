@@ -148,30 +148,78 @@ def test_descriptor_violation_warns(tmp_path: Path) -> None:
 
 
 VOCAB_METHODOLOGY = "https://sunstone.institute/rdf/vocab#methodology"
-DATA_METHODOLOGY = "https://sunstone.institute/rdf/data#methodology"
+DCAT_METHODOLOGY = "https://sunstone.institute/rdf/dcat#methodology"
+LEGACY_DATA_METHODOLOGY = "https://sunstone.institute/rdf/data#methodology"
 
 
 def test_methodology_emitted_under_both_keys(tmp_path: Path) -> None:
     proj, yaml_path = _conformant(tmp_path)
     dp = _build(proj)
-    assert dp[DATA_METHODOLOGY] == "https://data.example.com/METHODOLOGY.md"
-    assert dp[VOCAB_METHODOLOGY] == dp[DATA_METHODOLOGY]
+    assert dp[DCAT_METHODOLOGY] == "https://data.example.com/METHODOLOGY.md"
+    assert dp[VOCAB_METHODOLOGY] == dp[DCAT_METHODOLOGY]
+    assert LEGACY_DATA_METHODOLOGY not in dp
     # Old key in datasets.yaml gives the same descriptor.
     yaml_path.write_text(
         yaml_path.read_text().replace("dcat-si:methodology: METHODOLOGY.md", "si:methodology: METHODOLOGY.md")
     )
-    assert _build(proj)[DATA_METHODOLOGY] == "https://data.example.com/METHODOLOGY.md"
+    assert _build(proj)[DCAT_METHODOLOGY] == "https://data.example.com/METHODOLOGY.md"
+
+
+def test_legacy_data_methodology_key_is_read_not_written(tmp_path: Path) -> None:
+    proj, yaml_path = _conformant(tmp_path)
+    yaml_path.write_text(
+        yaml_path.read_text().replace(
+            "dcat-si:methodology: METHODOLOGY.md", f"{LEGACY_DATA_METHODOLOGY}: METHODOLOGY.md"
+        )
+    )
+    dp = _build(proj)
+    assert dp[DCAT_METHODOLOGY] == "https://data.example.com/METHODOLOGY.md"
+    assert dp[VOCAB_METHODOLOGY] == dp[DCAT_METHODOLOGY]
+    assert LEGACY_DATA_METHODOLOGY not in dp
 
 
 def test_with_both_methodology_keys() -> None:
     from sunstone.cli import with_both_methodology_keys
 
-    assert with_both_methodology_keys({DATA_METHODOLOGY: "M.md"}) == {
-        DATA_METHODOLOGY: "M.md",
+    assert with_both_methodology_keys({DCAT_METHODOLOGY: "M.md"}) == {
+        DCAT_METHODOLOGY: "M.md",
         VOCAB_METHODOLOGY: "M.md",
     }
     assert with_both_methodology_keys({VOCAB_METHODOLOGY: "M.md"}) == {
         VOCAB_METHODOLOGY: "M.md",
-        DATA_METHODOLOGY: "M.md",
+        DCAT_METHODOLOGY: "M.md",
+    }
+    # data# (written by 1.20-1.24) is read but never written.
+    assert with_both_methodology_keys({LEGACY_DATA_METHODOLOGY: "M.md"}) == {
+        DCAT_METHODOLOGY: "M.md",
+        VOCAB_METHODOLOGY: "M.md",
+    }
+    # Priority: dcat# > data# > vocab#.
+    assert with_both_methodology_keys(
+        {VOCAB_METHODOLOGY: "V.md", LEGACY_DATA_METHODOLOGY: "D.md", DCAT_METHODOLOGY: "C.md"}
+    ) == {VOCAB_METHODOLOGY: "V.md", DCAT_METHODOLOGY: "C.md"}
+    assert with_both_methodology_keys({VOCAB_METHODOLOGY: "V.md", LEGACY_DATA_METHODOLOGY: "D.md"}) == {
+        VOCAB_METHODOLOGY: "V.md",
+        DCAT_METHODOLOGY: "D.md",
     }
     assert with_both_methodology_keys({"x": 1}) == {"x": 1}
+
+
+def test_extract_methodology_value_priority() -> None:
+    from sunstone.cli import _extract_methodology_value
+
+    props = {VOCAB_METHODOLOGY: "V.md", LEGACY_DATA_METHODOLOGY: "D.md"}
+    assert _extract_methodology_value(props, {}) == "D.md"
+    assert _extract_methodology_value({**props, DCAT_METHODOLOGY: "C.md"}, {}) == "C.md"
+    assert _extract_methodology_value({VOCAB_METHODOLOGY: "V.md"}, {}) == "V.md"
+
+
+def test_validate_datapackage_accepts_legacy_data_namespace() -> None:
+    from sunstone.conformance import validate_datapackage
+
+    def codes(dp: dict) -> set[str]:
+        return {v.rule_id for v in validate_datapackage(dp)}
+
+    assert "R303" not in codes({LEGACY_DATA_METHODOLOGY: "https://x/M.md"})
+    assert "R303" in codes({"https://sunstone.institute/rdf/data#noSuchTerm": "x"})
+    assert "R303" in codes({"https://sunstone.institute/rdf/dcat#noSuchTerm": "x"})

@@ -17,11 +17,11 @@ and move all metadata, storage and platform logic out of Python into one Rust cr
   declared prefix.
 - D3: Columns are `dcat-si:Field`, mirroring the Table Schema v2 field properties, attached to
   `dcat-si:Table` as an ordered list (`dcat-si:field`). DCAT 3 has no column model.
-- D4: The file name stays `datasets.yaml`. A top-level `context: https://sunstone.institute/rdf/data#`
+- D4: The file name stays `datasets.yaml`. A top-level `context: https://sunstone.institute/rdf/dcat#`
   or its built-in prefix form `context: "dcat-si:"` selects the new reader. `sunstone migrate`
   rewrites old form in place. Both forms are readable through 2.x. The old form is removed in 3.0.
-- D5: rdf-registry `rdf/data.ttl` becomes the full dcat-si vocabulary. SHACL shapes live in
-  `rdf/shapes/dcat-si-shapes.ttl`. The JSON-LD context is generated from `data.ttl`.
+- D5: rdf-registry `rdf/dcat.ttl` becomes the full dcat-si vocabulary. SHACL shapes live in
+  `rdf/shapes/dcat-si-shapes.ttl`. The JSON-LD context is generated from `dcat.ttl`.
 - D6: A Rust crate `sunstone-core` owns the model, edits, validation, storage, packaging, platform
   access and auth. The `sunstone` CLI is a Rust binary over it. sunstone-py calls it through PyO3.
   Everything ships as one maturin wheel.
@@ -79,13 +79,13 @@ The two subproperties keep the input/output distinction in the graph.
 
 ### rdf-registry
 
-1. `rdf/data.ttl` v0.3: `dcat-si:Field` and its properties (`name`, `title`, `description`, `type`,
+1. `rdf/dcat.ttl` v0.3: `dcat-si:Field` and its properties (`name`, `title`, `description`, `type`,
    `format`, `constraints`, `categories`, `missingValues`, `example`, `rdfType`, number/boolean
    parsing properties), plus `dcat-si:field`.
 2. `rdf/shapes/dcat-si-shapes.ttl`: shapes for `dcat:Catalog` (today's `package`), `dcat-si:Table`,
    `dcat:Distribution` and `dcat-si:Field`. Required properties, datatypes, field-type enum,
    constraints per type, closed key sets.
-3. JSON-LD context generated from `data.ttl`, published at the namespace.
+3. JSON-LD context generated from `dcat.ttl`, published at the namespace.
 
 ### sunstone-core (Rust)
 

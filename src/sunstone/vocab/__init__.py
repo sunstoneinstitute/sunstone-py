@@ -17,6 +17,9 @@ _DIR = Path(__file__).parent
 SHIPPED_VOCABS: tuple[str, ...] = ("dct", "dcat", "prov", "schema", "skos", "rdfs", "qudt", "sosa", "si", "dcat-si")
 """Vocabularies whose terms are checked for existence (spec: Extras MUST)."""
 
+LEGACY_NAMESPACES: dict[str, tuple[str, ...]] = {"dcat-si": ("https://sunstone.institute/rdf/data#",)}
+"""Former namespaces still accepted on read. sunstone-py 1.20-1.24 wrote dcat-si terms under ``rdf/data#``."""
+
 # YAML level -> DP profile level used for key lookup.
 _DP_LEVEL_ALIAS = {"dataset": "resource"}
 
@@ -64,6 +67,11 @@ def _locals(prefix: str) -> frozenset[str]:
 
 def namespace_of(prefix: str) -> str:
     return str(load_vocab(prefix)["namespace"])
+
+
+def read_namespaces_of(prefix: str) -> tuple[str, ...]:
+    """Current namespace first, then legacy namespaces accepted on read."""
+    return (namespace_of(prefix), *LEGACY_NAMESPACES.get(prefix, ()))
 
 
 def term_exists(prefix: str, local: str) -> bool:
