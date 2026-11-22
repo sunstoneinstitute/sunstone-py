@@ -17,6 +17,7 @@
 - **SC3. #610 question 3 (store parts, or rendered strings per level) is open.** Resolution: store the parts on `tableSources` (no migration, `jsonb`) and render at display time, which is what C12.3 says. If the author answers "rendered strings", add the three strings next to the parts at import time in Task 3b; nothing else changes. Flagged in the PR.
 - **SC4. #610 question 1 (where each level is used) is open, and the CMS has no dataset page.** Pages today: `datapackages/[slug]` (resources list through `DownloadLink`), visual embeds (`Sources` component), the methodology endpoint. Resolution: the resources list and the embeds render compact; the methodology endpoint returns records (full is rendered by whoever displays them); standard is implemented and tested but wired nowhere until a dataset page exists. Flagged in the PR.
 - **SC5. `{link}` order in #610 differs from the CMS's `sourceLink`.** #610: `@id`, landing page, download URL, `path`. `sourceLink` today: `url`, landing page, `path`, download URL, `location`. Resolution: records follow #610 (`id`, `landingPage`, `downloadURL`, `path`, then legacy `url`/`location`); field-level sources (`toDatasetSource`, not restructured by sunstone-py) keep today's order. Every existing `normalizeSources` test still passes because its fixtures have `path === downloadURL` or only one of them.
+- **SC6. The dcat-si namespace is `https://sunstone.institute/rdf/dcat#`.** sunstone-py 1.20–1.24 emit the methodology under `https://sunstone.institute/rdf/data#methodology`, and published packages carry that key. Resolution: read `dcat#methodology` first, then `data#methodology`, then `vocab#methodology`. The 2.0 fixture uses `dcat#` only.
 
 ## Global Constraints
 
@@ -32,7 +33,8 @@
 | Constant | Value |
 |---|---|
 | `SI_METHODOLOGY` | `https://sunstone.institute/rdf/vocab#methodology` |
-| `DCAT_SI_METHODOLOGY` | `https://sunstone.institute/rdf/data#methodology` |
+| `DCAT_SI_METHODOLOGY` | `https://sunstone.institute/rdf/dcat#methodology` |
+| `DATA_METHODOLOGY` | `https://sunstone.institute/rdf/data#methodology` (sunstone-py 1.20–1.24, SC6) |
 | `SI_UNIT` | `https://sunstone.institute/rdf/vocab#unit` |
 | `SI_SOURCE_FIELD` | `https://sunstone.institute/rdf/vocab#sourceField` |
 | `QUDT_HAS_UNIT` | `http://qudt.org/schema/qudt/hasUnit` |
@@ -82,7 +84,7 @@ Placeholders: `{creatorsShort}` surname of one creator, two joined with ` & `, t
 
 | File | Responsibility |
 |---|---|
-| `src/types/data-packages.d.ts` | `DataPackageJSON` gains the `data#methodology` key |
+| `src/types/data-packages.d.ts` | `DataPackageJSON` gains the `dcat#methodology` and `data#methodology` keys |
 | `src/types/data-transforms.d.ts` | `DatasetSourceRecord` gains the source parts; `SourceDetail` type |
 | `src/collections/DataPackages/endpoints/import.ts` | `methodologyFilenameOf`, `extractSchema` IRI mapping + `unitIri` |
 | `src/collections/DataPackages/endpoints/import.test.ts` | Unit tests; 1.20 and 2.0 fixtures import identically |
@@ -106,7 +108,7 @@ Placeholders: `{creatorsShort}` surname of one creator, two joined with ` & `, t
 - Test: `src/collections/DataPackages/endpoints/import.test.ts`
 
 **Interfaces:**
-- Produces: `export function methodologyFilenameOf(json: Pick<DataPackageJSON, typeof SI_METHODOLOGY | typeof DCAT_SI_METHODOLOGY>): string | undefined` in `import.ts`; exported constants `SI_METHODOLOGY`, `DCAT_SI_METHODOLOGY`.
+- Produces: `export function methodologyFilenameOf(json: Pick<DataPackageJSON, typeof SI_METHODOLOGY | typeof DATA_METHODOLOGY | typeof DCAT_SI_METHODOLOGY>): string | undefined` in `import.ts`; exported constants `SI_METHODOLOGY`, `DATA_METHODOLOGY`, `DCAT_SI_METHODOLOGY`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -114,20 +116,25 @@ Append to `src/collections/DataPackages/endpoints/import.test.ts` (extend the im
 
 ```ts
 describe('methodologyFilenameOf', () => {
-  const NEW = 'https://sunstone.institute/rdf/data#methodology'
+  const NEW = 'https://sunstone.institute/rdf/dcat#methodology'
+  const DATA = 'https://sunstone.institute/rdf/data#methodology'
   const OLD = 'https://sunstone.institute/rdf/vocab#methodology'
 
   it('prefers the dcat-si IRI', () => {
-    expect(methodologyFilenameOf({ [NEW]: 'METHODOLOGY.md', [OLD]: 'old.md' })).toBe('METHODOLOGY.md')
+    expect(methodologyFilenameOf({ [NEW]: 'METHODOLOGY.md', [DATA]: 'data.md', [OLD]: 'old.md' })).toBe('METHODOLOGY.md')
+  })
+
+  it('falls back to the data IRI', () => {
+    expect(methodologyFilenameOf({ [DATA]: 'data.md', [OLD]: 'old.md' })).toBe('data.md')
   })
 
   it('falls back to the vocab IRI', () => {
     expect(methodologyFilenameOf({ [OLD]: 'old.md' })).toBe('old.md')
   })
 
-  it('is undefined when neither key is present or both are empty', () => {
+  it('is undefined when no key is present or all are empty', () => {
     expect(methodologyFilenameOf({})).toBeUndefined()
-    expect(methodologyFilenameOf({ [NEW]: '', [OLD]: '' })).toBeUndefined()
+    expect(methodologyFilenameOf({ [NEW]: '', [DATA]: '', [OLD]: '' })).toBeUndefined()
   })
 })
 ```
@@ -142,6 +149,7 @@ Expected: FAIL, `methodologyFilenameOf is not a function` (or a TypeScript impor
 In `src/types/data-packages.d.ts`, `DataPackageJSON`, after the existing `'https://sunstone.institute/rdf/vocab#methodology'?: string` line add:
 
 ```ts
+  'https://sunstone.institute/rdf/dcat#methodology'?: string
   'https://sunstone.institute/rdf/data#methodology'?: string
 ```
 
@@ -151,16 +159,18 @@ In `import.ts`, after `const DC_SOURCE = ...`:
 
 ```ts
 export const SI_METHODOLOGY = 'https://sunstone.institute/rdf/vocab#methodology'
-export const DCAT_SI_METHODOLOGY = 'https://sunstone.institute/rdf/data#methodology'
+export const DATA_METHODOLOGY = 'https://sunstone.institute/rdf/data#methodology'
+export const DCAT_SI_METHODOLOGY = 'https://sunstone.institute/rdf/dcat#methodology'
 
 /**
- * Package-level methodology path or URL: the dcat-si IRI (sunstone-py >= 1.20),
- * else the older vocab IRI (dropped by sunstone-py 2.0). Empty strings count as absent.
+ * Package-level methodology path or URL: the dcat-si IRI, else the older
+ * `rdf/data#` form (sunstone-py 1.20–1.24), else the older vocab IRI (dropped by
+ * sunstone-py 2.0). Empty strings count as absent.
  */
 export function methodologyFilenameOf(
-  json: Pick<DataPackageJSON, typeof SI_METHODOLOGY | typeof DCAT_SI_METHODOLOGY>,
+  json: Pick<DataPackageJSON, typeof SI_METHODOLOGY | typeof DATA_METHODOLOGY | typeof DCAT_SI_METHODOLOGY>,
 ): string | undefined {
-  const value = json[DCAT_SI_METHODOLOGY] || json[SI_METHODOLOGY]
+  const value = json[DCAT_SI_METHODOLOGY] || json[DATA_METHODOLOGY] || json[SI_METHODOLOGY]
   return value && value.trim() ? value : undefined
 }
 ```
@@ -1142,7 +1152,7 @@ describe('sunstone-py 1.20 and 2.0 descriptors import identically', () => {
     name: 'un-members',
     title: 'UN Member States Dataset',
     licenses: [{ name: 'CC-BY-NC-3.0-IGO' }],
-    'https://sunstone.institute/rdf/data#methodology': 'https://data.example.com/METHODOLOGY.md',
+    'https://sunstone.institute/rdf/dcat#methodology': 'https://data.example.com/METHODOLOGY.md',
     resources: [{
       name: 'current-un-member-states',
       title: 'Current UN Member States',
@@ -1169,10 +1179,13 @@ describe('sunstone-py 1.20 and 2.0 descriptors import identically', () => {
     }],
   }
 
-  // Same descriptor as sunstone-py 1.20 emits it: old keys kept alongside the new ones.
+  // Same descriptor as sunstone-py 1.20 emits it: old keys kept alongside the new ones,
+  // methodology under the older `rdf/data#` IRI (SC6).
   const v119 = {
     ...v2,
+    'https://sunstone.institute/rdf/dcat#methodology': undefined,
     license: 'CC-BY-NC-3.0-IGO',
+    'https://sunstone.institute/rdf/data#methodology': 'https://data.example.com/METHODOLOGY.md',
     'https://sunstone.institute/rdf/vocab#methodology': 'https://data.example.com/METHODOLOGY.md',
     resources: [{
       ...v2.resources[0],
