@@ -13,7 +13,7 @@ Sunstone includes these built-in prefixes that are always available (no need to 
 | Prefix | Namespace | Purpose |
 |--------|-----------|---------|
 | `dcat:` | `http://www.w3.org/ns/dcat#` | Data Catalog Vocabulary |
-| `dcat-si:` | `https://sunstone.institute/rdf/data#` | Sunstone dataset-level terms (methodology) |
+| `dcat-si:` | `https://sunstone.institute/rdf/dcat#` | Sunstone dataset-level terms (methodology) |
 | `dct:` | `http://purl.org/dc/terms/` | Dublin Core Terms |
 | `dwc:` | `http://rs.tdwg.org/dwc/terms/` | Darwin Core (biodiversity) |
 | `geo:` | `http://www.opengis.net/ont/geosparql#` | OGC GeoSPARQL (geometry classes and datatypes) |
@@ -232,7 +232,7 @@ outputs:
 
 On publish, the value becomes `https://cdn.example.com/datasets/project/docs/climate-methodology.md` and the file is uploaded alongside the data.
 
-`datapackage.json` carries the methodology under both `https://sunstone.institute/rdf/data#methodology` and the older `https://sunstone.institute/rdf/vocab#methodology` in 1.x; 2.0 drops the older key.
+`datapackage.json` carries the methodology under both `https://sunstone.institute/rdf/dcat#methodology` and the older `https://sunstone.institute/rdf/vocab#methodology` in 1.x; 2.0 drops the older key. Packages written by sunstone-py 1.20-1.24 carry `https://sunstone.institute/rdf/data#methodology` instead of `dcat#methodology`. sunstone-py still reads `data#` terms but never writes them.
 
 ## Further Reading
 

@@ -50,7 +50,7 @@ the parser reads today. Resource example: `$schema`, `bytes`, `data`,
 ## Key migration
 
 Old sunstone keys are renamed to DP names, then upstream RDF terms, then
-`dcat-si` (`https://sunstone.institute/rdf/data#`). The alias table covers
+`dcat-si` (`https://sunstone.institute/rdf/dcat#`). The alias table covers
 sunstone's own keys and `dct:title` on fields only. Unknown user keys are
 never aliased automatically.
 
@@ -353,7 +353,7 @@ in 1.x, alongside their new forms:
 
 | Existing output key | New key emitted alongside |
 |---|---|
-| package `https://sunstone.institute/rdf/vocab#methodology` | `https://sunstone.institute/rdf/data#methodology` |
+| package `https://sunstone.institute/rdf/vocab#methodology` | `https://sunstone.institute/rdf/dcat#methodology` |
 | field `unit` | `https://sunstone.institute/rdf/vocab#unit` (+ `qudt:hasUnit` IRI when mapped) |
 | field `source` | `http://purl.org/dc/terms/source` (string, or the object with expanded keys) |
 | package `license` | `licenses` |
@@ -443,7 +443,7 @@ every allowed key at that level with its class and rule level (like
 
 ## C11. rdf-registry
 
-Add `dcat-si:methodology` to `rdf/data.ttl`. C1's vocabulary sync reads it
+Add `dcat-si:methodology` to `rdf/dcat.ttl`. C1's vocabulary sync reads it
 from there. No upstream term fits: `prov:hadPlan` is an optional plan of
 intent reached through a qualified association, `dct:provenance` covers
 custody, `dct:conformsTo` names a shared standard, and
@@ -469,8 +469,9 @@ and matches short keys plus a few full IRIs. It uses no JSON-LD context, so
 each new IRI is matched literally. Changes, each keeping the old key as a
 fallback:
 
-1. Methodology (`import.ts`): read `https://sunstone.institute/rdf/data#methodology`,
-   then `https://sunstone.institute/rdf/vocab#methodology`.
+1. Methodology (`import.ts`): read `https://sunstone.institute/rdf/dcat#methodology`,
+   then `https://sunstone.institute/rdf/data#methodology` (written by sunstone-py
+   1.20-1.24), then `https://sunstone.institute/rdf/vocab#methodology`.
 2. Field schema (`extractSchema`): map the `si:unit` IRI to `unit` and the
    `dct:source` IRI to `source`, before the short keys. Store
    `qudt:hasUnit` as `unitIri` when present.

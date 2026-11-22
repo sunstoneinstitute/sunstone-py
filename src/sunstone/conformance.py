@@ -26,7 +26,7 @@ from .vocab import (
     legacy_emitted_keys,
     level_children,
     lock_keys,
-    namespace_of,
+    read_namespaces_of,
     recommended_keys,
     term_exists,
 )
@@ -218,12 +218,14 @@ def _check_key(ctx: ConformanceContext, key: str, level: str, path: str) -> Iter
         return
     if key.startswith(("http://", "https://")):
         for prefix in SHIPPED_VOCABS:
-            ns = namespace_of(prefix)
-            if key.startswith(ns):
-                local = key[len(ns) :]
-                if not term_exists(prefix, local):
-                    yield ctx.violation("R303", kpath, f"'{prefix}:{local}' is not a term in the {prefix} vocabulary")
-                return
+            for ns in read_namespaces_of(prefix):
+                if key.startswith(ns):
+                    local = key[len(ns) :]
+                    if not term_exists(prefix, local):
+                        yield ctx.violation(
+                            "R303", kpath, f"'{prefix}:{local}' is not a term in the {prefix} vocabulary"
+                        )
+                    return
         return
     if ":" in key:
         prefix, local = key.split(":", 1)

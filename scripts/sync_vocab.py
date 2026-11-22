@@ -41,7 +41,7 @@ SOURCES: dict[str, tuple[str, str, str, tuple[str, ...]]] = {
     "qudt": ("http://qudt.org/schema/qudt/", "https://qudt.org/3.1.4/schema/qudt.ttl", "turtle", ()),
     "sosa": ("http://www.w3.org/ns/sosa/", "https://www.w3.org/ns/sosa/sosa.ttl", "turtle", ()),
     "si": ("https://sunstone.institute/rdf/vocab#", "rdf/vocab.ttl", "turtle", ()),
-    "dcat-si": ("https://sunstone.institute/rdf/data#", "rdf/data.ttl", "turtle", ()),
+    "dcat-si": ("https://sunstone.institute/rdf/dcat#", "rdf/dcat.ttl", "turtle", ()),
 }
 
 PROPERTY_TYPES = {

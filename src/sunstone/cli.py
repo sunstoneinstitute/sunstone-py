@@ -185,8 +185,10 @@ def is_uri(value: str) -> bool:
 
 
 METHODOLOGY_URI = "https://sunstone.institute/rdf/vocab#methodology"
-DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/data#methodology"
-METHODOLOGY_URIS = (METHODOLOGY_URI, DCAT_SI_METHODOLOGY_URI)
+DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/dcat#methodology"
+LEGACY_DCAT_SI_METHODOLOGY_URI = "https://sunstone.institute/rdf/data#methodology"
+METHODOLOGY_URIS = (DCAT_SI_METHODOLOGY_URI, LEGACY_DCAT_SI_METHODOLOGY_URI, METHODOLOGY_URI)
+"""Methodology IRIs accepted on read, in priority order. ``data#`` was written by 1.20-1.24."""
 
 
 _PROV = STANDARD_RDF_PREFIXES["prov"]
@@ -198,11 +200,14 @@ _QUDT = STANDARD_RDF_PREFIXES["qudt"]
 
 
 def with_both_methodology_keys(props: dict[str, Any]) -> dict[str, Any]:
-    """1.x emits the methodology under the old and the new IRI (2.0 drops the old one)."""
+    """1.x emits the methodology under ``dcat#`` and ``vocab#`` (2.0 drops ``vocab#``). ``data#`` is never written."""
     out = dict(props)
-    for have, want in ((DCAT_SI_METHODOLOGY_URI, METHODOLOGY_URI), (METHODOLOGY_URI, DCAT_SI_METHODOLOGY_URI)):
-        if have in out and want not in out:
-            out[want] = out[have]
+    out.pop(LEGACY_DCAT_SI_METHODOLOGY_URI, None)
+    value = next((props[uri] for uri in METHODOLOGY_URIS if uri in props), None)
+    if value is None:
+        return out
+    out.setdefault(DCAT_SI_METHODOLOGY_URI, value)
+    out.setdefault(METHODOLOGY_URI, out[DCAT_SI_METHODOLOGY_URI])
     return out
 
 
@@ -238,12 +243,13 @@ def resolve_methodology_value(value: str, base_url: str | None = None, flatten: 
 
 
 def _extract_methodology_value(props: dict[str, Any], prefixes: dict[str, str]) -> Optional[str]:
-    """Extract the raw methodology value from a set of custom properties, if present."""
+    """Extract the raw methodology value from a set of custom properties, in METHODOLOGY_URIS priority."""
+    found: dict[str, str] = {}
     for key, value in props.items():
         expanded_key = expand_rdf_prefixes(key, prefixes)
         if expanded_key in METHODOLOGY_URIS and isinstance(value, str):
-            return value
-    return None
+            found.setdefault(expanded_key, value)
+    return next((found[uri] for uri in METHODOLOGY_URIS if uri in found), None)
 
 
 def collect_methodology_files(
@@ -367,9 +373,8 @@ def expand_custom_properties(
     Nested list/dict values are kept as written (dates become ISO strings),
     except for ``prov:wasGeneratedBy``, whose nested keys and values are expanded too.
 
-    Special handling for the methodology property (expanded URI
-    https://sunstone.institute/rdf/vocab#methodology): if the value is not
-    a URI, it is resolved as a relative URI against base_url.
+    Special handling for the methodology property (any of METHODOLOGY_URIS):
+    if the value is not a URI, it is resolved as a relative URI against base_url.
 
     Args:
         custom_props: Dictionary of custom properties
